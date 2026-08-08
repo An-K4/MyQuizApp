@@ -21,4 +21,15 @@ dependencyResolutionManagement {
 
 rootProject.name = "MyQuizzApp"
 include(":app")
- 
+include(":core:network")
+include(":core:database")
+include(":core:common")
+include(":core:datastore")
+include(":core:ui")
+include(":feature:auth")
+include(":feature:home")
+include(":feature:lobby")
+include(":feature:game-player")
+include(":feature:game-host")
+include(":feature:leaderboard")
+include(":feature:quiz-manage")
