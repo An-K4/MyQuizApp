@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.kotlin.serialization) // Thêm plugin Serialization
 
     // hilt and ksp
     alias(libs.plugins.ksp)
@@ -10,9 +11,7 @@ plugins {
 
 android {
     namespace = "com.example.myquizzapp"
-    compileSdk {
-        version = release(36)
-    }
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.example.myquizzapp"
@@ -25,63 +24,89 @@ android {
     }
 
     buildTypes {
+        debug {
+            // Khai báo Host URL cho Emulator kết nối tới Server Local (Mục 19.1 Design Doc)
+            buildConfigField("String", "BASE_URL", "\"http://10.0.2.2:3000/api/\"")
+            buildConfigField("String", "SOCKET_URL", "\"http://10.0.2.2:3000\"")
+        }
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            buildConfigField("String", "BASE_URL", "\"https://api.quizapp.com/api/\"")
+            buildConfigField("String", "SOCKET_URL", "\"https://api.quizapp.com\"")
         }
     }
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
     kotlinOptions {
-        jvmTarget = "11"
+        jvmTarget = "17"
     }
     buildFeatures {
         compose = true
+        buildConfig = true // Bật BuildConfig để truyền URL từ Gradle vào Kotlin code
     }
 }
 
 dependencies {
+    // Core Android Framework
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
     implementation(libs.material)
     implementation(libs.androidx.activity)
     implementation(libs.androidx.constraintlayout)
-    testImplementation(libs.junit)
-    androidTestImplementation(libs.androidx.junit)
-    androidTestImplementation(libs.androidx.espresso.core)
 
-    // navigation compose
-    implementation("androidx.navigation:navigation-compose:2.7.7")
+    // Compose Navigation & Lifecycle (Type-Safe Navigation)
+    implementation(libs.androidx.navigation.compose)
+    implementation(libs.androidx.lifecycle.runtime.compose)
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
 
-    implementation("androidx.core:core-splashscreen:1.2.0")
+    // Serialization (Bắt buộc dùng thay cho Gson)
+    implementation(libs.kotlinx.serialization.json)
 
-    // hilt
-    implementation("com.google.dagger:hilt-android:2.51")
-    ksp("com.google.dagger:hilt-android-compiler:2.51")
-    implementation("androidx.hilt:hilt-navigation-compose:1.2.0")
+    // Dependency Injection (Hilt)
+    implementation(libs.hilt.android)
+    ksp(libs.hilt.compiler)
+    implementation(libs.androidx.hilt.navigation.compose)
 
-    // retrofit + okhttp
-    implementation("com.squareup.retrofit2:retrofit:2.9.0")
-    implementation("com.squareup.retrofit2:converter-gson:2.9.0")
-    implementation("com.squareup.okhttp3:okhttp:4.12.0")
-    implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
+    // Network (Retrofit + OkHttp)
+    implementation(libs.retrofit.core)
+    implementation(libs.retrofit.kotlinx.serialization) // Converter Serialization
+    implementation(libs.okhttp.core)
+    implementation(libs.okhttp.logging)
 
-    // socket io
-    implementation("io.socket:socket.io-client:2.1.0") {
-        exclude(group = "org.json", module = "json") // avoid conflict with gson
+    // Socket.IO
+    implementation(libs.socket.io.client) {
+        exclude(group = "org.json", module = "json") // Tránh xung đột
     }
 
-    // datastore
-    implementation("androidx.datastore:datastore-preferences:1.0.0")
+    // Auth (Google One-Tap Credential Manager)
+    implementation(libs.androidx.credentials)
+    implementation(libs.androidx.credentials.play.services)
+    implementation(libs.google.id)
 
-    // coil (image)
-    implementation("io.coil-kt:coil-compose:2.6.0")
+    // Database & Local Storage (Room + DataStore)
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx)
+    ksp(libs.androidx.room.compiler)
+    implementation(libs.androidx.datastore.preferences)
 
-    // debug
-    implementation("com.jakewharton.timber:timber:5.0.1")
+    // UI Utilities
+    implementation(libs.coil.compose)
+    implementation(libs.timber)
+
+    // Unit Testing
+    testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.turbine)
+    testImplementation(libs.mockk)
+    testImplementation(libs.okhttp.mockwebserver)
+
+    // Android Instrumentation Testing
+    androidTestImplementation(libs.androidx.junit)
+    androidTestImplementation(libs.androidx.espresso.core)
 }
