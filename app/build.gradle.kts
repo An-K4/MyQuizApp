@@ -64,6 +64,10 @@ dependencies {
     implementation(libs.androidx.navigation.compose)
     implementation(libs.kotlinx.serialization.json)
 
+    testImplementation(libs.junit)
+    androidTestImplementation(libs.androidx.junit)
+    androidTestImplementation(libs.androidx.espresso.core)
+
     // Hilt Entry Point
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
