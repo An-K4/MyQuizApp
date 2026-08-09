@@ -1,10 +1,9 @@
 plugins {
-    alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
-    alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.android.application)   // GIỮ — không dùng myquizzapp.android.library
+    alias(libs.plugins.kotlin.android)        // GIỮ
+    alias(libs.plugins.myquizzapp.android.compose)
+    alias(libs.plugins.myquizzapp.android.hilt)
     alias(libs.plugins.kotlin.serialization)
-    alias(libs.plugins.ksp)
-    alias(libs.plugins.hilt)
 }
 
 android {
@@ -22,13 +21,13 @@ android {
 
     buildTypes {
         debug {
-            buildConfigField("String", "BASE_URL", "\"https://api.myquizz.dpdns.org/v1\"")
+            buildConfigField("String", "BASE_URL", "\"https://api.myquizz.dpdns.org/v1/\"")
             buildConfigField("String", "SOCKET_URL", "\"https://api.myquizz.dpdns.org\"")
         }
         release {
             isMinifyEnabled = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            buildConfigField("String", "BASE_URL", "\"https://api.myquizz.dpdns.org/v1\"")
+            buildConfigField("String", "BASE_URL", "\"https://api.myquizz.dpdns.org/v1/\"")
             buildConfigField("String", "SOCKET_URL", "\"https://api.myquizz.dpdns.org\"")
         }
     }
