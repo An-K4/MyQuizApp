@@ -47,7 +47,6 @@ dependencies {
     androidTestImplementation(libs.androidx.espresso.core)
 
     implementation(project(":core:common"))
-    implementation(project(":core:database")) // Dùng CookieDao cho CookieJar
 
     // Network & Socket
     implementation(libs.retrofit.core)

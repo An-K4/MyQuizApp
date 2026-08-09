@@ -22,14 +22,14 @@ android {
 
     buildTypes {
         debug {
-            buildConfigField("String", "BASE_URL", "\"http://10.0.2.2:3000/api/\"")
-            buildConfigField("String", "SOCKET_URL", "\"http://10.0.2.2:3000\"")
+            buildConfigField("String", "BASE_URL", "\"https://api.myquizz.dpdns.org/v1\"")
+            buildConfigField("String", "SOCKET_URL", "\"https://api.myquizz.dpdns.org\"")
         }
         release {
             isMinifyEnabled = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            buildConfigField("String", "BASE_URL", "\"https://api.quizapp.com/api/\"")
-            buildConfigField("String", "SOCKET_URL", "\"https://api.quizapp.com\"")
+            buildConfigField("String", "BASE_URL", "\"https://api.myquizz.dpdns.org/v1\"")
+            buildConfigField("String", "SOCKET_URL", "\"https://api.myquizz.dpdns.org\"")
         }
     }
     compileOptions {
