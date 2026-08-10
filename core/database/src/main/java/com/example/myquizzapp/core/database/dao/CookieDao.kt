@@ -7,15 +7,15 @@ import com.example.myquizzapp.core.database.entity.CookieEntity
 
 @Dao
 interface CookieDao {
-    @Query("SELECT * FROM cookies WHERE expiresAt > :now")
-    suspend fun getValid(now: Long): List<CookieEntity>
+    @Query("SELECT * FROM cookie_store WHERE domain = :host AND expiresAt > :now")
+    suspend fun findByHost(host: String, now: Long): List<CookieEntity>
 
-    @Upsert   // Room 2.6+ — insert hoặc update nếu trùng primary key
+    @Upsert
     suspend fun upsertAll(cookies: List<CookieEntity>)
 
-    @Query("DELETE FROM cookies WHERE expiresAt <= :now")
-    suspend fun deleteExpired(now: Long)
+    @Query("DELETE FROM cookie_store WHERE `key` = :key")
+    suspend fun deleteByKey(key: String)
 
-    @Query("DELETE FROM cookies")
-    suspend fun clear()   // logout
+    @Query("DELETE FROM cookie_store")
+    suspend fun clear()
 }

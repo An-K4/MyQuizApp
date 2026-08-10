@@ -1,15 +1,15 @@
 package com.example.myquizzapp.core.database.entity
 
 import androidx.room.Entity
+import androidx.room.PrimaryKey
 
-@Entity(tableName = "cookies", primaryKeys = ["host", "name", "path"])
+@Entity(tableName = "cookie_store")
 data class CookieEntity(
-    val host: String,
-    val name: String,
-    val path: String,
+    @PrimaryKey val key: String,   // "host|name"
     val value: String,
-    val expiresAt: Long,   // epoch millis
+    val domain: String,
+    val path: String,
+    val expiresAt: Long,
     val secure: Boolean,
-    val httpOnly: Boolean,
-    val hostOnly: Boolean
+    val httpOnly: Boolean
 )

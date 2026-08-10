@@ -1,6 +1,10 @@
 package com.example.myquizzapp.core.network.di
 
+import com.example.myquizzapp.core.common.cookie.CookieStore
 import com.example.myquizzapp.core.network.BuildConfig
+import com.example.myquizzapp.core.network.api.AuthApiService
+import com.example.myquizzapp.core.network.cookie.PersistentCookieJar
+import com.example.myquizzapp.core.network.cookie.TokenAuthenticator
 import com.example.myquizzapp.core.network.result.ResultCallAdapterFactory
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 import dagger.Module
@@ -10,10 +14,12 @@ import dagger.hilt.components.SingletonComponent
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonNamingStrategy
+import okhttp3.CookieJar
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
+import retrofit2.create
 import java.util.concurrent.TimeUnit
 import javax.inject.Singleton
 
@@ -33,8 +39,13 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideOkHttpClient(): OkHttpClient =
+    fun provideOkHttpClient(
+        cookieJar: CookieJar,
+        tokenAuthenticator: TokenAuthenticator
+    ): OkHttpClient =
         OkHttpClient.Builder()
+            .cookieJar(cookieJar)                    // ← thêm
+            .authenticator(tokenAuthenticator)       // ← thêm
             .addInterceptor(HttpLoggingInterceptor().apply {
                 level = if (BuildConfig.DEBUG) HttpLoggingInterceptor.Level.BODY
                 else HttpLoggingInterceptor.Level.NONE
@@ -42,7 +53,6 @@ object NetworkModule {
             .connectTimeout(15, TimeUnit.SECONDS)
             .readTimeout(15, TimeUnit.SECONDS)
             .build()
-    // cookieJar(...) + authenticator(...) — N5 sẽ gắn vào đây
 
     @Provides
     @Singleton
@@ -53,4 +63,12 @@ object NetworkModule {
             .addCallAdapterFactory(ResultCallAdapterFactory(json))   // unwrap → Result
             .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
             .build()
+
+    @Provides
+    @Singleton
+    fun provideCookieJar(store: CookieStore): CookieJar = PersistentCookieJar(store)
+
+    @Provides
+    @Singleton
+    fun provideAuthApiService(retrofit: Retrofit): AuthApiService = retrofit.create()
 }
