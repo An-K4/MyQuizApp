@@ -20,10 +20,6 @@ android {
     }
 
     buildTypes {
-        debug {
-            buildConfigField("String", "BASE_URL", "\"https://api.myquizz.dpdns.org/v1/\"")
-            buildConfigField("String", "SOCKET_URL", "\"https://api.myquizz.dpdns.org\"")
-        }
         release {
             isMinifyEnabled = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")

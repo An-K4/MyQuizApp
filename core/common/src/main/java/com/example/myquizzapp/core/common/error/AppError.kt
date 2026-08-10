@@ -7,6 +7,6 @@ sealed interface AppError {
     data object Gone : AppError          // phòng game bị xóa giữa chừng, điều hướng về Home
     data object NotFound : AppError      // 404 — sai mã phòng, quiz không tồn tại
     data class Server(val httpCode: Int) : AppError
-    data class Api(val code: String?, override val message: String?) : AppError, Exception()
+    data class Api(val message: String, val details: String? = null) : AppError
     data class Unknown(val cause: Throwable?) : AppError
 }

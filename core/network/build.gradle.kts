@@ -9,6 +9,11 @@ android {
     buildFeatures {
         buildConfig = true
     }
+
+    defaultConfig {
+        buildConfigField("String", "BASE_URL", "\"https://api.myquizz.dpdns.org/v1/\"")
+        buildConfigField("String", "SOCKET_URL", "\"https://api.myquizz.dpdns.org\"")
+    }
 }
 
 dependencies {
@@ -22,6 +27,7 @@ dependencies {
     // Network & Socket
     implementation(libs.retrofit.core)
     implementation(libs.retrofit.kotlinx.serialization)
+    implementation(libs.kotlinx.serialization.json)
     implementation(libs.okhttp.core)
     implementation(libs.okhttp.logging)
     implementation(libs.socket.io.client) {
