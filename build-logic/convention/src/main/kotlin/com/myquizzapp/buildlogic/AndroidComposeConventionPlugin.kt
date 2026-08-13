@@ -28,6 +28,7 @@ class AndroidComposeConventionPlugin : Plugin<Project> {
             "implementation"(libs.findLibrary("androidx.compose.ui").get())
             "implementation"(libs.findLibrary("androidx.compose.ui.tooling.preview").get())
             "implementation"(libs.findLibrary("androidx.material3").get())
+            "implementation"(libs.findLibrary("androidx.material.icons.extended").get())
             "implementation"(libs.findLibrary("androidx.lifecycle.viewmodel.compose").get())
             "debugImplementation"(libs.findLibrary("androidx.compose.ui.tooling").get())
         }
