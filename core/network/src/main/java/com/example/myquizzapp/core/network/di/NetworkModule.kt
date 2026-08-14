@@ -1,12 +1,16 @@
 package com.example.myquizzapp.core.network.di
 
 import com.example.myquizzapp.core.common.cookie.CookieStore
+import com.example.myquizzapp.core.common.repository.AuthRepository
 import com.example.myquizzapp.core.network.BuildConfig
 import com.example.myquizzapp.core.network.api.AuthApiService
+import com.example.myquizzapp.core.network.api.UserApiService
 import com.example.myquizzapp.core.network.cookie.PersistentCookieJar
 import com.example.myquizzapp.core.network.cookie.TokenAuthenticator
+import com.example.myquizzapp.core.network.repository.AuthRepositoryImpl
 import com.example.myquizzapp.core.network.result.ResultCallAdapterFactory
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
+import dagger.Binds
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -71,4 +75,8 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideAuthApiService(retrofit: Retrofit): AuthApiService = retrofit.create()
+
+    @Provides
+    @Singleton
+    fun provideUserApiService(retrofit: Retrofit): UserApiService = retrofit.create()
 }
