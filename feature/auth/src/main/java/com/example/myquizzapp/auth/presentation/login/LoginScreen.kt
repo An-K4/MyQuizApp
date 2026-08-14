@@ -135,7 +135,7 @@ fun LoginScreen(
                 Timber.e("   - Message: ${e.message}")
                 Timber.e("   - Type: ${e.type}")
                 Timber.e("   - Cause: ${e.cause}")
-                Timber.e("   - Stack trace: ", e)
+                Timber.e("   - Stack trace: $e")
                 Timber.e("⚠️ POSSIBLE CAUSES:")
                 Timber.e("   1. No Google accounts on device")
                 Timber.e("   2. Wrong/unconfigured Server Client ID in Firebase Console")
@@ -147,13 +147,13 @@ fun LoginScreen(
                 Timber.e("   - Message: ${e.message}")
                 Timber.e("   - Type: ${e.type}")
                 Timber.e("   - ErrorMessage: ${e.errorMessage}")
-                Timber.e("   - Stack trace: ", e)
+                Timber.e("   - Stack trace: $e")
                 snackbarHostState.showSnackbar("Lỗi đăng nhập Google: ${e.message}")
             } catch (e: Exception) {
                 Timber.e("❌ Unexpected exception in launchGoogleOneTap!")
                 Timber.e("   - Type: ${e::class.java.name}")
                 Timber.e("   - Message: ${e.message}")
-                Timber.e("   - Stack trace: ", e)
+                Timber.e("   - Stack trace: $e")
                 snackbarHostState.showSnackbar("Lỗi không xác định: ${e.message}")
             }
         }

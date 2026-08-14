@@ -5,6 +5,7 @@ import org.gradle.api.JavaVersion
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.kotlin.dsl.configure
+import org.gradle.kotlin.dsl.dependencies
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.dsl.KotlinAndroidProjectExtension
 
@@ -29,6 +30,11 @@ class AndroidLibraryConventionPlugin : Plugin<Project> {
             compilerOptions {
                 jvmTarget.set(JvmTarget.JVM_17) // thay jvmToolchain(17) — không cần cài JDK 17 riêng
             }
+        }
+        
+        // Add Timber logging to all library modules
+        dependencies {
+            "implementation"(libs.findLibrary("timber").get())
         }
     }
 }
