@@ -1,4 +1,4 @@
-plugins {
+﻿plugins {
     alias(libs.plugins.android.application)   // GIỮ — không dùng myquizzapp.android.library
     alias(libs.plugins.kotlin.android)        // GIỮ
     alias(libs.plugins.myquizzapp.android.compose)
@@ -7,16 +7,16 @@ plugins {
 }
 
 android {
-    namespace = "com.example.myquizzapp"
+    namespace = "android.kma.myquizzapp"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.example.myquizzapp"
+        applicationId = "android.kma.myquizzapp"
         minSdk = 26
         targetSdk = 36
         versionCode = 1
         versionName = "1.0"
-        testInstrumentationRunner = "com.example.myquizzapp.HiltTestRunner"
+        testInstrumentationRunner = "android.kma.myquizzapp.HiltTestRunner"
     }
 
     buildTypes {

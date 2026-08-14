@@ -1,11 +1,11 @@
-plugins {
+﻿plugins {
     alias(libs.plugins.myquizzapp.android.library)
     alias(libs.plugins.myquizzapp.android.hilt)
     alias(libs.plugins.kotlin.serialization)
 }
 
 android {
-    namespace = "com.example.myquizzapp.core.network"
+    namespace = "android.kma.myquizzapp.core.network"
     buildFeatures {
         buildConfig = true
     }

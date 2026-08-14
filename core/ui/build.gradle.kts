@@ -1,10 +1,10 @@
-plugins {
+﻿plugins {
     alias(libs.plugins.myquizzapp.android.library)
     alias(libs.plugins.myquizzapp.android.compose)
 }
 
 android {
-    namespace = "com.example.myquizzapp.core.ui"
+    namespace = "android.kma.myquizzapp.core.ui"
 }
 
 dependencies {

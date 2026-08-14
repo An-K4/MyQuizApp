@@ -1,10 +1,10 @@
-plugins {
+﻿plugins {
     alias(libs.plugins.myquizzapp.android.library)
     alias(libs.plugins.myquizzapp.android.hilt)
 }
 
 android {
-    namespace = "com.example.myquizzapp.core.database"
+    namespace = "android.kma.myquizzapp.core.database"
 }
 
 dependencies {

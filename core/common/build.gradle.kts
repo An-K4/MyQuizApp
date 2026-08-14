@@ -1,10 +1,10 @@
-plugins {
+﻿plugins {
     alias(libs.plugins.myquizzapp.android.library)
     alias(libs.plugins.kotlin.serialization)
 }
 
 android {
-    namespace = "com.example.myquizzapp.core.common"
+    namespace = "android.kma.myquizzapp.core.common"
 }
 
 dependencies {

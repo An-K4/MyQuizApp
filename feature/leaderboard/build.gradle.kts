@@ -1,4 +1,4 @@
-plugins {
+﻿plugins {
     alias(libs.plugins.myquizzapp.android.library)
     alias(libs.plugins.myquizzapp.android.compose)
     alias(libs.plugins.myquizzapp.android.hilt)
@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.myquizzapp.feature.leaderboard"
+    namespace = "android.kma.myquizzapp.feature.leaderboard"
 }
 
 dependencies {

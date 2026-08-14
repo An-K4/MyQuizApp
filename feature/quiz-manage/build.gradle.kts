@@ -1,11 +1,11 @@
-plugins {
+﻿plugins {
     alias(libs.plugins.myquizzapp.android.library)
     alias(libs.plugins.myquizzapp.android.compose)
     alias(libs.plugins.myquizzapp.android.hilt)
     alias(libs.plugins.kotlin.serialization)
 }
 android {
-    namespace = "com.example.myquizzapp.feature.quiz_manage"
+    namespace = "android.kma.myquizzapp.feature.quiz_manage"
 }
 
 dependencies {
