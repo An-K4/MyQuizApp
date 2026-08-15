@@ -38,11 +38,13 @@ class LoginViewModel @Inject constructor(
         data object Submit : Intent
         data class GoogleTokenReceived(val idToken: String) : Intent // N9
         data object PlayAsGuest : Intent
+        data object GoToForgotPassword : Intent
     }
 
     sealed interface Effect {
         data object NavigateToHostHome : Effect
         data object NavigateToGuestHome : Effect
+        data object NavigateToForgotPassword : Effect
         data class ShowMessage(val message: String) : Effect
         // TODO(phase 2): đổi String → UiText (core:ui) khi cần localize
     }
@@ -61,6 +63,7 @@ class LoginViewModel @Inject constructor(
             Intent.Submit -> submit()
             Intent.PlayAsGuest -> playAsGuest()
             is Intent.GoogleTokenReceived -> loginWithGoogle(intent.idToken)
+            Intent.GoToForgotPassword -> viewModelScope.launch { _effect.send(Effect.NavigateToForgotPassword) }
         }
     }
 

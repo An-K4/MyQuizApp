@@ -7,9 +7,13 @@ import android.kma.myquizzapp.core.common.result.Result
 import android.kma.myquizzapp.core.common.result.map
 import android.kma.myquizzapp.core.network.api.AuthApiService
 import android.kma.myquizzapp.core.network.api.UserApiService
+import android.kma.myquizzapp.core.network.dto.ForgotPasswordRequest
+import timber.log.Timber
 import android.kma.myquizzapp.core.network.dto.GoogleOneTapRequest
 import android.kma.myquizzapp.core.network.dto.LoginRequest
 import android.kma.myquizzapp.core.network.dto.RegisterRequest
+import android.kma.myquizzapp.core.network.dto.ResetPasswordRequest
+import android.kma.myquizzapp.core.network.dto.ResetPasswordWithOtpRequest
 import javax.inject.Inject
 
 class AuthRepositoryImpl @Inject constructor(
@@ -62,4 +66,27 @@ class AuthRepositoryImpl @Inject constructor(
             is Result.Error -> false
         }
     }
+
+    override suspend fun forgotPassword(email: String): Result<Unit> {
+        Timber.d("Forgot Pass: Repository - Calling API forgotPassword with email: $email")
+        val result = authApi.forgotPassword(ForgotPasswordRequest(email))
+        when (result) {
+            is Result.Success -> Timber.d("Forgot Pass: Repository - API returned SUCCESS")
+            is Result.Error -> {
+                Timber.e("Forgot Pass: Repository - API returned ERROR")
+                Timber.e("Forgot Pass: Error details: ${result.error}")
+            }
+        }
+        return result
+    }
+
+    override suspend fun resetPasswordWithToken(token: String, newPassword: String): Result<Unit> =
+        authApi.resetPasswordWithToken(ResetPasswordRequest(token, newPassword))
+
+    override suspend fun resetPasswordWithOtp(
+        email: String,
+        otp: String,
+        newPassword: String
+    ): Result<Unit> =
+        authApi.resetPasswordWithOtp(ResetPasswordWithOtpRequest(email, otp, newPassword))
 }

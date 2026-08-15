@@ -1,18 +1,33 @@
 ﻿package android.kma.myquizzapp.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.navigation
 import androidx.navigation.compose.rememberNavController
+import android.kma.myquizzapp.auth.presentation.forgot.ForgotPasswordScreen
 import android.kma.myquizzapp.auth.presentation.host.HostHomePlaceholder
 import android.kma.myquizzapp.auth.presentation.login.LoginScreen
+import android.kma.myquizzapp.auth.presentation.otp.OtpVerificationScreen
 import android.kma.myquizzapp.auth.presentation.register.RegisterScreen
+import android.kma.myquizzapp.auth.presentation.reset.ResetPasswordScreen
 import android.kma.myquizzapp.presentation.splash.SplashScreen
+import androidx.navigation.toRoute
 
 @Composable
-fun AppNavGraph(navController: NavHostController = rememberNavController()) {
+fun AppNavGraph(
+    navController: NavHostController = rememberNavController(),
+    initialDeepLinkToken: String? = null
+) {
+    // Handle deep link navigation to password reset
+    LaunchedEffect(initialDeepLinkToken) {
+        initialDeepLinkToken?.let { token ->
+            navController.navigate(Route.ResetPassword(token = token))
+        }
+    }
+    
     NavHost(navController = navController, startDestination = Route.Splash) {
 
         // ===== SPLASH SCREEN =====
@@ -46,6 +61,7 @@ fun AppNavGraph(navController: NavHostController = rememberNavController()) {
                         }
                     },
                     onGoToRegister = { navController.navigate(Route.Register) },
+                    onGoToForgotPassword = { navController.navigate(Route.ForgotPassword) },
                     onPlayAsGuest = {
                         navController.navigate(Route.MainGraph) {
                             popUpTo<Route.AuthGraph> { inclusive = true }
@@ -61,6 +77,42 @@ fun AppNavGraph(navController: NavHostController = rememberNavController()) {
                         }
                     },
                     onBackToLogin = { navController.popBackStack() },
+                )
+            }
+            
+            composable<Route.ForgotPassword> {
+                ForgotPasswordScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToOtpVerification = { email ->
+                        navController.navigate(Route.OtpVerification(email = email))
+                    }
+                )
+            }
+            
+            composable<Route.OtpVerification> { backStackEntry ->
+                val args = backStackEntry.toRoute<Route.OtpVerification>()
+                OtpVerificationScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToResetPassword = { email, otp ->
+                        navController.navigate(
+                            Route.ResetPassword(
+                                token = null,
+                                email = email,
+                                otp = otp
+                            )
+                        )
+                    }
+                )
+            }
+            
+            composable<Route.ResetPassword> { backStackEntry ->
+                val args = backStackEntry.toRoute<Route.ResetPassword>()
+                ResetPasswordScreen(
+                    onNavigateToLogin = { 
+                        navController.navigate(Route.Login) {
+                            popUpTo<Route.AuthGraph> { inclusive = false }
+                        }
+                    }
                 )
             }
         }

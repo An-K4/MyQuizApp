@@ -20,6 +20,22 @@ data class RegisterRequest(
 @Serializable
 data class GoogleOneTapRequest(val credential: String)
 
+@Serializable
+data class ForgotPasswordRequest(val email: String)
+
+@Serializable
+data class ResetPasswordRequest(
+    val token: String,
+    val newPassword: String
+)
+
+@Serializable
+data class ResetPasswordWithOtpRequest(
+    val email: String,
+    val otp: String,
+    val newPassword: String
+)
+
 /**
  * login / register / one-tap / users/me đều trả envelope data = { user }.
  * KHÔNG có token trong body — token nằm trong Set-Cookie HttpOnly, CookieJar tự lo.

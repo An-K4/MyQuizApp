@@ -4,6 +4,7 @@ import android.content.res.Configuration
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -71,6 +72,7 @@ import java.util.UUID
 fun LoginScreen(
     onLoginSuccess: () -> Unit,
     onGoToRegister: () -> Unit,
+    onGoToForgotPassword: () -> Unit,
     onPlayAsGuest: () -> Unit,
     viewModel: LoginViewModel = hiltViewModel(),
 ) {
@@ -128,6 +130,7 @@ fun LoginScreen(
             when (effect) {
                 LoginViewModel.Effect.NavigateToHostHome -> onLoginSuccess()
                 LoginViewModel.Effect.NavigateToGuestHome -> onPlayAsGuest()
+                LoginViewModel.Effect.NavigateToForgotPassword -> onGoToForgotPassword()
                 is LoginViewModel.Effect.ShowMessage -> snackbarHostState.showSnackbar(effect.message)
             }
         }
@@ -160,7 +163,19 @@ fun LoginScreenContent(
 ) {
     val density = LocalDensity.current
 
-    Scaffold(snackbarHost = { SnackbarHost(snackbarHostState) }) { padding ->
+    Scaffold(
+        snackbarHost = {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.TopCenter
+            ) {
+                SnackbarHost(
+                    hostState = snackbarHostState,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
+            }
+        }
+    ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -235,7 +250,9 @@ fun LoginScreenContent(
                 text = "Quên mật khẩu?",
                 style = AppTextStyles.linkText,
                 color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.clickable { /* TODO */ }.align(Alignment.End)
+                modifier = Modifier
+                    .clickable { onIntent(LoginViewModel.Intent.GoToForgotPassword) }
+                    .align(Alignment.End)
             )
             Spacer(modifier = Modifier.height(4.dp))
 

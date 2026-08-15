@@ -15,4 +15,8 @@ interface AuthRepository {
      * Returns true if cookies exist AND backend confirms valid session.
      */
     suspend fun isAuthenticated(): Boolean
+    
+    suspend fun forgotPassword(email: String): Result<Unit>
+    suspend fun resetPasswordWithToken(token: String, newPassword: String): Result<Unit>
+    suspend fun resetPasswordWithOtp(email: String, otp: String, newPassword: String): Result<Unit>
 }
