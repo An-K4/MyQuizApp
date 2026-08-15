@@ -2,10 +2,11 @@
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import android.kma.myquizzapp.auth.domain.usecase.EnableGuestModeUseCase
 import android.kma.myquizzapp.auth.domain.usecase.LoginUseCase
 import android.kma.myquizzapp.auth.domain.usecase.LoginWithGoogleUseCase
 import android.kma.myquizzapp.auth.presentation.validation.AuthValidator
-import android.kma.myquizzapp.core.common.error.AppError
+import android.kma.myquizzapp.core.common.error.toUserMessage
 import android.kma.myquizzapp.core.common.result.Result
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
@@ -20,6 +21,7 @@ import javax.inject.Inject
 class LoginViewModel @Inject constructor(
     private val loginUseCase: LoginUseCase,
     private val loginWithGoogleUseCase: LoginWithGoogleUseCase,
+    private val enableGuestModeUseCase: EnableGuestModeUseCase,
 ) : ViewModel() {
 
     data class UiState(
@@ -35,10 +37,12 @@ class LoginViewModel @Inject constructor(
         data class PasswordChanged(val value: String) : Intent
         data object Submit : Intent
         data class GoogleTokenReceived(val idToken: String) : Intent // N9
+        data object PlayAsGuest : Intent
     }
 
     sealed interface Effect {
         data object NavigateToHostHome : Effect
+        data object NavigateToGuestHome : Effect
         data class ShowMessage(val message: String) : Effect
         // TODO(phase 2): đổi String → UiText (core:ui) khi cần localize
     }
@@ -55,6 +59,7 @@ class LoginViewModel @Inject constructor(
             is Intent.EmailChanged -> _uiState.update { it.copy(email = intent.value, emailError = null) }
             is Intent.PasswordChanged -> _uiState.update { it.copy(password = intent.value, passwordError = null) }
             Intent.Submit -> submit()
+            Intent.PlayAsGuest -> playAsGuest()
             is Intent.GoogleTokenReceived -> loginWithGoogle(intent.idToken)
         }
     }
@@ -91,16 +96,11 @@ class LoginViewModel @Inject constructor(
             }
         }
     }
-}
 
-// Mapper lỗi → message người dùng
-private fun AppError.toUserMessage(): String = when (this) {
-    AppError.Network -> "Không có kết nối mạng"
-    AppError.Unauthorized -> "Email hoặc mật khẩu không đúng"
-    AppError.Forbidden -> "Tài khoản đã bị vô hiệu hóa"
-    AppError.NotFound -> "Không tìm thấy"
-    AppError.Gone -> "Tài nguyên không còn tồn tại"
-    is AppError.Server -> "Lỗi server (HTTP $httpCode)"
-    is AppError.Api -> message  // Dùng message từ backend envelope
-    is AppError.Unknown -> cause?.message ?: "Lỗi không xác định"
+    private fun playAsGuest() {
+        viewModelScope.launch {
+            enableGuestModeUseCase()
+            _effect.send(Effect.NavigateToGuestHome)
+        }
+    }
 }

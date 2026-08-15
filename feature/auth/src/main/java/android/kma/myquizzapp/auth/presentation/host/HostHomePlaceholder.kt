@@ -20,7 +20,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import android.kma.myquizzapp.auth.domain.usecase.GetCurrentUserUseCase
 import android.kma.myquizzapp.auth.domain.usecase.LogoutUseCase
-import android.kma.myquizzapp.core.common.result.Result
 import android.kma.myquizzapp.core.common.result.onSuccess
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel

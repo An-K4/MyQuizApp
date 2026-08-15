@@ -9,4 +9,10 @@ interface AuthRepository {
     suspend fun loginWithGoogle(idToken: String): Result<User>
     suspend fun getCurrentUser(): Result<User>
     suspend fun logout(): Result<Unit>
+    
+    /**
+     * Checks if user is authenticated by verifying cookies with backend.
+     * Returns true if cookies exist AND backend confirms valid session.
+     */
+    suspend fun isAuthenticated(): Boolean
 }

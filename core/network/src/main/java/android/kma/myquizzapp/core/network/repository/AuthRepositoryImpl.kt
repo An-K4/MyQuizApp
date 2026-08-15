@@ -53,4 +53,13 @@ class AuthRepositoryImpl @Inject constructor(
         cookieStore.clear()
         return result
     }
+
+    override suspend fun isAuthenticated(): Boolean {
+        // Verify with backend - if getCurrentUser succeeds, session is valid
+        // If no cookies exist, API will return 401 and we return false
+        return when (getCurrentUser()) {
+            is Result.Success -> true
+            is Result.Error -> false
+        }
+    }
 }

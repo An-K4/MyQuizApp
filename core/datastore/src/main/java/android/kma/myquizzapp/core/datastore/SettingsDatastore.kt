@@ -23,6 +23,9 @@ class SettingsDataStore @Inject constructor(
     val onboardingSeen: Flow<Boolean> = context.dataStore.data
         .map { it[KEY_ONBOARDING] ?: false }
 
+    val isGuestMode: Flow<Boolean> = context.dataStore.data
+        .map { it[KEY_GUEST_MODE] ?: false }
+
     suspend fun setThemeMode(mode: String) {
         context.dataStore.edit { it[KEY_THEME] = mode }
     }
@@ -31,8 +34,13 @@ class SettingsDataStore @Inject constructor(
         context.dataStore.edit { it[KEY_ONBOARDING] = seen }
     }
 
+    suspend fun setGuestMode(enabled: Boolean) {
+        context.dataStore.edit { it[KEY_GUEST_MODE] = enabled }
+    }
+
     private companion object {
         val KEY_THEME = stringPreferencesKey("theme_mode")
         val KEY_ONBOARDING = booleanPreferencesKey("onboarding_seen")
+        val KEY_GUEST_MODE = booleanPreferencesKey("is_guest_mode")
     }
 }

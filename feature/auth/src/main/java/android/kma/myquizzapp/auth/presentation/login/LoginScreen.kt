@@ -83,77 +83,41 @@ fun LoginScreen(
 
     // Google One Tap launcher (kept in UI layer - needs Context)
     fun launchGoogleOneTap() {
-        Timber.d("🚀 launchGoogleOneTap: Starting Google One Tap flow")
         scope.launch {
             try {
-                // Step 1: Generate nonce
                 val rawNonce = UUID.randomUUID().toString()
                 val hashedNonce = rawNonce.hashSha256()
-                Timber.d("🔐 Nonce generated - raw: ${rawNonce.take(10)}..., hashed: ${hashedNonce.take(10)}...")
 
-                // Step 2: Build Google ID option
                 val serverClientId = "808588686055-l416uahi6qvb0o8n8q0h7mee85avutmc.apps.googleusercontent.com"
-                Timber.d("⚙️ Building GoogleIdOption with:")
-                Timber.d("   - filterByAuthorizedAccounts: false")
-                Timber.d("   - serverClientId: $serverClientId")
-                Timber.d("   - nonce: ${hashedNonce.take(20)}...")
-                
                 val googleIdOption = GetGoogleIdOption.Builder()
                     .setFilterByAuthorizedAccounts(false)
                     .setServerClientId(serverClientId)
                     .setNonce(hashedNonce)
                     .build()
-                Timber.d("✅ GoogleIdOption built successfully")
 
-                // Step 3: Build credential request
                 val request = GetCredentialRequest.Builder()
                     .addCredentialOption(googleIdOption)
                     .build()
-                Timber.d("📋 GetCredentialRequest built, calling credentialManager.getCredential()...")
 
-                // Step 4: Request credentials
                 val result = credentialManager.getCredential(context, request)
-                Timber.d("✅ Credential received! Type: ${result.credential::class.java.simpleName}")
-
-                // Step 5: Process credential
                 val credential = result.credential
+                
                 if (credential is GoogleIdTokenCredential) {
-                    Timber.d("🎫 Valid GoogleIdTokenCredential received")
-                    Timber.d("   - ID: ${credential.id}")
-                    Timber.d("   - displayName: ${credential.displayName}")
-                    Timber.d("   - idToken length: ${credential.idToken.length}")
                     viewModel.onIntent(LoginViewModel.Intent.GoogleTokenReceived(credential.idToken))
                 } else {
-                    Timber.e("❌ Invalid credential type: ${credential::class.java.name}")
+                    Timber.e("Invalid credential type: ${credential::class.java.name}")
                     snackbarHostState.showSnackbar("Loại credential không hợp lệ")
                 }
             } catch (e: GetCredentialCancellationException) {
-                Timber.w("⚠️ User cancelled Google One Tap: ${e.message}")
                 // User cancelled - silent fail
             } catch (e: NoCredentialException) {
-                Timber.e("❌ NoCredentialException caught!")
-                Timber.e("   - Message: ${e.message}")
-                Timber.e("   - Type: ${e.type}")
-                Timber.e("   - Cause: ${e.cause}")
-                Timber.e("   - Stack trace: $e")
-                Timber.e("⚠️ POSSIBLE CAUSES:")
-                Timber.e("   1. No Google accounts on device")
-                Timber.e("   2. Wrong/unconfigured Server Client ID in Firebase Console")
-                Timber.e("   3. Google Play Services not updated")
-                Timber.e("   4. SHA-1 fingerprint not added to Firebase Console")
+                Timber.e("NoCredentialException: ${e.message}")
                 snackbarHostState.showSnackbar("Không tìm thấy tài khoản Google")
             } catch (e: GetCredentialException) {
-                Timber.e("❌ GetCredentialException caught!")
-                Timber.e("   - Message: ${e.message}")
-                Timber.e("   - Type: ${e.type}")
-                Timber.e("   - ErrorMessage: ${e.errorMessage}")
-                Timber.e("   - Stack trace: $e")
+                Timber.e("GetCredentialException: ${e.message}")
                 snackbarHostState.showSnackbar("Lỗi đăng nhập Google: ${e.message}")
             } catch (e: Exception) {
-                Timber.e("❌ Unexpected exception in launchGoogleOneTap!")
-                Timber.e("   - Type: ${e::class.java.name}")
-                Timber.e("   - Message: ${e.message}")
-                Timber.e("   - Stack trace: $e")
+                Timber.e("Unexpected exception in Google One Tap: ${e.message}")
                 snackbarHostState.showSnackbar("Lỗi không xác định: ${e.message}")
             }
         }
@@ -163,6 +127,7 @@ fun LoginScreen(
         viewModel.effect.collect { effect ->
             when (effect) {
                 LoginViewModel.Effect.NavigateToHostHome -> onLoginSuccess()
+                LoginViewModel.Effect.NavigateToGuestHome -> onPlayAsGuest()
                 is LoginViewModel.Effect.ShowMessage -> snackbarHostState.showSnackbar(effect.message)
             }
         }
@@ -175,7 +140,6 @@ fun LoginScreen(
         onIntent = viewModel::onIntent,
         onGoogleSignIn = { launchGoogleOneTap() },
         onGoToRegister = onGoToRegister,
-        onPlayAsGuest = onPlayAsGuest,
         snackbarHostState = snackbarHostState
     )
 }
@@ -192,7 +156,6 @@ fun LoginScreenContent(
     onIntent: (LoginViewModel.Intent) -> Unit,
     onGoogleSignIn: () -> Unit,
     onGoToRegister: () -> Unit,
-    onPlayAsGuest: () -> Unit,
     snackbarHostState: SnackbarHostState,
 ) {
     val density = LocalDensity.current
@@ -341,7 +304,7 @@ fun LoginScreenContent(
 
             // Guest login link
             TextButton(
-                onClick = onPlayAsGuest,
+                onClick = { onIntent(LoginViewModel.Intent.PlayAsGuest) },
                 modifier = Modifier.align(Alignment.CenterHorizontally)
             ) {
                 Text("Đăng nhập với tư cách khách", style = AppTextStyles.linkText)
@@ -369,7 +332,6 @@ fun LoginScreenPreviewLight() {
             onIntent = {},
             onGoogleSignIn = {},
             onGoToRegister = {},
-            onPlayAsGuest = {},
             snackbarHostState = remember { SnackbarHostState() }
         )
     }
@@ -386,7 +348,6 @@ fun LoginScreenPreviewDark() {
             onIntent = {},
             onGoogleSignIn = {},
             onGoToRegister = {},
-            onPlayAsGuest = {},
             snackbarHostState = remember { SnackbarHostState() }
         )
     }
