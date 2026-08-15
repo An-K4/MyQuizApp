@@ -1,3 +1,6 @@
 <resources>
-    <style name="Theme.MyQuizzApp" parent="android:Theme.Material.Light.NoActionBar" />
+    <style name="Theme.MyQuizzApp" parent="android:Theme.Material.Light.NoActionBar">
+        <!-- Minimal system splash - chỉ background, không có icon -->
+        <item name="android:windowSplashScreenBackground">@color/white</item>
+    </style>
 </resources>
