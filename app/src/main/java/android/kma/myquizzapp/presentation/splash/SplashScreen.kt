@@ -20,7 +20,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import android.kma.myquizzapp.R
-import com.example.ui.theme.MyQuizAppTheme
+import android.kma.myquizzapp.core.ui.theme.MyQuizAppTheme
 
 @Composable
 fun SplashScreen(

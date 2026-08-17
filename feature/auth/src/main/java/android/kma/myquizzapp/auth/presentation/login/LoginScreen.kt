@@ -57,11 +57,11 @@ import androidx.credentials.exceptions.GetCredentialException
 import androidx.credentials.exceptions.NoCredentialException
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.example.common.util.hashSha256
+import android.kma.myquizzapp.core.common.util.hashSha256
 import android.kma.myquizzapp.feature.auth.R
-import com.example.ui.style.AppTextStyles
-import com.example.ui.theme.GoogleButtonGray
-import com.example.ui.theme.MyQuizAppTheme
+import android.kma.myquizzapp.core.ui.style.AppTextStyles
+import android.kma.myquizzapp.core.ui.theme.GoogleButtonGray
+import android.kma.myquizzapp.core.ui.theme.MyQuizAppTheme
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import kotlinx.coroutines.launch
