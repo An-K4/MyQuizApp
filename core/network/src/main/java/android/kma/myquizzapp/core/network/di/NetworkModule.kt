@@ -79,4 +79,8 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideUserApiService(retrofit: Retrofit): UserApiService = retrofit.create()
+    
+    @Provides
+    @Singleton
+    fun provideQuizApiService(retrofit: Retrofit): android.kma.myquizzapp.core.network.api.QuizApiService = retrofit.create()
 }

@@ -24,6 +24,9 @@ sealed interface Route {
     @Serializable data object Library : Route
     @Serializable data object Profile : Route
     
+    // Search (full-screen modal from Home)
+    @Serializable data object Search : Route
+    
     // Quiz routes
     @Serializable data class QuizDetail(val quizId: Long) : Route
     @Serializable data object CreateQuiz : Route

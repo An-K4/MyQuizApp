@@ -8,12 +8,13 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.navigation
 import androidx.navigation.compose.rememberNavController
 import android.kma.myquizzapp.auth.presentation.forgot.ForgotPasswordScreen
-import android.kma.myquizzapp.auth.presentation.host.HostHomePlaceholder
 import android.kma.myquizzapp.auth.presentation.login.LoginScreen
 import android.kma.myquizzapp.auth.presentation.otp.OtpVerificationScreen
 import android.kma.myquizzapp.auth.presentation.register.RegisterScreen
 import android.kma.myquizzapp.auth.presentation.reset.ResetPasswordScreen
 import android.kma.myquizzapp.presentation.splash.SplashScreen
+import android.kma.myquizzapp.feature.home.presentation.HomeScreen
+import android.kma.myquizzapp.feature.home.presentation.search.SearchScreen
 import androidx.navigation.toRoute
 
 @Composable
@@ -122,13 +123,24 @@ fun AppNavGraph(
             
             // ----- PUBLIC ROUTES (accessible to everyone) -----
             composable<Route.Home> {
-                // TODO: HomeScreen() - gọi GET /quizzes/home (optionalAuthMiddleware)
-                // Backend trả sections khác nhau tùy auth state
-                HostHomePlaceholder(
-                    onLoggedOut = {
+                HomeScreen(
+                    onNavigateToSearch = { navController.navigate(Route.Search) },
+                    onNavigateToAuth = {
                         navController.navigate(Route.AuthGraph) {
-                            popUpTo<Route.MainGraph> { inclusive = true }
+                            popUpTo<Route.MainGraph> { inclusive = false }
                         }
+                    },
+                    onNavigateToQuizDetail = { quizId ->
+                        navController.navigate(Route.QuizDetail(quizId))
+                    }
+                )
+            }
+            
+            composable<Route.Search> {
+                SearchScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToQuizDetail = { quizId ->
+                        navController.navigate(Route.QuizDetail(quizId))
                     }
                 )
             }

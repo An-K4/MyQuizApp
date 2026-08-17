@@ -19,10 +19,3 @@ data class QuizSummary(
     val createdAt: String,
     val updatedAt: String
 )
-
-@Serializable
-data class QuizOwner(
-    val id: Long,
-    val fullname: String,
-    val avatar: String? = null
-)
