@@ -37,7 +37,3 @@ google-services.json
 # Server
 .server/
 /server
-
-# Documents
-.doc/
-/doc
