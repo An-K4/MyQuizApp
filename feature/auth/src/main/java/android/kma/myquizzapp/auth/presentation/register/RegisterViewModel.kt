@@ -1,10 +1,10 @@
-﻿package android.kma.myquizzapp.auth.presentation.register
+package android.kma.myquizzapp.auth.presentation.register
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import android.kma.myquizzapp.auth.domain.usecase.RegisterUseCase
 import android.kma.myquizzapp.auth.presentation.validation.AuthValidator
-import android.kma.myquizzapp.core.common.error.AppError
+import android.kma.myquizzapp.core.common.error.toUserMessage
 import android.kma.myquizzapp.core.common.result.Result
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
@@ -107,16 +107,4 @@ class RegisterViewModel @Inject constructor(
             }
         }
     }
-}
-
-// Mapper lỗi → message người dùng (giống LoginViewModel)
-private fun AppError.toUserMessage(): String = when (this) {
-    AppError.Network -> "Không có kết nối mạng"
-    AppError.Unauthorized -> "Không có quyền truy cập"
-    AppError.Forbidden -> "Tài khoản đã bị vô hiệu hóa"
-    AppError.NotFound -> "Không tìm thấy"
-    AppError.Gone -> "Tài nguyên không còn tồn tại"
-    is AppError.Server -> "Lỗi server (HTTP $httpCode)"
-    is AppError.Api -> message  // Backend trả "Email already exists" v.v.
-    is AppError.Unknown -> cause?.message ?: "Lỗi không xác định"
 }
