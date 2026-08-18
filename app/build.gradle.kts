@@ -1,4 +1,4 @@
-﻿plugins {
+plugins {
     alias(libs.plugins.android.application)   // GIỮ — không dùng myquizzapp.android.library
     alias(libs.plugins.kotlin.android)        // GIỮ
     alias(libs.plugins.myquizzapp.android.compose)
@@ -23,8 +23,9 @@ android {
         release {
             isMinifyEnabled = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            buildConfigField("String", "BASE_URL", "\"https://api.myquizz.dpdns.org/v1/\"")
-            buildConfigField("String", "SOCKET_URL", "\"https://api.myquizz.dpdns.org\"")
+            // BASE_URL / SOCKET_URL: chỉ khai báo ở core:network (single source of truth).
+            // Module app không có dependency Retrofit/OkHttp và không gọi thẳng server,
+            // nên không cần khai trùng BuildConfig field ở đây.
         }
     }
     compileOptions {
@@ -54,7 +55,7 @@ dependencies {
     implementation(project(":feature:leaderboard"))
     implementation(project(":feature:quiz-manage"))
 
-    // 2. CHỈ GIỮ LẠI THƯ VIỆN CẦN THIẾT CHO MAINACTIVITY & NAVIGATION
+    // 2. CHỈ GIữ LẠI THƯ VIỆN CẦN THIẾT CHO MAINACTIVITY & NAVIGATION
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity)
     implementation(libs.androidx.navigation.compose)
