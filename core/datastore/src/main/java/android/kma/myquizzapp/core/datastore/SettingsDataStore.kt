@@ -1,4 +1,4 @@
-﻿package android.kma.myquizzapp.core.datastore
+package android.kma.myquizzapp.core.datastore
 
 import android.content.Context
 import androidx.datastore.preferences.core.booleanPreferencesKey
