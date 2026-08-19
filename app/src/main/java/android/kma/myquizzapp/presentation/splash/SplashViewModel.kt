@@ -1,8 +1,8 @@
-﻿package android.kma.myquizzapp.presentation.splash
+package android.kma.myquizzapp.presentation.splash
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import android.kma.myquizzapp.auth.domain.usecase.CheckAuthStateUseCase
+import android.kma.myquizzapp.core.datastore.usecase.CheckAuthStateUseCase
 import android.kma.myquizzapp.core.common.model.AuthState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
