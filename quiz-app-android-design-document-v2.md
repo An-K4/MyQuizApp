@@ -1321,13 +1321,19 @@ data class CookieEntity(
 
 Giữ Navigation Compose + type-safe routes (Kotlin Serializable) như v1.0, nhưng **thay đổi cấu trúc graph** để phù hợp UX mobile và pattern `optionalAuthMiddleware` của backend:
 
+> ✅ **Quyết định chốt (20/8)**: Option B — Browse-First. Splash **luôn** điều hướng thẳng Home, không rẽ nhánh Auth/Guest/Host tại Splash nữa. `AuthState` rút gọn còn 2 giá trị `GUEST`/`AUTHENTICATED` (bỏ khái niệm "first launch" riêng) — `CheckAuthStateUseCase` hỏi backend; nếu chưa authenticated thì set guest mode = true và trả `GUEST`. Auth screens (`AuthGraph`) chỉ được vào qua các `RequireAuth` soft gate ở mục 11.2, không còn là đích điều hướng của Splash. Refresh-token/verify-session lúc khởi động app: chưa implement, đang là `TODO` trong `SplashViewModel` (N12+).
+
 ```kotlin
 NavHost(navController, startDestination = Route.Splash) {
-    // Splash screen — check auth state, bootstrap session
+    // Splash screen — luôn điều hướng thẳng Home (Option B — Browse-First, chốt 20/8)
+    // CheckAuthStateUseCase quyết định AuthState (GUEST/AUTHENTICATED) nhưng KHÔNG ảnh hưởng đích điều hướng ở đây
     composable<Route.Splash> { 
         SplashScreen(
-            onNavigateToMain = { navController.navigate(Route.MainGraph) },
-            onNavigateToAuth = { navController.navigate(Route.AuthGraph) }
+            onNavigateToHome = { 
+                navController.navigate(Route.MainGraph) {
+                    popUpTo<Route.Splash> { inclusive = true }
+                }
+            }
         )
     }
 

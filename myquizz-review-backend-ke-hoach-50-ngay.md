@@ -165,29 +165,24 @@ Lưu ý thêm: swagger ghi `/auth/refresh` trả tokens nhưng thực tế chỉ
 - Bonus achievements: UI polish (theme/typography/patterns), infrastructure (Timber), bug fixes (SHA-1), architectural improvements (guest mode + unified navigation), forgot password feature complete với deep linking + OTP verification screen
 - **Status: Week 2 HOÀN THÀNH 15/8. Ready for Week 3 (N11-N20) — Quiz CRUD.**
 
-**🤔 Navigation Architecture — Pending Decision (17/8):**
+**✅ Navigation Architecture — Quyết định chốt: Option B — Browse-First Flow (20/8):**
 
-⚠️ **Vấn đề hiện tại**: Trong Tuần 2, để test flow sau login, đã tạo **host placeholder screen** làm điểm đích tạm thời sau khi authentication thành công. Đây là workaround cho việc màn Home chưa được implement.
+⚠️ **Bối cảnh**: Trong Tuần 2, để test flow sau login, đã tạo **host placeholder screen** làm điểm đích tạm thời sau khi authentication thành công — workaround cho việc màn Home chưa được implement. Sau khi N11 (Home) hoàn thành 17/8, đã đánh giá UX thực tế và **chốt Option B** (Browse-First), bỏ Option A (Auth-First).
 
-**Hai phương án đang cân nhắc:**
-
-1. **Option A — Auth-First Flow** (hiện tại):
-   - Splash → check auth → Login/Register (nếu unauthenticated)
-   - Login thành công → xóa host placeholder → điều hướng thẳng đến **Home**
-   - Guest mode: Splash → Home trực tiếp (bypass auth)
-
-2. **Option B — Browse-First Flow** (đề xuất):
-   - Splash → **Home** trực tiếp (browse mode)
-   - Auth screens chỉ hiện khi user **chủ động chọn login** từ Home để sử dụng chức năng cụ thể (tạo quiz, host game, etc.)
-   - Soft auth gates: "Bạn cần đăng nhập để sử dụng tính năng này"
-   - Flow này khớp với backend `optionalAuthMiddleware` pattern và web frontend
-
-**Decision point**: Sẽ thảo luận và quyết định sau khi hoàn thành **màn Home (N11)** để đánh giá UX thực tế với bottom navigation và guest mode.
+**Quyết định & refactor đã thực hiện (20/8):**
+- Splash → điều hướng thẳng **Home** (`MainGraph`) trong mọi trường hợp — không còn rẽ nhánh Auth/Guest/Host tại Splash.
+- `AuthState` rút gọn từ mô hình 3 trạng thái (kiểu "first launch" riêng) xuống **2 giá trị**: `GUEST`, `AUTHENTICATED`. `CheckAuthStateUseCase` chỉ hỏi backend có đang authenticated không; nếu không → gọi `SettingsDataStore.setGuestMode(true)` và trả `GUEST` (không còn khái niệm "lần đầu mở app" riêng biệt).
+- `SplashViewModel`/`SplashScreen` gộp `UiState` về `Loading`/`Ready`, chỉ còn 1 callback `onNavigateToHome`.
+- `AppNavGraph.kt`: Splash composable chỉ gọi `onNavigateToHome` → `navigate(Route.MainGraph) { popUpTo<Route.Splash> { inclusive = true } }`.
+- Soft auth gates (`RequireAuth`) tại từng route bảo vệ (Library, Profile, CreateQuiz, EditQuiz, CreateRoom...) giữ nguyên như thiết kế — chỉ luồng Splash thay đổi.
+- Refresh token / verify-session lúc khởi động: **chưa implement** — để lại `TODO` trong `SplashViewModel` (dự kiến làm ở N12+ khi cần giữ trạng thái đăng nhập bền hơn qua `GET /users/me` hoặc refresh cookie).
 
 **Action items**:
-- [ ] Xóa host placeholder screen sau khi xác định flow cuối cùng (N11)
-- [ ] Cập nhật navigation graph theo option đã chọn
-- [ ] Đảm bảo guest mode integration mượt mà với option đã chọn
+- [x] Xóa host placeholder screen (đã xóa từ N11, thay bằng HomeScreen thật)
+- [x] Cập nhật navigation graph theo Option B (20/8)
+- [x] Đảm bảo guest mode integration mượt mà với Option B — `CheckAuthStateUseCase` tự set guest mode khi chưa authenticated
+- [x] Cập nhật design doc mục 11 (Navigation Architecture) cho khớp luồng Splash mới
+- [ ] (N12+) Thêm refresh-token/verify-session use case thật cho Splash khi cần
 
 ---
 
