@@ -2,7 +2,7 @@
 
 > **Tài liệu cấu trúc dự án chi tiết**  
 > Mô tả vai trò, trách nhiệm và mối quan hệ giữa các module trong kiến trúc Multi-module Gradle  
-> **Version:** 2.0 | **Last Updated:** 2026-08-17
+> **Version:** 2.1 | **Last Updated:** 2026-08-20
 
 ---
 
@@ -70,6 +70,7 @@ Module duy nhất có `applicationId`, đóng vai trò entry point của ứng d
 - ✅ Ghép các `NavGraph` con từ feature modules
 - ✅ Cấu hình build variants (debug/release)
 - ❌ **KHÔNG** chứa business logic, UI components, data models
+- ❌ **KHÔNG** giữ lại use case cross-cutting mà nhiều feature có thể cần dùng lại (xem mục 8 - đưa xuống `core:*` thay vì để trong `:app`)
 
 #### Cấu trúc thư mục
 ```
@@ -78,6 +79,9 @@ app/
 │   ├── java/.../
 │   │   ├── QuizApp.kt              # Application class - @HiltAndroidApp
 │   │   ├── MainActivity.kt         # Single Activity, Compose host
+│   │   ├── presentation/splash/
+│   │   │   ├── SplashScreen.kt
+│   │   │   └── SplashViewModel.kt  # Dùng CheckAuthStateUseCase từ core:datastore
 │   │   └── navigation/
 │   │       └── AppNavGraph.kt      # Root NavHost - tổng hợp NavGraph từ features
 │   ├── AndroidManifest.xml
@@ -112,6 +116,8 @@ dependencies {
 
 #### Lưu ý quan trọng
 ⚠️ **Chỉ `:app` mới được phụ thuộc tất cả modules khác**. Các module con **KHÔNG BAO GIỜ** biết `:app` tồn tại.
+
+🔑 **`:app` không phụ thuộc domain của 1 feature cụ thể**: Trước đây `SplashViewModel` (trong `:app`) từng cần logic của `feature:auth` để kiểm tra trạng thái đăng nhập. Vì đây là logic cross-cutting (không chỉ Splash cần), `CheckAuthStateUseCase` được đưa xuống `core:datastore` thay vì đặt trong `:app` hay giữ phụ thuộc vào `feature:auth`. Xem mục 2.4 và mục 8.
 
 ---
 
@@ -258,12 +264,13 @@ fun StoredCookie.toEntity(host: String) = CookieEntity(...)
 **📦 Module Type:** `com.android.library`
 
 #### Mục đích
-Lưu trữ preferences nhẹ (user settings, UI state) dùng DataStore Preferences API. **KHÔNG lưu auth tokens** (tokens ở cookies trong Room).
+Lưu trữ preferences nhẹ (user settings, UI state) dùng DataStore Preferences API. **KHÔNG lưu auth tokens** (tokens ở cookies trong Room). Ngoài ra là nơi đặt các use case cross-cutting liên quan tới trạng thái auth/guest mà nhiều module cần dùng lại.
 
 #### Trách nhiệm
 - ✅ Define `PreferenceKeys` object với typed keys
 - ✅ Provide `DataStore<Preferences>` instance qua Hilt
-- ✅ Wrapper class `UserPreferences` với Flow-based API
+- ✅ Wrapper class `UserPreferences`/`SettingsDataStore` với Flow-based API
+- ✅ Chứa use case cross-cutting dùng `AuthRepository` + `SettingsDataStore` (vd. `CheckAuthStateUseCase`)
 - ❌ **KHÔNG** lưu sensitive data (tokens, passwords)
 
 #### Cấu trúc thư mục
@@ -272,6 +279,8 @@ core/datastore/
 ├── src/main/java/.../datastore/
 │   ├── PreferenceKeys.kt                 # Centralized preference keys
 │   ├── UserPreferences.kt                # DataStore wrapper với helper methods
+│   ├── usecase/
+│   │   └── CheckAuthStateUseCase.kt      # 🟩 Cross-cutting: trả về AuthState (FIRST_LAUNCH/GUEST_MODE/AUTHENTICATED)
 │   └── di/
 │       └── DataStoreModule.kt            # Provide DataStore instance
 └── build.gradle.kts
@@ -291,7 +300,7 @@ object PreferenceKeys {
 #### Phụ thuộc
 ```kotlin
 dependencies {
-    implementation(project(":core:common"))  // Extensions only
+    implementation(project(":core:common"))  // AuthRepository interface, Extensions
     
     implementation(libs.datastore.preferences)
 }
@@ -299,6 +308,8 @@ dependencies {
 
 #### Lưu ý quan trọng
 ⚠️ **Auth state KHÔNG lưu ở đây**. Auth state được xác định bằng cách gọi `GET /users/me` lúc app start - nếu cookie valid → authenticated, nếu 401 → unauthenticated.
+
+🔑 **`CheckAuthStateUseCase` đặt ở đây, KHÔNG ở `:app` hay `:feature:auth`**: Đây là logic cross-cutting - không chỉ Splash cần biết trạng thái auth, mà bất kỳ feature nào cũng có thể cần (vd. hiện dialog yêu cầu đăng nhập khi guest bấm vào tính năng cần tài khoản). Nó chỉ phụ thuộc `AuthRepository` (từ `core:common`) và `SettingsDataStore` (module này) nên không cần đặt trong 1 feature cụ thể hay trong `:app`. Đây là ví dụ điển hình của quy tắc: *nếu ≥2 nơi cần dùng chung 1 logic → đưa xuống `core:*` tương ứng, tạo use case trung gian thay vì để `:app` phụ thuộc domain của 1 feature*.
 
 ---
 
@@ -410,6 +421,7 @@ core/common/
 │   │   ├── Player.kt
 │   │   ├── PlayerScore.kt
 │   │   ├── GameResults.kt
+│   │   ├── AuthState.kt                  # enum: FIRST_LAUNCH/GUEST_MODE/AUTHENTICATED
 │   │   └── GameEvent.kt                  # sealed class: all socket events
 │   ├── repository/                       # 🟦 Repository interfaces dùng chung
 │   │   ├── AuthRepository.kt             # Login, register, logout
@@ -470,6 +482,7 @@ Feature modules chứa UI (Compose screens), presentation logic (ViewModels vớ
 - ✅ Mỗi feature có thể có tối đa 3 tầng: `presentation/`, `domain/`, `data/`
 - ✅ UseCases inject Repository interfaces (từ `core:common` hoặc `domain/repository` cục bộ)
 - ✅ ViewModels theo MVI pattern: `Intent → State → UI`
+- ✅ Package Kotlin PHẢI khớp namespace Gradle: `feature:<tên>` → package `android.kma.myquizzapp.feature.<tên>.*` (không rút gọn bỏ `feature.`)
 - ❌ **KHÔNG** phụ thuộc feature khác - nếu cần chia sẻ logic → đưa xuống `core:*`
 
 ---
@@ -479,13 +492,14 @@ Feature modules chứa UI (Compose screens), presentation logic (ViewModels vớ
 **📦 Module Type:** `com.android.library`
 
 #### Mục đích
-Xử lý authentication flow: Login, Register, Google One Tap, Forgot Password, OTP verification.
+Xử lý authentication flow: Login, Register, Google One Tap, Forgot Password, OTP verification, Reset Password.
 
 #### Trách nhiệm
-- ✅ LoginScreen + LoginViewModel (email/password)
+- ✅ LoginScreen + LoginViewModel (email/password, Play as Guest)
 - ✅ RegisterScreen + RegisterViewModel
 - ✅ Google One Tap integration (Credential Manager API)
-- ✅ ForgotPasswordScreen + OTP verification flow
+- ✅ ForgotPasswordScreen + OTP verification flow + ResetPasswordScreen (deep-link token và OTP fallback)
+- ✅ `AuthValidator` dùng chung validate email/password/fullname/phone cho mọi form
 - ✅ Deep linking cho reset password token
 
 #### Cấu trúc thư mục
@@ -494,8 +508,7 @@ feature/auth/
 ├── src/main/java/.../feature/auth/
 │   ├── presentation/
 │   │   ├── login/
-│   │   │   ├── LoginScreen.kt            # Stateless composable
-│   │   │   ├── LoginScreenStateful.kt    # Wrapper with ViewModel
+│   │   │   ├── LoginScreen.kt
 │   │   │   └── LoginViewModel.kt         # MVI: LoginIntent → LoginState
 │   │   ├── register/
 │   │   │   ├── RegisterScreen.kt
@@ -503,23 +516,31 @@ feature/auth/
 │   │   ├── forgot/
 │   │   │   ├── ForgotPasswordScreen.kt
 │   │   │   └── ForgotPasswordViewModel.kt
-│   │   └── otp/
-│   │       ├── OtpVerificationScreen.kt
-│   │       └── OtpVerificationViewModel.kt
+│   │   ├── otp/
+│   │   │   ├── OtpVerificationScreen.kt
+│   │   │   └── OtpVerificationViewModel.kt
+│   │   ├── reset/
+│   │   │   ├── ResetPasswordScreen.kt
+│   │   │   └── ResetPasswordViewModel.kt
+│   │   └── validation/
+│   │       └── AuthValidator.kt          # object thuần Kotlin, dùng kotlin.Regex (chạy được trong local unit test)
 │   └── domain/
 │       └── usecase/
-│           ├── LoginUseCase.kt           # inject AuthRepository
-│           ├── LoginWithGoogleUseCase.kt
-│           ├── RegisterUseCase.kt
+│           ├── AuthUseCases.kt           # LoginUseCase, RegisterUseCase, GetCurrentUserUseCase, LoginWithGoogleUseCase, LogoutUseCase
+│           ├── EnableGuestModeUseCase.kt # Persist guest mode khi bấm "Play as Guest"
 │           ├── ForgotPasswordUseCase.kt
-│           └── ResetPasswordUseCase.kt
+│           ├── ResetPasswordUseCase.kt         # Reset qua deep-link token
+│           └── ResetPasswordWithOtpUseCase.kt  # Reset qua email + OTP (fallback)
 └── build.gradle.kts
 ```
+
+⚠️ **Lưu ý namespace**: Toàn bộ package Kotlin trong module này dùng `android.kma.myquizzapp.feature.auth.*` (không phải `android.kma.myquizzapp.auth.*`), khớp với `namespace` khai báo trong `build.gradle.kts` - đồng nhất với `feature:home` và convention `feature.<tên>` chung của dự án.
 
 #### Phụ thuộc
 ```kotlin
 dependencies {
     implementation(project(":core:common"))    // AuthRepository interface
+    implementation(project(":core:datastore")) // EnableGuestModeUseCase dùng SettingsDataStore
     implementation(project(":core:ui"))        // Theme, components
     
     implementation(libs.credentials)           // Credential Manager for Google One Tap
@@ -529,7 +550,7 @@ dependencies {
 #### Lưu ý quan trọng
 🔐 **Cookie Auth Flow**: Login success → server set HttpOnly cookies (`accessToken`, `refreshToken`) → không có token string trong response body.
 
-📱 **Stateful/Stateless Pattern**: LoginScreen là stateless composable (preview-friendly), LoginScreenStateful là wrapper khởi tạo ViewModel.
+✅ **Validation dùng chung**: `AuthValidator` được cả 5 ViewModel (Login/Register/Forgot/Otp/Reset) dùng chung - tránh lặp lại logic validate ở mỗi form. Password rule khác nhau giữa Login (chỉ check không rỗng, tương thích tài khoản cũ) và Register (tối thiểu 8 ký tự, khớp `registerSchema` backend).
 
 ---
 
@@ -926,12 +947,14 @@ dependencies {
 - Core modules chỉ phụ thuộc `:core:common` (ngoại trừ `:core:common` không phụ thuộc gì)
 - Nếu 2 features cần chia sẻ logic → đưa xuống `:core:*`
 - Dùng interfaces (abstraction) thay vì concrete classes khi cross-module
+- Nếu `:app` cần logic mà nhiều feature/module có thể cần lại → tạo use case trung gian ở `:core:*` phù hợp thay vì để `:app` phụ thuộc domain của 1 feature cụ thể
 
 ❌ **DON'Ts:**
 - Feature KHÔNG ĐƯỢC phụ thuộc feature khác
 - Core module KHÔNG ĐƯỢC phụ thuộc feature module
 - `:core:network` và `:core:database` KHÔNG ĐƯỢC phụ thuộc lẫn nhau
 - `:core:common` KHÔNG ĐƯỢC phụ thuộc bất kỳ module nào
+- `:app` KHÔNG ĐƯỢC phụ thuộc trực tiếp vào `domain/` của 1 feature cụ thể cho logic cross-cutting
 
 ### Dependency Inversion Example
 
@@ -985,7 +1008,7 @@ abstract class DatabaseBindingModule {
 | Repository | Interface Location | Implementation Location | Used By |
 |---|---|---|---|
 | `CookieStore` | `core:common/cookie` | `core:database` (RoomCookieStore) | `core:network` only |
-| `AuthRepository` | `core:common/repository` | `core:network` (AuthRepositoryImpl) | `feature:auth`, `:app` (Splash) |
+| `AuthRepository` | `core:common/repository` | `core:network` (AuthRepositoryImpl) | `feature:auth`, `core:datastore` (CheckAuthStateUseCase) |
 | `QuizRepository` | `core:common/repository` | `core:network` (QuizRepositoryImpl) | `feature:home`, `feature:quiz-manage` |
 | `GameSessionRepository` | `core:common/repository` | `core:network` (GameSessionRepositoryImpl) | `feature:lobby`, `feature:quiz-manage`, `feature:leaderboard` |
 | `PlayerGameSocketRepository` | `feature:game-player/domain` | `feature:game-player/data` | `feature:game-player` only |
@@ -1254,6 +1277,21 @@ class LoginUseCase @Inject constructor(
 ```
 ✅ **Fix**: Domain phải thuần Kotlin - nếu cần context → xử lý ở presentation layer.
 
+### ❌ Wrong: `:app` giữ logic cross-cutting mà nhiều feature có thể cần lại
+```kotlin
+// app/.../usecase/CheckAuthStateUseCase.kt - chỉ Splash gọi được vì nằm trong :app
+class CheckAuthStateUseCase @Inject constructor(...)
+```
+✅ **Fix**: Nếu logic cross-cutting (vd. kiểm tra trạng thái đăng nhập) có thể cần dùng lại ở nhiều feature trong tương lai (không chỉ 1 nơi gọi ban đầu như Splash) → đưa xuống `core:*` module sở hữu dependency cần thiết (ở đây là `core:datastore` vì cần `SettingsDataStore`) và tạo use case trung gian ở đó, thay vì để `:app` phụ thuộc domain của 1 feature cụ thể hoặc tự giữ logic riêng trong `:app`. Đây chính là refactor đã áp dụng cho `CheckAuthStateUseCase` (xem mục 2.4, 2.1).
+
+### ❌ Wrong: Package Kotlin không khớp namespace Gradle của feature
+```kotlin
+// feature/auth/build.gradle.kts khai báo namespace "android.kma.myquizzapp.feature.auth"
+// nhưng code lại nằm ở package thiếu "feature.":
+package android.kma.myquizzapp.auth.domain.usecase  // WRONG!
+```
+✅ **Fix**: Package Kotlin của mọi file trong `feature:<tên>` phải bắt đầu bằng `android.kma.myquizzapp.feature.<tên>.*`, khớp namespace Gradle và đồng nhất với các feature khác (vd. `feature:home`).
+
 ---
 
 ## 9. Quick Reference Guide
@@ -1289,6 +1327,8 @@ core:common → (nothing)
 | Host control | `HostGameSocketRepository` | `feature:game-host` | `feature:game-host` |
 | Persist cookies | `CookieStore` | `core:common` | `core:database` |
 
+> ℹ️ **UseCase cross-cutting**: `CheckAuthStateUseCase` (kiểm tra AuthState app-wide: FIRST_LAUNCH/GUEST_MODE/AUTHENTICATED) sống ở `core:datastore/usecase`. Không phải Repository nhưng theo cùng nguyên tắc: dùng bởi ≥2 nơi (Splash + tiềm năng các feature khác) → đưa xuống `core:*` thay vì đặt trong `:app` hoặc 1 feature cụ thể.
+
 ### 9.3. When to Create New Module?
 
 **Create NEW feature module when:**
@@ -1313,6 +1353,8 @@ Khi review code, kiểm tra các điểm sau:
 - [ ] ViewModels gọi UseCases, KHÔNG gọi Repository trực tiếp
 - [ ] Repository implementations ở đúng module (network/database/feature)
 - [ ] Interface ở `core:common` nếu dùng bởi ≥2 features
+- [ ] `:app` KHÔNG chứa use case cross-cutting mà nên đưa xuống `core:*`
+- [ ] Package Kotlin của mỗi file trong `feature:<tên>` khớp namespace `android.kma.myquizzapp.feature.<tên>.*`
 
 ### ✅ Clean Code
 - [ ] Composables tách Stateful/Stateless
@@ -1354,6 +1396,7 @@ MyQuizApp được xây dựng với **13 modules** theo **Clean Architecture + 
 3. **Dependency Inversion**: `CookieStore` interface ở `core:common`, impl ở `core:database`
 4. **Role-aware Design**: Host và Player có repositories riêng vì payload Socket.IO khác nhau
 5. **Server-authoritative**: Client chỉ render + send intent, mọi logic game ở server
+6. **Cross-cutting use case ở core, không ở app**: `CheckAuthStateUseCase` sống ở `core:datastore` để mọi feature (không chỉ Splash) đều có thể dùng, tránh `:app` phụ thuộc domain của 1 feature
 
 ### Files to Read Next
 
@@ -1362,11 +1405,10 @@ MyQuizApp được xây dựng với **13 modules** theo **Clean Architecture + 
 
 ---
 
-**Document Version:** 2.0  
-**Last Updated:** 2026-08-17  
-**Status:** Complete - Ready for Week 3 (Home & Quiz Module) implementation
+**Document Version:** 2.1  
+**Last Updated:** 2026-08-20  
+**Status:** Complete - Đã đồng bộ theo refactor namespace `feature:auth` + decouple `:app` khỏi domain feature (PR #2, #3, #4)
 
 ---
 
 *Tài liệu này là living document - cập nhật khi có thay đổi kiến trúc hoặc thêm modules mới.*
-
