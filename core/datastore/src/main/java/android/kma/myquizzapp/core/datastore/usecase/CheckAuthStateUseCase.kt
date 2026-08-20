@@ -3,14 +3,12 @@ package android.kma.myquizzapp.core.datastore.usecase
 import android.kma.myquizzapp.core.common.model.AuthState
 import android.kma.myquizzapp.core.common.repository.AuthRepository
 import android.kma.myquizzapp.core.datastore.SettingsDataStore
-import kotlinx.coroutines.flow.first
 import javax.inject.Inject
 
 /**
  * Determines the current authentication state by checking:
  * 1. If user has a valid authenticated session (cookies + backend verification)
- * 2. If guest mode was previously enabled (stored in DataStore)
- * 3. Otherwise, first launch
+ * 2. Otherwise, guest - covers both first launch and previously-chosen guest mode
  *
  * Lives in `core:datastore` (not `app` or `feature:auth`) because it is a
  * cross-cutting concern needed by more than just the splash screen: any
@@ -29,11 +27,11 @@ class CheckAuthStateUseCase @Inject constructor(
         val isAuthenticated = authRepository.isAuthenticated()
         if (isAuthenticated) return AuthState.AUTHENTICATED
 
-        // Check if guest mode was previously enabled
-        val isGuestMode = settingsDataStore.isGuestMode.first()
-        if (isGuestMode) return AuthState.GUEST_MODE
-
-        // First launch - no cookies, no guest mode preference
-        return AuthState.FIRST_LAUNCH
+        // Not authenticated - treat as guest (Option B: Splash always
+        // navigates straight to Home). Persist the guest flag so it is
+        // explicit going forward; no-op if already set. First launch and
+        // previously-chosen guest mode are intentionally treated the same.
+        settingsDataStore.setGuestMode(true)
+        return AuthState.GUEST
     }
 }

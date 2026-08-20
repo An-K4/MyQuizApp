@@ -1,4 +1,4 @@
-﻿package android.kma.myquizzapp.presentation.splash
+package android.kma.myquizzapp.presentation.splash
 
 import android.content.res.Configuration
 import androidx.compose.foundation.Image
@@ -24,9 +24,7 @@ import android.kma.myquizzapp.core.ui.theme.MyQuizAppTheme
 
 @Composable
 fun SplashScreen(
-    onNavigateToAuth: () -> Unit,
-    onNavigateToGuest: () -> Unit,
-    onNavigateToHost: () -> Unit,
+    onNavigateToHome: () -> Unit,
     viewModel: SplashViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -35,9 +33,7 @@ fun SplashScreen(
     // ngay trong thân composable (composition có thể chạy/hủy nhiều lần).
     LaunchedEffect(uiState) {
         when (uiState) {
-            SplashViewModel.UiState.ShowAuth -> onNavigateToAuth()
-            SplashViewModel.UiState.ShowGuest -> onNavigateToGuest()
-            SplashViewModel.UiState.ShowHost -> onNavigateToHost()
+            SplashViewModel.UiState.Ready -> onNavigateToHome()
             SplashViewModel.UiState.Loading -> Unit
         }
     }

@@ -16,10 +16,8 @@ class SplashViewModel @Inject constructor(
 ) : ViewModel() {
 
     enum class UiState {
-        Loading,      // Đang check auth state
-        ShowAuth,     // First launch → navigate to AuthGraph (Login/Register)
-        ShowGuest,    // Guest mode → navigate to PlayerGraph/HomeGraph
-        ShowHost      // Authenticated → navigate to HostGraph
+        Loading,  // Đang check auth state
+        Ready     // Check xong → navigate thẳng vào Home (Option B: Browse-First)
     }
 
     private val _uiState = MutableStateFlow(UiState.Loading)
@@ -27,11 +25,19 @@ class SplashViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            _uiState.value = when (checkAuthState()) {
-                AuthState.FIRST_LAUNCH -> UiState.ShowAuth
-                AuthState.GUEST_MODE -> UiState.ShowGuest
-                AuthState.AUTHENTICATED -> UiState.ShowHost
+            val authState = checkAuthState()
+
+            // TODO(N12+): refresh-token / verify-session chưa được implement.
+            // Khi có, nếu authState == AuthState.AUTHENTICATED thì gọi ở đây
+            // (chạy nền, không chặn điều hướng) để giữ phiên đăng nhập.
+            if (authState == AuthState.AUTHENTICATED) {
+                // no-op for now - refresh token use case not implemented yet
             }
+
+            // Option B (Browse-First): luôn vào Home dù là guest hay đã
+            // authenticated. authState chỉ dùng để các feature khác quyết
+            // định có yêu cầu đăng nhập hay không - không rẽ nhánh ở Splash.
+            _uiState.value = UiState.Ready
         }
     }
 }

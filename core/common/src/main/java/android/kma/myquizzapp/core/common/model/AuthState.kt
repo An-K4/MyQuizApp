@@ -2,24 +2,21 @@ package android.kma.myquizzapp.core.common.model
 
 /**
  * Represents the authentication state of the user.
- * Used by SplashViewModel to determine initial navigation destination.
+ *
+ * Option B (Browse-First): Splash always navigates straight to Home
+ * regardless of this state. This state is used later by individual
+ * features to decide whether to prompt login when a guest tries to use an
+ * account-gated feature (e.g. Create Quiz, Create Room).
  */
 enum class AuthState {
     /**
-     * First app launch - user has never chosen login or guest mode.
-     * Navigation: AuthGraph (show Login screen)
+     * No valid authenticated session. Covers both "first launch" and
+     * "previously chose guest mode" - they are treated identically.
      */
-    FIRST_LAUNCH,
-
-    /**
-     * Guest mode enabled - user chose to use app without authentication.
-     * Navigation: PlayerGraph/HomeGraph (guest features)
-     */
-    GUEST_MODE,
+    GUEST,
 
     /**
      * Authenticated - user has valid login session (verified with backend).
-     * Navigation: HostGraph (full features)
      */
     AUTHENTICATED
 }

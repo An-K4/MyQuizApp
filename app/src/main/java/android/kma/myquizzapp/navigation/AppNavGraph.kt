@@ -34,17 +34,7 @@ fun AppNavGraph(
         // ===== SPLASH SCREEN =====
         composable<Route.Splash> {
             SplashScreen(
-                onNavigateToAuth = {
-                    navController.navigate(Route.AuthGraph) {
-                        popUpTo<Route.Splash> { inclusive = true }
-                    }
-                },
-                onNavigateToGuest = {
-                    navController.navigate(Route.MainGraph) {
-                        popUpTo<Route.Splash> { inclusive = true }
-                    }
-                },
-                onNavigateToHost = {
+                onNavigateToHome = {
                     navController.navigate(Route.MainGraph) {
                         popUpTo<Route.Splash> { inclusive = true }
                     }
