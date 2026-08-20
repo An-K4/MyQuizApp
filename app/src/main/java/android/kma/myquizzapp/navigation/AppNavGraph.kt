@@ -1,4 +1,4 @@
-﻿package android.kma.myquizzapp.navigation
+package android.kma.myquizzapp.navigation
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -7,11 +7,11 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.navigation
 import androidx.navigation.compose.rememberNavController
-import android.kma.myquizzapp.auth.presentation.forgot.ForgotPasswordScreen
-import android.kma.myquizzapp.auth.presentation.login.LoginScreen
-import android.kma.myquizzapp.auth.presentation.otp.OtpVerificationScreen
-import android.kma.myquizzapp.auth.presentation.register.RegisterScreen
-import android.kma.myquizzapp.auth.presentation.reset.ResetPasswordScreen
+import android.kma.myquizzapp.feature.auth.presentation.forgot.ForgotPasswordScreen
+import android.kma.myquizzapp.feature.auth.presentation.login.LoginScreen
+import android.kma.myquizzapp.feature.auth.presentation.otp.OtpVerificationScreen
+import android.kma.myquizzapp.feature.auth.presentation.register.RegisterScreen
+import android.kma.myquizzapp.feature.auth.presentation.reset.ResetPasswordScreen
 import android.kma.myquizzapp.presentation.splash.SplashScreen
 import android.kma.myquizzapp.feature.home.presentation.HomeScreen
 import android.kma.myquizzapp.feature.home.presentation.search.SearchScreen
