@@ -1,4 +1,4 @@
-package android.kma.myquizzapp.auth.presentation.otp
+package android.kma.myquizzapp.feature.auth.presentation.otp
 
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*

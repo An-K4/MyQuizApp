@@ -1,11 +1,11 @@
-package android.kma.myquizzapp.auth.presentation.reset
+package android.kma.myquizzapp.feature.auth.presentation.reset
 
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import android.kma.myquizzapp.auth.domain.usecase.ResetPasswordUseCase
-import android.kma.myquizzapp.auth.domain.usecase.ResetPasswordWithOtpUseCase
-import android.kma.myquizzapp.auth.presentation.validation.AuthValidator
+import android.kma.myquizzapp.feature.auth.domain.usecase.ResetPasswordUseCase
+import android.kma.myquizzapp.feature.auth.domain.usecase.ResetPasswordWithOtpUseCase
+import android.kma.myquizzapp.feature.auth.presentation.validation.AuthValidator
 import android.kma.myquizzapp.core.common.error.toUserMessage
 import android.kma.myquizzapp.core.common.result.Result
 import dagger.hilt.android.lifecycle.HiltViewModel

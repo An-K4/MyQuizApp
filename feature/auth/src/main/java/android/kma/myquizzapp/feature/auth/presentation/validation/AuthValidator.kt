@@ -1,4 +1,4 @@
-﻿package android.kma.myquizzapp.auth.presentation.validation
+package android.kma.myquizzapp.feature.auth.presentation.validation
 
 object AuthValidator {
     // Dùng kotlin.Regex thay android.util.Patterns để object này chạy được trong
@@ -8,7 +8,7 @@ object AuthValidator {
     private val PHONE = Regex("^\\+?[0-9]{7,15}$") // copy y nguyên từ auth.schema.ts
 
     fun emailError(email: String): String? = when {
-        email.isBlank() -> "Email không được để trống"
+        email.isBlank() -> "Email không được để trởng"
         !EMAIL.matches(email.trim()) -> "Email không hợp lệ"
         else -> null
     }
@@ -16,17 +16,17 @@ object AuthValidator {
     /** LOGIN: backend chỉ yêu cầu min(1) — đừng chặn user bằng rule min(8) ở màn login,
      *  vì tài khoản cũ có thể không theo rule mới. */
     fun loginPasswordError(password: String): String? =
-        if (password.isEmpty()) "Mật khẩu không được để trống" else null
+        if (password.isEmpty()) "Mật khẩu không được để trởng" else null
 
     /** REGISTER: password min(8) — khớp registerSchema. */
     fun registerPasswordError(password: String): String? = when {
-        password.isEmpty() -> "Mật khẩu không được để trống"
+        password.isEmpty() -> "Mật khẩu không được để trởng"
         password.length < 8 -> "Mật khẩu tối thiểu 8 ký tự"
         else -> null
     }
 
     fun fullnameError(name: String): String? = when {
-        name.isBlank() -> "Họ tên không được để trống"
+        name.isBlank() -> "Họ tên không được để trởng"
         name.trim().length < 2 -> "Họ tên tối thiểu 2 ký tự"
         name.length > 100 -> "Họ tên tối đa 100 ký tự"
         else -> null
@@ -34,7 +34,7 @@ object AuthValidator {
 
     fun phoneError(phone: String): String? = when {
         phone.isBlank() -> null // optional
-        !PHONE.matches(phone) -> "Số điện thoại phải gồm 7–15 chữ số"
+        !PHONE.matches(phone) -> "Số điện thoại phải gồm 7–15 chứ số"
         else -> null
     }
 }

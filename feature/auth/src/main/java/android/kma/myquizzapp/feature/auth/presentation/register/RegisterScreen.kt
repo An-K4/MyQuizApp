@@ -1,4 +1,4 @@
-﻿package android.kma.myquizzapp.auth.presentation.register
+package android.kma.myquizzapp.feature.auth.presentation.register
 
 import android.content.res.Configuration
 import androidx.compose.foundation.clickable

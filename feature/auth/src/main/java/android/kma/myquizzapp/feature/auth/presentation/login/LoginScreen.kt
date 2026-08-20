@@ -1,4 +1,4 @@
-﻿package android.kma.myquizzapp.auth.presentation.login
+package android.kma.myquizzapp.feature.auth.presentation.login
 
 import android.content.res.Configuration
 import androidx.compose.foundation.Image

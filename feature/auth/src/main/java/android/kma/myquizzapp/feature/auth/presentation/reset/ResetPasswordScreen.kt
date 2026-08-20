@@ -1,4 +1,4 @@
-package android.kma.myquizzapp.auth.presentation.reset
+package android.kma.myquizzapp.feature.auth.presentation.reset
 
 import android.content.res.Configuration
 import androidx.compose.foundation.layout.*

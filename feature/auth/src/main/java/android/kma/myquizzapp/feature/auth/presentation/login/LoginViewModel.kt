@@ -1,11 +1,11 @@
-﻿package android.kma.myquizzapp.auth.presentation.login
+package android.kma.myquizzapp.feature.auth.presentation.login
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import android.kma.myquizzapp.auth.domain.usecase.EnableGuestModeUseCase
-import android.kma.myquizzapp.auth.domain.usecase.LoginUseCase
-import android.kma.myquizzapp.auth.domain.usecase.LoginWithGoogleUseCase
-import android.kma.myquizzapp.auth.presentation.validation.AuthValidator
+import android.kma.myquizzapp.feature.auth.domain.usecase.EnableGuestModeUseCase
+import android.kma.myquizzapp.feature.auth.domain.usecase.LoginUseCase
+import android.kma.myquizzapp.feature.auth.domain.usecase.LoginWithGoogleUseCase
+import android.kma.myquizzapp.feature.auth.presentation.validation.AuthValidator
 import android.kma.myquizzapp.core.common.error.toUserMessage
 import android.kma.myquizzapp.core.common.result.Result
 import dagger.hilt.android.lifecycle.HiltViewModel

@@ -1,4 +1,4 @@
-package android.kma.myquizzapp.auth.domain.usecase
+package android.kma.myquizzapp.feature.auth.domain.usecase
 
 import android.kma.myquizzapp.core.datastore.SettingsDataStore
 import javax.inject.Inject

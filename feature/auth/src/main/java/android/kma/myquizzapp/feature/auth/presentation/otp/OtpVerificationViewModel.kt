@@ -1,9 +1,9 @@
-package android.kma.myquizzapp.auth.presentation.otp
+package android.kma.myquizzapp.feature.auth.presentation.otp
 
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import android.kma.myquizzapp.auth.domain.usecase.ForgotPasswordUseCase
+import android.kma.myquizzapp.feature.auth.domain.usecase.ForgotPasswordUseCase
 import android.kma.myquizzapp.core.common.error.toUserMessage
 import android.kma.myquizzapp.core.common.result.Result
 import dagger.hilt.android.lifecycle.HiltViewModel
