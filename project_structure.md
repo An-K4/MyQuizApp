@@ -200,6 +200,7 @@ Quản lý persistent storage với Room database. Lưu trữ cookies (cho auth)
 - ✅ Define `@Entity` classes (CookieEntity, CachedQuizEntity, GameHistoryEntity)
 - ✅ Define `@Dao` interfaces với suspend functions
 - ✅ **Implement** `CookieStore` interface (từ `core:common`) qua `RoomCookieStore`
+- ✅ **Implement** `QuizCacheStore` interface (từ `core:common`) qua `RoomQuizCacheStore` — cache-aside fallback cho quiz detail khi mất mạng (N12, 21/8)
 - ✅ Provide database instance qua Hilt
 - ❌ **KHÔNG** expose entity classes ra ngoài module - chỉ expose DAOs
 
@@ -218,8 +219,10 @@ core/database/
 │   │   └── GameHistoryEntity.kt          # @Entity: game_history table
 │   ├── cookie/
 │   │   └── RoomCookieStore.kt            # 🟩 implements CookieStore interface
+│   ├── cache/
+│   │   └── RoomQuizCacheStore.kt         # 🟩 implements QuizCacheStore interface (N12, 21/8)
 │   └── di/
-│       └── DatabaseBindingModule.kt      # @Binds RoomCookieStore → CookieStore
+│       └── DatabaseBindingModule.kt      # @Binds RoomCookieStore → CookieStore, RoomQuizCacheStore → QuizCacheStore
 └── build.gradle.kts
 ```
 
@@ -411,6 +414,8 @@ core/common/
 │   ├── cookie/
 │   │   ├── CookieStore.kt                # 🟦 interface - implemented by core:database
 │   │   └── StoredCookie.kt               # data class thuần
+│   ├── cache/
+│   │   └── QuizCacheStore.kt             # 🟦 interface - implemented by core:database (RoomQuizCacheStore, N12 21/8)
 │   ├── model/                            # Domain models thuần Kotlin
 │   │   ├── User.kt
 │   │   ├── Quiz.kt
@@ -467,6 +472,7 @@ dependencies {
 
 📦 **Quy tắc bảng Repository** (xem design doc mục 2.4):
 - `CookieStore`: interface ở `core:common`, impl ở `core:database`
+- `QuizCacheStore`: interface ở `core:common`, impl ở `core:database` (`RoomQuizCacheStore`, N12 21/8) — cùng pattern DIP với `CookieStore`; sửa từ vi phạm ban đầu (`core:network` từng import trực tiếp `core:database` để cache quiz detail)
 - `AuthRepository`, `QuizRepository`, `GameSessionRepository`: interface ở `core:common`, impl ở `core:network`
 - `PlayerGameSocketRepository`, `HostGameSocketRepository`: interface + impl đều ở trong feature module riêng
 
@@ -509,19 +515,34 @@ feature/auth/
 │   ├── presentation/
 │   │   ├── login/
 │   │   │   ├── LoginScreen.kt
-│   │   │   └── LoginViewModel.kt         # MVI: LoginIntent → LoginState
+│   │   │   ├── LoginViewModel.kt
+│   │   │   ├── LoginUiState.kt
+│   │   │   ├── LoginIntent.kt
+│   │   │   └── LoginEffect.kt            # UiState/Intent/Effect tách file riêng (chốt 22/8, khớp home/search/quiz-manage)
 │   │   ├── register/
 │   │   │   ├── RegisterScreen.kt
-│   │   │   └── RegisterViewModel.kt
+│   │   │   ├── RegisterViewModel.kt
+│   │   │   ├── RegisterUiState.kt
+│   │   │   ├── RegisterIntent.kt
+│   │   │   └── RegisterEffect.kt
 │   │   ├── forgot/
 │   │   │   ├── ForgotPasswordScreen.kt
-│   │   │   └── ForgotPasswordViewModel.kt
+│   │   │   ├── ForgotPasswordViewModel.kt
+│   │   │   ├── ForgotPasswordUiState.kt
+│   │   │   ├── ForgotPasswordIntent.kt
+│   │   │   └── ForgotPasswordEffect.kt
 │   │   ├── otp/
 │   │   │   ├── OtpVerificationScreen.kt
-│   │   │   └── OtpVerificationViewModel.kt
+│   │   │   ├── OtpVerificationViewModel.kt
+│   │   │   ├── OtpVerificationUiState.kt
+│   │   │   ├── OtpVerificationIntent.kt
+│   │   │   └── OtpVerificationEffect.kt
 │   │   ├── reset/
 │   │   │   ├── ResetPasswordScreen.kt
-│   │   │   └── ResetPasswordViewModel.kt
+│   │   │   ├── ResetPasswordViewModel.kt
+│   │   │   ├── ResetPasswordUiState.kt
+│   │   │   ├── ResetPasswordIntent.kt
+│   │   │   └── ResetPasswordEffect.kt
 │   │   └── validation/
 │   │       └── AuthValidator.kt          # object thuần Kotlin, dùng kotlin.Regex (chạy được trong local unit test)
 │   └── domain/
@@ -552,6 +573,8 @@ dependencies {
 
 ✅ **Validation dùng chung**: `AuthValidator` được cả 5 ViewModel (Login/Register/Forgot/Otp/Reset) dùng chung - tránh lặp lại logic validate ở mỗi form. Password rule khác nhau giữa Login (chỉ check không rỗng, tương thích tài khoản cũ) và Register (tối thiểu 8 ký tự, khớp `registerSchema` backend).
 
+📐 **Quy ước UiState/Intent/Effect (chốt 22/8)**: Cả 5 ViewModel auth ban đầu định nghĩa `UiState`/`Intent`/`Effect` **nested trong file ViewModel** — lệch với `feature:home`, `feature:home/search`, `feature:quiz-manage` (đã dùng file top-level riêng từ đầu). Sau khi phát hiện, đã refactor `feature:auth` sang tách file riêng cho đồng bộ. **Chuẩn dùng cho mọi feature mới**: `<Feature>UiState.kt`, `<Feature>Intent.kt`, `<Feature>Effect.kt` — không nested trong ViewModel.
+
 ---
 
 ### 3.2 `:feature:home` - Quiz Discovery
@@ -562,10 +585,10 @@ dependencies {
 Browse public quizzes, search, view "My Quizzes" (nếu logged in), entry point để tạo game room.
 
 #### Trách nhiệm
-- ✅ HomeScreen với bottom tabs (Discover / My Quizzes)
+- ✅ HomeScreen — tabs Khám phá/Của tôi qua `HomeSection` (N11, 17/8)
+- ✅ SearchScreen **riêng** (Option B, N11) — tách khỏi HomeScreen, auto-focus + infinite scroll
 - ✅ Search quizzes công khai (không cần login - `optionalAuthMiddleware`)
-- ✅ Paging 3 cho danh sách quiz
-- ✅ Quiz detail view với preview questions
+- ⚠️ Quiz detail (preview + entry chơi) đã **chuyển sang `:feature:quiz-manage/presentation/quizdetail`** (N12, 21/8) — xem mục 3.7, không còn ở `feature:home`
 - ✅ Navigate to CreateRoomScreen (trong `:feature:quiz-manage`)
 
 #### Cấu trúc thư mục
@@ -573,19 +596,23 @@ Browse public quizzes, search, view "My Quizzes" (nếu logged in), entry point 
 feature/home/
 ├── src/main/java/.../feature/home/
 │   ├── presentation/
-│   │   ├── HomeScreen.kt                 # Bottom nav: Discover/Library tabs
-│   │   ├── HomeViewModel.kt              # Load quizzes, handle search
-│   │   ├── QuizDetailScreen.kt           # Preview quiz before playing
-│   │   └── components/
-│   │       ├── QuizListItem.kt           # Card hiển thị quiz
-│   │       └── SearchBar.kt
+│   │   ├── HomeScreen.kt                 # TopBar + tabs + sections scroll
+│   │   ├── HomeViewModel.kt
+│   │   ├── HomeUiState.kt
+│   │   ├── HomeIntent.kt
+│   │   └── search/
+│   │       ├── SearchScreen.kt           # Màn search riêng (Option B, 17/8)
+│   │       ├── SearchViewModel.kt
+│   │       ├── SearchUiState.kt
+│   │       └── SearchIntent.kt
 │   └── domain/
 │       └── usecase/
-│           ├── SearchQuizzesUseCase.kt   # inject QuizRepository
-│           ├── GetMyQuizzesUseCase.kt
-│           └── GetQuizDetailUseCase.kt
+│           ├── GetHomeContentUseCase.kt  # inject QuizRepository
+│           └── SearchQuizzesUseCase.kt
 └── build.gradle.kts
 ```
+
+> ℹ️ `QuizCardItem.kt`/`HomeSectionRow.kt` đã move sang `core:ui/components/` (17/8) — dùng lại được cho `quiz-manage`/`leaderboard`.
 
 #### Phụ thuộc
 ```kotlin
@@ -873,6 +900,11 @@ Tạo, chỉnh sửa, xóa quiz (chỉ dành cho Host đã login). Editor hỗ t
 feature/quiz-manage/
 ├── src/main/java/.../feature/quiz_manage/
 │   ├── presentation/
+│   │   ├── quizdetail/                   # 🆕 N12 (21/8) — chuyển từ feature:home
+│   │   │   ├── QuizDetailScreen.kt       # Preview quiz + entry điểm chơi
+│   │   │   ├── QuizDetailViewModel.kt
+│   │   │   ├── QuizDetailUiState.kt
+│   │   │   └── QuizDetailIntent.kt
 │   │   ├── QuizManageScreen.kt           # List của quiz của tôi + FAB create
 │   │   ├── QuizEditorScreen.kt           # Edit quiz metadata + questions
 │   │   ├── CreateRoomScreen.kt           # Tạo game session với config
@@ -885,6 +917,7 @@ feature/quiz-manage/
 │   │       └── ImageUploadField.kt       # S3 presign upload
 │   └── domain/
 │       └── usecase/
+│           ├── GetQuizDetailUseCase.kt   # 🆕 N12 — cache-aside qua QuizCacheStore (fallback khi mất mạng)
 │           ├── CreateQuizUseCase.kt      # inject QuizRepository
 │           ├── UpdateQuizUseCase.kt
 │           ├── DeleteQuizUseCase.kt
@@ -923,6 +956,10 @@ dependencies {
 🎨 **Dynamic Config UI**: CreateRoomScreen đọc `GET /games/game-modes` để render form động - không hardcode 5 modes. Backend có thể thêm mode mới mà app không cần update.
 
 📸 **Image Upload**: Presigned URL cho phép client upload trực tiếp S3 mà không cần proxy qua backend.
+
+🗄️ **Quiz cache = fallback, KHÔNG phải offline-first** (chốt 22/8): `QuizCacheStore` chỉ cache quiz detail đã tải thành công; khi request sau đó cho **cùng quizId** lỗi mạng, repository fallback đọc cache. `feature:home` không cache danh sách → user không chọn được quiz mới lúc offline. Cache chỉ có tác dụng khi mở lại đúng quiz đã cache trước đó (retry, quay lại từ list in-memory, khôi phục sau process-death). Quyết định giữ nguyên scope fallback, không mở rộng thành offline-first đầy đủ.
+
+⚠️ **Kỹ thuật nợ đã biết (chưa fix)**: `searchQuizzes`/`getMyQuizzes` ở `core:network/QuizApiService` + `QuizRepositoryImpl` có cùng loại lỗi wrapper envelope như quiz detail (`{ quizzes: [...] }` chưa unwrap đúng) — cần `QuizListDto(val quizzes: List<QuizCardDto>)` tương tự `QuizDetailDto`. Chưa impl màn dùng tới (list quiz của tôi) nên để làm ở N13–14.
 
 ---
 

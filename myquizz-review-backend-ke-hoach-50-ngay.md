@@ -1,4 +1,4 @@
-> 🎯 **Tóm tắt**: Backend myquizz (Express + TypeScript + Socket.IO + PostgreSQL + Redis) chất lượng khá tốt, đúng chuẩn server-authoritative. Design doc v2 khớp ~90% code thật, có 6 điểm lệch cần vá (mục 4). Kế hoạch 50 ngày / 10 tuần đã hiệu chỉnh theo trình độ thực tế. **Trạng thái: Tuần 1 (N1–N5) hoàn tất 11/8 — Foundation + core:network xong. Bước tiếp theo: Tuần 2 — Auth & Navigation (mục 6.4).**
+> 🎯 **Tóm tắt**: Backend myquizz (Express + TypeScript + Socket.IO + PostgreSQL + Redis) chất lượng khá tốt, đúng chuẩn server-authoritative. Design doc v2 khớp ~90% code thật, có 6 điểm lệch cần vá (mục 4). Kế hoạch 50 ngày / 10 tuần đã hiệu chỉnh theo trình độ thực tế. **Trạng thái: Tuần 3 (N11–N12) hoàn tất 21/8 — Home/Search + Quiz Detail (cache Room) xong; `feature:auth` đã refactor UiState/Intent/Effect tách file riêng (22/8). Bước tiếp theo: N13–14 — `feature:quiz-manage` CRUD quiz.**
 
 File này tự chứa đủ ngữ cảnh để bắt đầu phiên làm việc mới (đã gộp & tinh gọn log các phiên 9–11/8). Chi tiết kỹ thuật (API/socket/DI/tree module): https://app.notion.com/p/ea02b2e9982b4b72b7fa75440028621a
 
@@ -210,7 +210,7 @@ Lưu ý thêm: swagger ghi `/auth/refresh` trả tokens nhưng thực tế chỉ
 ### Tuần 3 (N11–15) — Home & Quiz đọc
 
 - [x] **N11**: `feature:home` — search quiz công khai (paging), tab Khám phá/Của tôi. ✅ **Hoàn thành 17/8**
-- [ ] **N12**: Quiz detail + cache Room.
+- [x] **N12**: Quiz detail + cache Room. ✅ **Hoàn thành 21/8**
 - [ ] **N13–14**: `feature:quiz-manage` — danh sách + tạo quiz; editor 4 loại câu hỏi (`multiple_choice`, `multiple_select`, `short_answer`, `long_answer`).
 - [ ] **N15**: Upload ảnh presign S3 2 bước (`UploadImageUseCase`, PUT trực tiếp, không cookie) + Coil.
 - 📚 kotlinx.serialization (`@Serializable`, `JsonElement` cho `correct_answer` đa kiểu), Paging 3, S3 presign.
@@ -254,6 +254,21 @@ Lưu ý thêm: swagger ghi `/auth/refresh` trả tokens nhưng thực tế chỉ
 - [ ] Auth button UI trong HomeScreen TopBar (TODO comment line 40-42) → discuss implementation sau khi test flow
 
 **🎯 N11 Status: COMPLETE ✅** (17/8 evening) - Tested và chạy ổn, ready cho N12 (Quiz detail + Room cache)
+
+**📝 N12 Implementation Details (21/8):**
+
+- ✅ **Quiz Detail feature**: `QuizDetailScreen` + `QuizDetailViewModel`/`UiState`/`Intent` đặt hẳn ở `feature:quiz-manage/presentation/quizdetail` (không giữ ở `feature:home`) — `GetQuizDetailUseCase` cache-aside: gọi API trước, cache Room khi thành công, fallback đọc cache khi lỗi mạng.
+- ✅ **Sửa vi phạm Clean Architecture (DIP) phát hiện giữa chừng**: bản đầu `core:network` import trực tiếp `core:database` để cache quiz detail — vi phạm bảng dependency (project_structure.md mục 2.3). Đã sửa theo đúng pattern `CookieStore`: thêm interface `QuizCacheStore` ở `core:common`, impl `RoomQuizCacheStore` ở `core:database` (`@Binds` trong `DatabaseBindingModule`), gỡ dependency Gradle `core:network → core:database`.
+- ✅ **Bug tìm thấy qua đối chiếu backend thật**: `GET /v1/quizzes/:id` trả envelope lồng `{ quiz: {...} }` (giống case `CreateGameSession` đã ghi ở mục 3 #5) nhưng Android map thẳng — gây `MissingFieldException` runtime. Fix: thêm `QuizDetailDto(val quiz: QuizDto)` ở `core:network/dto`, unwrap ở `QuizRepositoryImpl.getQuizDetail`.
+- ✅ **Audit edge-to-edge/insets**: rà lại toàn bộ 9 Composable Screen + `MainActivity` — phát hiện `QuizDetailScreen` bottomBar Button thiếu `.navigationBarsPadding()` (bị 3 nút điều hướng che) → đã fix; 8 screen còn lại đã đúng.
+- ⚠️ **Kỹ thuật nợ (chưa làm, note lại)**: `searchQuizzes`/`getMyQuizzes` bị lỗi wrapper tương tự (`data: { quizzes: [...] }` chưa unwrap đúng ở `QuizApiService`/`QuizRepositoryImpl`) — cần `QuizListDto(val quizzes: List<QuizCardDto>)` giống cách đã fix quiz detail. **Chưa impl màn dùng đến (list quiz của tôi) nên để làm sau, không block N12.**
+
+**🧠 Bài học N12 (đối chiếu backend + kiến trúc):**
+
+- Backend hay bọc response trong 1 field lồng theo tên resource (`{ quiz: ... }`, `{ session: ... }` — xem mục 3 #5) dù đã có envelope `{success, data, error}` chung — **luôn đọc `*.controller.ts`/`*.type.ts` thật trước khi viết DTO**, đừng suy đoán từ Swagger hoặc naming REST thông thường.
+- **Quy ước UiState/Intent/Effect tách file riêng** (`<Feature>UiState.kt`, `<Feature>Intent.kt`, `<Feature>Effect.kt`) được chốt làm chuẩn chung sau khi phát hiện `feature:auth` (5 ViewModel Login/Register/Forgot/Otp/Reset) đi lệch pattern so với `feature:home`/`feature:home/search`/`feature:quiz-manage` (định nghĩa nested trong ViewModel) — đã refactor lại `feature:auth` cho đồng bộ (22/8). **Mọi feature mới đặt UiState/Intent/Effect ở file riêng, không nested trong ViewModel.**
+- **Quiz cache (Room) là cơ chế fallback, không phải tính năng offline**: chỉ hữu ích khi mở lại **đúng quiz đã cache trước đó** mà request mạng thất bại (Home/Search không cache danh sách nên không thể chọn quiz mới lúc offline). Quyết định giữ nguyên scope fallback này (22/8), không mở rộng.
+- `NetworkModule` (`core:network`) chỉ *nhận* `CookieStore`/`QuizCacheStore` qua constructor injection, không tự `@Provides` — Hilt gộp graph đúng ở `:app` dù 2 module Gradle không biết nhau (xem project_structure.md mục 12.1 design doc).
 
 ### Tuần 4 (N16–20) — Socket layer & Lobby
 
