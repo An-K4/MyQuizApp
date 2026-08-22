@@ -13,9 +13,12 @@ import android.kma.myquizzapp.feature.auth.presentation.otp.OtpVerificationScree
 import android.kma.myquizzapp.feature.auth.presentation.register.RegisterScreen
 import android.kma.myquizzapp.feature.auth.presentation.reset.ResetPasswordScreen
 import android.kma.myquizzapp.presentation.splash.SplashScreen
+import android.kma.myquizzapp.presentation.profile.ProfileScreen
 import android.kma.myquizzapp.feature.home.presentation.HomeScreen
 import android.kma.myquizzapp.feature.home.presentation.search.SearchScreen
+import android.kma.myquizzapp.feature.quiz_manage.presentation.createquiz.CreateQuizScreen
 import android.kma.myquizzapp.feature.quiz_manage.presentation.quizdetail.QuizDetailScreen
+import android.kma.myquizzapp.feature.quiz_manage.presentation.quizmanagelist.QuizManageListScreen
 import androidx.navigation.toRoute
 
 @Composable
@@ -124,6 +127,20 @@ fun AppNavGraph(
                     },
                     onNavigateToQuizDetail = { quizId ->
                         navController.navigate(Route.QuizDetail(quizId))
+                    },
+                    onNavigateToProfile = {
+                        navController.navigate(Route.Profile)
+                    }
+                )
+            }
+            
+            composable<Route.MyQuizzes> {
+                // N13-14: danh sách "Quiz của tôi" — yêu cầu đăng nhập (cookie auth ở QuizApiService.getMyQuizzes).
+                QuizManageListScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToCreateQuiz = { navController.navigate(Route.CreateQuiz) },
+                    onNavigateToQuizDetail = { quizId ->
+                        navController.navigate(Route.QuizDetail(quizId))
                     }
                 )
             }
@@ -157,15 +174,24 @@ fun AppNavGraph(
             }
             
             composable<Route.Profile> {
-                // TODO: RequireAuth { ProfileScreen() }
-                // Placeholder
-                androidx.compose.material3.Text("Profile - Requires Auth")
+                // N13.5: màn Profile — chứa "Quiz của tôi" (trước đây là tab ở Home) và Đăng xuất.
+                ProfileScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToMyQuizzes = { navController.navigate(Route.MyQuizzes) },
+                    onLoggedOut = { navController.popBackStack() }
+                )
             }
             
             composable<Route.CreateQuiz> {
-                // TODO: RequireAuth { CreateQuizScreen() }
-                // Placeholder
-                androidx.compose.material3.Text("Create Quiz - Requires Auth")
+                CreateQuizScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    onQuizCreated = { quizId ->
+                        // Thay CreateQuiz bằng QuizDetail trong back stack — quay lại sẽ về MyQuizzes.
+                        navController.navigate(Route.QuizDetail(quizId)) {
+                            popUpTo<Route.CreateQuiz> { inclusive = true }
+                        }
+                    }
+                )
             }
             
             composable<Route.EditQuiz> {

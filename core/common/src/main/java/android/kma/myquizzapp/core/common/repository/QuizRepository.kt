@@ -1,9 +1,11 @@
 package android.kma.myquizzapp.core.common.repository
 
-import android.kma.myquizzapp.core.common.error.AppError
 import android.kma.myquizzapp.core.common.model.HomeSection
+import android.kma.myquizzapp.core.common.model.MyQuizzesParams
+import android.kma.myquizzapp.core.common.model.NewQuiz
 import android.kma.myquizzapp.core.common.model.Quiz
 import android.kma.myquizzapp.core.common.model.QuizCard
+import android.kma.myquizzapp.core.common.model.QuizSummary
 import android.kma.myquizzapp.core.common.result.Result
 
 /**
@@ -35,12 +37,15 @@ interface QuizRepository {
     suspend fun searchQuizzes(keyword: String): Result<List<QuizCard>>
     
     /**
-     * Lấy danh sách quiz của user hiện tại.
-     * 
-     * Endpoint: GET /v1/quizzes/me (authRequired)
-     * Version 1: Simple list, không có pagination
+     * Lấy 1 trang danh sách quiz của user hiện tại (N13-14).
+     *
+     * Endpoint: GET /v1/quizzes/me (authRequired), cursor-paginated.
+     * QuizSummary là superset của QuizCard (thêm is_public/updated_at — cần thiết
+     * để hiển thị badge công khai/riêng tư và thời gian sửa cuối trên danh sách này).
+     * Cursor cho trang kế tiếp trả về qua Result.Success.page (PageInfo), không phải
+     * trong data — dùng cho MyQuizzesPagingSource (feature:quiz-manage, Paging 3).
      */
-    suspend fun getMyQuizzes(): Result<List<QuizCard>>
+    suspend fun getMyQuizzes(params: MyQuizzesParams): Result<List<QuizSummary>>
     
     /**
      * Lấy full quiz detail với questions array.
@@ -49,8 +54,14 @@ interface QuizRepository {
      */
     suspend fun getQuizDetail(quizId: Long): Result<Quiz>
     
-    // TODO: Phase 3 (N13-14) - CRUD methods
-    // suspend fun createQuiz(request: CreateQuizRequest): Result<Quiz, AppError>
-    // suspend fun updateQuiz(quizId: Long, request: UpdateQuizRequest): Result<Quiz, AppError>
-    // suspend fun deleteQuiz(quizId: Long): Result<Unit, AppError>
+    /**
+     * Tạo quiz mới cùng toàn bộ câu hỏi trong 1 lần gọi (N13-14).
+     *
+     * Endpoint: POST /v1/quizzes (authRequired). Quiz cần ít nhất 1 câu hỏi —
+     * backend từ chối với QUIZ_NO_QUESTIONS nếu không (quiz.service.ts).
+     */
+    suspend fun createQuiz(newQuiz: NewQuiz): Result<Quiz>
+    
+    // TODO: N16 - suspend fun updateQuiz(quizId: Long, ...): Result<Quiz>
+    // TODO: N16 - suspend fun deleteQuiz(quizId: Long): Result<Unit>
 }

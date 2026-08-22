@@ -55,7 +55,7 @@ dependencies {
     implementation(project(":feature:leaderboard"))
     implementation(project(":feature:quiz-manage"))
 
-    // 2. CHỈ GIữ LẠI THƯ VIỆN CẦN THIẾT CHO MAINACTIVITY & NAVIGATION
+    // 2. CHỈ GIỮ LẠI THƯ VIỆN CẦN THIẾT CHO MAINACTIVITY & NAVIGATION
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity)
     implementation(libs.androidx.navigation.compose)
@@ -65,13 +65,11 @@ dependencies {
     implementation(libs.timber)
 
     testImplementation(libs.junit)
-    testImplementation(libs.kotlinx.coroutines.test)
     
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(libs.hilt.android.testing)
     androidTestImplementation(libs.kotlinx.coroutines.test)
-    kspAndroidTest(libs.hilt.compiler)
 
     // Hilt Entry Point
     implementation(libs.hilt.android)

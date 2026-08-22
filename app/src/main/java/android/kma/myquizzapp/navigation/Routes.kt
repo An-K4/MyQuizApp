@@ -29,6 +29,7 @@ sealed interface Route {
     
     // Quiz routes
     @Serializable data class QuizDetail(val quizId: Long) : Route
+    @Serializable data object MyQuizzes : Route
     @Serializable data object CreateQuiz : Route
     @Serializable data class EditQuiz(val quizId: Long) : Route
     

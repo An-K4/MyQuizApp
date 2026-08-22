@@ -1,11 +1,15 @@
 package android.kma.myquizzapp.core.network.api
 
 import android.kma.myquizzapp.core.common.result.Result
+import android.kma.myquizzapp.core.network.dto.CreateQuizRequestDto
 import android.kma.myquizzapp.core.network.dto.HomeContentDto
 import android.kma.myquizzapp.core.network.dto.QuizCardDto
 import android.kma.myquizzapp.core.network.dto.QuizDetailDto
 import android.kma.myquizzapp.core.network.dto.QuizListDto
+import android.kma.myquizzapp.core.network.dto.QuizSummaryListDto
+import retrofit2.http.Body
 import retrofit2.http.GET
+import retrofit2.http.POST
 import retrofit2.http.Path
 import retrofit2.http.Query
 
@@ -43,19 +47,26 @@ interface QuizApiService {
     ): Result<QuizListDto>
     
     /**
-     * GET /v1/quizzes/me
+     * GET /v1/quizzes/me?visibility=...&keyword=...&sort=...&cursor=...&limit=...
      * 
      * Auth required: cookie authentication.
-     * Trả danh sách quiz của user hiện tại.
-     * 
-     * TODO: N13 - add pagination params.
+     * Trả 1 trang danh sách quiz của user hiện tại (cursor pagination) — khớp
+     * myQuizzesQuerySchema (quiz.schema.ts). cursor null = trang đầu.
      * 
      * Backend bọc response trong { quizzes: [...] } (listing.controller.ts →
-     * success(res, { quizzes: page.items })), nên kiểu trả về là QuizListDto
-     * chứ không phải List<QuizCardDto> trực tiếp.
+     * success(res, { quizzes: page.items })). Dùng QuizSummaryDto (không phải
+     * QuizCardDto) vì /quizzes/me trả thêm is_public/updated_at (chỉ owner mới
+     * xem được). Cursor/hasMore của trang này nằm trong meta.pagination, được
+     * ResultCall tự gắn vào Result.Success.page — xem ApiCallResult.kt.
      */
     @GET("quizzes/me")
-    suspend fun getMyQuizzes(): Result<QuizListDto>
+    suspend fun getMyQuizzes(
+        @Query("visibility") visibility: String,
+        @Query("keyword") keyword: String?,
+        @Query("sort") sort: String,
+        @Query("cursor") cursor: String?,
+        @Query("limit") limit: Int
+    ): Result<QuizSummaryListDto>
     
     /**
      * GET /v1/quizzes/id/:quizId
@@ -71,13 +82,19 @@ interface QuizApiService {
         @Path("quizId") quizId: Long
     ): Result<QuizDetailDto>
     
-    // TODO: Phase 3 (N13-14) - CRUD endpoints
-    // @POST("quizzes")
-    // suspend fun createQuiz(@Body request: CreateQuizRequest): Quiz
+    /**
+     * POST /v1/quizzes
+     * 
+     * Auth required. Tạo quiz mới cùng toàn bộ câu hỏi trong 1 request — khớp
+     * createQuizSchema (quiz.schema.ts). Backend insert quiz + questions rồi
+     * đọc lại full quiz (giống GET detail), nên response cũng bọc trong
+     * { quiz: {...} } → dùng lại QuizDetailDto.
+     */
+    @POST("quizzes")
+    suspend fun createQuiz(
+        @Body body: CreateQuizRequestDto
+    ): Result<QuizDetailDto>
     
-    // @PATCH("quizzes/id/{quizId}")
-    // suspend fun updateQuiz(@Path("quizId") quizId: Long, @Body request: UpdateQuizRequest): Quiz
-    
-    // @DELETE("quizzes/id/{quizId}")
-    // suspend fun deleteQuiz(@Path("quizId") quizId: Long)
+    // TODO: N16 - @PATCH("quizzes/id/{quizId}") suspend fun updateQuiz(...)
+    // TODO: N16 - @DELETE("quizzes/id/{quizId}") suspend fun deleteQuiz(...)
 }

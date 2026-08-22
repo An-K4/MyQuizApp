@@ -1,6 +1,7 @@
 ﻿package android.kma.myquizzapp.core.network.result
 
 import android.kma.myquizzapp.core.common.error.AppError
+import android.kma.myquizzapp.core.common.result.PageInfo
 import android.kma.myquizzapp.core.common.result.Result
 import android.kma.myquizzapp.core.network.dto.ApiEnvelope
 import kotlinx.serialization.json.Json
@@ -69,10 +70,16 @@ private class ResultCall<T>(
     private fun Response<ApiEnvelope<T>>.toResult(): Result<T> {
         if (!isSuccessful) return Result.Error(mapHttpError(code(), errorBody()?.string()))
         val envelope = body() ?: return Result.Error(AppError.Unknown(null))
+        // meta.pagination (cursor listing, VD GET /quizzes/me) không nằm trong `data` —
+        // đọc riêng ở đây và gắn vào Result.Success.page để PagingSource dùng được mà
+        // không phải thay đổi shape của data theo từng endpoint.
+        val page = envelope.meta?.pagination?.let {
+            PageInfo(nextCursor = it.nextCursor, hasMore = it.hasMore, total = it.total)
+        }
         return when {
-            envelope.success && envelope.data != null -> Result.Success(envelope.data)
+            envelope.success && envelope.data != null -> Result.Success(envelope.data, page)
             envelope.success ->
-                @Suppress("UNCHECKED_CAST") Result.Success(Unit as T) // VD logout trả data: null → khai báo Result<Unit>
+                @Suppress("UNCHECKED_CAST") Result.Success(Unit as T, page) // VD logout trả data: null → khai báo Result<Unit>
             else -> Result.Error(
                 AppError.Api(envelope.error?.message ?: "Unknown error")
             )

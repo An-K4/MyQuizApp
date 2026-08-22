@@ -25,6 +25,10 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.kotlinx.serialization.json)
 
+    // 2b. Paging 3 (N13-14 - danh sách "Quiz của tôi", cursor pagination)
+    implementation(libs.androidx.paging.runtime)
+    implementation(libs.androidx.paging.compose)
+
     // 3. Coil (Hiển thị preview ảnh khi upload/chỉnh sửa quiz)
     implementation(libs.coil.compose)
 

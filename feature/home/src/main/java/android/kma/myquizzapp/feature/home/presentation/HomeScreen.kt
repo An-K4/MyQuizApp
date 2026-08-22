@@ -1,5 +1,6 @@
 package android.kma.myquizzapp.feature.home.presentation
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -9,17 +10,26 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
+import android.kma.myquizzapp.core.common.model.User
+import android.kma.myquizzapp.core.ui.components.Avatar
 import android.kma.myquizzapp.core.ui.components.HomeSectionRow
 
 /**
  * Home screen - browse quiz sections via scroll.
- * 
+ *
  * Features:
  * - Search icon → navigate to SearchScreen
- * - Tab switching: "Khám phá" (explore) / "Của tôi" (my quizzes)
- * - Vertical scroll of horizontal sections (for "Khám phá" tab)
+ * - Auth-aware component cạnh nút tìm kiếm: chưa đăng nhập → nút
+ *   "Đăng nhập" (điều hướng sang AuthGraph); đã đăng nhập → avatar (async
+ *   image) bấm vào để sang màn Profile.
+ * - Vertical scroll of horizontal sections (nội dung "Khám phá" duy nhất,
+ *   không còn TabRow "Của tôi" — mục đó đã chuyển sang màn Profile vì
+ *   nó là điều hướng sang màn khác, không phải nội dung tab tại chỗ).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -27,11 +37,19 @@ fun HomeScreen(
     onNavigateToSearch: () -> Unit,
     onNavigateToAuth: () -> Unit,
     onNavigateToQuizDetail: (Long) -> Unit,
+    onNavigateToProfile: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    
+
+    // AuthRepository không có Flow phản ứng realtime, nên mọi lần Home resume
+    // (ví dụ quay lại từ màn Đăng nhập hoặc Profile sau khi đăng xuất) cần
+    // kiểm tra lại trạng thái đăng nhập để cập nhật nút đăng nhập/avatar.
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        viewModel.handleIntent(HomeIntent.CheckAuthState)
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -41,9 +59,13 @@ fun HomeScreen(
                     IconButton(onClick = onNavigateToSearch) {
                         Icon(Icons.Default.Search, contentDescription = "Tìm kiếm")
                     }
-                    
-                    // TODO: Auth button (guest) or Avatar (authenticated)
-                    // Will implement after auth state management is ready
+
+                    // Auth-aware component: nút đăng nhập (guest) hoặc avatar (đã đăng nhập)
+                    AuthHeaderAction(
+                        currentUser = uiState.currentUser,
+                        onNavigateToAuth = onNavigateToAuth,
+                        onNavigateToProfile = onNavigateToProfile
+                    )
                 }
             )
         },
@@ -54,37 +76,45 @@ fun HomeScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            // Tab Row: "Khám phá" / "Của tôi"
-            TabRow(selectedTabIndex = uiState.currentTab.ordinal) {
-                Tab(
-                    selected = uiState.currentTab == HomeTab.EXPLORE,
-                    onClick = { viewModel.handleIntent(HomeIntent.TabChanged(HomeTab.EXPLORE)) },
-                    text = { Text("Khám phá") }
-                )
-                Tab(
-                    selected = uiState.currentTab == HomeTab.MY_QUIZZES,
-                    onClick = { viewModel.handleIntent(HomeIntent.TabChanged(HomeTab.MY_QUIZZES)) },
-                    text = { Text("Của tôi") }
-                )
-            }
-            
-            // Content based on selected tab
-            when (uiState.currentTab) {
-                HomeTab.EXPLORE -> ExploreTabContent(
-                    uiState = uiState,
-                    onQuizClick = onNavigateToQuizDetail,
-                    onRetry = { viewModel.handleIntent(HomeIntent.Retry) }
-                )
-                HomeTab.MY_QUIZZES -> MyQuizzesTabContent(
-                    uiState = uiState
-                )
-            }
+            ExploreTabContent(
+                uiState = uiState,
+                onQuizClick = onNavigateToQuizDetail,
+                onRetry = { viewModel.handleIntent(HomeIntent.Retry) }
+            )
         }
     }
 }
 
 /**
- * "Khám phá" tab content - vertical scroll of horizontal sections.
+ * Component cạnh nút tìm kiếm: chưa đăng nhập → nút "Đăng ký/Đăng nhập";
+ * đã đăng nhập → avatar (bấm vào để sang Profile).
+ */
+@Composable
+private fun AuthHeaderAction(
+    currentUser: User?,
+    onNavigateToAuth: () -> Unit,
+    onNavigateToProfile: () -> Unit
+) {
+    if (currentUser == null) {
+        TextButton(onClick = onNavigateToAuth) {
+            Text("Đăng ký/Đăng nhập")
+        }
+    } else {
+        // Avatar dùng component chung của core:ui — Coil là chi tiết nội bộ core:ui,
+        // feature:home không cần tự khai dependency coil.compose.
+        Avatar(
+            avatarUrl = currentUser.avatar,
+            contentDescription = "Hồ sơ của tôi",
+            size = 36.dp,
+            modifier = Modifier
+                .padding(end = 12.dp)
+                .clickable(onClick = onNavigateToProfile)
+        )
+    }
+}
+
+/**
+ * Nội dung "Khám phá" - vertical scroll of horizontal sections.
  */
 @Composable
 private fun ExploreTabContent(
@@ -102,7 +132,7 @@ private fun ExploreTabContent(
                 CircularProgressIndicator()
             }
         }
-        
+
         uiState.homeError != null -> {
             // Error state
             Box(
@@ -129,7 +159,7 @@ private fun ExploreTabContent(
                 }
             }
         }
-        
+
         uiState.homeSections.isEmpty() -> {
             // Empty state
             Box(
@@ -142,7 +172,7 @@ private fun ExploreTabContent(
                 )
             }
         }
-        
+
         else -> {
             // Sections content
             LazyColumn(
@@ -160,36 +190,6 @@ private fun ExploreTabContent(
                     )
                 }
             }
-        }
-    }
-}
-
-/**
- * "Của tôi" tab content - user's created quizzes.
- * 
- * TODO: Implement in N13-14 (quiz-manage feature)
- */
-@Composable
-private fun MyQuizzesTabContent(
-    uiState: HomeUiState
-) {
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Text(
-                text = "Sắp ra mắt",
-                style = MaterialTheme.typography.titleLarge
-            )
-            Text(
-                text = "Quản lý quiz của bạn",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
         }
     }
 }

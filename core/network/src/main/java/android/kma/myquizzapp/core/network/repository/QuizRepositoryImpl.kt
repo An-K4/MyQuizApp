@@ -2,13 +2,17 @@ package android.kma.myquizzapp.core.network.repository
 
 import android.kma.myquizzapp.core.common.cache.QuizCacheStore
 import android.kma.myquizzapp.core.common.model.HomeSection
+import android.kma.myquizzapp.core.common.model.MyQuizzesParams
+import android.kma.myquizzapp.core.common.model.NewQuiz
 import android.kma.myquizzapp.core.common.model.Quiz
 import android.kma.myquizzapp.core.common.model.QuizCard
+import android.kma.myquizzapp.core.common.model.QuizSummary
 import android.kma.myquizzapp.core.common.repository.QuizRepository
 import android.kma.myquizzapp.core.common.result.Result
 import android.kma.myquizzapp.core.common.result.map
 import android.kma.myquizzapp.core.network.api.QuizApiService
 import android.kma.myquizzapp.core.network.dto.toDomain
+import android.kma.myquizzapp.core.network.dto.toRequestDto
 import timber.log.Timber
 import javax.inject.Inject
 
@@ -38,11 +42,22 @@ class QuizRepositoryImpl @Inject constructor(
             dto.quizzes.map { it.toDomain() }
         }
     
-    override suspend fun getMyQuizzes(): Result<List<QuizCard>> =
-        // Backend bọc response trong { quizzes: [...] } → unwrap QuizListDto.quizzes.
-        quizApi.getMyQuizzes().map { dto -> 
+    override suspend fun getMyQuizzes(params: MyQuizzesParams): Result<List<QuizSummary>> =
+        // Backend bọc response trong { quizzes: [...] } → unwrap QuizSummaryListDto.quizzes.
+        // page cursor (meta.pagination) được .map giữ lại nguyên vẹn qua Result.page.
+        quizApi.getMyQuizzes(
+            visibility = params.visibility.apiValue,
+            keyword = params.keyword?.takeIf { it.isNotBlank() },
+            sort = params.sort.apiValue,
+            cursor = params.cursor,
+            limit = params.limit
+        ).map { dto ->
             dto.quizzes.map { it.toDomain() }
         }
+    
+    override suspend fun createQuiz(newQuiz: NewQuiz): Result<Quiz> =
+        // Backend bọc response trong { quiz: {...} } → unwrap QuizDetailDto.quiz.
+        quizApi.createQuiz(newQuiz.toRequestDto()).map { it.quiz }
     
     override suspend fun getQuizDetail(quizId: Long): Result<Quiz> {
         // Backend bọc response trong { quiz: {...} } → unwrap QuizDetailDto.quiz thành domain model.

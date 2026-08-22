@@ -1,10 +1,11 @@
 package android.kma.myquizzapp.feature.home.presentation
 
 import android.kma.myquizzapp.core.common.error.toUserMessage
+import android.kma.myquizzapp.core.common.result.Result
+import android.kma.myquizzapp.feature.auth.domain.usecase.GetCurrentUserUseCase
+import android.kma.myquizzapp.feature.home.domain.usecase.GetHomeContentUseCase
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import android.kma.myquizzapp.core.common.result.Result
-import android.kma.myquizzapp.feature.home.domain.usecase.GetHomeContentUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -15,16 +16,26 @@ import javax.inject.Inject
 
 /**
  * ViewModel for Home screen (MVI pattern).
- * 
- * Manages:
- * - Home content (sections of quiz cards) for browsing via scroll
- * - Tab switching between "Khám phá" and "Của tôi"
- * 
+ *
+ * Manages home content (sections of quiz cards) for browsing via scroll, và
+ * trạng thái đăng nhập hiện tại (currentUser) để quyết định hiện nút
+ * đăng nhập hay avatar cạnh nút tìm kiếm.
+ *
+ * "Của tôi" (N13-14) không còn liên quan tới Home — mục đó giờ nằm
+ * trong màn Profile (app-level), điều hướng thẳng sang Route.MyQuizzes.
+ *
+ * Lưu ý: AuthRepository chỉ có các suspend fun một lần (getCurrentUser,
+ * isAuthenticated), không có Flow<User?> phản ứng theo thời gian thực. Vì
+ * vậy checkAuthState() cần được gọi lại mệi khi Home resume (xem
+ * LifecycleResumeEffect trong HomeScreen) để cập nhật sau khi người dùng
+ * đăng nhập/đăng xuất ở màn khác rỚi quay lại.
+ *
  * Search functionality is in a separate SearchViewModel/SearchScreen.
  */
 @HiltViewModel
 class HomeViewModel @Inject constructor(
-    private val getHomeContentUseCase: GetHomeContentUseCase
+    private val getHomeContentUseCase: GetHomeContentUseCase,
+    private val getCurrentUserUseCase: GetCurrentUserUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
@@ -33,6 +44,7 @@ class HomeViewModel @Inject constructor(
     init {
         // Load home content on init
         loadHomeContent()
+        checkAuthState()
     }
 
     /**
@@ -43,8 +55,8 @@ class HomeViewModel @Inject constructor(
             is HomeIntent.LoadHome -> loadHomeContent()
             is HomeIntent.NavigateToSearch -> navigateToSearch()
             is HomeIntent.QuizCardClicked -> navigateToQuizDetail(intent.quizId)
-            is HomeIntent.TabChanged -> switchTab(intent.tab)
             is HomeIntent.Retry -> retry()
+            is HomeIntent.CheckAuthState -> checkAuthState()
         }
     }
 
@@ -78,14 +90,16 @@ class HomeViewModel @Inject constructor(
     }
 
     /**
-     * Switch between "Khám phá" and "Của tôi" tabs.
+     * Kiểm tra trạng thái đăng nhập hiện tại. Lỗi (chưa đăng nhập / cookie
+     * không hợp lệ) được xử lý y hệt guest — currentUser = null, không hiện
+     * lỗi cho người dùng vì đây là trạng thái bình thường của guest.
      */
-    private fun switchTab(tab: HomeTab) {
-        _uiState.update { it.copy(currentTab = tab) }
-        
-        // TODO: Load "Của tôi" data when switching to MY_QUIZZES tab (N13-14)
-        if (tab == HomeTab.MY_QUIZZES) {
-            // Will implement getMyQuizzes() in N13-14 (quiz-manage feature)
+    private fun checkAuthState() {
+        viewModelScope.launch {
+            when (val result = getCurrentUserUseCase()) {
+                is Result.Success -> _uiState.update { it.copy(currentUser = result.data) }
+                is Result.Error -> _uiState.update { it.copy(currentUser = null) }
+            }
         }
     }
 
@@ -109,11 +123,8 @@ class HomeViewModel @Inject constructor(
      * Retry failed operation.
      */
     private fun retry() {
-        when {
-            _uiState.value.homeError != null -> loadHomeContent()
-            _uiState.value.myQuizzesError != null -> {
-                // TODO: Retry getMyQuizzes() in N13-14
-            }
+        if (_uiState.value.homeError != null) {
+            loadHomeContent()
         }
     }
 }

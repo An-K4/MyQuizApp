@@ -20,6 +20,10 @@ dependencies {
     implementation(project(":core:database"))
     implementation(project(":core:ui"))
     implementation(project(":core:datastore"))
+    // N13-14/Profile UX: HomeViewModel cần GetCurrentUserUseCase để biết hiện avatar hay nút đăng nhập.
+    implementation(project(":feature:auth"))
+    // Avatar dùng component chung Avatar() của core:ui (Coil là chi tiết nội bộ core:ui,
+    // không cần feature:home tự khai coil.compose riêng).
 
     // 2. Compose Navigation & Lifecycle
     implementation(libs.androidx.navigation.compose)
