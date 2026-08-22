@@ -28,11 +28,11 @@ fun ForgotPasswordScreen(
     LaunchedEffect(Unit) {
         viewModel.effect.collect { effect ->
             when (effect) {
-                ForgotPasswordViewModel.Effect.NavigateBack -> onNavigateBack()
-                is ForgotPasswordViewModel.Effect.NavigateToOtpVerification -> {
+                ForgotPasswordEffect.NavigateBack -> onNavigateBack()
+                is ForgotPasswordEffect.NavigateToOtpVerification -> {
                     onNavigateToOtpVerification(effect.email)
                 }
-                is ForgotPasswordViewModel.Effect.ShowMessage -> {
+                is ForgotPasswordEffect.ShowMessage -> {
                     snackbarHostState.showSnackbar(effect.message)
                 }
             }
@@ -49,9 +49,9 @@ fun ForgotPasswordScreen(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ForgotPasswordContent(
-    uiState: ForgotPasswordViewModel.UiState,
+    uiState: ForgotPasswordUiState,
     snackbarHostState: SnackbarHostState,
-    onIntent: (ForgotPasswordViewModel.Intent) -> Unit
+    onIntent: (ForgotPasswordIntent) -> Unit
 ) {
     Scaffold(
         snackbarHost = {
@@ -69,7 +69,7 @@ private fun ForgotPasswordContent(
             TopAppBar(
                 title = { Text("Quên mật khẩu") },
                 navigationIcon = {
-                    IconButton(onClick = { onIntent(ForgotPasswordViewModel.Intent.NavigateBack) }) {
+                    IconButton(onClick = { onIntent(ForgotPasswordIntent.NavigateBack) }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "Quay lại")
                     }
                 }
@@ -96,7 +96,7 @@ private fun ForgotPasswordContent(
 
             OutlinedTextField(
                 value = uiState.email,
-                onValueChange = { onIntent(ForgotPasswordViewModel.Intent.EmailChanged(it)) },
+                onValueChange = { onIntent(ForgotPasswordIntent.EmailChanged(it)) },
                 label = { Text("Email") },
                 isError = uiState.emailError != null,
                 supportingText = { uiState.emailError?.let { Text(it) } },
@@ -115,7 +115,7 @@ private fun ForgotPasswordContent(
             Spacer(modifier = Modifier.height(8.dp))
 
             Button(
-                onClick = { onIntent(ForgotPasswordViewModel.Intent.Submit) },
+                onClick = { onIntent(ForgotPasswordIntent.Submit) },
                 modifier = Modifier.fillMaxWidth(),
                 enabled = !uiState.isLoading
             ) {
@@ -146,7 +146,7 @@ private fun ForgotPasswordContent(
 fun ForgotPasswordScreenPreview() {
     MyQuizAppTheme {
         ForgotPasswordContent(
-            uiState = ForgotPasswordViewModel.UiState(),
+            uiState = ForgotPasswordUiState(),
             snackbarHostState = remember { SnackbarHostState() },
             onIntent = {}
         )

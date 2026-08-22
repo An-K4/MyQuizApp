@@ -15,57 +15,38 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+/**
+ * ViewModel cho Register screen (MVI pattern).
+ *
+ * UiState/Intent/Effect được tách thành file riêng (RegisterUiState.kt, RegisterIntent.kt,
+ * RegisterEffect.kt) theo cùng convention với home/search/quiz-manage.
+ */
 @HiltViewModel
 class RegisterViewModel @Inject constructor(
     private val registerUseCase: RegisterUseCase,
 ) : ViewModel() {
 
-    data class UiState(
-        val email: String = "",
-        val password: String = "",
-        val fullname: String = "",
-        val phone: String = "",
-        val emailError: String? = null,
-        val passwordError: String? = null,
-        val fullnameError: String? = null,
-        val phoneError: String? = null,
-        val isLoading: Boolean = false,
-    )
-
-    sealed interface Intent {
-        data class EmailChanged(val value: String) : Intent
-        data class PasswordChanged(val value: String) : Intent
-        data class FullnameChanged(val value: String) : Intent
-        data class PhoneChanged(val value: String) : Intent
-        data object Submit : Intent
-    }
-
-    sealed interface Effect {
-        data object NavigateToHostHome : Effect
-        data class ShowMessage(val message: String) : Effect
-    }
-
-    private val _uiState = MutableStateFlow(UiState())
+    private val _uiState = MutableStateFlow(RegisterUiState())
     val uiState = _uiState.asStateFlow()
 
-    private val _effect = Channel<Effect>(Channel.BUFFERED)
+    private val _effect = Channel<RegisterEffect>(Channel.BUFFERED)
     val effect = _effect.receiveAsFlow()
 
-    fun onIntent(intent: Intent) {
+    fun onIntent(intent: RegisterIntent) {
         when (intent) {
-            is Intent.EmailChanged -> _uiState.update {
+            is RegisterIntent.EmailChanged -> _uiState.update {
                 it.copy(email = intent.value, emailError = null)
             }
-            is Intent.PasswordChanged -> _uiState.update {
+            is RegisterIntent.PasswordChanged -> _uiState.update {
                 it.copy(password = intent.value, passwordError = null)
             }
-            is Intent.FullnameChanged -> _uiState.update {
+            is RegisterIntent.FullnameChanged -> _uiState.update {
                 it.copy(fullname = intent.value, fullnameError = null)
             }
-            is Intent.PhoneChanged -> _uiState.update {
+            is RegisterIntent.PhoneChanged -> _uiState.update {
                 it.copy(phone = intent.value, phoneError = null)
             }
-            Intent.Submit -> submit()
+            RegisterIntent.Submit -> submit()
         }
     }
 
@@ -102,8 +83,8 @@ class RegisterViewModel @Inject constructor(
             )
             _uiState.update { it.copy(isLoading = false) }
             when (result) {
-                is Result.Success -> _effect.send(Effect.NavigateToHostHome)
-                is Result.Error -> _effect.send(Effect.ShowMessage(result.error.toUserMessage()))
+                is Result.Success -> _effect.send(RegisterEffect.NavigateToHostHome)
+                is Result.Error -> _effect.send(RegisterEffect.ShowMessage(result.error.toUserMessage()))
             }
         }
     }

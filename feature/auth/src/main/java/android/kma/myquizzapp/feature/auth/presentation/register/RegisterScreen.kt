@@ -65,8 +65,8 @@ fun RegisterScreen(
     LaunchedEffect(Unit) {
         viewModel.effect.collect { effect ->
             when (effect) {
-                RegisterViewModel.Effect.NavigateToHostHome -> onRegisterSuccess()
-                is RegisterViewModel.Effect.ShowMessage -> snackbarHostState.showSnackbar(effect.message)
+                RegisterEffect.NavigateToHostHome -> onRegisterSuccess()
+                is RegisterEffect.ShowMessage -> snackbarHostState.showSnackbar(effect.message)
             }
         }
     }
@@ -87,10 +87,10 @@ fun RegisterScreen(
  */
 @Composable
 fun RegisterScreenContent(
-    uiState: RegisterViewModel.UiState,
+    uiState: RegisterUiState,
     passwordVisible: Boolean,
     onPasswordVisibilityChange: (Boolean) -> Unit,
-    onIntent: (RegisterViewModel.Intent) -> Unit,
+    onIntent: (RegisterIntent) -> Unit,
     onBackToLogin: () -> Unit,
     snackbarHostState: SnackbarHostState,
 ) {
@@ -134,7 +134,7 @@ fun RegisterScreenContent(
             // Email field
             OutlinedTextField(
                 value = uiState.email,
-                onValueChange = { onIntent(RegisterViewModel.Intent.EmailChanged(it)) },
+                onValueChange = { onIntent(RegisterIntent.EmailChanged(it)) },
                 label = { Text("Email") },
                 isError = uiState.emailError != null,
                 supportingText = { uiState.emailError?.let { Text(it) } },
@@ -153,7 +153,7 @@ fun RegisterScreenContent(
             // Password field
             OutlinedTextField(
                 value = uiState.password,
-                onValueChange = { onIntent(RegisterViewModel.Intent.PasswordChanged(it)) },
+                onValueChange = { onIntent(RegisterIntent.PasswordChanged(it)) },
                 label = { Text("Mật khẩu") },
                 isError = uiState.passwordError != null,
                 supportingText = { uiState.passwordError?.let { Text(it) } },
@@ -181,7 +181,7 @@ fun RegisterScreenContent(
             // Fullname field
             OutlinedTextField(
                 value = uiState.fullname,
-                onValueChange = { onIntent(RegisterViewModel.Intent.FullnameChanged(it)) },
+                onValueChange = { onIntent(RegisterIntent.FullnameChanged(it)) },
                 label = { Text("Họ và tên") },
                 isError = uiState.fullnameError != null,
                 supportingText = { uiState.fullnameError?.let { Text(it) } },
@@ -200,7 +200,7 @@ fun RegisterScreenContent(
             // Phone field
             OutlinedTextField(
                 value = uiState.phone,
-                onValueChange = { onIntent(RegisterViewModel.Intent.PhoneChanged(it)) },
+                onValueChange = { onIntent(RegisterIntent.PhoneChanged(it)) },
                 label = { Text("Số điện thoại (tuỳ chọn)") },
                 isError = uiState.phoneError != null,
                 supportingText = { uiState.phoneError?.let { Text(it) } },
@@ -218,7 +218,7 @@ fun RegisterScreenContent(
 
             // Register button
             Button(
-                onClick = { onIntent(RegisterViewModel.Intent.Submit) },
+                onClick = { onIntent(RegisterIntent.Submit) },
                 enabled = !uiState.isLoading,
                 modifier = Modifier.fillMaxWidth(),
             ) {
@@ -259,7 +259,7 @@ fun RegisterScreenContent(
 fun RegisterScreenPreviewLight() {
     MyQuizAppTheme {
         RegisterScreenContent(
-            uiState = RegisterViewModel.UiState(),
+            uiState = RegisterUiState(),
             passwordVisible = false,
             onPasswordVisibilityChange = {},
             onIntent = {},
@@ -274,7 +274,7 @@ fun RegisterScreenPreviewLight() {
 fun RegisterScreenPreviewDark() {
     MyQuizAppTheme {
         RegisterScreenContent(
-            uiState = RegisterViewModel.UiState(),
+            uiState = RegisterUiState(),
             passwordVisible = false,
             onPasswordVisibilityChange = {},
             onIntent = {},

@@ -17,6 +17,13 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+/**
+ * ViewModel cho Reset Password screen (MVI pattern).
+ *
+ * UiState/Intent/Effect được tách thành file riêng (ResetPasswordUiState.kt,
+ * ResetPasswordIntent.kt, ResetPasswordEffect.kt) theo cùng convention với
+ * home/search/quiz-manage.
+ */
 @HiltViewModel
 class ResetPasswordViewModel @Inject constructor(
     private val resetPasswordUseCase: ResetPasswordUseCase,
@@ -29,38 +36,8 @@ class ResetPasswordViewModel @Inject constructor(
     private val emailFromNavigation: String? = savedStateHandle.get<String>("email")
     private val otpFromNavigation: String? = savedStateHandle.get<String>("otp")
 
-    data class UiState(
-        val isTokenFlow: Boolean = true, // true = token flow (deep link), false = OTP flow (manual)
-        val token: String = "",
-        val email: String = "",
-        val otp: String = "",
-        val newPassword: String = "",
-        val confirmPassword: String = "",
-        val emailError: String? = null,
-        val otpError: String? = null,
-        val passwordError: String? = null,
-        val confirmPasswordError: String? = null,
-        val isLoading: Boolean = false,
-    )
-
-    sealed interface Intent {
-        data class TokenChanged(val value: String) : Intent
-        data class EmailChanged(val value: String) : Intent
-        data class OtpChanged(val value: String) : Intent
-        data class PasswordChanged(val value: String) : Intent
-        data class ConfirmPasswordChanged(val value: String) : Intent
-        data object ToggleFlow : Intent // Switch between token flow and OTP flow
-        data object Submit : Intent
-        data object NavigateBack : Intent
-    }
-
-    sealed interface Effect {
-        data object NavigateToLogin : Effect
-        data class ShowMessage(val message: String) : Effect
-    }
-
     private val _uiState = MutableStateFlow(
-        UiState(
+        ResetPasswordUiState(
             isTokenFlow = tokenFromDeepLink != null,
             token = tokenFromDeepLink ?: "",
             email = emailFromNavigation ?: "",
@@ -69,32 +46,32 @@ class ResetPasswordViewModel @Inject constructor(
     )
     val uiState = _uiState.asStateFlow()
 
-    private val _effect = Channel<Effect>(Channel.BUFFERED)
+    private val _effect = Channel<ResetPasswordEffect>(Channel.BUFFERED)
     val effect = _effect.receiveAsFlow()
 
-    fun onIntent(intent: Intent) {
+    fun onIntent(intent: ResetPasswordIntent) {
         when (intent) {
-            is Intent.TokenChanged -> _uiState.update { 
+            is ResetPasswordIntent.TokenChanged -> _uiState.update { 
                 it.copy(token = intent.value, emailError = null) 
             }
-            is Intent.EmailChanged -> _uiState.update { 
+            is ResetPasswordIntent.EmailChanged -> _uiState.update { 
                 it.copy(email = intent.value, emailError = null) 
             }
-            is Intent.OtpChanged -> _uiState.update { 
+            is ResetPasswordIntent.OtpChanged -> _uiState.update { 
                 it.copy(otp = intent.value, otpError = null) 
             }
-            is Intent.PasswordChanged -> _uiState.update { 
+            is ResetPasswordIntent.PasswordChanged -> _uiState.update { 
                 it.copy(newPassword = intent.value, passwordError = null) 
             }
-            is Intent.ConfirmPasswordChanged -> _uiState.update { 
+            is ResetPasswordIntent.ConfirmPasswordChanged -> _uiState.update { 
                 it.copy(confirmPassword = intent.value, confirmPasswordError = null) 
             }
-            Intent.ToggleFlow -> _uiState.update { 
+            ResetPasswordIntent.ToggleFlow -> _uiState.update { 
                 it.copy(isTokenFlow = !it.isTokenFlow) 
             }
-            Intent.Submit -> submit()
-            Intent.NavigateBack -> viewModelScope.launch { 
-                _effect.send(Effect.NavigateToLogin) 
+            ResetPasswordIntent.Submit -> submit()
+            ResetPasswordIntent.NavigateBack -> viewModelScope.launch { 
+                _effect.send(ResetPasswordEffect.NavigateToLogin) 
             }
         }
     }
@@ -133,11 +110,11 @@ class ResetPasswordViewModel @Inject constructor(
 
             when (val result = resetPasswordUseCase(token, newPassword)) {
                 is Result.Success -> {
-                    _effect.send(Effect.ShowMessage("Đặt lại mật khẩu thành công! Vui lòng đăng nhập."))
-                    _effect.send(Effect.NavigateToLogin)
+                    _effect.send(ResetPasswordEffect.ShowMessage("Đặt lại mật khẩu thành công! Vui lòng đăng nhập."))
+                    _effect.send(ResetPasswordEffect.NavigateToLogin)
                 }
                 is Result.Error -> {
-                    _effect.send(Effect.ShowMessage(result.error.toUserMessage()))
+                    _effect.send(ResetPasswordEffect.ShowMessage(result.error.toUserMessage()))
                 }
             }
 
@@ -164,11 +141,11 @@ class ResetPasswordViewModel @Inject constructor(
 
             when (val result = resetPasswordWithOtpUseCase(email, otp, newPassword)) {
                 is Result.Success -> {
-                    _effect.send(Effect.ShowMessage("Đặt lại mật khẩu thành công! Vui lòng đăng nhập."))
-                    _effect.send(Effect.NavigateToLogin)
+                    _effect.send(ResetPasswordEffect.ShowMessage("Đặt lại mật khẩu thành công! Vui lòng đăng nhập."))
+                    _effect.send(ResetPasswordEffect.NavigateToLogin)
                 }
                 is Result.Error -> {
-                    _effect.send(Effect.ShowMessage(result.error.toUserMessage()))
+                    _effect.send(ResetPasswordEffect.ShowMessage(result.error.toUserMessage()))
                 }
             }
 

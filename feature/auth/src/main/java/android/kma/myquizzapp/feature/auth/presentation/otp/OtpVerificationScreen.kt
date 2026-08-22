@@ -1,28 +1,25 @@
 package android.kma.myquizzapp.feature.auth.presentation.otp
 
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.Alignment
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 @Composable
 fun OtpVerificationScreen(
     onNavigateBack: () -> Unit,
-    onNavigateToResetPassword: (email: String, otp: String) -> Unit,
+    onNavigateToResetPassword: (String, String) -> Unit,
     viewModel: OtpVerificationViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -31,11 +28,11 @@ fun OtpVerificationScreen(
     LaunchedEffect(Unit) {
         viewModel.effect.collect { effect ->
             when (effect) {
-                OtpVerificationViewModel.Effect.NavigateBack -> onNavigateBack()
-                is OtpVerificationViewModel.Effect.NavigateToResetPassword -> {
+                OtpVerificationEffect.NavigateBack -> onNavigateBack()
+                is OtpVerificationEffect.NavigateToResetPassword -> {
                     onNavigateToResetPassword(effect.email, effect.otp)
                 }
-                is OtpVerificationViewModel.Effect.ShowMessage -> {
+                is OtpVerificationEffect.ShowMessage -> {
                     snackbarHostState.showSnackbar(effect.message)
                 }
             }
@@ -52,9 +49,9 @@ fun OtpVerificationScreen(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun OtpVerificationContent(
-    uiState: OtpVerificationViewModel.UiState,
+    uiState: OtpVerificationUiState,
     snackbarHostState: SnackbarHostState,
-    onIntent: (OtpVerificationViewModel.Intent) -> Unit
+    onIntent: (OtpVerificationIntent) -> Unit
 ) {
     Scaffold(
         snackbarHost = {
@@ -72,7 +69,7 @@ private fun OtpVerificationContent(
             TopAppBar(
                 title = { Text("Xác thực OTP") },
                 navigationIcon = {
-                    IconButton(onClick = { onIntent(OtpVerificationViewModel.Intent.NavigateBack) }) {
+                    IconButton(onClick = { onIntent(OtpVerificationIntent.NavigateBack) }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "Quay lại")
                     }
                 }
@@ -84,46 +81,35 @@ private fun OtpVerificationContent(
                 .fillMaxSize()
                 .padding(paddingValues)
                 .padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(24.dp)
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Spacer(modifier = Modifier.height(32.dp))
 
-            // Title
             Text(
-                text = "Nhập mã xác thực",
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold
-            )
-
-            // Subtitle with email
-            Text(
-                text = "Chúng tôi đã gửi mã 6 chữ số đến",
+                text = "Nhập mã OTP đã gửi đến",
                 style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center
             )
-
             Text(
                 text = uiState.email,
                 style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.primary
+                textAlign = TextAlign.Center
             )
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // OTP Input (6 boxes)
             OtpInputField(
-                value = uiState.otp,
-                onValueChange = { onIntent(OtpVerificationViewModel.Intent.OtpChanged(it)) },
+                otp = uiState.otp,
+                onOtpChanged = { onIntent(OtpVerificationIntent.OtpChanged(it)) },
                 enabled = !uiState.isLoading
             )
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Verify button
             Button(
-                onClick = { onIntent(OtpVerificationViewModel.Intent.Verify) },
+                onClick = { onIntent(OtpVerificationIntent.Verify) },
                 modifier = Modifier.fillMaxWidth(),
                 enabled = !uiState.isLoading && uiState.otp.length == 6
             ) {
@@ -137,22 +123,17 @@ private fun OtpVerificationContent(
                 }
             }
 
-            // Resend code link
             TextButton(
-                onClick = { onIntent(OtpVerificationViewModel.Intent.ResendCode) },
+                onClick = { onIntent(OtpVerificationIntent.ResendCode) },
                 enabled = !uiState.isLoading
             ) {
-                Text(
-                    text = "Gửi lại mã",
-                    style = MaterialTheme.typography.bodyMedium
-                )
+                Text("Gửi lại mã")
             }
 
             Spacer(modifier = Modifier.weight(1f))
 
-            // Helper text
             Text(
-                text = "Mã OTP có hiệu lực trong 5 phút",
+                text = "Mã OTP có hiệu lực trong 5 phút.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -161,67 +142,30 @@ private fun OtpVerificationContent(
 }
 
 @Composable
-fun OtpInputField(
-    value: String,
-    onValueChange: (String) -> Unit,
-    enabled: Boolean = true
+private fun OtpInputField(
+    otp: String,
+    onOtpChanged: (String) -> Unit,
+    enabled: Boolean
 ) {
-    val focusRequesters = remember { List(6) { FocusRequester() } }
-    
-    Row(
+    OutlinedTextField(
+        value = otp,
+        onValueChange = onOtpChanged,
+        enabled = enabled,
+        keyboardOptions = KeyboardOptions(
+            keyboardType = KeyboardType.NumberPassword,
+            imeAction = ImeAction.Done
+        ),
+        singleLine = true,
+        textStyle = MaterialTheme.typography.headlineMedium.copy(
+            textAlign = TextAlign.Center,
+            letterSpacing = 8.sp
+        ),
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)
-    ) {
-        repeat(6) { index ->
-            val digit = value.getOrNull(index)?.toString() ?: ""
-            
-            OutlinedTextField(
-                value = digit,
-                onValueChange = { newValue ->
-                    if (newValue.length <= 1 && newValue.all { it.isDigit() }) {
-                        val newOtp = value.toMutableList().apply {
-                            if (index < size) {
-                                this[index] = newValue.firstOrNull() ?: ' '
-                            } else {
-                                add(newValue.firstOrNull() ?: ' ')
-                            }
-                        }.joinToString("").trim()
-                        
-                        onValueChange(newOtp)
-                        
-                        // Auto-focus next box
-                        if (newValue.isNotEmpty() && index < 5) {
-                            focusRequesters[index + 1].requestFocus()
-                        }
-                    } else if (newValue.isEmpty() && index > 0) {
-                        // Handle backspace: clear current and focus previous
-                        val newOtp = value.take(index) + value.drop(index + 1)
-                        onValueChange(newOtp)
-                        focusRequesters[index - 1].requestFocus()
-                    }
-                },
-                modifier = Modifier
-                    .width(48.dp)
-                    .focusRequester(focusRequesters[index]),
-                textStyle = MaterialTheme.typography.headlineMedium.copy(
-                    textAlign = TextAlign.Center,
-                    fontWeight = FontWeight.Bold
-                ),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-                singleLine = true,
-                enabled = enabled,
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = MaterialTheme.colorScheme.primary,
-                    unfocusedBorderColor = MaterialTheme.colorScheme.outline
-                )
-            )
-        }
-    }
-
-    // Auto-focus first box on composition
-    LaunchedEffect(Unit) {
-        if (value.isEmpty()) {
-            focusRequesters[0].requestFocus()
-        }
-    }
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedTextColor = MaterialTheme.colorScheme.onBackground,
+            unfocusedTextColor = MaterialTheme.colorScheme.onBackground,
+            focusedBorderColor = MaterialTheme.colorScheme.primary,
+            cursorColor = MaterialTheme.colorScheme.primary
+        )
+    )
 }

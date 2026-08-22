@@ -17,6 +17,12 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+/**
+ * ViewModel cho Login screen (MVI pattern).
+ *
+ * UiState/Intent/Effect được tách thành file riêng (LoginUiState.kt, LoginIntent.kt,
+ * LoginEffect.kt) theo cùng convention với home/search/quiz-manage.
+ */
 @HiltViewModel
 class LoginViewModel @Inject constructor(
     private val loginUseCase: LoginUseCase,
@@ -24,46 +30,21 @@ class LoginViewModel @Inject constructor(
     private val enableGuestModeUseCase: EnableGuestModeUseCase,
 ) : ViewModel() {
 
-    data class UiState(
-        val email: String = "",
-        val password: String = "",
-        val emailError: String? = null,
-        val passwordError: String? = null,
-        val isLoading: Boolean = false,
-    )
-
-    sealed interface Intent {
-        data class EmailChanged(val value: String) : Intent
-        data class PasswordChanged(val value: String) : Intent
-        data object Submit : Intent
-        data class GoogleTokenReceived(val idToken: String) : Intent // N9
-        data object PlayAsGuest : Intent
-        data object GoToForgotPassword : Intent
-    }
-
-    sealed interface Effect {
-        data object NavigateToHostHome : Effect
-        data object NavigateToGuestHome : Effect
-        data object NavigateToForgotPassword : Effect
-        data class ShowMessage(val message: String) : Effect
-        // TODO(phase 2): đổi String → UiText (core:ui) khi cần localize
-    }
-
-    private val _uiState = MutableStateFlow(UiState())
+    private val _uiState = MutableStateFlow(LoginUiState())
     val uiState = _uiState.asStateFlow()
 
     // One-shot events → Channel, KHÔNG StateFlow (xem phần giải thích MVI ở trên)
-    private val _effect = Channel<Effect>(Channel.BUFFERED)
+    private val _effect = Channel<LoginEffect>(Channel.BUFFERED)
     val effect = _effect.receiveAsFlow()
 
-    fun onIntent(intent: Intent) {
+    fun onIntent(intent: LoginIntent) {
         when (intent) {
-            is Intent.EmailChanged -> _uiState.update { it.copy(email = intent.value, emailError = null) }
-            is Intent.PasswordChanged -> _uiState.update { it.copy(password = intent.value, passwordError = null) }
-            Intent.Submit -> submit()
-            Intent.PlayAsGuest -> playAsGuest()
-            is Intent.GoogleTokenReceived -> loginWithGoogle(intent.idToken)
-            Intent.GoToForgotPassword -> viewModelScope.launch { _effect.send(Effect.NavigateToForgotPassword) }
+            is LoginIntent.EmailChanged -> _uiState.update { it.copy(email = intent.value, emailError = null) }
+            is LoginIntent.PasswordChanged -> _uiState.update { it.copy(password = intent.value, passwordError = null) }
+            LoginIntent.Submit -> submit()
+            LoginIntent.PlayAsGuest -> playAsGuest()
+            is LoginIntent.GoogleTokenReceived -> loginWithGoogle(intent.idToken)
+            LoginIntent.GoToForgotPassword -> viewModelScope.launch { _effect.send(LoginEffect.NavigateToForgotPassword) }
         }
     }
 
@@ -82,8 +63,8 @@ class LoginViewModel @Inject constructor(
             val result = loginUseCase(s.email.trim(), s.password)
             _uiState.update { it.copy(isLoading = false) }
             when (result) {
-                is Result.Success -> _effect.send(Effect.NavigateToHostHome)
-                is Result.Error -> _effect.send(Effect.ShowMessage(result.error.toUserMessage()))
+                is Result.Success -> _effect.send(LoginEffect.NavigateToHostHome)
+                is Result.Error -> _effect.send(LoginEffect.ShowMessage(result.error.toUserMessage()))
             }
         }
     }
@@ -94,8 +75,8 @@ class LoginViewModel @Inject constructor(
             val result = loginWithGoogleUseCase(idToken)
             _uiState.update { it.copy(isLoading = false) }
             when (result) {
-                is Result.Success -> _effect.send(Effect.NavigateToHostHome)
-                is Result.Error -> _effect.send(Effect.ShowMessage(result.error.toUserMessage()))
+                is Result.Success -> _effect.send(LoginEffect.NavigateToHostHome)
+                is Result.Error -> _effect.send(LoginEffect.ShowMessage(result.error.toUserMessage()))
             }
         }
     }
@@ -103,7 +84,7 @@ class LoginViewModel @Inject constructor(
     private fun playAsGuest() {
         viewModelScope.launch {
             enableGuestModeUseCase()
-            _effect.send(Effect.NavigateToGuestHome)
+            _effect.send(LoginEffect.NavigateToGuestHome)
         }
     }
 }

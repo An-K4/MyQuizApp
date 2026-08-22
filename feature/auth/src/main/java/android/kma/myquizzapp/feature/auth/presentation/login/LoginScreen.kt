@@ -105,7 +105,7 @@ fun LoginScreen(
                 val credential = result.credential
                 
                 if (credential is GoogleIdTokenCredential) {
-                    viewModel.onIntent(LoginViewModel.Intent.GoogleTokenReceived(credential.idToken))
+                    viewModel.onIntent(LoginIntent.GoogleTokenReceived(credential.idToken))
                 } else {
                     Timber.e("Invalid credential type: ${credential::class.java.name}")
                     snackbarHostState.showSnackbar("Loại credential không hợp lệ")
@@ -128,10 +128,10 @@ fun LoginScreen(
     LaunchedEffect(Unit) {
         viewModel.effect.collect { effect ->
             when (effect) {
-                LoginViewModel.Effect.NavigateToHostHome -> onLoginSuccess()
-                LoginViewModel.Effect.NavigateToGuestHome -> onPlayAsGuest()
-                LoginViewModel.Effect.NavigateToForgotPassword -> onGoToForgotPassword()
-                is LoginViewModel.Effect.ShowMessage -> snackbarHostState.showSnackbar(effect.message)
+                LoginEffect.NavigateToHostHome -> onLoginSuccess()
+                LoginEffect.NavigateToGuestHome -> onPlayAsGuest()
+                LoginEffect.NavigateToForgotPassword -> onGoToForgotPassword()
+                is LoginEffect.ShowMessage -> snackbarHostState.showSnackbar(effect.message)
             }
         }
     }
@@ -153,10 +153,10 @@ fun LoginScreen(
  */
 @Composable
 fun LoginScreenContent(
-    uiState: LoginViewModel.UiState,
+    uiState: LoginUiState,
     passwordVisible: Boolean,
     onPasswordVisibilityChange: (Boolean) -> Unit,
-    onIntent: (LoginViewModel.Intent) -> Unit,
+    onIntent: (LoginIntent) -> Unit,
     onGoogleSignIn: () -> Unit,
     onGoToRegister: () -> Unit,
     snackbarHostState: SnackbarHostState,
@@ -202,7 +202,7 @@ fun LoginScreenContent(
             // Email field
             OutlinedTextField(
                 value = uiState.email,
-                onValueChange = { onIntent(LoginViewModel.Intent.EmailChanged(it)) },
+                onValueChange = { onIntent(LoginIntent.EmailChanged(it)) },
                 label = { Text("Email") },
                 isError = uiState.emailError != null,
                 supportingText = { uiState.emailError?.let { Text(it) } },
@@ -221,7 +221,7 @@ fun LoginScreenContent(
             // Password field with visibility toggle
             OutlinedTextField(
                 value = uiState.password,
-                onValueChange = { onIntent(LoginViewModel.Intent.PasswordChanged(it)) },
+                onValueChange = { onIntent(LoginIntent.PasswordChanged(it)) },
                 label = { Text("Mật khẩu") },
                 isError = uiState.passwordError != null,
                 supportingText = { uiState.passwordError?.let { Text(it) } },
@@ -251,14 +251,14 @@ fun LoginScreenContent(
                 style = AppTextStyles.linkText,
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier
-                    .clickable { onIntent(LoginViewModel.Intent.GoToForgotPassword) }
+                    .clickable { onIntent(LoginIntent.GoToForgotPassword) }
                     .align(Alignment.End)
             )
             Spacer(modifier = Modifier.height(4.dp))
 
             // Login button
             Button(
-                onClick = { onIntent(LoginViewModel.Intent.Submit) },
+                onClick = { onIntent(LoginIntent.Submit) },
                 enabled = !uiState.isLoading,
                 modifier = Modifier.fillMaxWidth(),
             ) {
@@ -321,7 +321,7 @@ fun LoginScreenContent(
 
             // Guest login link
             TextButton(
-                onClick = { onIntent(LoginViewModel.Intent.PlayAsGuest) },
+                onClick = { onIntent(LoginIntent.PlayAsGuest) },
                 modifier = Modifier.align(Alignment.CenterHorizontally)
             ) {
                 Text("Đăng nhập với tư cách khách", style = AppTextStyles.linkText)
@@ -343,7 +343,7 @@ fun LoginScreenContent(
 fun LoginScreenPreviewLight() {
     MyQuizAppTheme {
         LoginScreenContent(
-            uiState = LoginViewModel.UiState(),
+            uiState = LoginUiState(),
             passwordVisible = false,
             onPasswordVisibilityChange = {},
             onIntent = {},
@@ -359,7 +359,7 @@ fun LoginScreenPreviewLight() {
 fun LoginScreenPreviewDark() {
     MyQuizAppTheme {
         LoginScreenContent(
-            uiState = LoginViewModel.UiState(),
+            uiState = LoginUiState(),
             passwordVisible = false,
             onPasswordVisibilityChange = {},
             onIntent = {},
