@@ -15,6 +15,7 @@ import android.kma.myquizzapp.feature.auth.presentation.reset.ResetPasswordScree
 import android.kma.myquizzapp.presentation.splash.SplashScreen
 import android.kma.myquizzapp.feature.home.presentation.HomeScreen
 import android.kma.myquizzapp.feature.home.presentation.search.SearchScreen
+import android.kma.myquizzapp.feature.quiz_manage.presentation.quizdetail.QuizDetailScreen
 import androidx.navigation.toRoute
 
 @Composable
@@ -99,6 +100,7 @@ fun AppNavGraph(
             composable<Route.ResetPassword> { backStackEntry ->
                 val args = backStackEntry.toRoute<Route.ResetPassword>()
                 ResetPasswordScreen(
+                    onNavigateBack = { navController.popBackStack() },
                     onNavigateToLogin = { 
                         navController.navigate(Route.Login) {
                             popUpTo<Route.AuthGraph> { inclusive = false }
@@ -173,9 +175,12 @@ fun AppNavGraph(
             }
             
             composable<Route.QuizDetail> {
-                // TODO: QuizDetailScreen() - public, guest có thể xem
-                // Placeholder
-                androidx.compose.material3.Text("Quiz Detail - Coming Soon")
+                QuizDetailScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToCreateRoom = { quizId ->
+                        navController.navigate(Route.CreateRoom(quizId))
+                    }
+                )
             }
             
             composable<Route.CreateRoom> {

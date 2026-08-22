@@ -1,5 +1,6 @@
 package android.kma.myquizzapp.core.network.repository
 
+import android.kma.myquizzapp.core.common.cache.QuizCacheStore
 import android.kma.myquizzapp.core.common.model.HomeSection
 import android.kma.myquizzapp.core.common.model.Quiz
 import android.kma.myquizzapp.core.common.model.QuizCard
@@ -8,30 +9,54 @@ import android.kma.myquizzapp.core.common.result.Result
 import android.kma.myquizzapp.core.common.result.map
 import android.kma.myquizzapp.core.network.api.QuizApiService
 import android.kma.myquizzapp.core.network.dto.toDomain
+import timber.log.Timber
 import javax.inject.Inject
 
 /**
  * Implementation của QuizRepository interface.
  * 
  * Dùng QuizApiService (Retrofit) để gọi backend API và map DTO sang domain models.
+ * 
+ * getQuizDetail dùng cache-aside qua QuizCacheStore (interface ở core:common, impl thật
+ * là RoomQuizCacheStore ở core:database — core:network KHÔNG được phép biết Room,
+ * giống pattern CookieStore, xem design doc mục 3.2/12.1):
+ * - Network-first: gọi API trước.
+ * - Thành công: lưu quiz vào cache.
+ * - Lỗi (mất mạng, server down...): fallback đọc quiz đã cache theo quizId, nếu có.
  */
 class QuizRepositoryImpl @Inject constructor(
-    private val quizApi: QuizApiService
+    private val quizApi: QuizApiService,
+    private val quizCacheStore: QuizCacheStore
 ) : QuizRepository {
     
     override suspend fun getHomeContent(): Result<List<HomeSection>> =
         quizApi.getHomeContent().map { it.toDomain() }
     
     override suspend fun searchQuizzes(keyword: String): Result<List<QuizCard>> =
-        quizApi.searchQuizzes(keyword).map { dtoList -> 
-            dtoList.map { it.toDomain() }
+        // Backend bọc response trong { quizzes: [...] } → unwrap QuizListDto.quizzes.
+        quizApi.searchQuizzes(keyword).map { dto -> 
+            dto.quizzes.map { it.toDomain() }
         }
     
     override suspend fun getMyQuizzes(): Result<List<QuizCard>> =
-        quizApi.getMyQuizzes().map { dtoList -> 
-            dtoList.map { it.toDomain() }
+        // Backend bọc response trong { quizzes: [...] } → unwrap QuizListDto.quizzes.
+        quizApi.getMyQuizzes().map { dto -> 
+            dto.quizzes.map { it.toDomain() }
         }
     
-    override suspend fun getQuizDetail(quizId: Long): Result<Quiz> =
-        quizApi.getQuizDetail(quizId)
+    override suspend fun getQuizDetail(quizId: Long): Result<Quiz> {
+        // Backend bọc response trong { quiz: {...} } → unwrap QuizDetailDto.quiz thành domain model.
+        val networkResult = quizApi.getQuizDetail(quizId).map { it.quiz }
+
+        return when (networkResult) {
+            is Result.Success -> {
+                quizCacheStore.cacheQuiz(quizId, networkResult.data)
+                networkResult
+            }
+            is Result.Error -> {
+                // Network lỗi (mất mạng, server down...) - fallback đọc cache offline
+                quizCacheStore.getCachedQuiz(quizId)?.let { Result.Success(it) } ?: networkResult
+            }
+        }
+    }
 }

@@ -3,7 +3,8 @@ package android.kma.myquizzapp.core.network.api
 import android.kma.myquizzapp.core.common.result.Result
 import android.kma.myquizzapp.core.network.dto.HomeContentDto
 import android.kma.myquizzapp.core.network.dto.QuizCardDto
-import android.kma.myquizzapp.core.common.model.Quiz
+import android.kma.myquizzapp.core.network.dto.QuizDetailDto
+import android.kma.myquizzapp.core.network.dto.QuizListDto
 import retrofit2.http.GET
 import retrofit2.http.Path
 import retrofit2.http.Query
@@ -31,11 +32,15 @@ interface QuizApiService {
      * 
      * Note: Backend có pagination nhưng v1 này chưa dùng.
      * TODO: N13 - refactor sang Paging 3 với page/limit params.
+     * 
+     * Backend bọc response trong { quizzes: [...] } (listing.controller.ts →
+     * success(res, { quizzes: page.items })), nên kiểu trả về là QuizListDto
+     * chứ không phải List<QuizCardDto> trực tiếp.
      */
     @GET("quizzes/search")
     suspend fun searchQuizzes(
         @Query("keyword") keyword: String
-    ): Result<List<QuizCardDto>>
+    ): Result<QuizListDto>
     
     /**
      * GET /v1/quizzes/me
@@ -44,20 +49,27 @@ interface QuizApiService {
      * Trả danh sách quiz của user hiện tại.
      * 
      * TODO: N13 - add pagination params.
+     * 
+     * Backend bọc response trong { quizzes: [...] } (listing.controller.ts →
+     * success(res, { quizzes: page.items })), nên kiểu trả về là QuizListDto
+     * chứ không phải List<QuizCardDto> trực tiếp.
      */
     @GET("quizzes/me")
-    suspend fun getMyQuizzes(): Result<List<QuizCardDto>>
+    suspend fun getMyQuizzes(): Result<QuizListDto>
     
     /**
      * GET /v1/quizzes/id/:quizId
      * 
      * Optional auth: public quiz có thể xem không cần login.
      * Trả full quiz detail với questions array.
+     * 
+     * Backend bọc response trong { quiz: {...} } (quiz.controller.ts → success(res, { quiz })),
+     * nên kiểu trả về là QuizDetailDto chứ không phải Quiz trực tiếp.
      */
     @GET("quizzes/id/{quizId}")
     suspend fun getQuizDetail(
         @Path("quizId") quizId: Long
-    ): Result<Quiz>
+    ): Result<QuizDetailDto>
     
     // TODO: Phase 3 (N13-14) - CRUD endpoints
     // @POST("quizzes")
