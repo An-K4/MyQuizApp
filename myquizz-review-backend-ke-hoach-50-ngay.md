@@ -1,4 +1,4 @@
-> 🎯 **Tóm tắt**: Backend myquizz (Express + TypeScript + Socket.IO + PostgreSQL + Redis) chất lượng khá tốt, đúng chuẩn server-authoritative. Design doc v2 khớp ~90% code thật, có 6 điểm lệch cần vá (mục 4). Kế hoạch 50 ngày / 10 tuần đã hiệu chỉnh theo trình độ thực tế. **Trạng thái: Tuần 3 (N11–N12) hoàn tất 21/8 — Home/Search + Quiz Detail (cache Room) xong; `feature:auth` đã refactor UiState/Intent/Effect tách file riêng (22/8). Bước tiếp theo: N13–14 — `feature:quiz-manage` CRUD quiz.**
+> 🎯 **Tóm tắt**: Backend myquizz (Express + TypeScript + Socket.IO + PostgreSQL + Redis) chất lượng khá tốt, đúng chuẩn server-authoritative. Design doc v2 khớp ~90% code thật, có 6 điểm lệch cần vá (mục 4). Kế hoạch 50 ngày / 10 tuần đã hiệu chỉnh theo trình độ thực tế. **Trạng thái: Tuần 3 (N11–N14) hoàn tất 22/8 — Home/Search + Quiz Detail (cache Room) + Quiz-manage danh sách/tạo quiz (Paging 3) xong; `feature:auth` đã refactor UiState/Intent/Effect tách file riêng (22/8); bổ sung ngoài kế hoạch: Home auth header + màn Profile + component `Avatar` chung ở `core:ui` (22/8). Bước tiếp theo: N15 — upload ảnh presign S3 2 bước.**
 
 File này tự chứa đủ ngữ cảnh để bắt đầu phiên làm việc mới (đã gộp & tinh gọn log các phiên 9–11/8). Chi tiết kỹ thuật (API/socket/DI/tree module): https://app.notion.com/p/ea02b2e9982b4b72b7fa75440028621a
 
@@ -211,7 +211,7 @@ Lưu ý thêm: swagger ghi `/auth/refresh` trả tokens nhưng thực tế chỉ
 
 - [x] **N11**: `feature:home` — search quiz công khai (paging), tab Khám phá/Của tôi. ✅ **Hoàn thành 17/8**
 - [x] **N12**: Quiz detail + cache Room. ✅ **Hoàn thành 21/8**
-- [ ] **N13–14**: `feature:quiz-manage` — danh sách + tạo quiz; editor 4 loại câu hỏi (`multiple_choice`, `multiple_select`, `short_answer`, `long_answer`).
+- [x] **N13–14**: `feature:quiz-manage` — danh sách + tạo quiz; editor 4 loại câu hỏi (`multiple_choice`, `multiple_select`, `short_answer`, `long_answer`). ✅ **Hoàn thành 22/8**
 - [ ] **N15**: Upload ảnh presign S3 2 bước (`UploadImageUseCase`, PUT trực tiếp, không cookie) + Coil.
 - 📚 kotlinx.serialization (`@Serializable`, `JsonElement` cho `correct_answer` đa kiểu), Paging 3, S3 presign.
 
@@ -269,6 +269,24 @@ Lưu ý thêm: swagger ghi `/auth/refresh` trả tokens nhưng thực tế chỉ
 - **Quy ước UiState/Intent/Effect tách file riêng** (`<Feature>UiState.kt`, `<Feature>Intent.kt`, `<Feature>Effect.kt`) được chốt làm chuẩn chung sau khi phát hiện `feature:auth` (5 ViewModel Login/Register/Forgot/Otp/Reset) đi lệch pattern so với `feature:home`/`feature:home/search`/`feature:quiz-manage` (định nghĩa nested trong ViewModel) — đã refactor lại `feature:auth` cho đồng bộ (22/8). **Mọi feature mới đặt UiState/Intent/Effect ở file riêng, không nested trong ViewModel.**
 - **Quiz cache (Room) là cơ chế fallback, không phải tính năng offline**: chỉ hữu ích khi mở lại **đúng quiz đã cache trước đó** mà request mạng thất bại (Home/Search không cache danh sách nên không thể chọn quiz mới lúc offline). Quyết định giữ nguyên scope fallback này (22/8), không mở rộng.
 - `NetworkModule` (`core:network`) chỉ *nhận* `CookieStore`/`QuizCacheStore` qua constructor injection, không tự `@Provides` — Hilt gộp graph đúng ở `:app` dù 2 module Gradle không biết nhau (xem project_structure.md mục 12.1 design doc).
+
+**📝 N13–14 Implementation Details (22/8):**
+
+- ✅ **Domain/Data layer**: mở rộng `QuizRepository`/`QuizRepositoryImpl` với `getMyQuizzes` (Paging 3, `MyQuizzesPagingSource`) và `createQuiz`; thêm `MyQuizzesParams`, `NewQuiz` (domain), `QuizManageDtos.kt` (data) — **nhân dịp này vá luôn nợ kỹ thuật đã ghi ở N12** (`getMyQuizzes` bọc `data: { quizzes: [...] }` chưa unwrap đúng) bằng DTO wrapper giống cách đã fix quiz detail.
+- ✅ **UseCase**: `GetMyQuizzesUseCase` (trả `Flow<PagingData<QuizCard>>`), `CreateQuizUseCase`.
+- ✅ **Presentation**: package `presentation/quizmanagelist/` (UiState/Intent/ViewModel/Screen — danh sách quiz của tôi, Paging 3, page size 3 theo quyết định người dùng) + package `presentation/createquiz/` (UiState/Intent/Effect/ViewModel/Screen + editor đủ 4 loại câu hỏi).
+- ✅ **Navigation**: `Routes.kt` + `AppNavGraph.kt` thêm route danh sách/tạo quiz (`Route.MyQuizzes`, tạo quiz).
+- ⚠️ **Quyết định phạm vi (theo khảo sát người dùng)**: upload ảnh quiz/câu hỏi **chưa làm ở bản này** — để lại N15 (S3 presign 2 bước); nếu Paging 3 phát sinh lỗi khó xử lý có phương án fallback tải danh sách thủ công (chưa cần dùng tới, Paging 3 chạy ổn ở bản đầu).
+
+**🎯 N13.5 — Home auth header & màn Profile (bổ sung ngoài kế hoạch, 22/8):**
+
+> Không có trong lộ trình gốc — phát sinh khi làm UI/UX cạnh nút tìm kiếm ở Home mà N11 để lại TODO (xem mục Technical Debt của N11).
+
+- ✅ Bỏ hẳn `TabRow` ("Khám phá"/"Của tôi") khỏi `HomeScreen` — Home giờ chỉ còn nội dung khám phá cuộn dọc.
+- ✅ Thêm component auth-aware cạnh nút tìm kiếm trong `TopAppBar` của Home: chưa đăng nhập → nút "Đăng ký/Đăng nhập"; đã đăng nhập → avatar tròn (bấm vào → `Route.Profile`). Có `LifecycleEventEffect(ON_RESUME)` để re-check trạng thái đăng nhập mỗi khi quay lại Home.
+- ✅ Màn `ProfileScreen` mới (đặt ở module `app`, không phải `feature:*`, vì gắn `Route.Profile` cấp app) — header avatar + tên + email, item "Quiz của tôi" điều hướng vào đúng màn `quizmanagelist` vừa làm ở N13–14, item "Đăng xuất".
+- ✅ **Component `Avatar` chung mới** ở `core:ui/components/Avatar.kt` — quy ước mới cho toàn dự án: nơi nào cần hiển thị avatar user thì dùng component này (qua dependency `core:ui` đã có sẵn ở hầu hết module), **không** tự thêm `coil.compose` riêng — Coil là chi tiết nội bộ của `core:ui`. Chốt sau khi cân nhắc 2 hướng (thêm Coil trực tiếp vào module gọi vs. bọc trong `core:ui`), chọn hướng dùng lại vì avatar sẽ còn xuất hiện ở nhiều màn khác (lobby, leaderboard...).
+- ⚠️ **Chưa có Bottom Navigation** (mục 11.4 design doc mô tả 5 tab Home/Discover/Join/Library/Profile) — hiện tại điều hướng Profile/MyQuizzes đi qua `NavController` thông thường từ Home, chưa có bottom nav bar. Xem design doc mục 11.5 (mới thêm) để biết chi tiết sai khác.
 
 ### Tuần 4 (N16–20) — Socket layer & Lobby
 

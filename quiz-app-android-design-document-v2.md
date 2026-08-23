@@ -1553,6 +1553,16 @@ fun MainScreen() {
 ```
 
 > ⚠️ **Lưu ý về Role-Aware Architecture**: Mặc dù navigation graph được merge, **GamePlay và HostGame vẫn dùng ViewModel hoàn toàn khác nhau** (`GameViewModel` vs `HostGameViewModel`) vì backend gửi payload Socket.IO khác nhau (`room` events vs `hostRoom` events). Merge graph chỉ ảnh hưởng **initial navigation/browsing**, không ảnh hưởng **gameplay role separation** (xem mục 6.3, 8).
+
+### 11.5. Cập nhật 22/8 — Home auth header & Profile (chưa có Bottom Navigation)
+
+⚠️ **Sai khác so với mục 11.4**: tại thời điểm N13.5 (22/8), `BottomNavigationBar` 5 tab (Home/Discover/Join/Library/Profile) mô tả ở mục 11.4 **chưa được triển khai**. Điều hướng thực tế hiện đi qua `NavController` thông thường gọi từ `HomeScreen`, chưa có bottom nav bar. Quyết định cụ thể:
+
+- Tab "Của tôi" trước đây nằm trong `TabRow` của `HomeScreen` (song song tab "Khám phá", từ N11) đã **bỏ hẳn** — `HomeScreen` giờ chỉ còn nội dung khám phá cuộn dọc.
+- Cạnh nút tìm kiếm ở `TopAppBar` của Home, thêm 1 component auth-aware: chưa đăng nhập → nút "Đăng ký/Đăng nhập" (nav `Route.AuthGraph`); đã đăng nhập → avatar tròn (nav `Route.Profile`). Re-check trạng thái đăng nhập mỗi khi Home resume (`LifecycleEventEffect(ON_RESUME)`).
+- `Route.Profile` hết placeholder, trỏ vào `ProfileScreen` thật — nhưng đặt ở module `app` (không phải `feature:*`) vì gắn trực tiếp route cấp app. Màn hiển thị avatar + tên + email, có item "Quiz của tôi" (nav `Route.MyQuizzes`, ghép vào `feature:quiz-manage` đã làm ở N13–14) và item "Đăng xuất".
+- Thêm component chung `Avatar` ở `core:ui/components/Avatar.kt` (bọc Coil ở scope `implementation`, tự fallback icon khi avatar null/rỗng). **Quy ước mới**: mọi nơi cần hiển thị avatar user dùng component này qua dependency `core:ui` sẵn có, không tự thêm `coil.compose` riêng cho từng module gọi (khác với ảnh cover quiz — vẫn để mỗi feature tự khai Coil như `feature:quiz-manage` đang làm, vì hiển thị khác nhau theo từng nơi).
+- `Route.Library` (mục 11.3) vẫn còn trong sealed Route nhưng **chưa có điểm truy cập** (chưa có bottom nav) — "Quiz của tôi" hiện đi qua `Route.Profile` → `Route.MyQuizzes`, không qua `Route.Library`. Cần quyết định lại ở N16+: giữ `Route.Library` cho mục đích khác (có thể là danh sách quiz đã lưu/yêu thích công khai) hay hợp nhất với `Route.MyQuizzes`.
 ---
 ## 12. Dependency Injection — Hilt Modules
 <table header-row="true">
