@@ -1,4 +1,4 @@
-> 🎯 **Tóm tắt**: Backend myquizz (Express + TypeScript + Socket.IO + PostgreSQL + Redis) chất lượng khá tốt, đúng chuẩn server-authoritative. Design doc v2 khớp ~90% code thật, có 6 điểm lệch cần vá (mục 4). Kế hoạch 50 ngày / 10 tuần đã hiệu chỉnh theo trình độ thực tế. **Trạng thái: Tuần 3 (N11–N15) hoàn tất 24/8 — Home/Search + Quiz Detail (cache Room) + Quiz-manage danh sách/tạo quiz (Paging 3) + Upload ảnh presign S3 2 bước xong; `feature:auth` đã refactor UiState/Intent/Effect tách file riêng (22/8); bổ sung ngoài kế hoạch: Home auth header + màn Profile + component `Avatar` chung ở `core:ui` (22/8). Bài học lớn N15: kotlinx.serialization `JsonNamingStrategy` vẫn đổi tên field dù đã có `@SerialName` tường minh — đã tách `Json`/`Retrofit` riêng cho `StorageApiService`. Bước tiếp theo: N16 — sửa/xóa quiz, hoàn thiện quiz-manage (chốt M3).**
+> 🎯 **Tóm tắt**: Backend myquizz (Express + TypeScript + Socket.IO + PostgreSQL + Redis) chất lượng khá tốt, đúng chuẩn server-authoritative. Design doc v2 khớp ~90% code thật, có 9 điểm lệch cần vá (mục 3) — 3 điểm mới phát hiện 24/8 khi đối chiếu lại trực tiếp qua GitHub API thay vì ghi chú cũ: REST error thật chỉ có `{code}` (không `message`/`details`), luồng Quên mật khẩu Android gọi 2 endpoint không tồn tại, và quiz listing đã hỗ trợ pagination thật (cursor). Kế hoạch 50 ngày / 10 tuần đã hiệu chỉnh theo trình độ thực tế. **Trạng thái: Tuần 3 (N11–N15) hoàn tất 24/8 — Home/Search + Quiz Detail (cache Room) + Quiz-manage danh sách/tạo quiz (Paging 3) + Upload ảnh presign S3 2 bước xong; `feature:auth` đã refactor UiState/Intent/Effect tách file riêng (22/8); bổ sung ngoài kế hoạch: Home auth header + màn Profile + component `Avatar` chung ở `core:ui` (22/8). Bài học lớn N15: kotlinx.serialization `JsonNamingStrategy` vẫn đổi tên field dù đã có `@SerialName` tường minh — đã tách `Json`/`Retrofit` riêng cho `StorageApiService`. Bước tiếp theo: N16 — sửa/xóa quiz, hoàn thiện quiz-manage (chốt M3); N16.5 khẩn (bổ sung 24/8) — sửa luồng Quên mật khẩu sai endpoint, sửa `ApiError` theo envelope thật, áp dụng pagination cursor thật cho quiz listing.**
 
 File này tự chứa đủ ngữ cảnh để bắt đầu phiên làm việc mới (đã gộp & tinh gọn log các phiên 9–11/8). Chi tiết kỹ thuật (API/socket/DI/tree module): https://app.notion.com/p/ea02b2e9982b4b72b7fa75440028621a
 
@@ -45,9 +45,9 @@ Vue 3 thuần JS + Pinia + vue-query + Tailwind/GSAP; có import quiz từ xlsx 
 
 ## 3. Đối chiếu Design Doc v2 ↔ code thật
 
-**Khớp ~90%**: cookie HttpOnly auth (không Bearer); REST trước → `socketToken` → Socket.IO handshake `auth.token`; 5 mode + pacing host/self; bảng event 5.2–5.3; `AnswerAck`; 4 `question_type`; envelope `{success, data, error}`; upload ảnh presign S3 2 bước; CookieStore DI qua `core:common`.
+**Khớp ~90%**: cookie HttpOnly auth (không Bearer); REST trước → `socketToken` → Socket.IO handshake `auth.token`; 5 mode + pacing host/self; bảng event 5.2–5.3; `AnswerAck`; 4 `question_type`; envelope `{success, data, error}` (đúng outer shape, xem #7 cho inner error); upload ảnh presign S3 2 bước; CookieStore DI qua `core:common`.
 
-**6 điểm lệch — vá doc trước khi code phần liên quan:**
+**9 điểm lệch — vá doc trước khi code phần liên quan (3 điểm cuối mới phát hiện 24/8 khi đối chiếu lại trực tiếp qua GitHub API):**
 
 | # | Doc đang ghi | Code thật | Hành động Android |
 |---|---|---|---|
@@ -57,6 +57,9 @@ Vue 3 thuần JS + Pinia + vue-query + Tailwind/GSAP; có import quiz từ xlsx 
 | 4 | Không có REST update config | Có `PATCH /v1/games/:id/config` (host, lobby-only) | App ưu tiên kênh socket `lobby:config-update` (có ACK + broadcast) |
 | 5 | `CreateGameSession` trả phẳng | Thực tế lồng `data.data.session` (kèm `ignored`) | DTO map đúng |
 | 6 | `game:state` mô tả chung chung | Snapshot gồm `question`, `countdown`, `endsAt/matchEndsAt`, `allow_answer_late`, `remainingSeconds`, `player` (gated reveal), `leaderboard` (rỗng khi câu đang mở) | Nguồn dữ liệu chính của Host screen + resync |
+| 7 | REST error = `{message, details}` (đã cài đặt sai theo giả định này ở N1–5, `core:network`) | `fail()` trong `response.ts` chỉ trả `{code}` — cố ý không có message/details (tránh leak nội bộ + đa ngôn ngữ) | Sửa `ApiError` còn 1 field `code: String`; `AppError.Http` đổi field `message` → `code`; thêm hàm map `code` → `UiText` tiếng Việt |
+| 8 | Quên mật khẩu: 3 endpoint giả định `/users/forgot-password` + `/users/reset-password-token` + `/users/reset-password` (đã code xong ở N15, 15/8) | Flow ticket 3 bước thật: `POST /users/forgot-password` (đúng tên, response khác) → `POST /users/password-reset/verify` (`{email,otp}` hoặc `{token}` → `{ticket,expiresAt,email}`) → `GET /users/password-reset/ticket` (peek) → `POST /users/password-reset/complete` (`{ticket,newPassword}`) | Viết lại DTO/API service/ViewModel reset theo 4 endpoint thật — xem N16.5 |
+| 9 | Ghi chú kỹ thuật nợ ở N11: "backend chưa có pagination" | `/quizzes/search`, `/quizzes/me`, `/quizzes/users/id/:ownerId` đã hỗ trợ `cursor`/`limit` (1–24)/`include_total` | Refactor Paging 3 dùng cursor thật thay vì `page` không dùng — xem N16.5 |
 
 Lưu ý thêm: swagger ghi `/auth/refresh` trả tokens nhưng thực tế chỉ trả `{message}`.
 
@@ -69,10 +72,10 @@ Lưu ý thêm: swagger ghi `/auth/refresh` trả tokens nhưng thực tế chỉ
 | # | Chủ đề | Tuần |
 |---|---|---|
 | 1 | Gradle multi-module (version catalog, convention plugins — spike nowinandroid) | 1 ✅ |
-| 2 | Cookie auth: OkHttp CookieJar + Authenticator (gỡ thói quen Bearer) | 1–2 |
-| 3 | Credential Manager + Google One Tap | 2 |
-| 4 | kotlinx.serialization (bỏ Gson) | 3 |
-| 5 | Paging 3 (có thể thay phân trang tay) + S3 presign 2 bước | 3 |
+| 2 | Cookie auth: OkHttp CookieJar + Authenticator (gỡ thói quen Bearer) | 1–2 ✅ |
+| 3 | Credential Manager + Google One Tap | 2 ✅ |
+| 4 | kotlinx.serialization (bỏ Gson) | 3 ✅ |
+| 5 | Paging 3 (có thể thay phân trang tay) + S3 presign 2 bước | 3 ✅ |
 | 6 | Socket.IO nâng cao: namespace `/game`, ACK, auth handshake; bắt đầu MVI | 4–5 |
 | 7 | Testing: JUnit + MockK + Turbine + MockWebServer + Compose UI Test — **khoảng trống lớn nhất, bắt đầu từ Tuần 5** | 5–9 |
 | 8 | Release hardening: R8/ProGuard, network security config, LeakCanary | 8–9 |
@@ -300,6 +303,10 @@ Lưu ý thêm: swagger ghi `/auth/refresh` trả tokens nhưng thực tế chỉ
 ### Tuần 4 (N16–20) — Socket layer & Lobby
 
 - **N16**: Sửa/xóa quiz, hoàn thiện quiz-manage → **Chốt M3**.
+- **N16.5 (bổ sung khẩn, phát hiện 24/8 khi đối chiếu backend qua GitHub API)** — làm trước khi sang N17, vì ảnh hưởng `core:network`/`feature:auth` đã code ở Tuần 1–2:
+  1. **Sửa luồng Quên mật khẩu sai endpoint**: `core:network`/`feature:auth` đang gọi `/users/reset-password-token` và `/users/reset-password` — không tồn tại trên backend thật. Đổi sang 3 bước ticket thật: `POST /users/forgot-password` (giữ, đúng tên) → `POST /users/password-reset/verify` (body `{email,otp}` hoặc `{token}`, trả `{ticket, expiresAt, email}`) → `GET /users/password-reset/ticket?ticket=...` (peek, tuỳ chọn) → `POST /users/password-reset/complete` (`{ticket, newPassword}`). Ảnh hưởng: 3 DTO request cũ, `AuthApiService`/`UserApiService`, `ForgotPasswordViewModel`, `OtpVerificationViewModel`, `ResetPasswordViewModel` (bỏ nhánh dual-flow token/OTP song song, chuyển thành 3 bước tuyến tính).
+  2. **Sửa `ApiEnvelope`/`ApiError` theo envelope lỗi thật**: lỗi REST chỉ có `{code}` (string), không có `message`/`details` như đã cài đặt ở N1–5. Sửa `ApiError` còn 1 field `code: String`; `AppError.Http` đổi `message` → `code`; thêm hàm map `code` → `UiText` tiếng Việt hiển thị cho user (server không trả message).
+  3. **Áp dụng pagination cursor thật cho danh sách quiz**: `/v1/quizzes/search`, `/v1/quizzes/me`, `/v1/quizzes/users/id/:ownerId` đã hỗ trợ `cursor`/`limit` (1–24)/`include_total` — khác ghi chú kỹ thuật nợ ở N11/N13 ("backend chưa có pagination"). Refactor `SearchQuizzesUseCase`/`GetMyQuizzesUseCase`/Paging 3 `PagingSource` dùng `cursor` thật thay vì tham số `page` không dùng tới.
 - **N17**: `CreateRoomScreen` render động từ `GET /v1/games/game-modes` (theo editable/locked spec, không hardcode 5 mode).
 - **N18**: Socket layer — `SocketFactory` (namespace `/game`), `GameEventMapper`, connect → `lobby:join`; spike reconnect sớm. ⚠️ **Bổ sung `AppError.Socket` vào `core:common` ở ngày này** (doc mục 14: payload `{event, message}`, prefix `UNAUTHORIZED:`/`FORBIDDEN:`/`CONFLICT:`/`GONE:`; `GONE` → về Home).
 - **N19**: `feature:lobby` Player — lookup room, join REST → `socketToken` → connect; PlayerLobbyScreen.

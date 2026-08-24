@@ -529,10 +529,27 @@ Trạng thái đăng nhập được xác thực bằng cách gọi `GET /users/
 </tr>
 <tr>
 <td>POST</td>
-<td>`/users/forgot-password`, `/users/reset-password*`</td>
-<td>quên mật khẩu</td>
+<td>`/users/forgot-password`</td>
+<td>Bước 1: gửi OTP + link về email. Body: `{email}`. Trả `{resetTime, expiresAt}`</td>
+</tr>
+<tr>
+<td>POST</td>
+<td>`/users/password-reset/verify`</td>
+<td>Bước 2: đổi OTP hoặc token lấy ticket. Body: `{email, otp}` **hoặc** `{token}`. Trả `{ticket, expiresAt, email (masked)}`</td>
+</tr>
+<tr>
+<td>GET</td>
+<td>`/users/password-reset/ticket?ticket=...`</td>
+<td>Xem trạng thái ticket (không tiêu ticket) — trả `{email (masked), expiresAt}`, dùng để quyết định render form trước khi user nhập mật khẩu mới</td>
+</tr>
+<tr>
+<td>POST</td>
+<td>`/users/password-reset/complete`</td>
+<td>Bước 3, nơi duy nhất ghi mật khẩu: body `{ticket, newPassword}`. Revoke toàn bộ refresh token của user sau khi đổi thành công</td>
 </tr>
 </table>
+
+> 🔴 **Sai lệch nghiêm trọng phát hiện 24/8**: Luồng "Quên mật khẩu" đã code xong ở N15 (15/8) gọi 3 endpoint không khớp backend thật: `/users/reset-password-token` và `/users/reset-password` **không tồn tại**. Backend thật dùng flow ticket 3 bước như bảng trên (`verify` → `ticket` peek → `complete`), không có khái niệm "reset bằng token trực tiếp" hay "reset kèm OTP trực tiếp" như 2 DTO `ResetPasswordRequest`/`ResetPasswordWithOtpRequest` đã viết. Cần sửa `core:network` (API service + DTO) và `feature:auth` (ViewModel/UseCase reset) theo đúng 4 endpoint trên — việc cụ thể xem kế hoạch 50 ngày, mục N16.5 (Tuần 4).
 ### 4.3. Quiz (`/quizzes`)
 <table header-row="true">
 <tr>
@@ -638,8 +655,8 @@ Trạng thái đăng nhập được xác thực bằng cách gọi `GET /users/
 // success
 { "success": true, "data": { ... }, "error": null, "meta": { "timestamp": "..." } }
 
-// fail
-{ "success": false, "data": null, "error": { "message": "...", "details": {...} }, "meta": { "timestamp": "..." } }
+// fail — CHỈ có "code", không có "message"/"details" trên wire (response.ts: hàm fail() chỉ nhận ErrorCode)
+{ "success": false, "data": null, "error": { "code": "VALIDATION_ERROR" }, "meta": { "timestamp": "..." } }
 ```
 → DTO wrapper phía Android:
 ```kotlin
@@ -651,8 +668,10 @@ data class ApiEnvelope<T>(
 )
 
 @Serializable
-data class ApiError(val message: String, val details: JsonElement? = null)
+data class ApiError(val code: String)
 ```
+> ⚠️ **Sửa 24/8**: bản trước giả định `error: {message, details}` — sai. Backend cố tình không trả message tiếng Anh cho client (xem comment `response.ts`: "No message and no field dump... The reason is logged instead, where developers can read it and users cannot"): mọi lỗi chỉ có `code` (string, ví dụ `VALIDATION_ERROR`, `RESET_TICKET_INVALID`, `SERVER_ERROR`, `FILE_TOO_LARGE`, `UNAUTHORIZED`...). Android phải tự map `code` → chuỗi hiển thị tiếng Việt (`UiText`/string resource theo code), không hiển thị `code` thô cho người dùng.
+
 Retrofit nên dùng 1 `CallAdapter` custom để unwrap `envelope` thành `Result<T, AppError>` domain, tránh mỗi Repository tự parse `success/data/error`.
 ---
 ## 5. [Socket.IO](http://Socket.IO) — luồng kết nối & bảng mapping event thật
@@ -1688,10 +1707,10 @@ val offset = Instant.parse(serverTime).toEpochMilli() - System.currentTimeMillis
 - Khi mất kết nối và reconnect giữa chừng một câu hỏi self-paced, server gửi `question:awaiting_next` để đồng bộ lại UI — ViewModel cần một nhánh xử lý riêng cho event này, không map chung vào `SelfQuestion`.
 ---
 ## 14. Error Handling — theo đúng envelope backend
-Toàn bộ lỗi REST trả JSON `{success:false, error:{message, details}}` với HTTP status tương ứng (`400/401/403/404/409/413/500/503` — xem `error.handler.ts`). Lỗi [Socket.IO](http://Socket.IO) đi qua **event ****`error`** dạng `{event, message}` với message có prefix loại lỗi: `UNAUTHORIZED:`, `FORBIDDEN:`, `CONFLICT:`, `GONE:`.
+Toàn bộ lỗi REST trả JSON `{success:false, error:{code}}` — **chỉ có `code`, không có `message`/`details`** (xem mục 4.6) — với HTTP status tương ứng (`400/401/403/404/409/413/500/503` — xem `error.handler.ts`). Lỗi [Socket.IO](http://Socket.IO) đi qua **event ****`error`** dạng `{event, message}` với message có prefix loại lỗi: `UNAUTHORIZED:`, `FORBIDDEN:`, `CONFLICT:`, `GONE:` (lỗi Socket vẫn có message, chỉ REST là code thuần).
 ```kotlin
 sealed class AppError {
-    data class Http(val status: Int, val message: String, val details: Map<String, String>? = null) : AppError()
+    data class Http(val status: Int, val code: String) : AppError()   // code thô từ server, VD "VALIDATION_ERROR"
     data class Socket(val sourceEvent: String, val message: String) : AppError() {
         val kind: SocketErrorKind get() = when {
             message.startsWith("UNAUTHORIZED") -> SocketErrorKind.UNAUTHORIZED
@@ -1702,6 +1721,14 @@ sealed class AppError {
         }
     }
     object NetworkError : AppError()
+}
+
+// Map code (REST) hoặc kind (Socket) sang chuỗi hiển thị tiếng Việt — KHÔNG hiển thị code/message thô cho user.
+fun AppError.Http.toUiText(): UiText = when (code) {
+    "VALIDATION_ERROR" -> UiText.StringResource(R.string.error_validation)
+    "RESET_TICKET_INVALID" -> UiText.StringResource(R.string.error_reset_ticket_invalid)
+    "UNAUTHORIZED" -> UiText.StringResource(R.string.error_unauthorized)
+    else -> UiText.StringResource(R.string.error_generic)
 }
 ```
 `GONE` (VD: `player not in room`, `game is not active`) nên tự động điều hướng người chơi ra khỏi màn hình game về Home kèm thông báo, thay vì chỉ hiện snackbar như lỗi thông thường.
