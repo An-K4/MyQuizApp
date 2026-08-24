@@ -1,6 +1,7 @@
 package android.kma.myquizzapp.feature.quiz_manage.presentation.createquiz
 
 import android.kma.myquizzapp.core.common.model.QuestionType
+import android.net.Uri
 import java.util.UUID
 
 /**
@@ -24,7 +25,9 @@ data class QuestionDraft(
     // MULTIPLE_SELECT cho phép nhiều.
     val correctIndexes: Set<Int> = emptySet(),
     // Chỉ dùng cho SHORT_ANSWER / LONG_ANSWER.
-    val correctText: String = ""
+    val correctText: String = "",
+    // Ảnh câu hỏi đã chọn (local, chưa upload) — N15. Chỉ upload thật lúc bấm "Tạo quiz".
+    val imageUri: Uri? = null
 ) {
     val isChoiceType: Boolean
         get() = questionType == QuestionType.MULTIPLE_CHOICE || questionType == QuestionType.MULTIPLE_SELECT

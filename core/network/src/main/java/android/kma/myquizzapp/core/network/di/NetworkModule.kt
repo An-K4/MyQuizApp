@@ -4,6 +4,8 @@ import android.kma.myquizzapp.core.common.cookie.CookieStore
 import android.kma.myquizzapp.core.common.repository.AuthRepository
 import android.kma.myquizzapp.core.network.BuildConfig
 import android.kma.myquizzapp.core.network.api.AuthApiService
+import android.kma.myquizzapp.core.network.api.QuizApiService
+import android.kma.myquizzapp.core.network.api.StorageApiService
 import android.kma.myquizzapp.core.network.api.UserApiService
 import android.kma.myquizzapp.core.network.cookie.PersistentCookieJar
 import android.kma.myquizzapp.core.network.cookie.TokenAuthenticator
@@ -82,5 +84,54 @@ object NetworkModule {
     
     @Provides
     @Singleton
-    fun provideQuizApiService(retrofit: Retrofit): android.kma.myquizzapp.core.network.api.QuizApiService = retrofit.create()
+    fun provideQuizApiService(retrofit: Retrofit): QuizApiService = retrofit.create()
+
+    /**
+     * Json riêng cho StorageApiService — KHÔNG set namingStrategy (xem
+     * StorageJson trong Qualifiers.kt để biết lý do: JsonNamingStrategy vẫn
+     * đổi tên dù property đã có @SerialName tường minh). storage.schema.ts
+     * (backend) dùng camelCase thật nên Kotlin property camelCase khớp thẳng,
+     * không cần @SerialName.
+     */
+    @OptIn(ExperimentalSerializationApi::class)
+    @StorageJson
+    @Provides
+    @Singleton
+    fun provideStorageJson(): Json = Json {
+        ignoreUnknownKeys = true
+        coerceInputValues = true
+        explicitNulls = false
+    }
+
+    @StorageRetrofit
+    @Provides
+    @Singleton
+    fun provideStorageRetrofit(
+        @StorageJson json: Json,
+        okHttpClient: OkHttpClient
+    ): Retrofit =
+        Retrofit.Builder()
+            .baseUrl(BuildConfig.BASE_URL)
+            .client(okHttpClient)
+            .addCallAdapterFactory(ResultCallAdapterFactory(json))
+            .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
+            .build()
+
+    @Provides
+    @Singleton
+    fun provideStorageApiService(
+        @StorageRetrofit retrofit: Retrofit
+    ): StorageApiService = retrofit.create()
+
+    // Client riêng, KHÔNG cookie/authenticator — dùng để PUT ảnh thẳng lên storage
+    // (S3-compatible, bên thứ 3). Xem RawUploadOkHttpClient để biết lý do phải tách.
+    @RawUploadOkHttpClient
+    @Provides
+    @Singleton
+    fun provideRawUploadOkHttpClient(): OkHttpClient =
+        OkHttpClient.Builder()
+            .connectTimeout(30, TimeUnit.SECONDS)
+            .writeTimeout(60, TimeUnit.SECONDS)
+            .readTimeout(30, TimeUnit.SECONDS)
+            .build()
 }

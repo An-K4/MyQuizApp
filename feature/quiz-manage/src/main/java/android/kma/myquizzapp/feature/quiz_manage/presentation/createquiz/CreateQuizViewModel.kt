@@ -7,6 +7,7 @@ import android.kma.myquizzapp.core.common.model.NewQuiz
 import android.kma.myquizzapp.core.common.model.QuestionType
 import android.kma.myquizzapp.core.common.result.Result
 import android.kma.myquizzapp.feature.quiz_manage.domain.usecase.CreateQuizUseCase
+import android.kma.myquizzapp.feature.quiz_manage.domain.usecase.UploadImageUseCase
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -20,14 +21,17 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /**
- * ViewModel cho màn Tạo quiz (N13-14).
+ * ViewModel cho màn Tạo quiz (N13-14, ảnh quiz/câu hỏi bổ sung ở N15).
  *
- * Scope v1 (theo xác nhận của user): KHÔNG có upload ảnh quiz/question ở bản
- * này — quizImage/questionImage luôn gửi null, sẽ bổ sung ở N15.
+ * Upload ảnh (N15): chỉ upload thật lúc bấm "Tạo quiz" (Submit), KHÔNG upload
+ * ngay khi người dùng chọn ảnh — tránh tạo object rác trên storage nếu người
+ * dùng bỏ ngang. Nếu bất kỳ ảnh nào upload lỗi, dừng toàn bộ và KHÔNG gọi
+ * createQuiz (xem submit()).
  */
 @HiltViewModel
 class CreateQuizViewModel @Inject constructor(
-    private val createQuizUseCase: CreateQuizUseCase
+    private val createQuizUseCase: CreateQuizUseCase,
+    private val uploadImageUseCase: UploadImageUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(CreateQuizUiState())
@@ -44,12 +48,17 @@ class CreateQuizViewModel @Inject constructor(
             is CreateQuizIntent.QuizCategoryChanged -> _uiState.update { it.copy(quizCategory = intent.value) }
             is CreateQuizIntent.IsPublicChanged -> _uiState.update { it.copy(isPublic = intent.value) }
 
+            is CreateQuizIntent.PickCoverImage -> _uiState.update { it.copy(coverImageUri = intent.uri) }
+            is CreateQuizIntent.RemoveCoverImage -> _uiState.update { it.copy(coverImageUri = null) }
+
             is CreateQuizIntent.AddQuestion -> _uiState.update { it.copy(questions = it.questions + QuestionDraft()) }
             is CreateQuizIntent.RemoveQuestion -> _uiState.update { state ->
-                // Luôn giợ lại ít nhất 1 câu hỏi để tránh submit quiz rỗng.
+                // Luôn giữ lại ít nhất 1 câu hỏi để tránh submit quiz rỗng.
                 if (state.questions.size <= 1) state
                 else state.copy(questions = state.questions.filterNot { it.localId == intent.localId })
             }
+            is CreateQuizIntent.PickQuestionImage -> updateQuestion(intent.localId) { it.copy(imageUri = intent.uri) }
+            is CreateQuizIntent.RemoveQuestionImage -> updateQuestion(intent.localId) { it.copy(imageUri = null) }
             is CreateQuizIntent.QuestionTypeChanged -> updateQuestion(intent.localId) {
                 it.copy(questionType = intent.type, correctIndexes = emptySet(), correctText = "")
             }
@@ -134,36 +143,62 @@ class CreateQuizViewModel @Inject constructor(
         }
         _uiState.update { it.copy(isSubmitting = true, fieldErrors = emptyList(), errorMessage = null) }
 
-        val newQuiz = NewQuiz(
-            quizName = state.quizName.trim(),
-            quizDescription = state.quizDescription.trim().ifBlank { null },
-            quizLanguage = state.quizLanguage,
-            quizImage = null,
-            quizCategory = state.quizCategory.trim().ifBlank { null },
-            isPublic = state.isPublic,
-            questions = state.questions.map { it.toNewQuestion() }
-        )
-
         viewModelScope.launch {
+            // 1) Ảnh cover (nếu có) — upload thật ngay bây giờ, không phải lúc chọn ảnh.
+            val coverImageUrl: String? = state.coverImageUri?.let { uri ->
+                when (val result = uploadImageUseCase(uri, folder = "quizzes")) {
+                    is Result.Success -> result.data
+                    is Result.Error -> {
+                        failSubmit(result.error.toUserMessage())
+                        return@launch
+                    }
+                }
+            }
+
+            // 2) Ảnh từng câu hỏi (nếu có). Bất kỳ ảnh nào lỗi -> dừng toàn bộ,
+            // KHÔNG gọi createQuiz (tránh tạo quiz thiếu ảnh).
+            val questionImageUrls = mutableMapOf<String, String>()
+            for (question in state.questions) {
+                val uri = question.imageUri ?: continue
+                when (val result = uploadImageUseCase(uri, folder = "questions")) {
+                    is Result.Success -> questionImageUrls[question.localId] = result.data
+                    is Result.Error -> {
+                        failSubmit(result.error.toUserMessage())
+                        return@launch
+                    }
+                }
+            }
+
+            // 3) Toàn bộ ảnh (nếu có) đã có publicUrl thật — tạo quiz.
+            val newQuiz = NewQuiz(
+                quizName = state.quizName.trim(),
+                quizDescription = state.quizDescription.trim().ifBlank { null },
+                quizLanguage = state.quizLanguage,
+                quizImage = coverImageUrl,
+                quizCategory = state.quizCategory.trim().ifBlank { null },
+                isPublic = state.isPublic,
+                questions = state.questions.map { it.toNewQuestion(questionImageUrls[it.localId]) }
+            )
+
             when (val result = createQuizUseCase(newQuiz)) {
                 is Result.Success -> {
                     _uiState.update { it.copy(isSubmitting = false) }
                     _effect.send(CreateQuizEffect.QuizCreated(result.data.id))
                 }
-                is Result.Error -> {
-                    _uiState.update {
-                        it.copy(isSubmitting = false, errorMessage = result.error.toUserMessage())
-                    }
-                }
+                is Result.Error -> failSubmit(result.error.toUserMessage())
             }
         }
     }
 
-    private fun QuestionDraft.toNewQuestion(): NewQuestion = NewQuestion(
+    private fun failSubmit(message: String) {
+        _uiState.update { it.copy(isSubmitting = false, errorMessage = message) }
+    }
+
+    private fun QuestionDraft.toNewQuestion(imageUrl: String?): NewQuestion = NewQuestion(
         questionType = questionType,
         questionText = questionText.trim(),
         timeLimit = timeLimit,
-        questionImage = null,
+        questionImage = imageUrl,
         questionHint = questionHint.trim().ifBlank { null },
         explanation = explanation.trim().ifBlank { null },
         answerOptions = if (isChoiceType) options.filter { it.isNotBlank() } else null,

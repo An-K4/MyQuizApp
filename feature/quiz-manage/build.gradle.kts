@@ -25,6 +25,9 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.kotlinx.serialization.json)
 
+    // 2a. Activity Result API (N15 - Android Photo Picker để chọn ảnh quiz/câu hỏi)
+    implementation(libs.androidx.activity)
+
     // 2b. Paging 3 (N13-14 - danh sách "Quiz của tôi", cursor pagination)
     implementation(libs.androidx.paging.runtime)
     implementation(libs.androidx.paging.compose)

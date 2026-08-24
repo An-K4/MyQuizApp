@@ -1,6 +1,10 @@
 package android.kma.myquizzapp.feature.quiz_manage.presentation.createquiz
 
 import android.kma.myquizzapp.core.common.model.QuestionType
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -11,6 +15,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
@@ -41,9 +46,18 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import coil.compose.AsyncImage
 
+/**
+ * Màn Tạo quiz (N13-14). N15 bổ sung chọn ảnh cover + ảnh từng câu hỏi qua
+ * Android Photo Picker (không cần quyền runtime) + xem trước bằng Coil. Ảnh chọ
+ * chỉ là URI local — việc upload thật (nén -> presign -> PUT) xảy ra trong
+ * ViewModel lúc bấm "Tạo quiz".
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CreateQuizScreen(
@@ -53,6 +67,30 @@ fun CreateQuizScreen(
     viewModel: CreateQuizViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+
+    // Launcher DUY NHẤT dùng chung cho cả ảnh cover và ảnh từng câu hỏi — Android
+    // Photo Picker không cần quyền runtime. pendingPickTarget theo dõi đang chọn
+    // ảnh cho đối tượng nào (set trước khi launch, đọc khi picker trả về uri).
+    var pendingPickTarget by remember { mutableStateOf<PickTarget?>(null) }
+    val photoPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia()
+    ) { uri ->
+        val target = pendingPickTarget
+        pendingPickTarget = null
+        if (uri == null || target == null) return@rememberLauncherForActivityResult
+        when (target) {
+            is PickTarget.Cover -> viewModel.handleIntent(CreateQuizIntent.PickCoverImage(uri))
+            is PickTarget.Question -> viewModel.handleIntent(
+                CreateQuizIntent.PickQuestionImage(target.localId, uri)
+            )
+        }
+    }
+    fun launchImagePicker(target: PickTarget) {
+        pendingPickTarget = target
+        photoPickerLauncher.launch(
+            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+        )
+    }
 
     LaunchedEffect(Unit) {
         viewModel.effect.collect { effect ->
@@ -122,6 +160,15 @@ fun CreateQuizScreen(
             }
 
             item {
+                ImagePickerSection(
+                    label = "Ảnh quiz (tùy chọn)",
+                    imageUri = uiState.coverImageUri,
+                    onPick = { launchImagePicker(PickTarget.Cover) },
+                    onRemove = { viewModel.handleIntent(CreateQuizIntent.RemoveCoverImage) }
+                )
+            }
+
+            item {
                 Text(text = "Câu hỏi (${uiState.questions.size})")
             }
 
@@ -129,7 +176,8 @@ fun CreateQuizScreen(
                 QuestionEditorCard(
                     question = question,
                     canRemove = uiState.questions.size > 1,
-                    onIntent = viewModel::handleIntent
+                    onIntent = viewModel::handleIntent,
+                    onPickImage = { launchImagePicker(PickTarget.Question(question.localId)) }
                 )
             }
 
@@ -174,12 +222,51 @@ fun CreateQuizScreen(
     }
 }
 
+/** Đối tượng đang chờ chọn ảnh qua Photo Picker chung của màn hình. */
+private sealed interface PickTarget {
+    data object Cover : PickTarget
+    data class Question(val localId: String) : PickTarget
+}
+
+@Composable
+private fun ImagePickerSection(
+    label: String,
+    imageUri: Uri?,
+    onPick: () -> Unit,
+    onRemove: () -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(text = label)
+        if (imageUri != null) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                AsyncImage(
+                    model = imageUri,
+                    contentDescription = label,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(160.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                )
+                TextButton(onClick = onRemove) {
+                    Text("Xóa ảnh")
+                }
+            }
+        } else {
+            OutlinedButton(onClick = onPick, modifier = Modifier.fillMaxWidth()) {
+                Text("Chọn ảnh")
+            }
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun QuestionEditorCard(
     question: QuestionDraft,
     canRemove: Boolean,
-    onIntent: (CreateQuizIntent) -> Unit
+    onIntent: (CreateQuizIntent) -> Unit,
+    onPickImage: () -> Unit
 ) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -201,6 +288,13 @@ private fun QuestionEditorCard(
                 onValueChange = { onIntent(CreateQuizIntent.QuestionTextChanged(question.localId, it)) },
                 label = { Text("Nội dung câu hỏi *") },
                 modifier = Modifier.fillMaxWidth()
+            )
+
+            ImagePickerSection(
+                label = "Ảnh câu hỏi (tùy chọn)",
+                imageUri = question.imageUri,
+                onPick = onPickImage,
+                onRemove = { onIntent(CreateQuizIntent.RemoveQuestionImage(question.localId)) }
             )
 
             if (question.isChoiceType) {
