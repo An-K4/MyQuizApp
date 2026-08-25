@@ -81,7 +81,7 @@ private class ResultCall<T>(
             envelope.success ->
                 @Suppress("UNCHECKED_CAST") Result.Success(Unit as T, page) // VD logout trả data: null → khai báo Result<Unit>
             else -> Result.Error(
-                AppError.Api(envelope.error?.message ?: "Unknown error")
+                AppError.Api(envelope.error?.code ?: "SERVER_ERROR")
             )
         }
     }
@@ -92,11 +92,12 @@ private class ResultCall<T>(
         404 -> AppError.NotFound
         410 -> AppError.Gone                       // phòng bị xóa → về Home (N37)
         in 500..599 -> AppError.Server(code)
-        else -> AppError.Api(parseErrorMessage(rawBody) ?: "HTTP $code")
+        else -> AppError.Api(parseErrorCode(rawBody) ?: "SERVER_ERROR")
     }
 
-    private fun parseErrorMessage(raw: String?): String? = raw?.let {
-        runCatching { json.decodeFromString<ApiEnvelope<Unit>>(it).error?.message }.getOrNull()
+    // N16.5: backend chỉ trả error.code — không còn message để parse.
+    private fun parseErrorCode(raw: String?): String? = raw?.let {
+        runCatching { json.decodeFromString<ApiEnvelope<Unit>>(it).error?.code }.getOrNull()
     }
 
     private fun Throwable.toAppError(): AppError = when (this) {

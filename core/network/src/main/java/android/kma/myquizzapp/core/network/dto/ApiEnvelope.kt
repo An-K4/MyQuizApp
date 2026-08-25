@@ -1,7 +1,6 @@
 ﻿package android.kma.myquizzapp.core.network.dto
 
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.JsonElement
 
 @Serializable
 data class ApiEnvelope<T>(
@@ -11,10 +10,12 @@ data class ApiEnvelope<T>(
     val meta: Meta? = null
 )
 
+// N16.5: envelope lỗi thật của backend CHỈ có code (response.ts fail()) — cố ý
+// không có message/details để tránh leak nội bộ + đa ngôn ngữ. Client tự map
+// code → chuỗi tiếng Việt (xem AppErrorExt.toUserMessage ở core:common).
 @Serializable
 data class ApiErrorBody(
-    val message: String,
-    val details: JsonElement? = null   // backend gửi details kiểu gì cũng có — JsonElement cho an toàn
+    val code: String
 )
 
 @Serializable
