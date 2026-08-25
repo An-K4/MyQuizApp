@@ -4,6 +4,7 @@ import android.kma.myquizzapp.core.common.cookie.CookieStore
 import android.kma.myquizzapp.core.common.repository.AuthRepository
 import android.kma.myquizzapp.core.network.BuildConfig
 import android.kma.myquizzapp.core.network.api.AuthApiService
+import android.kma.myquizzapp.core.network.api.PasswordResetApiService
 import android.kma.myquizzapp.core.network.api.QuizApiService
 import android.kma.myquizzapp.core.network.api.StorageApiService
 import android.kma.myquizzapp.core.network.api.UserApiService
@@ -122,6 +123,40 @@ object NetworkModule {
     fun provideStorageApiService(
         @StorageRetrofit retrofit: Retrofit
     ): StorageApiService = retrofit.create()
+
+    /**
+     * Json/Retrofit riêng cho PasswordResetApiService (N16.5) — module user của
+     * backend dùng camelCase thật trên wire (resetTime/expiresAt/newPassword),
+     * không đi qua được namingStrategy SnakeCase của Json chung (bài học N15).
+     */
+    @PasswordResetJson
+    @Provides
+    @Singleton
+    fun providePasswordResetJson(): Json = Json {
+        ignoreUnknownKeys = true
+        coerceInputValues = true
+        explicitNulls = false
+    }
+
+    @PasswordResetRetrofit
+    @Provides
+    @Singleton
+    fun providePasswordResetRetrofit(
+        @PasswordResetJson json: Json,
+        okHttpClient: OkHttpClient
+    ): Retrofit =
+        Retrofit.Builder()
+            .baseUrl(BuildConfig.BASE_URL)
+            .client(okHttpClient)
+            .addCallAdapterFactory(ResultCallAdapterFactory(json))
+            .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
+            .build()
+
+    @Provides
+    @Singleton
+    fun providePasswordResetApiService(
+        @PasswordResetRetrofit retrofit: Retrofit
+    ): PasswordResetApiService = retrofit.create()
 
     // Client riêng, KHÔNG cookie/authenticator — dùng để PUT ảnh thẳng lên storage
     // (S3-compatible, bên thứ 3). Xem RawUploadOkHttpClient để biết lý do phải tách.

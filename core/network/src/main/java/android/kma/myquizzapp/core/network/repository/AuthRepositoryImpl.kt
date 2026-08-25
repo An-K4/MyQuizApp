@@ -5,20 +5,25 @@ import android.kma.myquizzapp.core.common.model.User
 import android.kma.myquizzapp.core.common.repository.AuthRepository
 import android.kma.myquizzapp.core.common.result.Result
 import android.kma.myquizzapp.core.common.result.map
+import android.kma.myquizzapp.core.common.model.ResetTicket
+import android.kma.myquizzapp.core.common.model.ResetTicketStatus
 import android.kma.myquizzapp.core.network.api.AuthApiService
+import android.kma.myquizzapp.core.network.api.PasswordResetApiService
 import android.kma.myquizzapp.core.network.api.UserApiService
+import android.kma.myquizzapp.core.network.dto.CompleteResetRequest
 import android.kma.myquizzapp.core.network.dto.ForgotPasswordRequest
 import timber.log.Timber
 import android.kma.myquizzapp.core.network.dto.GoogleOneTapRequest
 import android.kma.myquizzapp.core.network.dto.LoginRequest
 import android.kma.myquizzapp.core.network.dto.RegisterRequest
-import android.kma.myquizzapp.core.network.dto.ResetPasswordRequest
-import android.kma.myquizzapp.core.network.dto.ResetPasswordWithOtpRequest
+import android.kma.myquizzapp.core.network.dto.VerifyResetOtpRequest
+import android.kma.myquizzapp.core.network.dto.VerifyResetTokenRequest
 import javax.inject.Inject
 
 class AuthRepositoryImpl @Inject constructor(
     private val authApi: AuthApiService,
     private val userApi: UserApiService,
+    private val passwordResetApi: PasswordResetApiService, // N16.5: Json riêng (module user dùng camelCase thật)
     private val cookieStore: CookieStore, // interface ở core:common — dùng cho logout
 ) : AuthRepository {
 
@@ -69,7 +74,9 @@ class AuthRepositoryImpl @Inject constructor(
 
     override suspend fun forgotPassword(email: String): Result<Unit> {
         Timber.d("Forgot Pass: Repository - Calling API forgotPassword with email: $email")
-        val result = authApi.forgotPassword(ForgotPasswordRequest(email))
+        // N16.5: response giờ có data { resetTime, expiresAt } — app không dùng tới
+        // (đếm ngược 60s cố định ở màn OTP) nên map về Unit.
+        val result = passwordResetApi.forgotPassword(ForgotPasswordRequest(email)).map { }
         when (result) {
             is Result.Success -> Timber.d("Forgot Pass: Repository - API returned SUCCESS")
             is Result.Error -> {
@@ -80,13 +87,15 @@ class AuthRepositoryImpl @Inject constructor(
         return result
     }
 
-    override suspend fun resetPasswordWithToken(token: String, newPassword: String): Result<Unit> =
-        authApi.resetPasswordWithToken(ResetPasswordRequest(token, newPassword))
+    override suspend fun verifyResetWithOtp(email: String, otp: String): Result<ResetTicket> =
+        passwordResetApi.verifyResetWithOtp(VerifyResetOtpRequest(email, otp)).map { it.toDomain() }
 
-    override suspend fun resetPasswordWithOtp(
-        email: String,
-        otp: String,
-        newPassword: String
-    ): Result<Unit> =
-        authApi.resetPasswordWithOtp(ResetPasswordWithOtpRequest(email, otp, newPassword))
+    override suspend fun verifyResetWithToken(token: String): Result<ResetTicket> =
+        passwordResetApi.verifyResetWithToken(VerifyResetTokenRequest(token)).map { it.toDomain() }
+
+    override suspend fun getResetTicket(ticket: String): Result<ResetTicketStatus> =
+        passwordResetApi.getResetTicket(ticket).map { it.toDomain() }
+
+    override suspend fun completeReset(ticket: String, newPassword: String): Result<Unit> =
+        passwordResetApi.completeReset(CompleteResetRequest(ticket, newPassword)).map { }
 }

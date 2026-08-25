@@ -3,12 +3,9 @@
 import android.kma.myquizzapp.core.common.error.AppError
 import android.kma.myquizzapp.core.common.result.Result
 import android.kma.myquizzapp.core.network.dto.AuthDataDto
-import android.kma.myquizzapp.core.network.dto.ForgotPasswordRequest
 import android.kma.myquizzapp.core.network.dto.GoogleOneTapRequest
 import android.kma.myquizzapp.core.network.dto.LoginRequest
 import android.kma.myquizzapp.core.network.dto.RegisterRequest
-import android.kma.myquizzapp.core.network.dto.ResetPasswordRequest
-import android.kma.myquizzapp.core.network.dto.ResetPasswordWithOtpRequest
 import retrofit2.http.Body
 import retrofit2.http.POST
 
@@ -27,13 +24,7 @@ interface AuthApiService {
     
     @POST("auth/refresh")
     suspend fun refresh(): Result<Unit>
-    
-    @POST("users/forgot-password")
-    suspend fun forgotPassword(@Body body: ForgotPasswordRequest): Result<Unit>
-    
-    @POST("users/reset-password-token")
-    suspend fun resetPasswordWithToken(@Body body: ResetPasswordRequest): Result<Unit>
-    
-    @POST("users/reset-password")
-    suspend fun resetPasswordWithOtp(@Body body: ResetPasswordWithOtpRequest): Result<Unit>
+    // N16.5: 4 endpoint reset password chuyển sang PasswordResetApiService (Json riêng,
+    // module user dùng camelCase thật). 2 endpoint users/reset-password-token và
+    // users/reset-password từng khai báo ở đây KHÔNG tồn tại trên backend (user.route.ts).
 }

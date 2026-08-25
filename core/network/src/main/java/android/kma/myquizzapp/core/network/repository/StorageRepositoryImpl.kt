@@ -55,7 +55,9 @@ class StorageRepositoryImpl @Inject constructor(
                     Result.Success(Unit)
                 } else {
                     // VD 403 SignatureDoesNotMatch (hết hạn 5 phút / sai Content-Type).
-                    Result.Error(AppError.Api("Upload ảnh lên storage thất bại (HTTP ${response.code})."))
+                    // N16.5: AppError.Api giờ chỉ mang code của backend — lỗi S3 thô
+                    // không có envelope, dùng Server(httpCode) thay thế.
+                    Result.Error(AppError.Server(response.code))
                 }
             }
         } catch (e: IOException) {

@@ -5,6 +5,7 @@ package android.kma.myquizzapp.feature.auth.presentation.otp
  */
 sealed interface OtpVerificationEffect {
     data object NavigateBack : OtpVerificationEffect
-    data class NavigateToResetPassword(val email: String, val otp: String) : OtpVerificationEffect
+    // N16.5: verify OTP thành công → sang màn Reset với TICKET (không phải OTP nữa).
+    data class NavigateToResetPassword(val ticket: String, val email: String) : OtpVerificationEffect
     data class ShowMessage(val message: String) : OtpVerificationEffect
 }

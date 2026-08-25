@@ -35,3 +35,17 @@ annotation class StorageJson
 @Qualifier
 @Retention(AnnotationRetention.RUNTIME)
 annotation class StorageRetrofit
+
+/**
+ * Qualifier cho Json/Retrofit riêng của PasswordResetApiService (N16.5) — cùng lý
+ * do với StorageJson: module user của backend dùng camelCase THẬT trên wire
+ * (resetTime/expiresAt/newPassword, xem user.schema.ts), mà @SerialName không
+ * thoát được JsonNamingStrategy.SnakeCase của Json chung.
+ */
+@Qualifier
+@Retention(AnnotationRetention.RUNTIME)
+annotation class PasswordResetJson
+
+@Qualifier
+@Retention(AnnotationRetention.RUNTIME)
+annotation class PasswordResetRetrofit

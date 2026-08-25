@@ -22,19 +22,8 @@ data class GoogleOneTapRequest(val credential: String)
 
 @Serializable
 data class ForgotPasswordRequest(val email: String)
-
-@Serializable
-data class ResetPasswordRequest(
-    val token: String,
-    val newPassword: String
-)
-
-@Serializable
-data class ResetPasswordWithOtpRequest(
-    val email: String,
-    val otp: String,
-    val newPassword: String
-)
+// N16.5: ResetPasswordRequest/ResetPasswordWithOtpRequest đã bị xóa — chúng khớp với
+// 2 endpoint không tồn tại. DTO luồng reset mới nằm ở PasswordResetDtos.kt.
 
 /**
  * login / register / one-tap / users/me đều trả envelope data = { user }.

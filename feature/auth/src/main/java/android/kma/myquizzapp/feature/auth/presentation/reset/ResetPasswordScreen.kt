@@ -15,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -88,86 +89,108 @@ private fun ResetPasswordContent(
             verticalArrangement = Arrangement.spacedBy(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            if (!uiState.isTokenFlow) {
-                OutlinedTextField(
-                    value = uiState.email,
-                    onValueChange = { onIntent(ResetPasswordIntent.EmailChanged(it)) },
-                    label = { Text("Email") },
-                    isError = uiState.emailError != null,
-                    supportingText = { uiState.emailError?.let { Text(it) } },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                    singleLine = true,
-                    enabled = !uiState.isLoading,
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                OutlinedTextField(
-                    value = uiState.otp,
-                    onValueChange = { onIntent(ResetPasswordIntent.OtpChanged(it)) },
-                    label = { Text("Mã OTP") },
-                    isError = uiState.otpError != null,
-                    supportingText = { uiState.otpError?.let { Text(it) } },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-                    singleLine = true,
-                    enabled = !uiState.isLoading,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-
-            OutlinedTextField(
-                value = uiState.newPassword,
-                onValueChange = { onIntent(ResetPasswordIntent.PasswordChanged(it)) },
-                label = { Text("Mật khẩu mới") },
-                isError = uiState.passwordError != null,
-                supportingText = { uiState.passwordError?.let { Text(it) } },
-                visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                singleLine = true,
-                enabled = !uiState.isLoading,
-                trailingIcon = {
-                    IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                        Icon(
-                            imageVector = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
-                            contentDescription = null
-                        )
-                    }
-                },
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            OutlinedTextField(
-                value = uiState.confirmPassword,
-                onValueChange = { onIntent(ResetPasswordIntent.ConfirmPasswordChanged(it)) },
-                label = { Text("Xác nhận mật khẩu") },
-                isError = uiState.confirmPasswordError != null,
-                supportingText = { uiState.confirmPasswordError?.let { Text(it) } },
-                visualTransformation = if (confirmPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                singleLine = true,
-                enabled = !uiState.isLoading,
-                trailingIcon = {
-                    IconButton(onClick = { confirmPasswordVisible = !confirmPasswordVisible }) {
-                        Icon(
-                            imageVector = if (confirmPasswordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
-                            contentDescription = null
-                        )
-                    }
-                },
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Button(
-                onClick = { onIntent(ResetPasswordIntent.Submit) },
-                modifier = Modifier.fillMaxWidth(),
-                enabled = !uiState.isLoading
-            ) {
-                if (uiState.isLoading) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(20.dp),
-                        color = MaterialTheme.colorScheme.onPrimary
+            when {
+                // N16.5: đang verify token (deep link) hoặc peek ticket lúc mở màn.
+                uiState.isCheckingTicket -> {
+                    Spacer(modifier = Modifier.height(48.dp))
+                    CircularProgressIndicator()
+                    Text(
+                        text = "Đang kiểm tra phiên đặt lại mật khẩu...",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center
                     )
-                } else {
-                    Text("Đặt lại mật khẩu")
+                }
+
+                // Ticket hết hạn/không hợp lệ → chặn form, bắt user làm lại từ đầu.
+                uiState.ticketError != null -> {
+                    Spacer(modifier = Modifier.height(48.dp))
+                    Text(
+                        text = uiState.ticketError,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.error,
+                        textAlign = TextAlign.Center
+                    )
+                    Text(
+                        text = "Vui lòng quay lại và yêu cầu mã mới.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center
+                    )
+                }
+
+                else -> {
+                    // Email từ peek/verify — user biết chắc đang đổi pass cho đúng tài khoản.
+                    if (uiState.email.isNotBlank()) {
+                        Text(
+                            text = "Đặt mật khẩu mới cho",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center
+                        )
+                        Text(
+                            text = uiState.email,
+                            style = MaterialTheme.typography.bodyLarge,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+
+                    OutlinedTextField(
+                        value = uiState.newPassword,
+                        onValueChange = { onIntent(ResetPasswordIntent.PasswordChanged(it)) },
+                        label = { Text("Mật khẩu mới") },
+                        isError = uiState.passwordError != null,
+                        supportingText = { uiState.passwordError?.let { Text(it) } },
+                        visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        singleLine = true,
+                        enabled = !uiState.isLoading,
+                        trailingIcon = {
+                            IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                                Icon(
+                                    imageVector = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                                    contentDescription = null
+                                )
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    OutlinedTextField(
+                        value = uiState.confirmPassword,
+                        onValueChange = { onIntent(ResetPasswordIntent.ConfirmPasswordChanged(it)) },
+                        label = { Text("Xác nhận mật khẩu") },
+                        isError = uiState.confirmPasswordError != null,
+                        supportingText = { uiState.confirmPasswordError?.let { Text(it) } },
+                        visualTransformation = if (confirmPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        singleLine = true,
+                        enabled = !uiState.isLoading,
+                        trailingIcon = {
+                            IconButton(onClick = { confirmPasswordVisible = !confirmPasswordVisible }) {
+                                Icon(
+                                    imageVector = if (confirmPasswordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                                    contentDescription = null
+                                )
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Button(
+                        onClick = { onIntent(ResetPasswordIntent.Submit) },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !uiState.isLoading
+                    ) {
+                        if (uiState.isLoading) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                color = MaterialTheme.colorScheme.onPrimary
+                            )
+                        } else {
+                            Text("Đặt lại mật khẩu")
+                        }
+                    }
                 }
             }
         }

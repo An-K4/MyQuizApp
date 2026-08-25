@@ -19,7 +19,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 @Composable
 fun OtpVerificationScreen(
     onNavigateBack: () -> Unit,
-    onNavigateToResetPassword: (String, String) -> Unit,
+    // N16.5: (ticket, email) — ticket lấy được sau khi verify OTP thành công.
+    onNavigateToResetPassword: (ticket: String, email: String) -> Unit,
     viewModel: OtpVerificationViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -30,7 +31,8 @@ fun OtpVerificationScreen(
             when (effect) {
                 OtpVerificationEffect.NavigateBack -> onNavigateBack()
                 is OtpVerificationEffect.NavigateToResetPassword -> {
-                    onNavigateToResetPassword(effect.email, effect.otp)
+                    // N16.5: mang theo TICKET (đã verify), không phải OTP.
+                    onNavigateToResetPassword(effect.ticket, effect.email)
                 }
                 is OtpVerificationEffect.ShowMessage -> {
                     snackbarHostState.showSnackbar(effect.message)
@@ -123,17 +125,22 @@ private fun OtpVerificationContent(
                 }
             }
 
+            // N16.5: khóa 60s sau mỗi lần gửi (RESET_RESEND_TTL) — kể cả lần gửi
+            // đầu ở màn Forgot, nên vào màn nút đã đếm ngược sẵn.
             TextButton(
                 onClick = { onIntent(OtpVerificationIntent.ResendCode) },
-                enabled = !uiState.isLoading
+                enabled = !uiState.isLoading && uiState.resendSecondsLeft == 0
             ) {
-                Text("Gửi lại mã")
+                Text(
+                    if (uiState.resendSecondsLeft > 0) "Gửi lại mã (${uiState.resendSecondsLeft}s)"
+                    else "Gửi lại mã"
+                )
             }
 
             Spacer(modifier = Modifier.weight(1f))
 
             Text(
-                text = "Mã OTP có hiệu lực trong 5 phút.",
+                text = "Mã OTP có hiệu lực trong 2 phút.",  // RESET_TTL = 2 phút, user.schema.ts
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

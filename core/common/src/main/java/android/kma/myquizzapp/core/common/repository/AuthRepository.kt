@@ -1,5 +1,7 @@
 ﻿package android.kma.myquizzapp.core.common.repository
 
+import android.kma.myquizzapp.core.common.model.ResetTicket
+import android.kma.myquizzapp.core.common.model.ResetTicketStatus
 import android.kma.myquizzapp.core.common.model.User
 import android.kma.myquizzapp.core.common.result.Result
 
@@ -16,7 +18,12 @@ interface AuthRepository {
      */
     suspend fun isAuthenticated(): Boolean
     
+    // N16.5 — luồng reset 3 bước thật (user.route.ts): xin mã → verify (OTP hoặc
+    // token deep link) → đổi pass bằng ticket. 2 method resetPasswordWith* cũ gọi
+    // endpoint không tồn tại nên đã bị xóa.
     suspend fun forgotPassword(email: String): Result<Unit>
-    suspend fun resetPasswordWithToken(token: String, newPassword: String): Result<Unit>
-    suspend fun resetPasswordWithOtp(email: String, otp: String, newPassword: String): Result<Unit>
+    suspend fun verifyResetWithOtp(email: String, otp: String): Result<ResetTicket>
+    suspend fun verifyResetWithToken(token: String): Result<ResetTicket>
+    suspend fun getResetTicket(ticket: String): Result<ResetTicketStatus>
+    suspend fun completeReset(ticket: String, newPassword: String): Result<Unit>
 }
