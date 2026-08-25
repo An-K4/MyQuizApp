@@ -2,7 +2,7 @@
 
 > File này không thay thế `myquizz-review-backend-ke-hoach-50-ngay.md` (kế hoạch + trạng thái chi tiết từng ngày) — đây là tập hợp **quy tắc làm việc + kinh nghiệm + lưu ý** rút ra sau nhiều phiên, giúp agent mới khởi đầu nhanh hơn và không lặp lại sai lầm cũ. Đọc file này **trước**, rồi đọc file kế hoạch để biết đang ở đâu.
 >
-> Cập nhật lần cuối: 24/8/2026, sau khi hoàn thành N15.
+> Cập nhật lần cuối: 25/8/2026, sau khi hoàn thành N16 (chốt M3 — Quiz CRUD).
 
 ---
 
@@ -49,6 +49,10 @@ Nhiều endpoint không chỉ trả `ApiEnvelope<T>` chuẩn mà còn lồng th�
 
 Khi cần PUT/GET trực tiếp lên 1 presigned URL (S3...) hay bất kỳ domain bên thứ 3 nào, **không dùng lại `OkHttpClient` chuẩn có cookieJar/authenticator của app** — tạo `OkHttpClient` riêng không mang theo thông tin đăng nhập nội bộ (xem `@RawUploadOkHttpClient`).
 
+### 3.4. Flag "skip first resume" trong `remember` bị reset khi Navigation dispose composition (N16)
+
+Màn cần "reload khi quay lại" (ON_RESUME) nhưng bỏ qua lần mở đầu → đừng giữ flag skip bằng `remember`: Navigation dispose composition của màn cũ khi điều hướng đi, nên flag reset mỗi lần quay lại và reload không bao giờ chạy. Fix: `rememberSaveable` (state ghi vào SavedState của NavBackStackEntry) hoặc giữ flag trong ViewModel. Với list Paging 3, đừng dựa vào `LazyPagingItems.refresh()` (không đáng tin khi flow đã `cachedIn`) — cho refresh đi qua ViewModel bằng intent và tạo Pager mới (pattern generation). Chi tiết: `knowledgement/n16_knowledgement.md` mục 1.
+
 ---
 
 ## 4. Quy tắc quy trình làm việc với user
@@ -70,10 +74,11 @@ Khi cần PUT/GET trực tiếp lên 1 presigned URL (S3...) hay bất kỳ doma
 
 ---
 
-## 6. Trạng thái hiện tại (tính đến 24/8/2026) — xem chi tiết ở file kế hoạch chính
+## 6. Trạng thái hiện tại (tính đến 25/8/2026) — xem chi tiết ở file kế hoạch chính
 
-- Tuần 1–2 (N1–10) + Tuần 3 (N11–15) đều đã hoàn thành. M3 (Quiz CRUD) gần chốt — còn **N16** (sửa/xóa quiz) là việc tiếp theo.
-- Các việc bị defer còn treo: avatar upload (dùng lại cơ chế presign của N15), Bottom Navigation thật, refresh-token use case, trùng lặp `Route.Library`/`Route.MyQuizzes`, review lại padding `SplashScreen` (80dp), `updateQuiz`/`deleteQuiz`.
+- Tuần 1–2 (N1–10) + Tuần 3 (N11–15) hoàn thành; **N16 (sửa/xóa quiz) xong 25/8 → M3 (Quiz CRUD) đã chốt**. Việc tiếp theo: **N16.5** (khẩn — sửa Quên mật khẩu sai endpoint, `ApiError` theo envelope thật, pagination cursor), rồi N17 (CreateRoomScreen động từ `/games/game-modes`).
+- Các việc bị defer còn treo: avatar upload (dùng lại cơ chế presign của N15), Bottom Navigation thật, refresh-token use case, trùng lặp `Route.Library`/`Route.MyQuizzes`, review lại padding `SplashScreen` (80dp), backlog "Editor UX gaps" (duplicate/move câu hỏi, autosave draft, default cover từ `res/`, crop ảnh, validation inline — xem block N16 trong file kế hoạch).
+- Bài học N16 đáng nhớ: flag `remember` bị reset khi Navigation dispose composition → dùng `rememberSaveable`/ViewModel (xem mục 3.4); DELETE quiz là **hard delete** (doc ghi nhầm "xóa mềm" — điểm lệch #10); PATCH không clear được field về null (field vắng = giữ cũ).
 - File kế hoạch chính: `myquizz-review-backend-ke-hoach-50-ngay.md` (root). Thư mục `knowledgement/` chứa bài học chi tiết từng giai đoạn — đọc file `nXX_knowledgement.md` tương ứng khi cần hiểu sâu lại quyết định của một giai đoạn cụ thể.
 
 ---
