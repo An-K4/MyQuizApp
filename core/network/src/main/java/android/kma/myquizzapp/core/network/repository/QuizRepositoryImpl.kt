@@ -6,6 +6,7 @@ import android.kma.myquizzapp.core.common.model.MyQuizzesParams
 import android.kma.myquizzapp.core.common.model.NewQuiz
 import android.kma.myquizzapp.core.common.model.Quiz
 import android.kma.myquizzapp.core.common.model.QuizCard
+import android.kma.myquizzapp.core.common.model.QuizPatch
 import android.kma.myquizzapp.core.common.model.QuizSummary
 import android.kma.myquizzapp.core.common.repository.QuizRepository
 import android.kma.myquizzapp.core.common.result.Result
@@ -74,4 +75,23 @@ class QuizRepositoryImpl @Inject constructor(
             }
         }
     }
+
+    override suspend fun updateQuiz(quizId: Long, patch: QuizPatch): Result<Quiz> {
+        // Backend bọc response trong { quiz: {...} } → unwrap QuizDetailDto.quiz.
+        val result = quizApi.updateQuiz(quizId, patch.toRequestDto()).map { it.quiz }
+        // Ghi đè cache để màn Chi tiết/Sửa mở lại thấy bản mới ngay, kể cả khi
+        // lần mở sau rơi vào nhánh offline-fallback.
+        if (result is Result.Success) quizCacheStore.cacheQuiz(quizId, result.data)
+        return result
+    }
+
+    override suspend fun deleteQuiz(quizId: Long): Result<Unit> =
+        when (val result = quizApi.deleteQuiz(quizId)) {
+            is Result.Success -> {
+                // Xóa cache để quiz đã xóa không "hồi sinh" từ Room khi offline.
+                quizCacheStore.removeQuiz(quizId)
+                Result.Success(Unit)
+            }
+            is Result.Error -> result
+        }
 }

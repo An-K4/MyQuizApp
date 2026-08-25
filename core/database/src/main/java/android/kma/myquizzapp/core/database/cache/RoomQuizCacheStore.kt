@@ -37,6 +37,14 @@ class RoomQuizCacheStore @Inject constructor(
         }
     }
 
+    override suspend fun removeQuiz(quizId: Long) {
+        try {
+            quizCacheDao.deleteById(quizId)
+        } catch (e: Exception) {
+            // Best-effort như cacheQuiz — không throw làm hỏng flow xóa chính.
+        }
+    }
+
     companion object {
         private val json = Json { ignoreUnknownKeys = true }
 

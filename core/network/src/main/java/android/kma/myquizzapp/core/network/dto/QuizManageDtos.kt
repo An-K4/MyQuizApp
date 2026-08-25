@@ -4,6 +4,7 @@ import android.kma.myquizzapp.core.common.model.CorrectAnswer
 import android.kma.myquizzapp.core.common.model.NewQuestion
 import android.kma.myquizzapp.core.common.model.NewQuiz
 import android.kma.myquizzapp.core.common.model.QuestionType
+import android.kma.myquizzapp.core.common.model.QuizPatch
 import android.kma.myquizzapp.core.common.model.QuizSummary
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -158,4 +159,42 @@ fun NewQuestion.toRequestDto(): CreateQuestionRequestDto = CreateQuestionRequest
         is CorrectAnswer.Indexes -> JsonArray(ca.values.map { JsonPrimitive(it) })
         is CorrectAnswer.Text -> JsonPrimitive(ca.value)
     }
+)
+
+// ===== PATCH /quizzes/id/:quizId request body (N16) — khớp updateQuizSchema =====
+// (= createQuizSchema.partial(): mọi field optional; field null bị omit khỏi JSON
+// nhờ explicitNulls=false trong NetworkModule, backend giữ nguyên giá trị cũ.)
+
+@Serializable
+data class UpdateQuizRequestDto(
+    @SerialName("quiz_name")
+    val quizName: String? = null,
+
+    @SerialName("quiz_description")
+    val quizDescription: String? = null,
+
+    @SerialName("quiz_language")
+    val quizLanguage: String? = null,
+
+    @SerialName("quiz_image")
+    val quizImage: String? = null,
+
+    @SerialName("quiz_category")
+    val quizCategory: String? = null,
+
+    @SerialName("is_public")
+    val isPublic: Boolean? = null,
+
+    // Gửi = thay thế toàn bộ câu hỏi (replaceQuizQuestions); null = không đụng tới.
+    val questions: List<CreateQuestionRequestDto>? = null
+)
+
+fun QuizPatch.toRequestDto(): UpdateQuizRequestDto = UpdateQuizRequestDto(
+    quizName = quizName,
+    quizDescription = quizDescription,
+    quizLanguage = quizLanguage,
+    quizImage = quizImage,
+    quizCategory = quizCategory,
+    isPublic = isPublic,
+    questions = questions?.map { it.toRequestDto() }
 )

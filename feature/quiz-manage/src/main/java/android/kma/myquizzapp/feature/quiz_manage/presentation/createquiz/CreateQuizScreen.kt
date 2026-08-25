@@ -1,7 +1,7 @@
 package android.kma.myquizzapp.feature.quiz_manage.presentation.createquiz
 
-import android.kma.myquizzapp.core.common.model.QuestionType
-import android.net.Uri
+import android.kma.myquizzapp.feature.quiz_manage.presentation.components.ImagePickerSection
+import android.kma.myquizzapp.feature.quiz_manage.presentation.components.QuestionEditorCard
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -15,27 +15,19 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -46,17 +38,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import coil.compose.AsyncImage
 
 /**
  * Màn Tạo quiz (N13-14). N15 bổ sung chọn ảnh cover + ảnh từng câu hỏi qua
- * Android Photo Picker (không cần quyền runtime) + xem trước bằng Coil. Ảnh chọ
- * chỉ là URI local — việc upload thật (nén -> presign -> PUT) xảy ra trong
- * ViewModel lúc bấm "Tạo quiz".
+ * Android Photo Picker (không cần quyền runtime). Ảnh chọn chỉ là URI local —
+ * việc upload thật (nén -> presign -> PUT) xảy ra trong ViewModel lúc bấm "Tạo quiz".
+ *
+ * N16: các composable editor (ImagePickerSection/QuestionEditorCard) chuyển sang
+ * presentation/components để dùng chung với màn Sửa quiz.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -138,7 +129,7 @@ fun CreateQuizScreen(
                     OutlinedTextField(
                         value = uiState.quizLanguage,
                         onValueChange = { viewModel.handleIntent(CreateQuizIntent.QuizLanguageChanged(it)) },
-                        label = { Text("Ngôn ngứ") },
+                        label = { Text("Ngôn ngữ") },
                         modifier = Modifier.weight(1f)
                     )
                     OutlinedTextField(
@@ -162,7 +153,7 @@ fun CreateQuizScreen(
             item {
                 ImagePickerSection(
                     label = "Ảnh quiz (tùy chọn)",
-                    imageUri = uiState.coverImageUri,
+                    imageModel = uiState.coverImageUri,
                     onPick = { launchImagePicker(PickTarget.Cover) },
                     onRemove = { viewModel.handleIntent(CreateQuizIntent.RemoveCoverImage) }
                 )
@@ -176,8 +167,19 @@ fun CreateQuizScreen(
                 QuestionEditorCard(
                     question = question,
                     canRemove = uiState.questions.size > 1,
-                    onIntent = viewModel::handleIntent,
-                    onPickImage = { launchImagePicker(PickTarget.Question(question.localId)) }
+                    onTypeChanged = { viewModel.handleIntent(CreateQuizIntent.QuestionTypeChanged(question.localId, it)) },
+                    onTextChanged = { viewModel.handleIntent(CreateQuizIntent.QuestionTextChanged(question.localId, it)) },
+                    onTimeLimitChanged = { viewModel.handleIntent(CreateQuizIntent.TimeLimitChanged(question.localId, it)) },
+                    onPickImage = { launchImagePicker(PickTarget.Question(question.localId)) },
+                    onRemoveImage = { viewModel.handleIntent(CreateQuizIntent.RemoveQuestionImage(question.localId)) },
+                    onOptionChanged = { index, value -> viewModel.handleIntent(CreateQuizIntent.OptionChanged(question.localId, index, value)) },
+                    onToggleCorrect = { index -> viewModel.handleIntent(CreateQuizIntent.ToggleCorrectIndex(question.localId, index)) },
+                    onAddOption = { viewModel.handleIntent(CreateQuizIntent.AddOption(question.localId)) },
+                    onRemoveOption = { index -> viewModel.handleIntent(CreateQuizIntent.RemoveOption(question.localId, index)) },
+                    onHintChanged = { viewModel.handleIntent(CreateQuizIntent.HintChanged(question.localId, it)) },
+                    onExplanationChanged = { viewModel.handleIntent(CreateQuizIntent.ExplanationChanged(question.localId, it)) },
+                    onCorrectTextChanged = { viewModel.handleIntent(CreateQuizIntent.CorrectTextChanged(question.localId, it)) },
+                    onRemove = { viewModel.handleIntent(CreateQuizIntent.RemoveQuestion(question.localId)) }
                 )
             }
 
@@ -226,160 +228,4 @@ fun CreateQuizScreen(
 private sealed interface PickTarget {
     data object Cover : PickTarget
     data class Question(val localId: String) : PickTarget
-}
-
-@Composable
-private fun ImagePickerSection(
-    label: String,
-    imageUri: Uri?,
-    onPick: () -> Unit,
-    onRemove: () -> Unit
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(text = label)
-        if (imageUri != null) {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                AsyncImage(
-                    model = imageUri,
-                    contentDescription = label,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(160.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                )
-                TextButton(onClick = onRemove) {
-                    Text("Xóa ảnh")
-                }
-            }
-        } else {
-            OutlinedButton(onClick = onPick, modifier = Modifier.fillMaxWidth()) {
-                Text("Chọn ảnh")
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun QuestionEditorCard(
-    question: QuestionDraft,
-    canRemove: Boolean,
-    onIntent: (CreateQuizIntent) -> Unit,
-    onPickImage: () -> Unit
-) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                QuestionTypeMenuButton(
-                    selected = question.questionType,
-                    onSelected = { onIntent(CreateQuizIntent.QuestionTypeChanged(question.localId, it)) },
-                    modifier = Modifier.weight(1f)
-                )
-                if (canRemove) {
-                    IconButton(onClick = { onIntent(CreateQuizIntent.RemoveQuestion(question.localId)) }) {
-                        Icon(Icons.Filled.Close, contentDescription = "Xóa câu hỏi")
-                    }
-                }
-            }
-
-            OutlinedTextField(
-                value = question.questionText,
-                onValueChange = { onIntent(CreateQuizIntent.QuestionTextChanged(question.localId, it)) },
-                label = { Text("Nội dung câu hỏi *") },
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            ImagePickerSection(
-                label = "Ảnh câu hỏi (tùy chọn)",
-                imageUri = question.imageUri,
-                onPick = onPickImage,
-                onRemove = { onIntent(CreateQuizIntent.RemoveQuestionImage(question.localId)) }
-            )
-
-            if (question.isChoiceType) {
-                Text(text = "Lựa chọn (chọn đáp án đúng):")
-                question.options.forEachIndexed { index, option ->
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        if (question.questionType == QuestionType.MULTIPLE_CHOICE) {
-                            RadioButton(
-                                selected = question.correctIndexes.contains(index),
-                                onClick = { onIntent(CreateQuizIntent.ToggleCorrectIndex(question.localId, index)) }
-                            )
-                        } else {
-                            Checkbox(
-                                checked = question.correctIndexes.contains(index),
-                                onCheckedChange = { onIntent(CreateQuizIntent.ToggleCorrectIndex(question.localId, index)) }
-                            )
-                        }
-                        OutlinedTextField(
-                            value = option,
-                            onValueChange = { onIntent(CreateQuizIntent.OptionChanged(question.localId, index, it)) },
-                            label = { Text("Lựa chọn ${index + 1}") },
-                            modifier = Modifier.weight(1f)
-                        )
-                        if (question.options.size > 2) {
-                            IconButton(onClick = { onIntent(CreateQuizIntent.RemoveOption(question.localId, index)) }) {
-                                Icon(Icons.Filled.Close, contentDescription = "Xóa lựa chọn")
-                            }
-                        }
-                    }
-                }
-                if (question.options.size < 4) {
-                    TextButton(onClick = { onIntent(CreateQuizIntent.AddOption(question.localId)) }) {
-                        Text("+ Thêm lựa chọn")
-                    }
-                }
-            } else {
-                OutlinedTextField(
-                    value = question.correctText,
-                    onValueChange = { onIntent(CreateQuizIntent.CorrectTextChanged(question.localId, it)) },
-                    label = { Text("Đáp án đúng *") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-
-            OutlinedTextField(
-                value = question.questionHint,
-                onValueChange = { onIntent(CreateQuizIntent.HintChanged(question.localId, it)) },
-                label = { Text("Gợi ý (tùy chọn)") },
-                modifier = Modifier.fillMaxWidth()
-            )
-            OutlinedTextField(
-                value = question.explanation,
-                onValueChange = { onIntent(CreateQuizIntent.ExplanationChanged(question.localId, it)) },
-                label = { Text("Giải thích (tùy chọn)") },
-                modifier = Modifier.fillMaxWidth()
-            )
-        }
-    }
-}
-
-@Composable
-private fun QuestionTypeMenuButton(
-    selected: QuestionType,
-    onSelected: (QuestionType) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    var expanded by remember { mutableStateOf(false) }
-    Column(modifier = modifier) {
-        OutlinedButton(onClick = { expanded = true }) {
-            Text(questionTypeLabel(selected))
-        }
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            QuestionType.entries.forEach { type ->
-                DropdownMenuItem(
-                    text = { Text(questionTypeLabel(type)) },
-                    onClick = { onSelected(type); expanded = false }
-                )
-            }
-        }
-    }
-}
-
-private fun questionTypeLabel(type: QuestionType): String = when (type) {
-    QuestionType.MULTIPLE_CHOICE -> "Chọn 1 đáp án"
-    QuestionType.MULTIPLE_SELECT -> "Chọn nhiều đáp án"
-    QuestionType.SHORT_ANSWER -> "Trả lời ngắn"
-    QuestionType.LONG_ANSWER -> "Trả lời dài"
 }

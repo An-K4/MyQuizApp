@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
@@ -33,6 +34,14 @@ class QuizManageListViewModel @Inject constructor(
      * visibility/sort/keyword → params mới → flatMapLatest tạo Pager mới (Paging 3
      * tự hủy Pager cũ ), rồi cachedIn(viewModelScope) để sống qua config change.
      */
+    /**
+     * N16: generation tăng mỗi lần nhận intent Refresh → combine phát cặp
+     * (params, generation) mới → flatMapLatest tạo Pager mới → load lại ngay từ
+     * mạng. Thay cho LazyPagingItems.refresh() vì refresh() trên flow đã cachedIn
+     * có thể no-op (không invalidate PagingSource) — quiz vừa xóa vẫn hiện.
+     */
+    private val _refreshGeneration = MutableStateFlow(0)
+
     val quizzes: Flow<PagingData<QuizSummary>> = _uiState
         .map { state ->
             MyQuizzesParams(
@@ -42,7 +51,9 @@ class QuizManageListViewModel @Inject constructor(
             )
         }
         .distinctUntilChanged()
-        .flatMapLatest { params -> getMyQuizzesUseCase(params) }
+        .combine(_refreshGeneration) { params, generation -> params to generation }
+        .distinctUntilChanged()
+        .flatMapLatest { (params, _) -> getMyQuizzesUseCase(params) }
         .cachedIn(viewModelScope)
 
     fun handleIntent(intent: QuizManageListIntent) {
@@ -53,6 +64,8 @@ class QuizManageListViewModel @Inject constructor(
                 _uiState.update { it.copy(sort = intent.sort) }
             is QuizManageListIntent.KeywordChanged ->
                 _uiState.update { it.copy(keyword = intent.keyword) }
+            // N16: Screen bắn intent này khi ON_RESUME (quay lại từ chi tiết/sửa/xóa).
+            is QuizManageListIntent.Refresh -> _refreshGeneration.update { it + 1 }
         }
     }
 }

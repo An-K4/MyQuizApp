@@ -5,6 +5,7 @@ import android.kma.myquizzapp.core.common.model.MyQuizzesParams
 import android.kma.myquizzapp.core.common.model.NewQuiz
 import android.kma.myquizzapp.core.common.model.Quiz
 import android.kma.myquizzapp.core.common.model.QuizCard
+import android.kma.myquizzapp.core.common.model.QuizPatch
 import android.kma.myquizzapp.core.common.model.QuizSummary
 import android.kma.myquizzapp.core.common.result.Result
 
@@ -62,6 +63,20 @@ interface QuizRepository {
      */
     suspend fun createQuiz(newQuiz: NewQuiz): Result<Quiz>
     
-    // TODO: N16 - suspend fun updateQuiz(quizId: Long, ...): Result<Quiz>
-    // TODO: N16 - suspend fun deleteQuiz(quizId: Long): Result<Unit>
+    /**
+     * Cập nhật quiz (N16). Metadata patch từng field; `patch.questions` nếu != null
+     * thì THAY THẾ toàn bộ danh sách câu hỏi (backend replaceQuizQuestions).
+     *
+     * Endpoint: PATCH /v1/quizzes/id/:quizId (authRequired, chỉ owner —
+     * không phải owner nhận 404 QUIZ_NOT_FOUND, backend cố ý không lộ 403).
+     */
+    suspend fun updateQuiz(quizId: Long, patch: QuizPatch): Result<Quiz>
+
+    /**
+     * Xóa quiz (N16) — HARD DELETE: xóa hẳn row, cascade mất luôn lịch sử các
+     * phòng đã chơi (quiz.repository.ts). Không có undo.
+     *
+     * Endpoint: DELETE /v1/quizzes/id/:quizId (authRequired, chỉ owner).
+     */
+    suspend fun deleteQuiz(quizId: Long): Result<Unit>
 }

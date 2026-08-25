@@ -7,9 +7,9 @@ package android.kma.myquizzapp.core.common.model
  * - number[] (>=1 phần tử, index vào answerOptions) cho multiple_choice/multiple_select
  * - string cho short_answer/long_answer
  *
- * Đây là lý do domain model [Question] (Quiz.kt, dùng để hiển thị) KHÔNG có field
- * correct_answer — tránh lộ đáp án khi chơi (anti-cheat). CorrectAnswer chỉ tồn tại
- * ở chiều ghi (tạo/sửa quiz), không bao giờ đọc lại từ GET quiz detail.
+ * Domain model [Question] (Quiz.kt) không dùng kiểu [CorrectAnswer] vì gameplay không
+ * được thấy đáp án (anti-cheat). Từ N16, Question có thêm correctAnswer dạng JsonElement
+ * thô — chỉ để pre-fill màn Sửa quiz của chủ quiz, không dùng khi chơi.
  */
 sealed interface CorrectAnswer {
     data class Indexes(val values: List<Int>) : CorrectAnswer

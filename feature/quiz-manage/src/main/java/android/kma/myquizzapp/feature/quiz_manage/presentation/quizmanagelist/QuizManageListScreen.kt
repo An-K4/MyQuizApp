@@ -40,11 +40,15 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.paging.LoadState
 import androidx.paging.compose.collectAsLazyPagingItems
 import androidx.paging.compose.itemKey
@@ -61,6 +65,16 @@ fun QuizManageListScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val quizzes = viewModel.quizzes.collectAsLazyPagingItems()
+
+    // N16: quay lại từ màn chi tiết (vừa sửa/xóa quiz) → bắn intent Refresh để
+    // ViewModel tạo Pager mới, load lại ngay từ mạng. Bỏ qua lần resume đầu tiên
+    // vì Paging vừa tự load trang đầu. Flag phải là rememberSaveable: Navigation
+    // dispose composition khi rời màn, remember thường bị reset → reload không chạy.
+    var skipFirstResume by rememberSaveable { mutableStateOf(true) }
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        if (skipFirstResume) skipFirstResume = false
+        else viewModel.handleIntent(QuizManageListIntent.Refresh)
+    }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -224,10 +238,14 @@ private fun SortMenuButton(sort: MyQuizzesSort, onSortSelected: (MyQuizzesSort) 
 private fun QuizManageListItem(quiz: QuizSummary, onClick: () -> Unit) {
     Card(modifier = Modifier.fillMaxWidth(), onClick = onClick) {
         Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            // N16: fallback/error placeholder — quiz không có cover không hiện ô trống.
+            // TODO(polish): thay bằng ảnh mặc định trong res/.
             AsyncImage(
                 model = quiz.quizImage,
                 contentDescription = quiz.quizName,
-                modifier = Modifier.size(56.dp)
+                modifier = Modifier.size(56.dp),
+                fallback = painterResource(android.R.drawable.ic_menu_gallery),
+                error = painterResource(android.R.drawable.ic_menu_gallery)
             )
             Spacer(modifier = Modifier.padding(horizontal = 6.dp))
             Column(modifier = Modifier.weight(1f)) {

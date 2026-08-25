@@ -2,6 +2,7 @@
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonElement
 
 /**
  * Full quiz detail với questions array.
@@ -79,7 +80,16 @@ data class Question(
     val questionHint: String? = null,   // chỉ hiện khi config.flow.showHint = true
     val explanation: String? = null,    // dùng cho review mode (N29)
     val questionImage: String? = null,
-    val answerOptions: List<AnswerOption>? = null  // null với short/long answer
+    val answerOptions: List<AnswerOption>? = null,  // null với short/long answer
+
+    /**
+     * Đáp án đúng — CHỈ dùng cho luồng chủ quiz chỉnh sửa (N16): GET quiz detail
+     * trả field này (backend getQuizById select cả correct_answer) để pre-fill editor.
+     * Gameplay không dùng model này — câu hỏi lúc chơi đi qua socket payload đã bị
+     * server cắt đáp án. JsonElement vì wire là union: number[] (choice) | string (text).
+     */
+    @SerialName("correct_answer")
+    val correctAnswer: JsonElement? = null
 )
 
 @Serializable

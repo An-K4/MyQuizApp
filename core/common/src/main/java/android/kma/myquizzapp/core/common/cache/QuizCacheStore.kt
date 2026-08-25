@@ -13,4 +13,10 @@ import android.kma.myquizzapp.core.common.model.Quiz
 interface QuizCacheStore {
     suspend fun getCachedQuiz(quizId: Long): Quiz?
     suspend fun cacheQuiz(quizId: Long, quiz: Quiz)
+
+    /**
+     * Xóa quiz khỏi cache (N16) — gọi sau khi deleteQuiz thành công để màn chi tiết
+     * không "hồi sinh" quiz đã xóa từ Room khi offline.
+     */
+    suspend fun removeQuiz(quizId: Long)
 }

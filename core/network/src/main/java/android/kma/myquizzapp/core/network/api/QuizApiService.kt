@@ -7,8 +7,11 @@ import android.kma.myquizzapp.core.network.dto.QuizCardDto
 import android.kma.myquizzapp.core.network.dto.QuizDetailDto
 import android.kma.myquizzapp.core.network.dto.QuizListDto
 import android.kma.myquizzapp.core.network.dto.QuizSummaryListDto
+import android.kma.myquizzapp.core.network.dto.UpdateQuizRequestDto
 import retrofit2.http.Body
+import retrofit2.http.DELETE
 import retrofit2.http.GET
+import retrofit2.http.PATCH
 import retrofit2.http.POST
 import retrofit2.http.Path
 import retrofit2.http.Query
@@ -95,6 +98,30 @@ interface QuizApiService {
         @Body body: CreateQuizRequestDto
     ): Result<QuizDetailDto>
     
-    // TODO: N16 - @PATCH("quizzes/id/{quizId}") suspend fun updateQuiz(...)
-    // TODO: N16 - @DELETE("quizzes/id/{quizId}") suspend fun deleteQuiz(...)
+    /**
+     * PATCH /v1/quizzes/id/:quizId (N16)
+     *
+     * Auth required, chỉ owner. updateQuizSchema = createQuizSchema.partial() — field
+     * nào vắng mặt thì giữ nguyên; `questions` nếu gửi thì THAY THẾ toàn bộ danh sách
+     * câu hỏi (replaceQuizQuestions). Json chung có explicitNulls=false nên field null
+     * trong UpdateQuizRequestDto sẽ bị omit khỏi body — đúng semantics "không đụng tới".
+     * Response bọc { quiz: {...} } → dùng lại QuizDetailDto.
+     */
+    @PATCH("quizzes/id/{quizId}")
+    suspend fun updateQuiz(
+        @Path("quizId") quizId: Long,
+        @Body body: UpdateQuizRequestDto
+    ): Result<QuizDetailDto>
+
+    /**
+     * DELETE /v1/quizzes/id/:quizId (N16)
+     *
+     * Auth required, chỉ owner. HARD DELETE — xóa hẳn row, cascade xóa questions,
+     * quiz_snapshots, game_sessions, player_sessions (quiz.repository.ts). Response
+     * trả lại row vừa xóa bọc trong { quiz: {...} } — client chỉ cần biết thành công.
+     */
+    @DELETE("quizzes/id/{quizId}")
+    suspend fun deleteQuiz(
+        @Path("quizId") quizId: Long
+    ): Result<QuizDetailDto>
 }

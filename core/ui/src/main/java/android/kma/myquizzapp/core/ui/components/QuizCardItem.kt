@@ -8,6 +8,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import android.kma.myquizzapp.core.common.model.QuizCard
@@ -35,7 +36,8 @@ fun QuizCardItem(
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
-            // Thumbnail
+            // Thumbnail. N16: fallback/error placeholder — quiz không có cover (hoặc ảnh lỗi)
+            // không hiện ô trống nữa. TODO(polish): thay bằng ảnh mặc định trong res/.
             AsyncImage(
                 model = quiz.quizImage,
                 contentDescription = quiz.quizName,
@@ -43,7 +45,9 @@ fun QuizCardItem(
                     .fillMaxWidth()
                     .height(140.dp)
                     .clip(MaterialTheme.shapes.medium),
-                contentScale = ContentScale.Crop
+                contentScale = ContentScale.Crop,
+                fallback = painterResource(android.R.drawable.ic_menu_gallery),
+                error = painterResource(android.R.drawable.ic_menu_gallery)
             )
             
             Spacer(modifier = Modifier.height(8.dp))

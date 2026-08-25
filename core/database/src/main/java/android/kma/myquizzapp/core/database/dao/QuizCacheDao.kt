@@ -15,4 +15,7 @@ interface QuizCacheDao {
 
     @Query("DELETE FROM cached_quizzes WHERE cachedAt < :before")
     suspend fun deleteOlderThan(before: Long)
+
+    @Query("DELETE FROM cached_quizzes WHERE quizId = :quizId")
+    suspend fun deleteById(quizId: Long)
 }

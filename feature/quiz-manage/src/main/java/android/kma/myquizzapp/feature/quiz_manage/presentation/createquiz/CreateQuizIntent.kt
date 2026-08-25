@@ -19,7 +19,7 @@ sealed interface CreateQuizIntent {
     data class RemoveQuestionImage(val localId: String) : CreateQuizIntent
     data class QuestionTypeChanged(val localId: String, val type: QuestionType) : CreateQuizIntent
     data class QuestionTextChanged(val localId: String, val value: String) : CreateQuizIntent
-    data class TimeLimitChanged(val localId: String, val value: Int) : CreateQuizIntent
+    data class TimeLimitChanged(val localId: String, val value: String) : CreateQuizIntent
     data class HintChanged(val localId: String, val value: String) : CreateQuizIntent
     data class ExplanationChanged(val localId: String, val value: String) : CreateQuizIntent
 

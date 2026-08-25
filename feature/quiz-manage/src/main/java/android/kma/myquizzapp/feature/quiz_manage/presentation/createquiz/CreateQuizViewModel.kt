@@ -1,13 +1,13 @@
 package android.kma.myquizzapp.feature.quiz_manage.presentation.createquiz
 
 import android.kma.myquizzapp.core.common.error.toUserMessage
-import android.kma.myquizzapp.core.common.model.CorrectAnswer
-import android.kma.myquizzapp.core.common.model.NewQuestion
 import android.kma.myquizzapp.core.common.model.NewQuiz
 import android.kma.myquizzapp.core.common.model.QuestionType
 import android.kma.myquizzapp.core.common.result.Result
 import android.kma.myquizzapp.feature.quiz_manage.domain.usecase.CreateQuizUseCase
 import android.kma.myquizzapp.feature.quiz_manage.domain.usecase.UploadImageUseCase
+import android.kma.myquizzapp.feature.quiz_manage.presentation.components.QuestionDraft
+import android.kma.myquizzapp.feature.quiz_manage.presentation.components.toNewQuestion
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -117,6 +117,15 @@ class CreateQuizViewModel @Inject constructor(
             if (q.questionText.trim().isEmpty()) {
                 errors += "Câu $position: thiếu nội dung câu hỏi."
             }
+            // Để trống = mặc định 30s lúc submit; nhập thì phải 5-600s
+            // (TIME_LIMIT_MIN/MAX, quiz.schema.ts).
+            val timeText = q.timeLimit.trim()
+            if (timeText.isNotEmpty()) {
+                val seconds = timeText.toIntOrNull()
+                if (seconds == null || seconds < 5 || seconds > 600) {
+                    errors += "Câu $position: thời gian phải từ 5 đến 600 giây."
+                }
+            }
             if (q.isChoiceType) {
                 val nonBlankOptions = q.options.count { it.isNotBlank() }
                 if (nonBlankOptions < 2) {
@@ -193,19 +202,4 @@ class CreateQuizViewModel @Inject constructor(
     private fun failSubmit(message: String) {
         _uiState.update { it.copy(isSubmitting = false, errorMessage = message) }
     }
-
-    private fun QuestionDraft.toNewQuestion(imageUrl: String?): NewQuestion = NewQuestion(
-        questionType = questionType,
-        questionText = questionText.trim(),
-        timeLimit = timeLimit,
-        questionImage = imageUrl,
-        questionHint = questionHint.trim().ifBlank { null },
-        explanation = explanation.trim().ifBlank { null },
-        answerOptions = if (isChoiceType) options.filter { it.isNotBlank() } else null,
-        correctAnswer = if (isChoiceType) {
-            CorrectAnswer.Indexes(correctIndexes.sorted())
-        } else {
-            CorrectAnswer.Text(correctText.trim())
-        }
-    )
 }

@@ -17,6 +17,7 @@ import android.kma.myquizzapp.presentation.profile.ProfileScreen
 import android.kma.myquizzapp.feature.home.presentation.HomeScreen
 import android.kma.myquizzapp.feature.home.presentation.search.SearchScreen
 import android.kma.myquizzapp.feature.quiz_manage.presentation.createquiz.CreateQuizScreen
+import android.kma.myquizzapp.feature.quiz_manage.presentation.editquiz.EditQuizScreen
 import android.kma.myquizzapp.feature.quiz_manage.presentation.quizdetail.QuizDetailScreen
 import android.kma.myquizzapp.feature.quiz_manage.presentation.quizmanagelist.QuizManageListScreen
 import androidx.navigation.toRoute
@@ -195,9 +196,13 @@ fun AppNavGraph(
             }
             
             composable<Route.EditQuiz> {
-                // TODO: RequireAuth { EditQuizScreen() }
-                // Placeholder
-                androidx.compose.material3.Text("Edit Quiz - Requires Auth")
+                // N16: sửa quiz. quizId lấy từ route argument qua SavedStateHandle ở
+                // EditQuizViewModel. Lưu xong → popBackStack về QuizDetail (màn detail
+                // tự reload khi ON_RESUME để hiển thị bản mới).
+                EditQuizScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    onQuizUpdated = { navController.popBackStack() }
+                )
             }
             
             composable<Route.QuizDetail> {
@@ -205,6 +210,9 @@ fun AppNavGraph(
                     onNavigateBack = { navController.popBackStack() },
                     onNavigateToCreateRoom = { quizId ->
                         navController.navigate(Route.CreateRoom(quizId))
+                    },
+                    onNavigateToEditQuiz = { quizId ->
+                        navController.navigate(Route.EditQuiz(quizId))
                     }
                 )
             }
