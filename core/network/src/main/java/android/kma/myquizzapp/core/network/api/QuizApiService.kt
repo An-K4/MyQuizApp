@@ -33,20 +33,24 @@ interface QuizApiService {
     suspend fun getHomeContent(): Result<HomeContentDto>
     
     /**
-     * GET /v1/quizzes/search?keyword=...
+     * GET /v1/quizzes/search?keyword=...&cursor=...&limit=...
      * 
      * Optional auth: public search, không cần login.
      * 
-     * Note: Backend có pagination nhưng v1 này chưa dùng.
-     * TODO: N13 - refactor sang Paging 3 với page/limit params.
+     * N16.5: dùng cursor pagination THẬT (listing.service.ts — keyset, cursor opaque
+     * base64url, sort mặc định "new"). cursor null = trang đầu. KHÔNG truyền page —
+     * backend không đọc; bản cũ load more chỉ lặp lại trang 1 (bug thật).
+     * Cursor/hasMore nằm trong meta.pagination → Result.Success.page (ApiCallResult).
+     * Đổi keyword giữa chừng phải reset cursor về null, nếu không ăn QUIZ_CURSOR_INVALID
+     * (cursor gắn fingerprint của filter, listing.cursor.ts).
      * 
-     * Backend bọc response trong { quizzes: [...] } (listing.controller.ts →
-     * success(res, { quizzes: page.items })), nên kiểu trả về là QuizListDto
-     * chứ không phải List<QuizCardDto> trực tiếp.
+     * Backend bọc response trong { quizzes: [...] } → QuizListDto.
      */
     @GET("quizzes/search")
     suspend fun searchQuizzes(
-        @Query("keyword") keyword: String
+        @Query("keyword") keyword: String,
+        @Query("cursor") cursor: String?,
+        @Query("limit") limit: Int
     ): Result<QuizListDto>
     
     /**

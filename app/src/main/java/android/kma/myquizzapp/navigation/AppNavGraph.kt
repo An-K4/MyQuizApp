@@ -89,12 +89,12 @@ fun AppNavGraph(
                 val args = backStackEntry.toRoute<Route.OtpVerification>()
                 OtpVerificationScreen(
                     onNavigateBack = { navController.popBackStack() },
-                    onNavigateToResetPassword = { email, otp ->
+                    // N16.5: OTP đã verify ở màn trước → màn Reset nhận ticket.
+                    onNavigateToResetPassword = { ticket, email ->
                         navController.navigate(
                             Route.ResetPassword(
-                                token = null,
-                                email = email,
-                                otp = otp
+                                ticket = ticket,
+                                email = email
                             )
                         )
                     }

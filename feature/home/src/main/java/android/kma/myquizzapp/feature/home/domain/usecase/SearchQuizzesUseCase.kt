@@ -6,24 +6,23 @@ import android.kma.myquizzapp.core.common.result.Result
 import javax.inject.Inject
 
 /**
- * Use case to search public quizzes with pagination.
+ * Use case to search public quizzes — cursor pagination (N16.5).
  *
- * Searches in public quizzes only (is_public = true).
- * Applies keyword search on quiz title.
+ * Backend: GET /quizzes/search — keyset cursor (opaque base64url, sort mặc định
+ * "new", listing.service.ts). cursor null = trang đầu; nextCursor/hasMore đọc từ
+ * Result.Success.page (PageInfo). Đổi query phải reset cursor về null — cursor gắn
+ * fingerprint của filter, dùng sai → QUIZ_CURSOR_INVALID (listing.cursor.ts).
  *
  * @param query Search keyword (applied to quiz title)
- * @param page Page number (1-indexed)
- * @param limit Items per page (default 20)
- * 
- * @return Success with list of QuizCard (may be empty if no results),
- *         or Error with AppError
+ * @param cursor Cursor của trang trước (null = trang đầu)
+ * @param limit Items per page (default 20, backend cho 1-24)
  */
 class SearchQuizzesUseCase @Inject constructor(
     private val quizRepository: QuizRepository
 ) {
     suspend operator fun invoke(
         query: String,
-        page: Int = 1,
+        cursor: String? = null,
         limit: Int = 20
     ): Result<List<QuizCard>> {
         // Trim query to avoid unnecessary API calls
@@ -32,7 +31,7 @@ class SearchQuizzesUseCase @Inject constructor(
             // Return empty list for blank query
             return Result.Success(emptyList())
         }
-        
-        return quizRepository.searchQuizzes(trimmedQuery)
+
+        return quizRepository.searchQuizzes(trimmedQuery, cursor, limit)
     }
 }

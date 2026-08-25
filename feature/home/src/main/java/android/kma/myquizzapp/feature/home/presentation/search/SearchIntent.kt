@@ -13,9 +13,6 @@ sealed interface SearchIntent {
     /** Load more search results (pagination) */
     data object LoadMore : SearchIntent
     
-    /** User clicked a quiz card */
-    data class QuizCardClicked(val quizId: Long) : SearchIntent
-    
     /** Clear search query and results */
     data object ClearSearch : SearchIntent
     

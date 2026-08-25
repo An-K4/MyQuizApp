@@ -37,7 +37,6 @@ class SearchViewModel @Inject constructor(
             is SearchIntent.QueryChanged -> updateQuery(intent.query)
             is SearchIntent.SubmitSearch -> submitSearch()
             is SearchIntent.LoadMore -> loadMore()
-            is SearchIntent.QuizCardClicked -> navigateToQuizDetail(intent.quizId)
             is SearchIntent.ClearSearch -> clearSearch()
             is SearchIntent.Retry -> retry()
         }
@@ -45,9 +44,13 @@ class SearchViewModel @Inject constructor(
 
     /**
      * Update search query as user types.
+     *
+     * N16.5 hotfix 2: KHÔNG real-time search — chỉ chạy khi user bấm nút kính lúp
+     * hoặc phím Search (SubmitSearch). Xóa trắng ô thì clear kết quả ngay.
      */
     private fun updateQuery(query: String) {
         _uiState.update { it.copy(query = query) }
+        if (query.isBlank()) clearSearch()
     }
 
     /**
@@ -66,21 +69,24 @@ class SearchViewModel @Inject constructor(
                 it.copy(
                     isSearching = true,
                     error = null,
-                    currentPage = 1,
+                    // N16.5: query mới → reset cursor (cursor gắn fingerprint của filter;
+                    // dùng cursor cũ với keyword khác → QUIZ_CURSOR_INVALID 400).
+                    nextCursor = null,
                     results = emptyList(),
                     hasMore = true
                 )
             }
 
-            when (val result = searchQuizzesUseCase(query, page = 1)) {
+            when (val result = searchQuizzesUseCase(query)) {
                 is Result.Success -> {
                     _uiState.update {
                         it.copy(
                             results = result.data,
                             isSearching = false,
                             error = null,
-                            // Has more if we got full page (20 items)
-                            hasMore = result.data.size >= 20
+                            // N16.5: lấy từ meta.pagination thật thay vì đoán size >= 20
+                            nextCursor = result.page?.nextCursor,
+                            hasMore = result.page?.hasMore ?: false
                         )
                     }
                 }
@@ -101,7 +107,7 @@ class SearchViewModel @Inject constructor(
      */
     private fun loadMore() {
         val currentState = _uiState.value
-        
+
         // Guard: Don't load if already loading or no more results
         if (!currentState.hasMore || currentState.isLoadingMore) {
             return
@@ -113,17 +119,16 @@ class SearchViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoadingMore = true) }
 
-            val nextPage = currentState.currentPage + 1
-            when (val result = searchQuizzesUseCase(query, page = nextPage)) {
+            // N16.5: cursor của trang trước (nextCursor null ⇒ hasMore=false ⇒ không vào đây)
+            when (val result = searchQuizzesUseCase(query, cursor = currentState.nextCursor)) {
                 is Result.Success -> {
                     _uiState.update {
                         it.copy(
                             // Append new results to existing list
                             results = it.results + result.data,
-                            currentPage = nextPage,
+                            nextCursor = result.page?.nextCursor,
                             isLoadingMore = false,
-                            // Has more if we got full page (20 items)
-                            hasMore = result.data.size >= 20
+                            hasMore = result.page?.hasMore ?: false
                         )
                     }
                 }
@@ -146,14 +151,6 @@ class SearchViewModel @Inject constructor(
         _uiState.update {
             SearchUiState() // Reset to initial state
         }
-    }
-
-    /**
-     * Navigate to quiz detail screen.
-     * TODO: Implement navigation in Phase 4
-     */
-    private fun navigateToQuizDetail(quizId: Long) {
-        // Will implement in Phase 4 with Navigation
     }
 
     /**

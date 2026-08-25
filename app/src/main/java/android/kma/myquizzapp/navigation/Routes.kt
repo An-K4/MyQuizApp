@@ -12,7 +12,9 @@ sealed interface Route {
     @Serializable data object Register : Route
     @Serializable data object ForgotPassword : Route
     @Serializable data class OtpVerification(val email: String) : Route
-    @Serializable data class ResetPassword(val token: String? = null, val email: String? = null, val otp: String? = null) : Route
+    // N16.5: màn Reset làm việc với TICKET (từ màn OTP, đã verify) hoặc TOKEN
+    // (deep link email → verify đổi lấy ticket). Không còn truyền otp qua nav.
+    @Serializable data class ResetPassword(val ticket: String? = null, val token: String? = null, val email: String? = null) : Route
 
     // ---- Main graph (unified for all users - guest + authenticated) ----
     @Serializable data object MainGraph : Route

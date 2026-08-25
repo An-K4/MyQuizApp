@@ -37,9 +37,10 @@ class QuizRepositoryImpl @Inject constructor(
     override suspend fun getHomeContent(): Result<List<HomeSection>> =
         quizApi.getHomeContent().map { it.toDomain() }
     
-    override suspend fun searchQuizzes(keyword: String): Result<List<QuizCard>> =
+    override suspend fun searchQuizzes(keyword: String, cursor: String?, limit: Int): Result<List<QuizCard>> =
         // Backend bọc response trong { quizzes: [...] } → unwrap QuizListDto.quizzes.
-        quizApi.searchQuizzes(keyword).map { dto -> 
+        // page cursor (meta.pagination) được .map giữ lại nguyên vẹn qua Result.page.
+        quizApi.searchQuizzes(keyword, cursor, limit).map { dto ->
             dto.quizzes.map { it.toDomain() }
         }
     

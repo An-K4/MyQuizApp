@@ -14,8 +14,9 @@ data class SearchUiState(
     val isSearching: Boolean = false,
     val error: String? = null,
     
-    // Pagination
-    val currentPage: Int = 1,
+    // Pagination — N16.5: cursor thật thay vì đếm page (backend không đọc `page`;
+    // bản cũ load more chỉ lặp lại trang 1). nextCursor null = không còn trang kế.
+    val nextCursor: String? = null,
     val hasMore: Boolean = true,
     val isLoadingMore: Boolean = false
 ) {

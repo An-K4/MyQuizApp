@@ -11,8 +11,8 @@ import kotlinx.serialization.Serializable
  * bọc data trong 1 key đặt tên theo resource — luôn đọc lại controller trước khi khai
  * báo kiểu trả về ở Retrofit, không đoán theo domain model.
  *
- * Note: backend còn trả `meta.pagination` (cursor) nhưng v1 chưa dùng (xem TODO N13
- * trong QuizApiService).
+ * Note (N16.5): `meta.pagination` (cursor) đã được dùng — ResultCall tự gắn vào
+ * Result.Success.page, SearchViewModel đọc nextCursor/hasMore từ đó.
  */
 @Serializable
 data class QuizListDto(val quizzes: List<QuizCardDto>)

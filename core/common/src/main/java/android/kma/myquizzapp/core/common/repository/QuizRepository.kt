@@ -30,12 +30,13 @@ interface QuizRepository {
     suspend fun getHomeContent(): Result<List<HomeSection>>
     
     /**
-     * Search quiz công khai theo keyword.
+     * Search quiz công khai theo keyword — cursor pagination (N16.5).
      * 
-     * Endpoint: GET /v1/quizzes/search?keyword=...
-     * Version 1: Simple list, không có pagination (để học Paging 3 sau)
+     * Endpoint: GET /v1/quizzes/search (optionalAuth). cursor null = trang đầu;
+     * nextCursor/hasMore trả qua Result.Success.page (PageInfo). Backend giới hạn
+     * limit 1-24; đổi keyword phải reset cursor về null.
      */
-    suspend fun searchQuizzes(keyword: String): Result<List<QuizCard>>
+    suspend fun searchQuizzes(keyword: String, cursor: String?, limit: Int): Result<List<QuizCard>>
     
     /**
      * Lấy 1 trang danh sách quiz của user hiện tại (N13-14).

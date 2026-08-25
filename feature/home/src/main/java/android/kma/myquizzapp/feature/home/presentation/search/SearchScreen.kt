@@ -4,15 +4,19 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import android.kma.myquizzapp.core.ui.components.QuizCardItem
@@ -22,8 +26,8 @@ import android.kma.myquizzapp.core.ui.components.QuizCardItem
  * 
  * Features:
  * - Search bar with auto-focus
- * - Real-time query input
- * - Search results with pagination (infinite scroll)
+ * - Search bar với nút kính lúp + phím Search trên bàn phím (submit thủ công)
+ * - Search results with cursor pagination (infinite scroll)
  * - Empty/Loading/Error states
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -37,7 +41,7 @@ fun SearchScreen(
     val uiState by viewModel.uiState.collectAsState()
     val focusRequester = remember { FocusRequester() }
     val listState = rememberLazyListState()
-    
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -55,6 +59,10 @@ fun SearchScreen(
                             .fillMaxWidth()
                             .focusRequester(focusRequester),
                         singleLine = true,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                        keyboardActions = KeyboardActions(
+                            onSearch = { viewModel.handleIntent(SearchIntent.SubmitSearch) }
+                        ),
                         trailingIcon = {
                             if (uiState.hasQuery) {
                                 IconButton(
@@ -65,6 +73,11 @@ fun SearchScreen(
                             }
                         }
                     )
+                },
+                actions = {
+                    IconButton(onClick = { viewModel.handleIntent(SearchIntent.SubmitSearch) }) {
+                        Icon(imageVector = Icons.Default.Search, contentDescription = "Tìm kiếm")
+                    }
                 }
             )
         },
@@ -85,7 +98,7 @@ fun SearchScreen(
                         CircularProgressIndicator()
                     }
                 }
-                
+
                 uiState.error != null && !uiState.hasResults -> {
                     // Error state (no results yet)
                     Box(
@@ -112,7 +125,7 @@ fun SearchScreen(
                         }
                     }
                 }
-                
+
                 !uiState.hasQuery -> {
                     // Empty query hint
                     Box(
@@ -126,7 +139,7 @@ fun SearchScreen(
                         )
                     }
                 }
-                
+
                 uiState.hasResults -> {
                     // Search results
                     LazyColumn(
@@ -140,11 +153,12 @@ fun SearchScreen(
                         ) { quiz ->
                             QuizCardItem(
                                 quiz = quiz,
-                                onClick = { viewModel.handleIntent(SearchIntent.QuizCardClicked(quiz.id)) },
+                                // N16.5: bấm card → thẳng QuizDetail (nav callback từ AppNavGraph).
+                                onClick = { onNavigateToQuizDetail(quiz.id) },
                                 modifier = Modifier.fillMaxWidth()
                             )
                         }
-                        
+
                         // Load more indicator
                         if (uiState.isLoadingMore) {
                             item {
@@ -159,7 +173,7 @@ fun SearchScreen(
                             }
                         }
                     }
-                    
+
                     // Detect scroll to bottom for pagination
                     LaunchedEffect(listState) {
                         snapshotFlow { listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index }
@@ -174,7 +188,7 @@ fun SearchScreen(
                             }
                     }
                 }
-                
+
                 else -> {
                     // No results for query
                     Box(
@@ -200,7 +214,7 @@ fun SearchScreen(
             }
         }
     }
-    
+
     // Auto-focus search field on first composition
     LaunchedEffect(Unit) {
         focusRequester.requestFocus()
