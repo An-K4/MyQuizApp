@@ -189,8 +189,8 @@ fun SearchScreen(
                     }
                 }
 
-                else -> {
-                    // No results for query
+                uiState.shouldShowNoResults -> {
+                    // Chỉ hiện sau khi response Success của đúng query hiện tại trả rỗng.
                     Box(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center
@@ -209,6 +209,20 @@ fun SearchScreen(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
+                    }
+                }
+
+                else -> {
+                    // Query đã thay đổi nhưng chưa submit: không giả vờ đã có response rỗng.
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "Nhấn tìm kiếm để xem kết quả",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
             }

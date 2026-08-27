@@ -13,6 +13,10 @@ data class SearchUiState(
     val results: List<QuizCard> = emptyList(),
     val isSearching: Boolean = false,
     val error: String? = null,
+    // Chỉ true sau khi request của đúng query hiện tại trả Success. Nhờ vậy UI
+    // không hiển thị "Không tìm thấy" trong lúc user mới chỉ đang sửa input.
+    val hasCompletedSearch: Boolean = false,
+    val submittedQuery: String? = null,
     
     // Pagination — N16.5: cursor thật thay vì đếm page (backend không đọc `page`;
     // bản cũ load more chỉ lặp lại trang 1). nextCursor null = không còn trang kế.
@@ -37,4 +41,12 @@ data class SearchUiState(
      */
     val hasQuery: Boolean
         get() = query.isNotBlank()
+
+    /** Chỉ hiện empty-result sau response Success rỗng của đúng query đang nhập. */
+    val shouldShowNoResults: Boolean
+        get() = hasCompletedSearch &&
+            submittedQuery == query.trim() &&
+            results.isEmpty() &&
+            error == null &&
+            !isSearching
 }

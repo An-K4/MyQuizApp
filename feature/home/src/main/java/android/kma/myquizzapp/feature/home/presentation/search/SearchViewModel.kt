@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import android.kma.myquizzapp.feature.home.domain.usecase.SearchQuizzesUseCase
 import android.kma.myquizzapp.core.common.result.Result
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -29,6 +30,11 @@ class SearchViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(SearchUiState())
     val uiState: StateFlow<SearchUiState> = _uiState.asStateFlow()
 
+    // Hủy request cũ khi query thay đổi để response của từ khóa trước không ghi
+    // đè state của từ khóa hiện tại.
+    private var searchJob: Job? = null
+    private var loadMoreJob: Job? = null
+
     /**
      * Handle user intents.
      */
@@ -49,8 +55,15 @@ class SearchViewModel @Inject constructor(
      * hoặc phím Search (SubmitSearch). Xóa trắng ô thì clear kết quả ngay.
      */
     private fun updateQuery(query: String) {
-        _uiState.update { it.copy(query = query) }
-        if (query.isBlank()) clearSearch()
+        if (query.isBlank()) {
+            clearSearch()
+            return
+        }
+
+        cancelPendingRequests()
+        // Manual search: input mới chưa có response tương ứng, nên bỏ kết quả cũ
+        // và không đánh dấu empty-result cho đến lần SubmitSearch tiếp theo.
+        _uiState.value = SearchUiState(query = query)
     }
 
     /**
@@ -64,11 +77,15 @@ class SearchViewModel @Inject constructor(
             return
         }
 
-        viewModelScope.launch {
+        searchJob?.cancel()
+        loadMoreJob?.cancel()
+        searchJob = viewModelScope.launch {
             _uiState.update {
                 it.copy(
                     isSearching = true,
                     error = null,
+                    hasCompletedSearch = false,
+                    submittedQuery = query,
                     // N16.5: query mới → reset cursor (cursor gắn fingerprint của filter;
                     // dùng cursor cũ với keyword khác → QUIZ_CURSOR_INVALID 400).
                     nextCursor = null,
@@ -84,6 +101,8 @@ class SearchViewModel @Inject constructor(
                             results = result.data,
                             isSearching = false,
                             error = null,
+                            hasCompletedSearch = true,
+                            submittedQuery = query,
                             // N16.5: lấy từ meta.pagination thật thay vì đoán size >= 20
                             nextCursor = result.page?.nextCursor,
                             hasMore = result.page?.hasMore ?: false
@@ -94,7 +113,8 @@ class SearchViewModel @Inject constructor(
                     _uiState.update {
                         it.copy(
                             isSearching = false,
-                            error = result.error.toUserMessage()
+                            error = result.error.toUserMessage(),
+                            hasCompletedSearch = false
                         )
                     }
                 }
@@ -116,7 +136,8 @@ class SearchViewModel @Inject constructor(
         val query = currentState.query.trim()
         if (query.isBlank()) return
 
-        viewModelScope.launch {
+        loadMoreJob?.cancel()
+        loadMoreJob = viewModelScope.launch {
             _uiState.update { it.copy(isLoadingMore = true) }
 
             // N16.5: cursor của trang trước (nextCursor null ⇒ hasMore=false ⇒ không vào đây)
@@ -148,9 +169,15 @@ class SearchViewModel @Inject constructor(
      * Clear search query and results.
      */
     private fun clearSearch() {
-        _uiState.update {
-            SearchUiState() // Reset to initial state
-        }
+        cancelPendingRequests()
+        _uiState.value = SearchUiState()
+    }
+
+    private fun cancelPendingRequests() {
+        searchJob?.cancel()
+        loadMoreJob?.cancel()
+        searchJob = null
+        loadMoreJob = null
     }
 
     /**
