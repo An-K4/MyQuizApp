@@ -18,34 +18,18 @@ import javax.inject.Qualifier
 annotation class RawUploadOkHttpClient
 
 /**
- * Qualifier cho Json/Retrofit riêng của StorageApiService — KHÔNG set
- * namingStrategy như Json chung của app (provideJson trong NetworkModule).
+ * Qualifier cho Json/Retrofit dùng chung bởi các backend endpoint cần giữ nguyên
+ * tên field đã resolve, không áp dụng JsonNamingStrategy.SnakeCase của Json mặc định.
  *
- * Lý do (phát hiện qua log thực tế 24/08): JsonNamingStrategy.SnakeCase áp
- * dụng lên tên property ĐÃ RESOLVE, kể cả khi property đã có @SerialName
- * tường minh (VD "contentType" vẫn bị đổi tiếp thành "content_type"), nên
- * không thể dùng @SerialName để "thoát" khỏi namingStrategy chung. Vì
- * storage.schema.ts (backend) dùng camelCase thật cho request/response của
- * /storage/presign, phải tách hẳn 1 Json không namingStrategy cho service này.
+ * Dùng cho payload camelCase hoặc mixed naming. Với mixed naming, các field
+ * snake_case ở lớp ngoài phải khai báo bằng @SerialName, còn nested camelCase
+ * (ví dụ GameConfig) được giữ nguyên. Không dùng @SerialName để cố "thoát" khỏi
+ * namingStrategy vì namingStrategy vẫn biến đổi cả tên đã được override.
  */
 @Qualifier
 @Retention(AnnotationRetention.RUNTIME)
-annotation class StorageJson
+annotation class PreserveCaseJson
 
 @Qualifier
 @Retention(AnnotationRetention.RUNTIME)
-annotation class StorageRetrofit
-
-/**
- * Qualifier cho Json/Retrofit riêng của PasswordResetApiService (N16.5) — cùng lý
- * do với StorageJson: module user của backend dùng camelCase THẬT trên wire
- * (resetTime/expiresAt/newPassword, xem user.schema.ts), mà @SerialName không
- * thoát được JsonNamingStrategy.SnakeCase của Json chung.
- */
-@Qualifier
-@Retention(AnnotationRetention.RUNTIME)
-annotation class PasswordResetJson
-
-@Qualifier
-@Retention(AnnotationRetention.RUNTIME)
-annotation class PasswordResetRetrofit
+annotation class PreserveCaseRetrofit

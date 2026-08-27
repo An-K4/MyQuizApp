@@ -88,27 +88,25 @@ object NetworkModule {
     fun provideQuizApiService(retrofit: Retrofit): QuizApiService = retrofit.create()
 
     /**
-     * Json riêng cho StorageApiService — KHÔNG set namingStrategy (xem
-     * StorageJson trong Qualifiers.kt để biết lý do: JsonNamingStrategy vẫn
-     * đổi tên dù property đã có @SerialName tường minh). storage.schema.ts
-     * (backend) dùng camelCase thật nên Kotlin property camelCase khớp thẳng,
-     * không cần @SerialName.
+     * Json/Retrofit dùng chung cho các backend endpoint cần giữ nguyên tên field
+     * (camelCase hoặc mixed naming), không áp dụng namingStrategy SnakeCase.
+     * Các field snake_case trong mixed payload phải dùng @SerialName tường minh.
      */
     @OptIn(ExperimentalSerializationApi::class)
-    @StorageJson
+    @PreserveCaseJson
     @Provides
     @Singleton
-    fun provideStorageJson(): Json = Json {
+    fun providePreserveCaseJson(): Json = Json {
         ignoreUnknownKeys = true
         coerceInputValues = true
         explicitNulls = false
     }
 
-    @StorageRetrofit
+    @PreserveCaseRetrofit
     @Provides
     @Singleton
-    fun provideStorageRetrofit(
-        @StorageJson json: Json,
+    fun providePreserveCaseRetrofit(
+        @PreserveCaseJson json: Json,
         okHttpClient: OkHttpClient
     ): Retrofit =
         Retrofit.Builder()
@@ -121,41 +119,13 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideStorageApiService(
-        @StorageRetrofit retrofit: Retrofit
+        @PreserveCaseRetrofit retrofit: Retrofit
     ): StorageApiService = retrofit.create()
-
-    /**
-     * Json/Retrofit riêng cho PasswordResetApiService (N16.5) — module user của
-     * backend dùng camelCase thật trên wire (resetTime/expiresAt/newPassword),
-     * không đi qua được namingStrategy SnakeCase của Json chung (bài học N15).
-     */
-    @PasswordResetJson
-    @Provides
-    @Singleton
-    fun providePasswordResetJson(): Json = Json {
-        ignoreUnknownKeys = true
-        coerceInputValues = true
-        explicitNulls = false
-    }
-
-    @PasswordResetRetrofit
-    @Provides
-    @Singleton
-    fun providePasswordResetRetrofit(
-        @PasswordResetJson json: Json,
-        okHttpClient: OkHttpClient
-    ): Retrofit =
-        Retrofit.Builder()
-            .baseUrl(BuildConfig.BASE_URL)
-            .client(okHttpClient)
-            .addCallAdapterFactory(ResultCallAdapterFactory(json))
-            .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
-            .build()
 
     @Provides
     @Singleton
     fun providePasswordResetApiService(
-        @PasswordResetRetrofit retrofit: Retrofit
+        @PreserveCaseRetrofit retrofit: Retrofit
     ): PasswordResetApiService = retrofit.create()
 
     // Client riêng, KHÔNG cookie/authenticator — dùng để PUT ảnh thẳng lên storage

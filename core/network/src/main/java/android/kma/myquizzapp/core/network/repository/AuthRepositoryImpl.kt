@@ -23,7 +23,7 @@ import javax.inject.Inject
 class AuthRepositoryImpl @Inject constructor(
     private val authApi: AuthApiService,
     private val userApi: UserApiService,
-    private val passwordResetApi: PasswordResetApiService, // N16.5: Json riêng (module user dùng camelCase thật)
+    private val passwordResetApi: PasswordResetApiService, // N16.5: PreserveCaseJson (module user dùng camelCase thật)
     private val cookieStore: CookieStore, // interface ở core:common — dùng cho logout
 ) : AuthRepository {
 

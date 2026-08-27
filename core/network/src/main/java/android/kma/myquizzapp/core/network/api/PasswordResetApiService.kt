@@ -16,8 +16,8 @@ import retrofit2.http.Query
 
 /**
  * N16.5 — 4 endpoint reset password THẬT (user.route.ts). Tách khỏi AuthApiService
- * vì module user của backend dùng camelCase thật trên wire → service này gắn vào
- * Retrofit với Json riêng KHÔNG namingStrategy (xem NetworkModule + Qualifiers.kt).
+ * vì module user của backend dùng camelCase thật trên wire → service này dùng
+ * shared PreserveCaseRetrofit KHÔNG namingStrategy (xem NetworkModule + Qualifiers.kt).
  *
  * 2 endpoint users/reset-password-token & users/reset-password từng khai báo ở
  * AuthApiService KHÔNG tồn tại trên backend (404 chắc chắn).

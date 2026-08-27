@@ -7,7 +7,7 @@ import kotlinx.serialization.Serializable
 // N16.5 — DTO cho luồng reset password 3 bước (user.route.ts / user.schema.ts).
 // ⚠️ Module user của backend dùng camelCase THẬT trên wire (resetTime, expiresAt,
 // newPassword...) — KHÔNG snake_case như module quiz. Các DTO này chỉ đi qua
-// PasswordResetApiService với Json riêng KHÔNG namingStrategy — @SerialName không
+// PasswordResetApiService với shared PreserveCaseJson KHÔNG namingStrategy — @SerialName không
 // thoát được JsonNamingStrategy.SnakeCase của Json chung (bài học N15).
 
 /** Response data của POST /users/forgot-password: { resetTime, expiresAt } (ResetSchedule). */

@@ -11,8 +11,8 @@ import kotlinx.serialization.Serializable
  * (storage.service.ts trả { uploadUrl, publicUrl, key }, xác nhận qua
  * frontend/src/api/storage.api.js destructure đúng { uploadUrl, publicUrl }).
  *
- * LƯU Ý (đã sửa 24/08 sau lỗi thực tế): StorageApiService dùng Json riêng
- * KHÔNG có namingStrategy (xem StorageJson trong Qualifiers.kt) — vì
+ * LƯU Ý (đã sửa 24/08 sau lỗi thực tế, refactor 27/08): StorageApiService
+ * dùng shared PreserveCaseJson KHÔNG có namingStrategy — vì
  * JsonNamingStrategy.SnakeCase của Json chung app vẫn tự đổi tên dù property
  * đã có @SerialName tường minh (VD "contentType" -> "content_type"), khiến
  * request/response method này luôn sai hình dạng nếu dùng Json chung. Các
