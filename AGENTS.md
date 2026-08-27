@@ -2,7 +2,7 @@
 
 > File này không thay thế `myquizz-review-backend-ke-hoach-50-ngay.md` (kế hoạch + trạng thái chi tiết từng ngày) — đây là tập hợp **quy tắc làm việc + kinh nghiệm + lưu ý** rút ra sau nhiều phiên, giúp agent mới khởi đầu nhanh hơn và không lặp lại sai lầm cũ. Đọc file này **trước**, rồi đọc file kế hoạch để biết đang ở đâu.
 >
-> Cập nhật lần cuối: 25/8/2026, sau khi hoàn thành N16 (chốt M3 — Quiz CRUD).
+> Cập nhật lần cuối: 25/8/2026, sau khi hoàn thành N16 + N16.5 (chốt M3 + vá 3 điểm lệch khẩn).
 
 ---
 
@@ -37,7 +37,7 @@ User đã nói rõ: **đừng tin tuyệt đối `quiz-app-android-design-docume
 
 App dùng 1 `Json` chung với `namingStrategy = JsonNamingStrategy.SnakeCase` cho đa số endpoint backend (vì backend chủ yếu dùng snake_case). **Sai lầm tưởng rằng khai `@SerialName("contentType")` tường minh sẽ "thoát" được namingStrategy chung** — KHÔNG đúng, vì `namingStrategy` áp transform lên **tên serial đã resolve** (tức chính là giá trị `@SerialName` khi có khai báo), không phân biệt đó là tên gốc hay tên đã override.
 
-→ **Khi 1 nhóm endpoint có naming convention khác với phần còn lại của backend (ví dụ module storage dùng camelCase thuần), hãy tạo cặp `Json`/`Retrofit` riêng không set `namingStrategy` cho `ApiService` đó ngay từ đầu** — đừng rải `@SerialName` từng field rồi tin là đủ. Pattern mẫu: `@StorageJson`/`@StorageRetrofit` trong `Qualifiers.kt` + `NetworkModule.kt`.
+→ **Khi 1 nhóm endpoint có naming convention khác với phần còn lại của backend (ví dụ module storage dùng camelCase thuần), hãy tạo cặp `Json`/`Retrofit` riêng không set `namingStrategy` cho `ApiService` đó ngay từ đầu** — đừng rải `@SerialName` từng field rồi tin là đủ. Pattern mẫu: `@StorageJson`/`@StorageRetrofit` trong `Qualifiers.kt` + `NetworkModule.kt`. N16.5 gặp lại đúng bẫy này ở **module user** (camelCase thật: `resetTime`/`expiresAt`/`newPassword`) → đã tái dùng pattern với `@PasswordResetJson`/`@PasswordResetRetrofit` + `PasswordResetApiService`.
 
 → Khi debug lỗi request/response không khớp kỳ vọng, luôn **xem Logcat OkHttp level BODY** để thấy byte thật trên wire, đừng chỉ đọc lại code DTO rồi kết luận "nhìn code thì đúng rồi".
 
@@ -52,6 +52,10 @@ Khi cần PUT/GET trực tiếp lên 1 presigned URL (S3...) hay bất kỳ doma
 ### 3.4. Flag "skip first resume" trong `remember` bị reset khi Navigation dispose composition (N16)
 
 Màn cần "reload khi quay lại" (ON_RESUME) nhưng bỏ qua lần mở đầu → đừng giữ flag skip bằng `remember`: Navigation dispose composition của màn cũ khi điều hướng đi, nên flag reset mỗi lần quay lại và reload không bao giờ chạy. Fix: `rememberSaveable` (state ghi vào SavedState của NavBackStackEntry) hoặc giữ flag trong ViewModel. Với list Paging 3, đừng dựa vào `LazyPagingItems.refresh()` (không đáng tin khi flow đã `cachedIn`) — cho refresh đi qua ViewModel bằng intent và tạo Pager mới (pattern generation). Chi tiết: `knowledgement/n16_knowledgement.md` mục 1.
+
+### 3.5. Mọi user action phải có ít nhất 1 đường kích hoạt THẬT từ UI (bug sót N11–12, lộ ra khi test N16.5)
+
+SearchScreen gõ từ khóa nhưng "không có kết quả với mọi từ khóa": intent `SubmitSearch` tồn tại đầy đủ trong ViewModel nhưng **không có nút/handler nào trong UI gọi nó** (không nút tìm, không `keyboardActions`) — compile sạch, logic đúng, luồng chết vì thiếu mắt xích cuối. Tương tự click quiz card trỏ vào hàm TODO rỗng. → Khi viết/review màn mới, **trace ngược từ handler về UI**: mỗi intent phải có ít nhất 1 chỗ gọi thật. Đừng tin "nhìn code thì chắc chạy" — test luồng thật trên máy. Chi tiết: `knowledgement/n16_5_knowledgement.md` mục 4.
 
 ---
 
@@ -76,9 +80,9 @@ Màn cần "reload khi quay lại" (ON_RESUME) nhưng bỏ qua lần mở đầu
 
 ## 6. Trạng thái hiện tại (tính đến 25/8/2026) — xem chi tiết ở file kế hoạch chính
 
-- Tuần 1–2 (N1–10) + Tuần 3 (N11–15) hoàn thành; **N16 (sửa/xóa quiz) xong 25/8 → M3 (Quiz CRUD) đã chốt**. Việc tiếp theo: **N16.5** (khẩn — sửa Quên mật khẩu sai endpoint, `ApiError` theo envelope thật, pagination cursor), rồi N17 (CreateRoomScreen động từ `/games/game-modes`).
-- Các việc bị defer còn treo: avatar upload (dùng lại cơ chế presign của N15), Bottom Navigation thật, refresh-token use case, trùng lặp `Route.Library`/`Route.MyQuizzes`, review lại padding `SplashScreen` (80dp), backlog "Editor UX gaps" (duplicate/move câu hỏi, autosave draft, default cover từ `res/`, crop ảnh, validation inline — xem block N16 trong file kế hoạch).
-- Bài học N16 đáng nhớ: flag `remember` bị reset khi Navigation dispose composition → dùng `rememberSaveable`/ViewModel (xem mục 3.4); DELETE quiz là **hard delete** (doc ghi nhầm "xóa mềm" — điểm lệch #10); PATCH không clear được field về null (field vắng = giữ cũ).
+- Tuần 1–2 (N1–10) + Tuần 3 (N11–15) hoàn thành; **N16 + N16.5 xong 25/8 → M3 (Quiz CRUD) chốt và 3 điểm lệch khẩn #7/#8/#9 đã vá hết**. Việc tiếp theo: **N17** (CreateRoomScreen động từ `/games/game-modes`).
+- Các việc bị defer còn treo: avatar upload (dùng lại cơ chế presign của N15), Bottom Navigation thật, refresh-token use case, trùng lặp `Route.Library`/`Route.MyQuizzes`, review lại padding `SplashScreen` (80dp), backlog "Editor UX gaps" (duplicate/move câu hỏi, autosave draft, default cover từ `res/`, crop ảnh, validation inline — xem block N16 trong file kế hoạch), 2 file usecase stub của luồng reset cũ chờ xóa tay trong IDE.
+- Bài học N16/N16.5 đáng nhớ: flag `remember` bị reset khi Navigation dispose composition → `rememberSaveable` (mục 3.4); DELETE quiz là **hard delete** (điểm lệch #10); PATCH không clear được field về null; module user backend dùng **camelCase thật** → tách Json/Retrofit theo pattern N15 (mục 3.1); mọi intent phải có đường kích hoạt thật từ UI (mục 3.5).
 - File kế hoạch chính: `myquizz-review-backend-ke-hoach-50-ngay.md` (root). Thư mục `knowledgement/` chứa bài học chi tiết từng giai đoạn — đọc file `nXX_knowledgement.md` tương ứng khi cần hiểu sâu lại quyết định của một giai đoạn cụ thể.
 
 ---
