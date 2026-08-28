@@ -1,9 +1,11 @@
 ﻿package android.kma.myquizzapp.core.network.di
 
 import android.kma.myquizzapp.core.common.repository.AuthRepository
+import android.kma.myquizzapp.core.common.repository.GameSessionRepository
 import android.kma.myquizzapp.core.common.repository.QuizRepository
 import android.kma.myquizzapp.core.common.repository.StorageRepository
 import android.kma.myquizzapp.core.network.repository.AuthRepositoryImpl
+import android.kma.myquizzapp.core.network.repository.GameSessionRepositoryImpl
 import android.kma.myquizzapp.core.network.repository.QuizRepositoryImpl
 import android.kma.myquizzapp.core.network.repository.StorageRepositoryImpl
 import dagger.Binds
@@ -27,4 +29,10 @@ abstract class NetworkBindingModule {
     @Binds
     @Singleton
     abstract fun bindStorageRepository(storageRepositoryImpl: StorageRepositoryImpl): StorageRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindGameSessionRepository(
+        gameSessionRepositoryImpl: GameSessionRepositoryImpl
+    ): GameSessionRepository
 }

@@ -16,6 +16,7 @@ import android.kma.myquizzapp.presentation.splash.SplashScreen
 import android.kma.myquizzapp.presentation.profile.ProfileScreen
 import android.kma.myquizzapp.feature.home.presentation.HomeScreen
 import android.kma.myquizzapp.feature.home.presentation.search.SearchScreen
+import android.kma.myquizzapp.feature.quiz_manage.presentation.createroom.CreateRoomScreen
 import android.kma.myquizzapp.feature.quiz_manage.presentation.createquiz.CreateQuizScreen
 import android.kma.myquizzapp.feature.quiz_manage.presentation.editquiz.EditQuizScreen
 import android.kma.myquizzapp.feature.quiz_manage.presentation.quizdetail.QuizDetailScreen
@@ -218,9 +219,17 @@ fun AppNavGraph(
             }
             
             composable<Route.CreateRoom> {
-                // TODO: RequireAuth { CreateRoomScreen() }
-                // Placeholder
-                androidx.compose.material3.Text("Create Room - Requires Auth")
+                CreateRoomScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToHostLobby = { gameId, socketToken, sessionCode ->
+                        navController.navigate(Route.HostLobby(gameId, socketToken, sessionCode)) {
+                            popUpTo<Route.CreateRoom> { inclusive = true }
+                        }
+                    },
+                    onRequireAuthentication = {
+                        navController.navigate(Route.AuthGraph)
+                    }
+                )
             }
             
             // ----- GAMEPLAY ROUTES (Host vs Player ViewModels) -----
@@ -229,9 +238,13 @@ fun AppNavGraph(
                 androidx.compose.material3.Text("Player Lobby - Coming Soon")
             }
             
-            composable<Route.HostLobby> {
-                // TODO: HostLobbyScreen() - cần authenticated
-                androidx.compose.material3.Text("Host Lobby - Coming Soon")
+            composable<Route.HostLobby> { backStackEntry ->
+                val args = backStackEntry.toRoute<Route.HostLobby>()
+                HostLobbyPlaceholder(
+                    gameId = args.gameId,
+                    sessionCode = args.sessionCode,
+                    onNavigateBack = { navController.popBackStack() }
+                )
             }
             
             composable<Route.GamePlay> {

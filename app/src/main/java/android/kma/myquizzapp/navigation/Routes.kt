@@ -40,7 +40,11 @@ sealed interface Route {
     
     // Gameplay routes - truyền socketToken qua argument
     @Serializable data class PlayerLobby(val gameId: Long, val playerId: Long, val socketToken: String) : Route
-    @Serializable data class HostLobby(val gameId: Long, val socketToken: String) : Route
+    @Serializable data class HostLobby(
+        val gameId: Long,
+        val socketToken: String,
+        val sessionCode: String
+    ) : Route
     @Serializable data class GamePlay(val gameId: Long, val playerId: Long, val socketToken: String) : Route
     @Serializable data class HostGame(val gameId: Long, val socketToken: String) : Route
     @Serializable data class FinalResult(val gameId: Long) : Route
