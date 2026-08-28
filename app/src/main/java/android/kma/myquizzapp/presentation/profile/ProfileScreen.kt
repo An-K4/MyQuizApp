@@ -1,5 +1,8 @@
 package android.kma.myquizzapp.presentation.profile
 
+import android.content.res.Configuration
+import android.kma.myquizzapp.core.ui.components.Avatar
+import android.kma.myquizzapp.core.ui.theme.MyQuizAppTheme
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -11,8 +14,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.Assignment
-import androidx.compose.material3.Divider
+import androidx.compose.material3.DividerDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
@@ -22,27 +26,14 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import android.kma.myquizzapp.core.ui.components.Avatar
-import androidx.compose.material3.DividerDefaults
-import androidx.compose.material3.HorizontalDivider
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
-/**
- * Màn Profile. Yêu cằu đăng nhập — chỉ đạt tới đây qua avatar ở Home
- * (Route.Profile) khi đã đăng nhập.
- *
- * Hiển thị thông tin user (avatar, tên, email) và danh sách hành động:
- * - "Quiz của tôi" → sang Route.MyQuizzes (QuizManageListScreen, N13-14).
- *   Mục này trước đây là tab "Của tôi" ở Home, chuyển về đây vì nó là
- *   điều hướng sang màn khác (không phải nội dung tab tại chỗ).
- * - "Đăng xuất" → gọi LogoutUseCase rồi quay về Home.
- */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileScreen(
     onNavigateBack: () -> Unit,
@@ -51,14 +42,30 @@ fun ProfileScreen(
     modifier: Modifier = Modifier,
     viewModel: ProfileViewModel = hiltViewModel()
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     LaunchedEffect(uiState.isLoggedOut) {
-        if (uiState.isLoggedOut) {
-            onLoggedOut()
-        }
+        if (uiState.isLoggedOut) onLoggedOut()
     }
 
+    ProfileScreenContent(
+        uiState = uiState,
+        onNavigateBack = onNavigateBack,
+        onNavigateToMyQuizzes = onNavigateToMyQuizzes,
+        onLogout = viewModel::logout,
+        modifier = modifier
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ProfileScreenContent(
+    uiState: ProfileUiState,
+    onNavigateBack: () -> Unit,
+    onNavigateToMyQuizzes: () -> Unit,
+    onLogout: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     Scaffold(
         modifier = modifier.fillMaxSize(),
         topBar = {
@@ -73,13 +80,10 @@ fun ProfileScreen(
         }
     ) { innerPadding ->
         Column(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
-            // Header: avatar + tên + email
             Row(
                 modifier = Modifier.fillMaxWidth().padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Avatar dùng component chung của core:ui — Coil là chi tiết nội bộ core:ui,
-                // module app không cần tự khai dependency coil.compose.
                 Avatar(
                     avatarUrl = uiState.user?.avatar,
                     contentDescription = null,
@@ -100,31 +104,32 @@ fun ProfileScreen(
             }
 
             HorizontalDivider(Modifier, DividerDefaults.Thickness, DividerDefaults.color)
-
-            // "Quiz của tôi" — nav trigger sang QuizManageListScreen (không qua ViewModel)
             ListItem(
                 headlineContent = { Text("Quiz của tôi") },
                 supportingContent = { Text("Xem và quản lý các quiz bạn đã tạo") },
-                leadingContent = {
-                    Icon(Icons.Default.Assignment, contentDescription = null)
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable(onClick = onNavigateToMyQuizzes)
+                leadingContent = { Icon(Icons.Default.Assignment, contentDescription = null) },
+                modifier = Modifier.fillMaxWidth().clickable(onClick = onNavigateToMyQuizzes)
             )
-
             HorizontalDivider(Modifier, DividerDefaults.Thickness, DividerDefaults.color)
-
-            // "Đăng xuất" — gọi LogoutUseCase qua ViewModel, rỚi onLoggedOut() qua LaunchedEffect ứng với isLoggedOut
             ListItem(
                 headlineContent = { Text("Đăng xuất") },
-                leadingContent = {
-                    Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = null)
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable(onClick = { viewModel.logout() })
+                leadingContent = { Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = null) },
+                modifier = Modifier.fillMaxWidth().clickable(onClick = onLogout)
             )
         }
+    }
+}
+
+@Preview(showBackground = true)
+@Preview(showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun ProfileScreenContentPreview() {
+    MyQuizAppTheme {
+        ProfileScreenContent(
+            uiState = ProfileUiState(isLoading = false),
+            onNavigateBack = {},
+            onNavigateToMyQuizzes = {},
+            onLogout = {}
+        )
     }
 }

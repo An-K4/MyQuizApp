@@ -1,57 +1,24 @@
 package android.kma.myquizzapp.feature.quiz_manage.presentation.editquiz
 
-import android.kma.myquizzapp.feature.quiz_manage.presentation.components.ImagePickerSection
-import android.kma.myquizzapp.feature.quiz_manage.presentation.components.QuestionEditorCard
+import android.content.res.Configuration
+import android.kma.myquizzapp.core.ui.theme.MyQuizAppTheme
+import android.kma.myquizzapp.feature.quiz_manage.presentation.components.QuizEditorContent
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Switch
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
-/**
- * Màn Sửa quiz (N16) — dùng chung editor components với màn Tạo quiz
- * (presentation/components), chỉ khác cách load (GET detail, pre-fill cả đáp án)
- * và save (PATCH thay thế toàn bộ câu hỏi) — đúng pattern QuizEditor.vue của web.
- *
- * Có dialog xác nhận khi thoát mà chưa lưu (isDirty).
- */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EditQuizScreen(
     onNavigateBack: () -> Unit,
@@ -59,65 +26,76 @@ fun EditQuizScreen(
     modifier: Modifier = Modifier,
     viewModel: EditQuizViewModel = hiltViewModel()
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var showDiscardDialog by remember { mutableStateOf(false) }
+    var pendingPickTarget by remember { mutableStateOf<PickTarget?>(null) }
 
-    fun requestBack() {
+    val requestBack = {
         if (uiState.isDirty && !uiState.isSubmitting) showDiscardDialog = true else onNavigateBack()
     }
+    BackHandler(enabled = uiState.isDirty && !uiState.isSubmitting) { showDiscardDialog = true }
 
-    // Chặn nút back hệ thống khi có thay đổi chưa lưu.
-    BackHandler(enabled = uiState.isDirty && !uiState.isSubmitting) {
-        showDiscardDialog = true
-    }
-
-    // Launcher ảnh chung cho cover + ảnh câu hỏi — giống CreateQuizScreen.
-    var pendingPickTarget by remember { mutableStateOf<PickTarget?>(null) }
-    val photoPickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.PickVisualMedia()
-    ) { uri ->
+    val photoPickerLauncher = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         val target = pendingPickTarget
         pendingPickTarget = null
-        if (uri == null || target == null) return@rememberLauncherForActivityResult
-        when (target) {
-            is PickTarget.Cover -> viewModel.handleIntent(EditQuizIntent.PickCoverImage(uri))
-            is PickTarget.Question -> viewModel.handleIntent(
-                EditQuizIntent.PickQuestionImage(target.localId, uri)
-            )
+        if (uri != null && target != null) {
+            when (target) {
+                PickTarget.Cover -> viewModel.handleIntent(EditQuizIntent.PickCoverImage(uri))
+                is PickTarget.Question -> viewModel.handleIntent(EditQuizIntent.PickQuestionImage(target.localId, uri))
+            }
         }
     }
-    fun launchImagePicker(target: PickTarget) {
+    val launchImagePicker: (PickTarget) -> Unit = { target ->
         pendingPickTarget = target
-        photoPickerLauncher.launch(
-            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-        )
+        photoPickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
     }
 
     LaunchedEffect(Unit) {
         viewModel.effect.collect { effect ->
-            when (effect) {
-                is EditQuizEffect.QuizUpdated -> onQuizUpdated(effect.quizId)
-            }
+            if (effect is EditQuizEffect.QuizUpdated) onQuizUpdated(effect.quizId)
         }
     }
 
+    EditQuizScreenContent(
+        uiState = uiState,
+        showDiscardDialog = showDiscardDialog,
+        onShowDiscardDialogChange = { showDiscardDialog = it },
+        onNavigateBack = requestBack,
+        onDiscardAndNavigateBack = onNavigateBack,
+        onIntent = viewModel::handleIntent,
+        onPickCoverImage = { launchImagePicker(PickTarget.Cover) },
+        onPickQuestionImage = { launchImagePicker(PickTarget.Question(it)) },
+        modifier = modifier
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun EditQuizScreenContent(
+    uiState: EditQuizUiState,
+    showDiscardDialog: Boolean,
+    onShowDiscardDialogChange: (Boolean) -> Unit,
+    onNavigateBack: () -> Unit,
+    onDiscardAndNavigateBack: () -> Unit,
+    onIntent: (EditQuizIntent) -> Unit,
+    onPickCoverImage: () -> Unit,
+    onPickQuestionImage: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val loadError = uiState.loadError
     if (showDiscardDialog) {
         AlertDialog(
-            onDismissRequest = { showDiscardDialog = false },
+            onDismissRequest = { onShowDiscardDialogChange(false) },
             title = { Text("Bỏ thay đổi?") },
             text = { Text("Bạn có thay đổi chưa được lưu. Thoát sẽ mất toàn bộ thay đổi này.") },
             confirmButton = {
                 TextButton(onClick = {
-                    showDiscardDialog = false
-                    onNavigateBack()
-                }) {
-                    Text("Thoát")
-                }
+                    onShowDiscardDialogChange(false)
+                    onDiscardAndNavigateBack()
+                }) { Text("Thoát") }
             },
             dismissButton = {
-                TextButton(onClick = { showDiscardDialog = false }) {
-                    Text("Ở lại chỉnh sửa")
-                }
+                TextButton(onClick = { onShowDiscardDialogChange(false) }) { Text("Ở lại chỉnh sửa") }
             }
         )
     }
@@ -128,7 +106,7 @@ fun EditQuizScreen(
             TopAppBar(
                 title = { Text("Chỉnh sửa quiz") },
                 navigationIcon = {
-                    IconButton(onClick = ::requestBack) {
+                    IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Quay lại")
                     }
                 }
@@ -136,154 +114,81 @@ fun EditQuizScreen(
         }
     ) { innerPadding ->
         when {
-            uiState.isLoading -> {
-                Column(
-                    modifier = Modifier.fillMaxSize().padding(innerPadding),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    CircularProgressIndicator()
-                }
+            uiState.isLoading -> CenterStatusContent(Modifier.padding(innerPadding)) { CircularProgressIndicator() }
+            loadError != null -> CenterStatusContent(Modifier.padding(innerPadding)) {
+                Text(loadError)
+                Spacer(Modifier.height(12.dp))
+                Button(onClick = { onIntent(EditQuizIntent.Retry) }) { Text("Thử lại") }
             }
-            uiState.loadError != null -> {
-                Column(
-                    modifier = Modifier.fillMaxSize().padding(innerPadding).padding(16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    Text(text = uiState.loadError ?: "Đã có lỗi xảy ra")
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Button(onClick = { viewModel.handleIntent(EditQuizIntent.Retry) }) {
-                        Text("Thử lại")
-                    }
-                }
-            }
-            else -> {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize().padding(innerPadding).padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    item {
-                        OutlinedTextField(
-                            value = uiState.quizName,
-                            onValueChange = { viewModel.handleIntent(EditQuizIntent.QuizNameChanged(it)) },
-                            label = { Text("Tên quiz *") },
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
-                    item {
-                        OutlinedTextField(
-                            value = uiState.quizDescription,
-                            onValueChange = { viewModel.handleIntent(EditQuizIntent.QuizDescriptionChanged(it)) },
-                            label = { Text("Mô tả") },
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
-                    item {
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlinedTextField(
-                                value = uiState.quizLanguage,
-                                onValueChange = { viewModel.handleIntent(EditQuizIntent.QuizLanguageChanged(it)) },
-                                label = { Text("Ngôn ngữ") },
-                                modifier = Modifier.weight(1f)
-                            )
-                            OutlinedTextField(
-                                value = uiState.quizCategory,
-                                onValueChange = { viewModel.handleIntent(EditQuizIntent.QuizCategoryChanged(it)) },
-                                label = { Text("Chủ đề") },
-                                modifier = Modifier.weight(1f)
-                            )
-                        }
-                    }
-                    item {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("Công khai quiz này", modifier = Modifier.weight(1f))
-                            Switch(
-                                checked = uiState.isPublic,
-                                onCheckedChange = { viewModel.handleIntent(EditQuizIntent.IsPublicChanged(it)) }
-                            )
-                        }
-                    }
-
-                    item {
-                        ImagePickerSection(
-                            label = "Ảnh quiz (tùy chọn)",
-                            imageModel = if (uiState.coverRemoved) null
-                            else uiState.coverImageUri ?: uiState.existingCoverUrl,
-                            onPick = { launchImagePicker(PickTarget.Cover) },
-                            onRemove = { viewModel.handleIntent(EditQuizIntent.RemoveCoverImage) }
-                        )
-                    }
-
-                    item {
-                        Text(text = "Câu hỏi (${uiState.questions.size})")
-                    }
-
-                    items(uiState.questions, key = { it.localId }) { question ->
-                        QuestionEditorCard(
-                            question = question,
-                            canRemove = uiState.questions.size > 1,
-                            onTypeChanged = { viewModel.handleIntent(EditQuizIntent.QuestionTypeChanged(question.localId, it)) },
-                            onTextChanged = { viewModel.handleIntent(EditQuizIntent.QuestionTextChanged(question.localId, it)) },
-                    onTimeLimitChanged = { viewModel.handleIntent(EditQuizIntent.TimeLimitChanged(question.localId, it)) },
-                            onPickImage = { launchImagePicker(PickTarget.Question(question.localId)) },
-                            onRemoveImage = { viewModel.handleIntent(EditQuizIntent.RemoveQuestionImage(question.localId)) },
-                            onOptionChanged = { index, value -> viewModel.handleIntent(EditQuizIntent.OptionChanged(question.localId, index, value)) },
-                            onToggleCorrect = { index -> viewModel.handleIntent(EditQuizIntent.ToggleCorrectIndex(question.localId, index)) },
-                            onAddOption = { viewModel.handleIntent(EditQuizIntent.AddOption(question.localId)) },
-                            onRemoveOption = { index -> viewModel.handleIntent(EditQuizIntent.RemoveOption(question.localId, index)) },
-                            onHintChanged = { viewModel.handleIntent(EditQuizIntent.HintChanged(question.localId, it)) },
-                            onExplanationChanged = { viewModel.handleIntent(EditQuizIntent.ExplanationChanged(question.localId, it)) },
-                            onCorrectTextChanged = { viewModel.handleIntent(EditQuizIntent.CorrectTextChanged(question.localId, it)) },
-                            onRemove = { viewModel.handleIntent(EditQuizIntent.RemoveQuestion(question.localId)) }
-                        )
-                    }
-
-                    item {
-                        OutlinedButton(
-                            onClick = { viewModel.handleIntent(EditQuizIntent.AddQuestion) },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Icon(Icons.Filled.Add, contentDescription = null)
-                            Spacer(modifier = Modifier.height(0.dp))
-                            Text("  Thêm câu hỏi")
-                        }
-                    }
-
-                    if (uiState.fieldErrors.isNotEmpty()) {
-                        item {
-                            Column {
-                                uiState.fieldErrors.forEach { err ->
-                                    Text(text = "• $err")
-                                }
-                            }
-                        }
-                    }
-                    if (uiState.errorMessage != null) {
-                        item { Text(text = uiState.errorMessage ?: "") }
-                    }
-
-                    item {
-                        Button(
-                            onClick = { viewModel.handleIntent(EditQuizIntent.Submit) },
-                            enabled = !uiState.isSubmitting,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            if (uiState.isSubmitting) {
-                                CircularProgressIndicator(modifier = Modifier.height(20.dp))
-                            } else {
-                                Text("Lưu thay đổi")
-                            }
-                        }
-                    }
-                }
-            }
+            else -> QuizEditorContent(
+                quizName = uiState.quizName,
+                quizDescription = uiState.quizDescription,
+                quizLanguage = uiState.quizLanguage,
+                quizCategory = uiState.quizCategory,
+                isPublic = uiState.isPublic,
+                coverImageModel = if (uiState.coverRemoved) null else uiState.coverImageUri ?: uiState.existingCoverUrl,
+                questions = uiState.questions,
+                fieldErrors = uiState.fieldErrors,
+                errorMessage = uiState.errorMessage,
+                isSubmitting = uiState.isSubmitting,
+                submitLabel = "Lưu thay đổi",
+                onQuizNameChanged = { onIntent(EditQuizIntent.QuizNameChanged(it)) },
+                onQuizDescriptionChanged = { onIntent(EditQuizIntent.QuizDescriptionChanged(it)) },
+                onQuizLanguageChanged = { onIntent(EditQuizIntent.QuizLanguageChanged(it)) },
+                onQuizCategoryChanged = { onIntent(EditQuizIntent.QuizCategoryChanged(it)) },
+                onIsPublicChanged = { onIntent(EditQuizIntent.IsPublicChanged(it)) },
+                onPickCoverImage = onPickCoverImage,
+                onRemoveCoverImage = { onIntent(EditQuizIntent.RemoveCoverImage) },
+                onQuestionTypeChanged = { id, type -> onIntent(EditQuizIntent.QuestionTypeChanged(id, type)) },
+                onQuestionTextChanged = { id, value -> onIntent(EditQuizIntent.QuestionTextChanged(id, value)) },
+                onTimeLimitChanged = { id, value -> onIntent(EditQuizIntent.TimeLimitChanged(id, value)) },
+                onPickQuestionImage = onPickQuestionImage,
+                onRemoveQuestionImage = { onIntent(EditQuizIntent.RemoveQuestionImage(it)) },
+                onOptionChanged = { id, index, value -> onIntent(EditQuizIntent.OptionChanged(id, index, value)) },
+                onToggleCorrect = { id, index -> onIntent(EditQuizIntent.ToggleCorrectIndex(id, index)) },
+                onAddOption = { onIntent(EditQuizIntent.AddOption(it)) },
+                onRemoveOption = { id, index -> onIntent(EditQuizIntent.RemoveOption(id, index)) },
+                onHintChanged = { id, value -> onIntent(EditQuizIntent.HintChanged(id, value)) },
+                onExplanationChanged = { id, value -> onIntent(EditQuizIntent.ExplanationChanged(id, value)) },
+                onCorrectTextChanged = { id, value -> onIntent(EditQuizIntent.CorrectTextChanged(id, value)) },
+                onRemoveQuestion = { onIntent(EditQuizIntent.RemoveQuestion(it)) },
+                onAddQuestion = { onIntent(EditQuizIntent.AddQuestion) },
+                onSubmit = { onIntent(EditQuizIntent.Submit) },
+                modifier = Modifier.padding(innerPadding)
+            )
         }
     }
 }
 
-/** Đối tượng đang chờ chọn ảnh qua Photo Picker chung của màn hình. */
+@Composable
+private fun CenterStatusContent(modifier: Modifier, content: @Composable ColumnScope.() -> Unit) {
+    Column(
+        modifier = modifier.fillMaxSize().padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+        content = content
+    )
+}
+
 private sealed interface PickTarget {
     data object Cover : PickTarget
     data class Question(val localId: String) : PickTarget
+}
+
+@Preview(showBackground = true)
+@Preview(showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun EditQuizScreenContentPreview() {
+    MyQuizAppTheme {
+        EditQuizScreenContent(
+            uiState = EditQuizUiState(isLoading = false),
+            showDiscardDialog = false,
+            onShowDiscardDialogChange = {},
+            onNavigateBack = {},
+            onDiscardAndNavigateBack = {},
+            onIntent = {},
+            onPickCoverImage = {},
+            onPickQuestionImage = {}
+        )
+    }
 }

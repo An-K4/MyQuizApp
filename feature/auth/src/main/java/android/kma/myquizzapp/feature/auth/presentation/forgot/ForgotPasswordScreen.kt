@@ -39,7 +39,7 @@ fun ForgotPasswordScreen(
         }
     }
 
-    ForgotPasswordContent(
+    ForgotPasswordScreenContent(
         uiState = uiState,
         snackbarHostState = snackbarHostState,
         onIntent = viewModel::onIntent
@@ -48,7 +48,7 @@ fun ForgotPasswordScreen(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ForgotPasswordContent(
+fun ForgotPasswordScreenContent(
     uiState: ForgotPasswordUiState,
     snackbarHostState: SnackbarHostState,
     onIntent: (ForgotPasswordIntent) -> Unit
@@ -145,7 +145,7 @@ private fun ForgotPasswordContent(
 @Composable
 fun ForgotPasswordScreenPreview() {
     MyQuizAppTheme {
-        ForgotPasswordContent(
+        ForgotPasswordScreenContent(
             uiState = ForgotPasswordUiState(),
             snackbarHostState = remember { SnackbarHostState() },
             onIntent = {}

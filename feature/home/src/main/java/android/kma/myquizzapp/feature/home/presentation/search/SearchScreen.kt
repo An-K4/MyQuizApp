@@ -1,7 +1,11 @@
 package android.kma.myquizzapp.feature.home.presentation.search
 
+import android.content.res.Configuration
+import android.kma.myquizzapp.core.ui.components.QuizCardItem
+import android.kma.myquizzapp.core.ui.theme.MyQuizAppTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.KeyboardActions
@@ -17,20 +21,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import android.kma.myquizzapp.core.ui.components.QuizCardItem
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
-/**
- * Search screen - dedicated screen for searching public quizzes.
- * 
- * Features:
- * - Search bar with auto-focus
- * - Search bar với nút kính lúp + phím Search trên bàn phím (submit thủ công)
- * - Search results with cursor pagination (infinite scroll)
- * - Empty/Loading/Error states
- */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SearchScreen(
     onNavigateBack: () -> Unit,
@@ -38,10 +33,46 @@ fun SearchScreen(
     modifier: Modifier = Modifier,
     viewModel: SearchViewModel = hiltViewModel()
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val focusRequester = remember { FocusRequester() }
     val listState = rememberLazyListState()
 
+    LaunchedEffect(Unit) { focusRequester.requestFocus() }
+    LaunchedEffect(listState, uiState.results.size, uiState.isLoadingMore, uiState.hasMore) {
+        snapshotFlow { listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index }
+            .collect { lastVisibleIndex ->
+                if (lastVisibleIndex != null &&
+                    lastVisibleIndex >= uiState.results.size - 3 &&
+                    !uiState.isLoadingMore &&
+                    uiState.hasMore
+                ) {
+                    viewModel.handleIntent(SearchIntent.LoadMore)
+                }
+            }
+    }
+
+    SearchScreenContent(
+        uiState = uiState,
+        focusRequester = focusRequester,
+        listState = listState,
+        onIntent = viewModel::handleIntent,
+        onNavigateBack = onNavigateBack,
+        onNavigateToQuizDetail = onNavigateToQuizDetail,
+        modifier = modifier
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SearchScreenContent(
+    uiState: SearchUiState,
+    focusRequester: FocusRequester,
+    listState: LazyListState,
+    onIntent: (SearchIntent) -> Unit,
+    onNavigateBack: () -> Unit,
+    onNavigateToQuizDetail: (Long) -> Unit,
+    modifier: Modifier = Modifier
+) {
     Scaffold(
         topBar = {
             TopAppBar(
@@ -53,21 +84,15 @@ fun SearchScreen(
                 title = {
                     OutlinedTextField(
                         value = uiState.query,
-                        onValueChange = { viewModel.handleIntent(SearchIntent.QueryChanged(it)) },
+                        onValueChange = { onIntent(SearchIntent.QueryChanged(it)) },
                         placeholder = { Text("Tìm kiếm quiz...") },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .focusRequester(focusRequester),
+                        modifier = Modifier.fillMaxWidth().focusRequester(focusRequester),
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                        keyboardActions = KeyboardActions(
-                            onSearch = { viewModel.handleIntent(SearchIntent.SubmitSearch) }
-                        ),
+                        keyboardActions = KeyboardActions(onSearch = { onIntent(SearchIntent.SubmitSearch) }),
                         trailingIcon = {
                             if (uiState.hasQuery) {
-                                IconButton(
-                                    onClick = { viewModel.handleIntent(SearchIntent.ClearSearch) }
-                                ) {
+                                IconButton(onClick = { onIntent(SearchIntent.ClearSearch) }) {
                                     Icon(Icons.Default.Close, contentDescription = "Xóa")
                                 }
                             }
@@ -75,162 +100,95 @@ fun SearchScreen(
                     )
                 },
                 actions = {
-                    IconButton(onClick = { viewModel.handleIntent(SearchIntent.SubmitSearch) }) {
-                        Icon(imageVector = Icons.Default.Search, contentDescription = "Tìm kiếm")
+                    IconButton(onClick = { onIntent(SearchIntent.SubmitSearch) }) {
+                        Icon(Icons.Default.Search, contentDescription = "Tìm kiếm")
                     }
                 }
             )
         },
         modifier = modifier
     ) { paddingValues ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-        ) {
+        Box(Modifier.fillMaxSize().padding(paddingValues)) {
             when {
-                uiState.isSearching && !uiState.hasResults -> {
-                    // Initial search loading
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator()
-                    }
-                }
-
-                uiState.error != null && !uiState.hasResults -> {
-                    // Error state (no results yet)
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
-                            modifier = Modifier.padding(16.dp)
-                        ) {
-                            Text(
-                                text = "Không thể tìm kiếm",
-                                style = MaterialTheme.typography.bodyLarge
-                            )
-                            Text(
-                                text = uiState.error ?: "",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.error
-                            )
-                            Button(onClick = { viewModel.handleIntent(SearchIntent.Retry) }) {
-                                Text("Thử lại")
-                            }
-                        }
-                    }
-                }
-
-                !uiState.hasQuery -> {
-                    // Empty query hint
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "Nhập từ khóa để tìm kiếm quiz",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                uiState.isSearching && !uiState.hasResults -> LoadingSearchContent()
+                uiState.error != null && !uiState.hasResults -> SearchErrorContent(
+                    message = uiState.error,
+                    onRetry = { onIntent(SearchIntent.Retry) }
+                )
+                !uiState.hasQuery -> SearchHint("Nhập từ khóa để tìm kiếm quiz")
+                uiState.hasResults -> LazyColumn(
+                    state = listState,
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    items(uiState.results, key = { it.id }) { quiz ->
+                        QuizCardItem(
+                            quiz = quiz,
+                            onClick = { onNavigateToQuizDetail(quiz.id) },
+                            modifier = Modifier.fillMaxWidth()
                         )
                     }
-                }
-
-                uiState.hasResults -> {
-                    // Search results
-                    LazyColumn(
-                        state = listState,
-                        contentPadding = PaddingValues(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        items(
-                            items = uiState.results,
-                            key = { it.id }
-                        ) { quiz ->
-                            QuizCardItem(
-                                quiz = quiz,
-                                // N16.5: bấm card → thẳng QuizDetail (nav callback từ AppNavGraph).
-                                onClick = { onNavigateToQuizDetail(quiz.id) },
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                        }
-
-                        // Load more indicator
-                        if (uiState.isLoadingMore) {
-                            item {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(16.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    CircularProgressIndicator()
-                                }
-                            }
-                        }
-                    }
-
-                    // Detect scroll to bottom for pagination
-                    LaunchedEffect(listState) {
-                        snapshotFlow { listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index }
-                            .collect { lastVisibleIndex ->
-                                if (lastVisibleIndex != null &&
-                                    lastVisibleIndex >= uiState.results.size - 3 &&
-                                    !uiState.isLoadingMore &&
-                                    uiState.hasMore
-                                ) {
-                                    viewModel.handleIntent(SearchIntent.LoadMore)
-                                }
-                            }
+                    if (uiState.isLoadingMore) item {
+                        Box(
+                            Modifier.fillMaxWidth().padding(16.dp),
+                            contentAlignment = Alignment.Center
+                        ) { CircularProgressIndicator() }
                     }
                 }
-
-                uiState.shouldShowNoResults -> {
-                    // Chỉ hiện sau khi response Success của đúng query hiện tại trả rỗng.
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            Text(
-                                text = "Không tìm thấy kết quả",
-                                style = MaterialTheme.typography.bodyLarge
-                            )
-                            Text(
-                                text = "Thử từ khóa khác",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                }
-
-                else -> {
-                    // Query đã thay đổi nhưng chưa submit: không giả vờ đã có response rỗng.
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "Nhấn tìm kiếm để xem kết quả",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
+                uiState.shouldShowNoResults -> SearchHint(
+                    title = "Không tìm thấy kết quả",
+                    subtitle = "Thử từ khóa khác"
+                )
+                else -> SearchHint("Nhấn tìm kiếm để xem kết quả")
             }
         }
     }
+}
 
-    // Auto-focus search field on first composition
-    LaunchedEffect(Unit) {
-        focusRequester.requestFocus()
+@Composable
+private fun LoadingSearchContent() {
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+}
+
+@Composable
+private fun SearchErrorContent(message: String, onRetry: () -> Unit) {
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Text("Không thể tìm kiếm", style = MaterialTheme.typography.bodyLarge)
+            Text(message, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
+            Button(onClick = onRetry) { Text("Thử lại") }
+        }
+    }
+}
+
+@Composable
+private fun SearchHint(title: String, subtitle: String? = null) {
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(title, style = MaterialTheme.typography.bodyLarge)
+            subtitle?.let {
+                Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    }
+}
+
+@Preview(showBackground = true)
+@Preview(showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun SearchScreenContentPreview() {
+    MyQuizAppTheme {
+        SearchScreenContent(
+            uiState = SearchUiState(),
+            focusRequester = remember { FocusRequester() },
+            listState = rememberLazyListState(),
+            onIntent = {},
+            onNavigateBack = {},
+            onNavigateToQuizDetail = {}
+        )
     }
 }

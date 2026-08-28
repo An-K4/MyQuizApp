@@ -325,21 +325,40 @@ private fun ChoiceSettingField(
     onValueChange: (String) -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
+    ChoiceSettingFieldContent(
+        title = title,
+        state = state,
+        enabled = enabled,
+        expanded = expanded,
+        onExpandedChange = { expanded = it },
+        onValueChange = onValueChange
+    )
+}
+
+@Composable
+private fun ChoiceSettingFieldContent(
+    title: String,
+    state: ChoiceSettingUiState,
+    enabled: Boolean,
+    expanded: Boolean,
+    onExpandedChange: (Boolean) -> Unit,
+    onValueChange: (String) -> Unit
+) {
     Column {
         Text(title)
         OutlinedButton(
-            onClick = { expanded = true },
+            onClick = { onExpandedChange(true) },
             enabled = enabled && state.editable,
             modifier = Modifier.fillMaxWidth()
         ) {
             Text(leaderboardOptionLabel(state.value))
         }
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+        DropdownMenu(expanded = expanded, onDismissRequest = { onExpandedChange(false) }) {
             state.options.forEach { option ->
                 DropdownMenuItem(
                     text = { Text(leaderboardOptionLabel(option)) },
                     onClick = {
-                        expanded = false
+                        onExpandedChange(false)
                         onValueChange(option)
                     }
                 )

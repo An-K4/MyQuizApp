@@ -1,42 +1,26 @@
 package android.kma.myquizzapp.feature.quiz_manage.presentation.createroom
 
+import android.content.res.Configuration
 import android.kma.myquizzapp.core.common.model.GameMode
 import android.kma.myquizzapp.core.common.model.Pacing
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
+import android.kma.myquizzapp.core.ui.theme.MyQuizAppTheme
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CreateRoomScreen(
     onNavigateBack: () -> Unit,
@@ -45,7 +29,7 @@ fun CreateRoomScreen(
     modifier: Modifier = Modifier,
     viewModel: CreateRoomViewModel = hiltViewModel()
 ) {
-    val state by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     LaunchedEffect(Unit) {
         viewModel.effect.collect { effect ->
@@ -57,6 +41,22 @@ fun CreateRoomScreen(
         }
     }
 
+    CreateRoomScreenContent(
+        uiState = uiState,
+        onNavigateBack = onNavigateBack,
+        onIntent = viewModel::handleIntent,
+        modifier = modifier
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun CreateRoomScreenContent(
+    uiState: CreateRoomUiState,
+    onNavigateBack: () -> Unit,
+    onIntent: (CreateRoomIntent) -> Unit,
+    modifier: Modifier = Modifier
+) {
     Scaffold(
         modifier = modifier.fillMaxSize(),
         topBar = {
@@ -71,15 +71,15 @@ fun CreateRoomScreen(
         }
     ) { innerPadding ->
         when {
-            state.isLoadingModes -> LoadingContent(Modifier.padding(innerPadding))
-            state.modes.isEmpty() -> EmptyModesContent(
-                message = state.errorMessage,
-                onRetry = { viewModel.handleIntent(CreateRoomIntent.RetryLoadModes) },
+            uiState.isLoadingModes -> LoadingContent(Modifier.padding(innerPadding))
+            uiState.modes.isEmpty() -> EmptyModesContent(
+                message = uiState.errorMessage,
+                onRetry = { onIntent(CreateRoomIntent.RetryLoadModes) },
                 modifier = Modifier.padding(innerPadding)
             )
-            else -> CreateRoomContent(
-                state = state,
-                onIntent = viewModel::handleIntent,
+            else -> CreateRoomForm(
+                state = uiState,
+                onIntent = onIntent,
                 modifier = Modifier.padding(innerPadding)
             )
         }
@@ -87,7 +87,7 @@ fun CreateRoomScreen(
 }
 
 @Composable
-private fun CreateRoomContent(
+private fun CreateRoomForm(
     state: CreateRoomUiState,
     onIntent: (CreateRoomIntent) -> Unit,
     modifier: Modifier = Modifier
@@ -108,7 +108,6 @@ private fun CreateRoomContent(
                 modifier = Modifier.fillMaxWidth()
             )
         }
-
         item {
             Text("Chế độ chơi", style = MaterialTheme.typography.titleMedium)
             Spacer(Modifier.height(8.dp))
@@ -124,72 +123,48 @@ private fun CreateRoomContent(
             }
             state.selectedDescriptor?.let { descriptor ->
                 Text(
-                    text = if (descriptor.pacing == Pacing.HOST) {
-                        "Host điều khiển nhịp câu hỏi"
-                    } else {
-                        "Người chơi tự làm theo nhịp riêng"
-                    },
+                    if (descriptor.pacing == Pacing.HOST) "Host điều khiển nhịp câu hỏi"
+                    else "Người chơi tự làm theo nhịp riêng",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
-
         val mode = state.selectedMode
         val form = state.modeConfig
-        if (mode != null && form != null) {
-            item(key = mode.name) {
-                GameModeConfigEditor(
-                    mode = mode,
-                    form = form,
-                    invalidKeys = state.invalidConfigKeys,
-                    enabled = !state.isWaitingForHostToken && !state.isSubmitting,
-                    onIntent = onIntent
+        if (mode != null && form != null) item(key = mode.name) {
+            GameModeConfigEditor(
+                mode = mode,
+                form = form,
+                invalidKeys = state.invalidConfigKeys,
+                enabled = !state.isWaitingForHostToken && !state.isSubmitting,
+                onIntent = onIntent
+            )
+        }
+        if (state.validationErrors.isNotEmpty()) item {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                state.validationErrors.forEach { Text("• $it", color = MaterialTheme.colorScheme.error) }
+            }
+        }
+        if (state.ignoredFields.isNotEmpty()) item {
+            Card(Modifier.fillMaxWidth()) {
+                Text(
+                    "Máy chủ đã bỏ qua ${state.ignoredFields.size} thiết lập không hợp lệ.",
+                    Modifier.padding(12.dp)
                 )
             }
         }
-
-        if (state.validationErrors.isNotEmpty()) {
-            item {
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    state.validationErrors.forEach {
-                        Text("• $it", color = MaterialTheme.colorScheme.error)
-                    }
-                }
-            }
-        }
-
-        if (state.ignoredFields.isNotEmpty()) {
-            item {
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    Text(
-                        text = "Máy chủ đã bỏ qua ${state.ignoredFields.size} thiết lập không hợp lệ.",
-                        modifier = Modifier.padding(12.dp)
-                    )
-                }
-            }
-        }
-
-        state.errorMessage?.let { message ->
-            item { Text(message, color = MaterialTheme.colorScheme.error) }
-        }
-
+        state.errorMessage?.let { message -> item { Text(message, color = MaterialTheme.colorScheme.error) } }
         item {
             Button(
                 onClick = {
-                    onIntent(
-                        if (state.isWaitingForHostToken) CreateRoomIntent.RetryHostToken
-                        else CreateRoomIntent.Submit
-                    )
+                    onIntent(if (state.isWaitingForHostToken) CreateRoomIntent.RetryHostToken else CreateRoomIntent.Submit)
                 },
                 enabled = !state.isSubmitting && state.modeConfig != null,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                if (state.isSubmitting) {
-                    CircularProgressIndicator(modifier = Modifier.height(20.dp))
-                } else {
-                    Text(if (state.isWaitingForHostToken) "Thử vào phòng" else "Tạo phòng")
-                }
+                if (state.isSubmitting) CircularProgressIndicator(Modifier.height(20.dp))
+                else Text(if (state.isWaitingForHostToken) "Thử vào phòng" else "Tạo phòng")
             }
         }
     }
@@ -197,23 +172,15 @@ private fun CreateRoomContent(
 
 @Composable
 private fun LoadingContent(modifier: Modifier = Modifier) {
-    Column(
-        modifier = modifier.fillMaxSize(),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
+    Column(modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
         CircularProgressIndicator()
     }
 }
 
 @Composable
-private fun EmptyModesContent(
-    message: String?,
-    onRetry: () -> Unit,
-    modifier: Modifier = Modifier
-) {
+private fun EmptyModesContent(message: String?, onRetry: () -> Unit, modifier: Modifier = Modifier) {
     Column(
-        modifier = modifier.fillMaxSize().padding(16.dp),
+        modifier.fillMaxSize().padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
@@ -229,4 +196,17 @@ private fun modeLabel(mode: GameMode): String = when (mode) {
     GameMode.SURVIVAL -> "Sinh tồn"
     GameMode.MARATHON -> "Marathon"
     GameMode.PRACTICE -> "Luyện tập"
+}
+
+@Preview(showBackground = true)
+@Preview(showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun CreateRoomScreenContentPreview() {
+    MyQuizAppTheme {
+        CreateRoomScreenContent(
+            uiState = CreateRoomUiState(),
+            onNavigateBack = {},
+            onIntent = {}
+        )
+    }
 }

@@ -211,15 +211,35 @@ fun QuestionTypeMenuButton(
     modifier: Modifier = Modifier
 ) {
     var expanded by remember { mutableStateOf(false) }
+    QuestionTypeMenuButtonContent(
+        selected = selected,
+        expanded = expanded,
+        onExpandedChange = { expanded = it },
+        onSelected = onSelected,
+        modifier = modifier
+    )
+}
+
+@Composable
+fun QuestionTypeMenuButtonContent(
+    selected: QuestionType,
+    expanded: Boolean,
+    onExpandedChange: (Boolean) -> Unit,
+    onSelected: (QuestionType) -> Unit,
+    modifier: Modifier = Modifier
+) {
     Column(modifier = modifier) {
-        OutlinedButton(onClick = { expanded = true }) {
+        OutlinedButton(onClick = { onExpandedChange(true) }) {
             Text(questionTypeLabel(selected))
         }
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+        DropdownMenu(expanded = expanded, onDismissRequest = { onExpandedChange(false) }) {
             QuestionType.entries.forEach { type ->
                 DropdownMenuItem(
                     text = { Text(questionTypeLabel(type)) },
-                    onClick = { onSelected(type); expanded = false }
+                    onClick = {
+                        onSelected(type)
+                        onExpandedChange(false)
+                    }
                 )
             }
         }
