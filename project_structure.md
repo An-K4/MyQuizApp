@@ -2,7 +2,7 @@
 
 > **Tài liệu cấu trúc dự án chi tiết**  
 > Mô tả vai trò, trách nhiệm và mối quan hệ giữa các module trong kiến trúc Multi-module Gradle  
-> **Version:** 2.1 | **Last Updated:** 2026-08-20
+> **Version:** 2.2 | **Last Updated:** 2026-08-28
 
 ---
 
@@ -1161,29 +1161,31 @@ class GameViewModel @Inject constructor(
 
 #### **Stateful/Stateless Composable Pattern**
 ```kotlin
-// Stateless - pure UI, preview-friendly
+// Stateful integration boundary: ViewModel, Flow, effect, navigation/platform API.
 @Composable
 fun LoginScreen(
-    state: LoginState,
-    onLoginClick: (email: String, password: String) -> Unit
+    onLoginSuccess: () -> Unit,
+    viewModel: LoginViewModel = hiltViewModel()
+) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    // Collect one-off effect ở đây.
+    LoginScreenContent(
+        uiState = uiState,
+        onIntent = viewModel::handleIntent
+    )
+}
+
+// Stateless UI: chỉ nhận state/value/callback, Preview và test trực tiếp.
+@Composable
+fun LoginScreenContent(
+    uiState: LoginUiState,
+    onIntent: (LoginIntent) -> Unit
 ) {
     // Pure UI
 }
-
-// Stateful - wrapper with ViewModel
-@Composable
-fun LoginScreenStateful(
-    viewModel: LoginViewModel = hiltViewModel()
-) {
-    val state by viewModel.state.collectAsStateWithLifecycle()
-    LoginScreen(
-        state = state,
-        onLoginClick = { email, password ->
-            viewModel.handleIntent(LoginIntent.Login(email, password))
-        }
-    )
-}
 ```
+
+Quy ước đã được audit và áp dụng cho toàn bộ 14 Screen hiện có ngày 28/8/2026. Activity Result launcher, `BackHandler`, lifecycle effect, focus/pagination observer và navigation effect thuộc Stateful boundary. Reusable component stateless mặc định; nếu có convenience wrapper giữ state cục bộ thì phải cung cấp stateless content API lõi. Create/Edit Quiz dùng chung `feature:quiz-manage/presentation/components/QuizEditorContent.kt`.
 
 #### **UseCase Pattern**
 ```kotlin
@@ -1394,7 +1396,11 @@ Khi review code, kiểm tra các điểm sau:
 - [ ] Package Kotlin của mỗi file trong `feature:<tên>` khớp namespace `android.kma.myquizzapp.feature.<tên>.*`
 
 ### ✅ Clean Code
-- [ ] Composables tách Stateful/Stateless
+- [ ] Screen có Stateful `XxxScreen` và stateless `XxxScreenContent`
+- [ ] Content không lấy ViewModel/Hilt, collect Flow, sở hữu NavController hoặc thực hiện business I/O
+- [ ] Platform/lifecycle/one-off effect nằm ở Stateful boundary
+- [ ] Reusable component stateless mặc định; wrapper có state phải có stateless API lõi
+- [ ] Preview gọi trực tiếp stateless content bằng fake state/no-op callbacks
 - [ ] ViewModels follow MVI pattern (Intent → State)
 - [ ] UseCases có single responsibility
 - [ ] Error handling dùng `Result<T>` wrapper
@@ -1434,6 +1440,7 @@ MyQuizApp được xây dựng với **13 modules** theo **Clean Architecture + 
 4. **Role-aware Design**: Host và Player có repositories riêng vì payload Socket.IO khác nhau
 5. **Server-authoritative**: Client chỉ render + send intent, mọi logic game ở server
 6. **Cross-cutting use case ở core, không ở app**: `CheckAuthStateUseCase` sống ở `core:datastore` để mọi feature (không chỉ Splash) đều có thể dùng, tránh `:app` phụ thuộc domain của 1 feature
+7. **Compose Stateful/Stateless baseline**: `XxxScreen` là integration boundary; `XxxScreenContent` là UI thuần; reusable component stateless mặc định
 
 ### Files to Read Next
 
@@ -1442,9 +1449,9 @@ MyQuizApp được xây dựng với **13 modules** theo **Clean Architecture + 
 
 ---
 
-**Document Version:** 2.1  
-**Last Updated:** 2026-08-20  
-**Status:** Complete - Đã đồng bộ theo refactor namespace `feature:auth` + decouple `:app` khỏi domain feature (PR #2, #3, #4)
+**Document Version:** 2.2  
+**Last Updated:** 2026-08-28  
+**Status:** Living document - Đã đồng bộ Stateful/Stateless baseline trên toàn bộ 14 Screen hiện có trước N18
 
 ---
 

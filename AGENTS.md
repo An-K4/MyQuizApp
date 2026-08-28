@@ -2,7 +2,7 @@
 
 > File này không thay thế `myquizz-review-backend-ke-hoach-50-ngay.md` (kế hoạch + trạng thái chi tiết từng ngày) — đây là tập hợp **quy tắc làm việc + kinh nghiệm + lưu ý** rút ra sau nhiều phiên, giúp agent mới khởi đầu nhanh hơn và không lặp lại sai lầm cũ. Đọc file này **trước**, rồi đọc file kế hoạch để biết đang ở đâu.
 >
-> Cập nhật lần cuối: 28/8/2026, sau khi hoàn thành N17 (Create Room REST + typed config UI).
+> Cập nhật lần cuối: 28/8/2026, sau khi hoàn thành N17 và migration Stateful/Stateless trên toàn bộ UI hiện có.
 
 ---
 
@@ -41,6 +41,16 @@ Lấy `feature:auth/.../login/LoginScreen.kt` làm mẫu chuẩn. Mỗi màn hì
 - Có thể giữ state thuần hiển thị như password visibility ở stateful layer; state ảnh hưởng nghiệp vụ, validation hoặc cần sống qua process/navigation phải thuộc `UiState`/ViewModel. Dùng `rememberSaveable` khi state cần sống qua recreation/back-stack disposal.
 
 Khi tạo hoặc review screen/component mới, nếu không có lý do kỹ thuật được ghi rõ thì sai pattern trên được coi là architecture debt và phải sửa trước khi merge.
+
+**Baseline đã hoàn thành ngày 28/8/2026:** đã quét 14 `*Screen.kt` hiện có. `LoginScreen`, `RegisterScreen`, `SplashScreen` vốn đúng pattern; 11 màn còn lại đã được chuẩn hóa về `XxxScreen` + `XxxScreenContent`. Các reusable component giữ state cục bộ như menu/dropdown phải có stateless content lõi. `CreateQuizScreen` và `EditQuizScreen` dùng chung `QuizEditorContent` trong `feature:quiz-manage/presentation/components`.
+
+**Ownership cho các trường hợp đặc biệt:**
+- Photo Picker/Activity Result launcher, `BackHandler`, lifecycle effect, focus request và quan sát pagination bằng `snapshotFlow` nằm ở stateful boundary.
+- Stateless content được phép nhận UI object do wrapper sở hữu như `LazyListState`, `LazyPagingItems` hoặc `SnackbarHostState`; content không được tự lấy ViewModel, collect Flow, điều hướng hay thực hiện business I/O.
+- State hiển thị tạm thời như password visibility, menu expanded, dialog expanded có thể ở wrapper; state ảnh hưởng nghiệp vụ vẫn phải ở `UiState`/ViewModel.
+- Preview gọi trực tiếp content với fake state/no-op callback; với Paging có thể dùng `PagingData.empty()`.
+
+Chi tiết audit, inventory và checklist ở `knowledgement/ui_stateful_stateless_refactor.md`.
 
 ---
 
@@ -93,7 +103,7 @@ Bản đầu Create Room đưa `Map<String, JsonElement>` và dotted path xuyên
 ## 5. Tooling quirks trong môi trường MCP này (đã gặp thật, không phải lý thuyết)
 
 - **`search__find_path` hay trả false negative** ("nothing matched") cho tên file thật sự tồn tại trong repo — đừng tin ngay kết quả không tìm thấy, thử `filesystem__list_directory`/`directory_tree` theo đường dẫn cấp trên trước.
-- **`shell__run_cmd` chạy git bị chặn bởi allowlist** (ví dụ `git branch` bị từ chối "not in the allowlist") — không dùng git command qua shell để kiểm tra branch/status, hỏi user trực tiếp nếu cần biết branch hiện tại.
+- **`shell__run_cmd` chỉ cho phép một phần lệnh git**: hiện `git status`/`log`/`diff`/`show` chạy được, nhưng `git branch`, `git grep`, command chaining/redirection hoặc Gradle wrapper có thể bị allowlist chặn. Dùng lệnh được hỗ trợ trước; nếu cần build thì nhờ user chạy local và gửi log thật.
 - **`filesystem__*` tools có thể flaky tạm thời với đường dẫn sâu** (`core/*/src/main/java/...`, `feature/*/src/main/java/...`) — từng gặp lỗi "Parent directory does not exist" cho chính path đã đọc thành công ngay trước đó trong cùng turn, kể cả `list_directory` cấp `core/network` chỉ trả về `[DIR] build` (thiếu `src`). Path gần root (ví dụ file `.md` ở root) thì ổn định hơn. Nếu gặp lại: thử lại sau, hoặc dựa vào nội dung file đã xác nhận được từ trước đó trong phiên làm việc thay vì block cả task chờ tool phục hồi.
 - `filesystem__edit_file` dùng `{path, edits:[{oldText,newText}], dryRun?}` — `oldText` phải khớp chính xác từng byte (kể cả line ending) với nội dung file thật đã đọc, không phải bản "viết lại cho đẹp" của agent.
 
@@ -101,9 +111,9 @@ Bản đầu Create Room đưa `Map<String, JsonElement>` và dotted path xuyên
 
 ## 6. Trạng thái hiện tại (tính đến 28/8/2026) — xem chi tiết ở file kế hoạch chính
 
-- Tuần 1–3 (N1–15), N16 + N16.5 và **N17 đã hoàn thành**. Create Room gọi đủ modes → create game → host-token, config typed và hand-off sang HostLobby placeholder. Việc tiếp theo: **N18** (Socket layer namespace `/game`, connect bằng token và spike reconnect).
+- Tuần 1–3 (N1–15), N16 + N16.5 và **N17 đã hoàn thành**. Create Room gọi đủ modes → create game → host-token, config typed và hand-off sang HostLobby placeholder. Refactor kiến trúc UI trước N18 cũng đã hoàn thành: 14 Screen được audit, toàn bộ màn hiện có tuân theo Stateful/Stateless baseline. Việc tiếp theo: **N18** (Socket layer namespace `/game`, connect bằng token và spike reconnect).
 - Các việc bị defer còn treo: avatar upload (dùng lại cơ chế presign của N15), Bottom Navigation thật, refresh-token use case, trùng lặp `Route.Library`/`Route.MyQuizzes`, review lại padding `SplashScreen` (80dp), backlog "Editor UX gaps" (duplicate/move câu hỏi, autosave draft, default cover từ `res/`, crop ảnh, validation inline — xem block N16 trong file kế hoạch), 2 file usecase stub của luồng reset cũ chờ xóa tay trong IDE.
-- Bài học gần nhất: flag `remember` bị reset khi Navigation dispose composition → `rememberSaveable`; DELETE quiz là hard delete; PreserveCase Retrofit dùng chung cho endpoint camel/mixed case; mọi intent phải có UI trigger thật; dynamic backend schema không được kéo raw JSON/dotted path vào presentation; create game + host-token phải xử lý partial success idempotent.
+- Bài học gần nhất: flag `remember` bị reset khi Navigation dispose composition → `rememberSaveable`; DELETE quiz là hard delete; PreserveCase Retrofit dùng chung cho endpoint camel/mixed case; mọi intent phải có UI trigger thật; dynamic backend schema không được kéo raw JSON/dotted path vào presentation; create game + host-token phải xử lý partial success idempotent; platform/lifecycle/effect ownership phải dừng ở Stateful Screen boundary, còn `XxxScreenContent` là UI thuần để Preview/test.
 - File kế hoạch chính: `myquizz-review-backend-ke-hoach-50-ngay.md` (root). Thư mục `knowledgement/` chứa bài học chi tiết từng giai đoạn — đọc file `nXX_knowledgement.md` tương ứng khi cần hiểu sâu lại quyết định của một giai đoạn cụ thể.
 
 ---
