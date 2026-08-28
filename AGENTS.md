@@ -2,7 +2,7 @@
 
 > File này không thay thế `myquizz-review-backend-ke-hoach-50-ngay.md` (kế hoạch + trạng thái chi tiết từng ngày) — đây là tập hợp **quy tắc làm việc + kinh nghiệm + lưu ý** rút ra sau nhiều phiên, giúp agent mới khởi đầu nhanh hơn và không lặp lại sai lầm cũ. Đọc file này **trước**, rồi đọc file kế hoạch để biết đang ở đâu.
 >
-> Cập nhật lần cuối: 25/8/2026, sau khi hoàn thành N16 + N16.5 (chốt M3 + vá 3 điểm lệch khẩn).
+> Cập nhật lần cuối: 28/8/2026, sau khi hoàn thành N17 (Create Room REST + typed config UI).
 
 ---
 
@@ -22,12 +22,25 @@ User đã nói rõ: **đừng tin tuyệt đối `quiz-app-android-design-docume
 - **UiState/Intent/Effect tách file riêng** cho mọi ViewModel (quy ước từ sau refactor `feature:auth` 22/8) — không gộp chung 1 file ViewModel khổng lồ.
 - **`Result<T>`** là wrapper chuẩn xuyên suốt domain/data (không throw exception qua boundary layer), pattern generic 1 tham số.
 - **`ResultCallAdapterFactory`** (Retrofit call adapter tự viết) xử lý `ApiEnvelope` chuẩn của backend ở tầng network, trả thẳng `Result<T>` lên trên — không phải mọi Repository tự unwrap envelope.
-- **Component `Avatar` chung** ở `core:ui/components/Avatar.kt` — bất kỳ đâu cần hiển thị avatar user thì dùng lại component này (qua dependency `core:ui`), **không** tự thêm `coil.compose` riêng ở module gọi — Coil là chi tiết nội bộ của `core:ui`.
+- **Component dùng chung ở `core:ui`**: dùng `Avatar` cho avatar và `SettingSwitchRow` cho pattern text/description + switch; component core chỉ nhận primitive UI props, không import model/intent của feature.
 - **Paging 3** page-size = 3 là quy ước chung cho các list quiz (Home search, quiz-manage list...).
 - **Auth dùng cookie-based session**, không phải Bearer token — `PersistentCookieJar` gắn sẵn vào `OkHttpClient` chuẩn của app cho mọi request tới backend thật.
 - **Room cache là fallback/cache, không phải tính năng offline-first** — đừng thiết kế luồng đọc giả định app phải hoạt động đậy đủ khi offline.
 - **`ProfileScreen` đặt ở module `app`**, không phải `feature:*`, vì gắn `Route.Profile` cấp app.
 - **Chưa có Bottom Navigation thật** (design doc nói 5 tab Home/Discover/Join/Library/Profile) — hiện điều hướng qua `NavController` thông thường. Còn tồn tại trùng lặp `Route.Library` vs `Route.MyQuizzes` chưa giải quyết.
+
+### 2.1. Quy ước Stateful/Stateless cho mọi Screen và UI Component
+
+Lấy `feature:auth/.../login/LoginScreen.kt` làm mẫu chuẩn. Mỗi màn hình phải tách rõ hai lớp:
+
+- **Stateful/Route composable** — thường mang tên `XxxScreen`: là integration boundary; được phép lấy `hiltViewModel()`, `collectAsStateWithLifecycle()`, collect `Effect` trong `LaunchedEffect`, giữ UI state cục bộ bằng `remember`/`rememberSaveable`, dùng `Context` hoặc platform API, và chuyển effect thành navigation/snackbar. Hàm này không dựng UI chi tiết; sau khi wiring xong phải gọi composable stateless.
+- **Stateless content composable** — thường mang tên `XxxScreenContent`: chỉ nhận `UiState`/primitive value và callback/intent từ ngoài, không tự lấy ViewModel, không gọi Hilt, không collect Flow, không sở hữu `NavController`, không tự điều hướng và không thực hiện business logic/I/O. State phải được hoist để hàm dễ Preview và test.
+- **Reusable component**: stateless by default; nhận value + callback thay vì giữ source of truth bên trong. Nếu thật sự cần stateful convenience wrapper cho state UI cục bộ, phải giữ một stateless overload/content làm API lõi và đặt tên hai hàm rõ ràng.
+- **Preview** gọi trực tiếp composable stateless với fake state/no-op callbacks; tối thiểu có trạng thái đại diện, ưu tiên cả Light/Dark như Login. Không Preview thông qua ViewModel/Hilt/navigation.
+- **Event flow**: UI event đi lên qua callback hoặc typed `Intent`; state đi xuống qua parameter. One-off effect chỉ được xử lý ở stateful boundary.
+- Có thể giữ state thuần hiển thị như password visibility ở stateful layer; state ảnh hưởng nghiệp vụ, validation hoặc cần sống qua process/navigation phải thuộc `UiState`/ViewModel. Dùng `rememberSaveable` khi state cần sống qua recreation/back-stack disposal.
+
+Khi tạo hoặc review screen/component mới, nếu không có lý do kỹ thuật được ghi rõ thì sai pattern trên được coi là architecture debt và phải sửa trước khi merge.
 
 ---
 
@@ -37,7 +50,7 @@ User đã nói rõ: **đừng tin tuyệt đối `quiz-app-android-design-docume
 
 App dùng 1 `Json` chung với `namingStrategy = JsonNamingStrategy.SnakeCase` cho đa số endpoint backend (vì backend chủ yếu dùng snake_case). **Sai lầm tưởng rằng khai `@SerialName("contentType")` tường minh sẽ "thoát" được namingStrategy chung** — KHÔNG đúng, vì `namingStrategy` áp transform lên **tên serial đã resolve** (tức chính là giá trị `@SerialName` khi có khai báo), không phân biệt đó là tên gốc hay tên đã override.
 
-→ **Khi 1 nhóm endpoint có naming convention khác với phần còn lại của backend (ví dụ module storage dùng camelCase thuần), hãy tạo cặp `Json`/`Retrofit` riêng không set `namingStrategy` cho `ApiService` đó ngay từ đầu** — đừng rải `@SerialName` từng field rồi tin là đủ. Pattern mẫu: `@StorageJson`/`@StorageRetrofit` trong `Qualifiers.kt` + `NetworkModule.kt`. N16.5 gặp lại đúng bẫy này ở **module user** (camelCase thật: `resetTime`/`expiresAt`/`newPassword`) → đã tái dùng pattern với `@PasswordResetJson`/`@PasswordResetRetrofit` + `PasswordResetApiService`.
+→ **Khi endpoint có naming convention khác phần lớn backend, dùng Retrofit không naming strategy** — đừng rải `@SerialName` rồi tin là đủ. Sau refactor trước N17, Storage, Password Reset và Games dùng chung `@PreserveCaseJson`/`@PreserveCaseRetrofit`; chỉ tạo qualifier/client riêng khi behavior thực sự khác (ví dụ `@RawUploadOkHttpClient` không cookie/authenticator), không tạo một cặp Retrofit cho từng feature.
 
 → Khi debug lỗi request/response không khớp kỳ vọng, luôn **xem Logcat OkHttp level BODY** để thấy byte thật trên wire, đừng chỉ đọc lại code DTO rồi kết luận "nhìn code thì đúng rồi".
 
@@ -56,6 +69,14 @@ Màn cần "reload khi quay lại" (ON_RESUME) nhưng bỏ qua lần mở đầu
 ### 3.5. Mọi user action phải có ít nhất 1 đường kích hoạt THẬT từ UI (bug sót N11–12, lộ ra khi test N16.5)
 
 SearchScreen gõ từ khóa nhưng "không có kết quả với mọi từ khóa": intent `SubmitSearch` tồn tại đầy đủ trong ViewModel nhưng **không có nút/handler nào trong UI gọi nó** (không nút tìm, không `keyboardActions`) — compile sạch, logic đúng, luồng chết vì thiếu mắt xích cuối. Tương tự click quiz card trỏ vào hàm TODO rỗng. → Khi viết/review màn mới, **trace ngược từ handler về UI**: mỗi intent phải có ít nhất 1 chỗ gọi thật. Đừng tin "nhìn code thì chắc chạy" — test luồng thật trên máy. Chi tiết: `knowledgement/n16_5_knowledgement.md` mục 4.
+
+### 3.6. Dynamic backend contract không đồng nghĩa render UI bằng raw map (N17)
+
+Bản đầu Create Room đưa `Map<String, JsonElement>` và dotted path xuyên từ DTO tới UiState/Intent/Composable, rồi dùng `configLabel(path)` để vá readability. Luồng vẫn one-way MVI nhưng vi phạm boundary sạch, mất type-safety và khó đọc cấu hình từng mode.
+
+→ JSON/snake_case/dotted path chỉ tồn tại trong `core:network`; domain dùng `GameConfigKey`/`GameConfigValue`/typed constraint; presentation dùng typed form. UI dispatch theo mode (`ClassicModeEditor`, `SoloModeEditor`...) để sở hữu layout/label, trong khi backend descriptor vẫn sở hữu default/min/max/nullable/options. Với conflict descriptor, **`locked` luôn thắng `editable`**.
+
+→ Flow tạo phòng gồm 2 REST request (`create game` rồi `host-token`): nếu request 1 thành công và request 2 lỗi, giữ `pendingSession`; retry chỉ request token, không tạo room lần hai. Chi tiết: `knowledgement/n17_knowledgement.md`.
 
 ---
 
@@ -78,11 +99,11 @@ SearchScreen gõ từ khóa nhưng "không có kết quả với mọi từ khó
 
 ---
 
-## 6. Trạng thái hiện tại (tính đến 25/8/2026) — xem chi tiết ở file kế hoạch chính
+## 6. Trạng thái hiện tại (tính đến 28/8/2026) — xem chi tiết ở file kế hoạch chính
 
-- Tuần 1–2 (N1–10) + Tuần 3 (N11–15) hoàn thành; **N16 + N16.5 xong 25/8 → M3 (Quiz CRUD) chốt và 3 điểm lệch khẩn #7/#8/#9 đã vá hết**. Việc tiếp theo: **N17** (CreateRoomScreen động từ `/games/game-modes`).
+- Tuần 1–3 (N1–15), N16 + N16.5 và **N17 đã hoàn thành**. Create Room gọi đủ modes → create game → host-token, config typed và hand-off sang HostLobby placeholder. Việc tiếp theo: **N18** (Socket layer namespace `/game`, connect bằng token và spike reconnect).
 - Các việc bị defer còn treo: avatar upload (dùng lại cơ chế presign của N15), Bottom Navigation thật, refresh-token use case, trùng lặp `Route.Library`/`Route.MyQuizzes`, review lại padding `SplashScreen` (80dp), backlog "Editor UX gaps" (duplicate/move câu hỏi, autosave draft, default cover từ `res/`, crop ảnh, validation inline — xem block N16 trong file kế hoạch), 2 file usecase stub của luồng reset cũ chờ xóa tay trong IDE.
-- Bài học N16/N16.5 đáng nhớ: flag `remember` bị reset khi Navigation dispose composition → `rememberSaveable` (mục 3.4); DELETE quiz là **hard delete** (điểm lệch #10); PATCH không clear được field về null; module user backend dùng **camelCase thật** → tách Json/Retrofit theo pattern N15 (mục 3.1); mọi intent phải có đường kích hoạt thật từ UI (mục 3.5).
+- Bài học gần nhất: flag `remember` bị reset khi Navigation dispose composition → `rememberSaveable`; DELETE quiz là hard delete; PreserveCase Retrofit dùng chung cho endpoint camel/mixed case; mọi intent phải có UI trigger thật; dynamic backend schema không được kéo raw JSON/dotted path vào presentation; create game + host-token phải xử lý partial success idempotent.
 - File kế hoạch chính: `myquizz-review-backend-ke-hoach-50-ngay.md` (root). Thư mục `knowledgement/` chứa bài học chi tiết từng giai đoạn — đọc file `nXX_knowledgement.md` tương ứng khi cần hiểu sâu lại quyết định của một giai đoạn cụ thể.
 
 ---
