@@ -21,6 +21,7 @@ import android.kma.myquizzapp.feature.quiz_manage.presentation.createquiz.Create
 import android.kma.myquizzapp.feature.quiz_manage.presentation.editquiz.EditQuizScreen
 import android.kma.myquizzapp.feature.quiz_manage.presentation.quizdetail.QuizDetailScreen
 import android.kma.myquizzapp.feature.quiz_manage.presentation.quizmanagelist.QuizManageListScreen
+import android.kma.myquizzapp.feature.lobby.presentation.hostlobby.HostLobbyScreen
 import androidx.navigation.toRoute
 
 @Composable
@@ -238,12 +239,14 @@ fun AppNavGraph(
                 androidx.compose.material3.Text("Player Lobby - Coming Soon")
             }
             
-            composable<Route.HostLobby> { backStackEntry ->
-                val args = backStackEntry.toRoute<Route.HostLobby>()
-                HostLobbyPlaceholder(
-                    gameId = args.gameId,
-                    sessionCode = args.sessionCode,
-                    onNavigateBack = { navController.popBackStack() }
+            composable<Route.HostLobby> {
+                // N18: màn lobby host thật ở feature:lobby (thay HostLobbyPlaceholder).
+                // gameId / socketToken / sessionCode do HostLobbyViewModel đọc từ
+                // SavedStateHandle nên ở đây không cần toRoute nữa.
+                HostLobbyScreen(
+                    // message != null là trường hợp bị buộc rời phòng (token sai, phòng
+                    // không còn). TODO N19: hiển thị message này ở màn đích sau khi pop.
+                    onExit = { navController.popBackStack() }
                 )
             }
             
