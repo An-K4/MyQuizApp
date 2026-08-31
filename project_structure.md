@@ -2,7 +2,7 @@
 
 > **Tài liệu cấu trúc dự án chi tiết**  
 > Mô tả vai trò, trách nhiệm và mối quan hệ giữa các module trong kiến trúc Multi-module Gradle  
-> **Version:** 2.2 | **Last Updated:** 2026-08-28
+> **Version:** 2.3 | **Last Updated:** 2026-08-30
 
 ---
 
@@ -133,8 +133,9 @@ Cung cấp hạ tầng networking dùng chung cho toàn app: Retrofit với Cook
 - ✅ Configure `Retrofit` với base URL theo build variant
 - ✅ Định nghĩa các `ApiService` interfaces (Auth, User, Quiz, Game, Storage)
 - ✅ **Implement** `AuthRepository`, `QuizRepository`, `GameSessionRepository` (interface ở `core:common`)
-- ✅ Cung cấp `SocketFactory` tạo Socket.IO client với JWT token
-- ✅ Parse Socket events thành domain models qua `GameEventMapper`
+- ✅ Cung cấp `GameSocketClient` tạo Socket.IO client namespace `/game` với socket token (N18 — doc cũ dự kiến tên `SocketFactory`)
+- ✅ Parse Socket events thành domain models qua `GameEventMapper` (payload rác → `GameEvent.Failed(event, "CLIENT_PARSE_ERROR")`, không bao giờ throw)
+- ✅ **Implement** `HostGameSocketRepository`, `PlayerGameSocketRepository` (interface ở `core:common`, N18)
 - ❌ **KHÔNG** import `core:database` (dependency inversion qua `CookieStore` interface)
 
 #### Cấu trúc thư mục
@@ -142,8 +143,9 @@ Cung cấp hạ tầng networking dùng chung cho toàn app: Retrofit với Cook
 core/network/
 ├── src/main/java/.../network/
 │   ├── di/
-│   │   ├── NetworkModule.kt              # Provide OkHttpClient, Retrofit, SocketFactory
-│   │   └── NetworkBindingModule.kt       # @Binds AuthRepositoryImpl → AuthRepository
+│   │   ├── NetworkModule.kt              # Provide OkHttpClient, Retrofit, Json (+ @PreserveCaseJson)
+│   │   ├── NetworkBindingModule.kt       # @Binds AuthRepositoryImpl → AuthRepository
+│   │   └── SocketBindingModule.kt        # 🆕 N18: @Binds 2 socket repository impl
 │   ├── cookie/
 │   │   ├── PersistentCookieJar.kt        # implements CookieJar, dùng CookieStore interface
 │   │   └── TokenAuthenticator.kt         # 401 → /auth/refresh → retry
@@ -157,9 +159,14 @@ core/network/
 │   │   ├── AuthRepositoryImpl.kt         # implements AuthRepository
 │   │   ├── QuizRepositoryImpl.kt         # implements QuizRepository
 │   │   └── GameSessionRepositoryImpl.kt  # implements GameSessionRepository
-│   ├── socket/
-│   │   ├── SocketFactory.kt              # (socketToken) → Socket instance
-│   │   └── GameEventMapper.kt            # JSONObject → GameEvent sealed class
+│   ├── socket/                            # 🆕 N18 (30/8) — 6 file thật
+│   │   ├── GameSocketClient.kt           # (socketToken) → callbackFlow<GameEvent> + awaitClose
+│   │   ├── GameSocketEvents.kt           # internal object: hằng 19 server event + client event
+│   │   ├── GameEventMapper.kt            # JSONObject → GameEvent sealed class (runCatching, không throw)
+│   │   ├── HostGameSocketRepositoryImpl.kt    # 🟩 implements HostGameSocketRepository
+│   │   ├── PlayerGameSocketRepositoryImpl.kt  # 🟩 implements PlayerGameSocketRepository
+│   │   └── dto/
+│   │       └── SocketDtos.kt             # snake_case qua @SerialName + @PreserveCaseJson
 │   └── dto/
 │       ├── ApiEnvelope.kt                # {success, data, error, meta}
 │       └── ApiError.kt                   # Error response model
@@ -397,7 +404,7 @@ Module nền tảng chứa code dùng chung bởi **TẤT CẢ modules khác**: 
 #### Trách nhiệm
 - ✅ Define domain models thuần Kotlin (User, Quiz, GameSession, Player, etc.)
 - ✅ Define `Result<T>` sealed class cho error handling
-- ✅ Define `AppError` sealed class (Http, Socket, Network errors)
+- ✅ Define `AppError` sealed class — **không có nhánh `Socket`** (lỗi socket cũng chỉ mang code nên dùng chung `Api(code)`, xem 5.4)
 - ✅ Define **TẤT CẢ Repository interfaces** dùng bởi ≥2 features
 - ✅ Define `CookieStore` interface (DIP cho cookie persistence)
 - ✅ Extension functions (Flow, Instant, String extensions)
@@ -431,7 +438,10 @@ core/common/
 │   ├── repository/                       # 🟦 Repository interfaces dùng chung
 │   │   ├── AuthRepository.kt             # Login, register, logout
 │   │   ├── QuizRepository.kt             # CRUD quizzes, search
-│   │   └── GameSessionRepository.kt      # Create/join game, leaderboard
+│   │   ├── GameSessionRepository.kt      # Create/join game, host token, leaderboard
+│   │   ├── GameSocketRepository.kt       # 🆕 N18 base: events(socketToken)/joinLobby/disconnect
+│   │   ├── HostGameSocketRepository.kt   # 🆕 N18: startGame/nextQuestion/pause/resume/end
+│   │   └── PlayerGameSocketRepository.kt # 🆕 N18: leaveLobby/submitAnswer/requestNext/sync
 │   └── ext/                              # Extensions
 │       ├── FlowExt.kt
 │       ├── InstantExt.kt
@@ -442,16 +452,12 @@ core/common/
 #### Result Pattern
 ```kotlin
 sealed class Result<out T> {
-    data class Success<T>(val data: T) : Result<T>()
+    data class Success<T>(val data: T, val page: PageInfo? = null) : Result<T>()
     data class Error(val error: AppError) : Result<Nothing>()
 }
 
-sealed class AppError {
-    data class Http(val code: Int, val message: String, val details: String? = null) : AppError()
-    data class Socket(val event: String, val message: String) : AppError()
-    data class Network(val exception: Throwable) : AppError()
-    object Unknown : AppError()
-}
+sealed class AppError { /* các nhánh thật: Network, Unauthorized, Forbidden, NotFound,
+   Gone, Server(httpCode), Api(code), Unknown(cause) — KHÔNG có nhánh Socket, xem 5.4 */ }
 ```
 
 #### Phụ thuộc
@@ -474,7 +480,7 @@ dependencies {
 - `CookieStore`: interface ở `core:common`, impl ở `core:database`
 - `QuizCacheStore`: interface ở `core:common`, impl ở `core:database` (`RoomQuizCacheStore`, N12 21/8) — cùng pattern DIP với `CookieStore`; sửa từ vi phạm ban đầu (`core:network` từng import trực tiếp `core:database` để cache quiz detail)
 - `AuthRepository`, `QuizRepository`, `GameSessionRepository`: interface ở `core:common`, impl ở `core:network`
-- `PlayerGameSocketRepository`, `HostGameSocketRepository`: interface + impl đều ở trong feature module riêng
+- `GameSocketRepository` (base) + `HostGameSocketRepository` + `PlayerGameSocketRepository`: interface ở `core:common`, impl ở `core:network/socket` — ⚠️ **đổi so với v2.2** (trước dự kiến đặt cả interface lẫn impl trong feature module); xem 5.3
 
 🚫 **Anti-cheat**: Domain model `Question` **KHÔNG bao giờ** chứa field `correct_answer` - server không bao giờ gửi đáp án đúng xuống client trong gameplay.
 
@@ -640,9 +646,9 @@ dependencies {
 Phòng chờ trước khi game bắt đầu. Có 2 perspectives: **Host** (điều khiển config, start game) và **Player** (xem danh sách người chơi, chờ host start).
 
 #### Trách nhiệm
-- ✅ PlayerLobbyScreen + PlayerLobbyViewModel
-- ✅ HostLobbyScreen + HostLobbyViewModel (có thể update config)
-- ✅ Real-time player list qua socket event `lobby:player-joined`, `lobby:player-left`
+- ✅ HostLobbyScreen + HostLobbyViewModel (N18: danh sách người chơi realtime + reconnect; update config để N20)
+- ⏳ PlayerLobbyScreen + PlayerLobbyViewModel (N19)
+- ✅ Real-time player list qua socket event **`lobby:updated`** — server bắn 1 snapshot đầy đủ, KHÔNG có `lobby:player-joined`/`lobby:player-left` như doc cũ ghi
 - ✅ Host có thể kick player, update config
 - ✅ Hiển thị room code + QR code để share
 
@@ -651,21 +657,21 @@ Phòng chờ trước khi game bắt đầu. Có 2 perspectives: **Host** (đi�
 feature/lobby/
 ├── src/main/java/.../feature/lobby/
 │   ├── presentation/
-│   │   ├── player/
-│   │   │   ├── PlayerLobbyScreen.kt
-│   │   │   └── PlayerLobbyViewModel.kt   # Listen: lobby:player-joined/left, lobby:started
-│   │   ├── host/
-│   │   │   ├── HostLobbyScreen.kt
-│   │   │   └── HostLobbyViewModel.kt     # Emit: lobby:config-update, lobby:kick, lobby:start
-│   │   └── components/
-│   │       ├── PlayerListItem.kt
-│   │       └── RoomCodeDisplay.kt        # QR code + text
+│   │   ├── hostlobby/                     # 🆕 N18 (30/8) — hàng thật, đã test trên máy thật
+│   │   │   ├── HostLobbyScreen.kt        # Stateful + HostLobbyScreenContent stateless
+│   │   │   ├── HostLobbyViewModel.kt     # re-join sau MỌI Connected, refresh token đúng 1 lần
+│   │   │   ├── HostLobbyUiState.kt       # + hasLobbySnapshot, ConnectionStatus
+│   │   │   ├── HostLobbyIntent.kt        # Retry / LeaveRoom / ErrorShown
+│   │   │   └── HostLobbyEffect.kt        # ExitLobby(message)
+│   │   └── playerlobby/                   # ⏳ N19 — chưa có
 │   └── domain/
 │       └── usecase/
-│           ├── JoinGameAsPlayerUseCase.kt     # REST: POST /games/:code/join → socketToken
-│           ├── GetHostSocketTokenUseCase.kt   # REST: POST /games/:id/host-token
-│           ├── LookupRoomUseCase.kt           # REST: GET /games/:code (validate before join)
-│           └── ConnectLobbySocketUseCase.kt   # Socket: connect with token
+│           └── RefreshHostTokenUseCase.kt # 🆕 N18: POST /games/:id/host-token (idempotent)
+```
+
+> ⚠️ Các use case `JoinGameAsPlayerUseCase`, `GetHostSocketTokenUseCase`, `LookupRoomUseCase`, `ConnectLobbySocketUseCase` trong v2.2 chỉ là **dự kiến**, chưa tồn tại. N18 không cần `ConnectLobbySocketUseCase` vì việc connect nằm trong `GameSocketRepository.events()` ở `core:network`; 3 use case còn lại sẽ chốt lại ở N19.
+
+```text
 └── build.gradle.kts
 ```
 
@@ -673,7 +679,7 @@ feature/lobby/
 ```kotlin
 dependencies {
     implementation(project(":core:common"))    // GameSessionRepository, GameEvent
-    implementation(project(":core:network"))   // SocketFactory
+    implementation(project(":core:network"))   // N18: impl socket ở core:network; feature chỉ dùng interface từ core:common
     implementation(project(":core:ui"))
     
     implementation(libs.zxing)                 // QR code generation
@@ -721,14 +727,14 @@ feature/game-player/
 │   │       └── ScoreDisplay.kt
 │   ├── domain/
 │   │   ├── repository/
-│   │   │   └── PlayerGameSocketRepository.kt  # 🟦 Interface cục bộ feature này
+│   │   │   └── (⚠️ N18: PlayerGameSocketRepository đã chuyển sang core:common/repository)
 │   │   └── usecase/
 │   │       ├── SubmitAnswerUseCase.kt
 │   │       ├── RequestNextQuestionUseCase.kt  # Self-paced only
 │   │       └── SyncGameStateUseCase.kt        # Reconnect recovery
 │   └── data/
 │       └── repository/
-│           └── PlayerGameSocketRepositoryImpl.kt  # 🟩 Impl - dùng SocketFactory
+│           └── (⚠️ N18: impl đã chuyển sang core:network/socket)
 └── build.gradle.kts
 ```
 
@@ -802,13 +808,13 @@ feature/game-host/
 │   │       └── QuestionPreview.kt        # Host xem câu hỏi + đáp án đúng
 │   ├── domain/
 │   │   ├── repository/
-│   │   │   └── HostGameSocketRepository.kt     # 🟦 Interface riêng cho Host
+│   │   │   └── (⚠️ N18: HostGameSocketRepository đã chuyển sang core:common/repository)
 │   │   └── usecase/
 │   │       ├── HostControlUseCase.kt           # Emit host actions
 │   │       └── UpdateRoomConfigUseCase.kt      # Lobby phase only
 │   └── data/
 │       └── repository/
-│           └── HostGameSocketRepositoryImpl.kt # 🟩 Join hostRoom, nhận host:* events
+│           └── (⚠️ N18: impl đã chuyển sang core:network/socket)
 └── build.gradle.kts
 ```
 
@@ -1048,16 +1054,23 @@ abstract class DatabaseBindingModule {
 | `AuthRepository` | `core:common/repository` | `core:network` (AuthRepositoryImpl) | `feature:auth`, `core:datastore` (CheckAuthStateUseCase) |
 | `QuizRepository` | `core:common/repository` | `core:network` (QuizRepositoryImpl) | `feature:home`, `feature:quiz-manage` |
 | `GameSessionRepository` | `core:common/repository` | `core:network` (GameSessionRepositoryImpl) | `feature:lobby`, `feature:quiz-manage`, `feature:leaderboard` |
-| `PlayerGameSocketRepository` | `feature:game-player/domain` | `feature:game-player/data` | `feature:game-player` only |
-| `HostGameSocketRepository` | `feature:game-host/domain` | `feature:game-host/data` | `feature:game-host` only |
+| `GameSocketRepository` (base) | `core:common/repository` | `core:network/socket` (GameSocketClient) | `feature:lobby` (+ N19/N20) |
+| `PlayerGameSocketRepository` | `core:common/repository` | `core:network/socket` (PlayerGameSocketRepositoryImpl) | `feature:lobby` (player), `feature:game-player` |
+| `HostGameSocketRepository` | `core:common/repository` | `core:network/socket` (HostGameSocketRepositoryImpl) | `feature:lobby` (host), `feature:game-host` |
 
 ### 5.3. Why Separate Socket Repositories?
 
-`PlayerGameSocketRepository` và `HostGameSocketRepository` KHÔNG share interface vì:
+`PlayerGameSocketRepository` và `HostGameSocketRepository` chỉ share **base** `GameSocketRepository` (`events`/`joinLobby`/`disconnect`), không share phần còn lại, vì:
 - Host join `hostRoom`, Player join `room` - khác namespace
 - Host nhận `host:question` (có `correct_answer`), Player nhận `question:started` (không có)
 - Host emit `host:start/pause/resume`, Player emit `question:answer`
-- Features không được phụ thuộc nhau → mỗi bên tự định nghĩa hợp đồng riêng
+- Sai vai trò trở thành lỗi biên dịch: player không thể gọi `startGame`, không phải đợi server trả lỗi runtime
+
+⚠️ **Đổi so với v2.2 (N18, 30/8)**: cả 3 interface đặt ở `core:common/repository`, impl ở `core:network/socket` — không đặt trong feature module nữa. Lý do: `feature:lobby`, `feature:game-host`, `feature:game-player` dùng chung một connection `/game`, mà feature module thì không được phụ thuộc nhau → đặt ở feature sẽ phải nhân bản code socket 3 lần.
+
+### 5.4. Không có `AppError.Socket` (quyết định N18)
+
+Contract lỗi socket thật là `{ event, code }` — chỉ có code, cùng bảng code với REST (`shared/errors/codes.ts`). Vì `AppError.Api(code)` từ N16.5 đã map ~60 code sang tiếng Việt, thêm nhánh `Socket` chỉ tạo hai đường dịch song song rồi lệch nhau. `GameEvent.Failed(event, code)` mang thêm tên event để phân loại fatal/không fatal, phần hiển thị vẫn qua `Api(code)`.
 
 ---
 
@@ -1362,8 +1375,9 @@ core:common → (nothing)
 | Login/Register | `AuthRepository` | `core:common` | `core:network` |
 | CRUD Quizzes | `QuizRepository` | `core:common` | `core:network` |
 | Create/Join Game | `GameSessionRepository` | `core:common` | `core:network` |
-| Player gameplay | `PlayerGameSocketRepository` | `feature:game-player` | `feature:game-player` |
-| Host control | `HostGameSocketRepository` | `feature:game-host` | `feature:game-host` |
+| Socket chung (connect/lobby) | `GameSocketRepository` | `core:common` | `core:network` |
+| Player gameplay | `PlayerGameSocketRepository` | `core:common` | `core:network` |
+| Host control | `HostGameSocketRepository` | `core:common` | `core:network` |
 | Persist cookies | `CookieStore` | `core:common` | `core:database` |
 
 > ℹ️ **UseCase cross-cutting**: `CheckAuthStateUseCase` (kiểm tra AuthState app-wide: FIRST_LAUNCH/GUEST_MODE/AUTHENTICATED) sống ở `core:datastore/usecase`. Không phải Repository nhưng theo cùng nguyên tắc: dùng bởi ≥2 nơi (Splash + tiềm năng các feature khác) → đưa xuống `core:*` thay vì đặt trong `:app` hoặc 1 feature cụ thể.
@@ -1449,9 +1463,9 @@ MyQuizApp được xây dựng với **13 modules** theo **Clean Architecture + 
 
 ---
 
-**Document Version:** 2.2  
+**Document Version:** 2.3  
 **Last Updated:** 2026-08-28  
-**Status:** Living document - Đã đồng bộ Stateful/Stateless baseline trên toàn bộ 14 Screen hiện có trước N18
+**Status:** Living document - Đã cập nhật socket layer thật của N18 (30/8): `GameEvent` + 3 interface socket ở `core:common`, `GameSocketClient`/`GameEventMapper`/2 impl ở `core:network`, HostLobby thật ở `feature:lobby`
 
 ---
 

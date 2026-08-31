@@ -90,6 +90,17 @@ Bản đầu Create Room đưa `Map<String, JsonElement>` và dotted path xuyên
 
 ---
 
+### 3.7. Socket: contract lỗi thật là `{event, code}`, và reconnect KHÔNG tự join lại room (N18, xem `knowledgement/n18_knowledgement.md`)
+
+- Doc thiết kế ghi payload lỗi socket là `{event, message}` với prefix `UNAUTHORIZED:`/`FORBIDDEN:`/`CONFLICT:`/`GONE:`. **Sai.** Schema `SocketError` thật (`backend/src/docs/components/socket.doc.ts`) là `{ event: string, code: string }` — chỉ có code, không có message. Đừng parse prefix từ message.
+- Lỗi chỉ bắn qua event `error` khi client event KHÔNG có ack. Nếu event có ack (ví dụ `question:answer`) thì lỗi trả trong ack dưới dạng `{ error: { code } }`. Bắt một đường sẽ bỏ sót đường kia.
+- Không tạo nhánh `AppError` mới cho socket: `AppError.Api(code)` đã map sẵn ~60 code sang tiếng Việt từ N16.5.
+- **socket.io tự reconnect nhưng KHÔNG tự join lại room.** Phải gọi `lobby:join` sau MỌI lần nhận `Connected`, không phải một lần trong `init`. Nếu không, sau khi mạng trở lại socket vẫn "connected" mà không bao giờ nhận `lobby:updated` nữa — bug im lặng, không lộ ra khi test ở mạng tốt.
+- Phân biệt 3 lý do disconnect: `io server disconnect` (server đá — socket.io KHÔNG retry, phải thoát màn), `io client disconnect` (do chính mình gọi — im lặng), còn lại là transport/mất mạng (giữ dữ liệu cũ, chờ socket.io tự thử lại).
+- Mapper event không bao giờ được throw: payload rác → trả `GameEvent.Failed(event, "CLIENT_PARSE_ERROR")`. Throw trong `callbackFlow` sẽ giết cả flow và mất mọi event sau đó.
+- Token socket có TTL riêng, ngắn hơn cookie đăng nhập. Gặp `GAME_TOKEN_INVALID` → refresh qua REST đúng MỘT lần (có guard chống vòng lặp refresh) rồi thoát nếu vẫn fail.
+- UiState realtime phải phân biệt "chưa có snapshot" với "snapshot rỗng" (cờ `hasLobbySnapshot`), và khi mất kết nối thì giữ nguyên dữ liệu cũ thay vì xóa về rỗng.
+
 ## 4. Quy tắc quy trình làm việc với user
 
 - User thường test trên **máy thật** sau khi agent báo "xong" — luồng có thể vẫn có bug trên máy thật dù build/compile sạch (ví dụ N15). Đừng coi "compile thành công" là bằng chứng đầy đủ feature hoạt động đúng — khi user gửi Logcat báo lỗi, đọc log thật (không suy đoán) để xác định đúng rõ lỗi backend hay client trước khi sửa.
@@ -109,9 +120,15 @@ Bản đầu Create Room đưa `Map<String, JsonElement>` và dotted path xuyên
 
 ---
 
-## 6. Trạng thái hiện tại (tính đến 28/8/2026) — xem chi tiết ở file kế hoạch chính
+- `filesystem__create_directory` KHÔNG tạo thư mục lồng nhau dù tên gợi ý ngược lại: phải tạo từng cấp một, tuần tự, nếu không sẽ gặp `Parent directory does not exist`. `write_file` cũng fail cùng lý do khi thư mục cha chưa tồn tại.
+- `search__search_content` cho ÂM TÍNH GIẢ: trả "no lines matched" cho chuỗi chắc chắn có trong file vừa đọc. Không bao giờ kết luận "không tồn tại" từ kết quả rỗng của nó — xác minh lại bằng đọc file, `search__find_path` (tool này đáng tin), hoặc `findstr` qua shell.
+- Tool đọc/ghi file có thể bị khóa giữa phiên với lỗi "changed its operation type since the last admin approval" (gặp 30/8: `read_text_file`, `read_multiple_files`, `write_file`, `edit_file` và cả GitHub `get_file_contents`/`create_branch`, trong khi user không đổi quyền gì; reconnect server không xóa được, phải đợi phía Notion xử lý — hôm sau tự hết). Khi đó `shell__run_cmd` thường vẫn sống: dùng `findstr /n "^" <file>` để đọc file kèm số dòng và `findstr /n /c:"chuỗi" <file>` để định vị dòng cần sửa. Lưu ý findstr trong môi trường này không mở được wildcard kiểu `thư_mục\*.kt`. **Bài học: khi tool ghi chết giữa việc, trích nguyên văn các đoạn `oldText` cần sửa bằng findstr rồi giữ sẵn, để khi tool sống lại là ghi được ngay không phải đọc lại.**
+- Shell bị allowlist chặt: `git status --short` và `findstr` chạy được, nhưng `git rm`, `git ls-files`, `ls`, `del` thì không; không chain/redirect và không chạy được Gradle. **Xóa file và build/test phải nhờ user.**
+- Nếu MCP filesystem "mù" toàn bộ source (`ENOENT` trên thư mục chắc chắn tồn tại, `list_directory` chỉ thấy `build/`), rất có thể user chưa checkout nhánh làm việc — hỏi trước khi kết luận cấu trúc dự án.
 
-- Tuần 1–3 (N1–15), N16 + N16.5 và **N17 đã hoàn thành**. Create Room gọi đủ modes → create game → host-token, config typed và hand-off sang HostLobby placeholder. Refactor kiến trúc UI trước N18 cũng đã hoàn thành: 14 Screen được audit, toàn bộ màn hiện có tuân theo Stateful/Stateless baseline. Việc tiếp theo: **N18** (Socket layer namespace `/game`, connect bằng token và spike reconnect).
+## 6. Trạng thái hiện tại (tính đến 30/8/2026) — xem chi tiết ở file kế hoạch chính
+
+- Tuần 1–3 (N1–15), N16 + N16.5, **N17 và N18 đã hoàn thành**. Create Room gọi đủ modes → create game → host-token, config typed. Refactor kiến trúc UI trước N18 đã xong: 14 Screen được audit, toàn bộ màn tuân theo Stateful/Stateless baseline. N18 (xong 30/8, đã build và test trên máy thật): socket layer namespace `/game` — `GameEvent` + 3 interface socket tách theo vai trò ở `core:common`, `GameSocketClient` + `GameEventMapper` + 2 impl ở `core:network`, HostLobby thật ở `feature:lobby` thay `HostLobbyPlaceholder` (file placeholder đã xóa). Việc tiếp theo: **N19** (Player lobby: join bằng mã phòng + nickname, bổ sung `player_avatar`/`lives` vào DTO).
 - Các việc bị defer còn treo: avatar upload (dùng lại cơ chế presign của N15), Bottom Navigation thật, refresh-token use case, trùng lặp `Route.Library`/`Route.MyQuizzes`, review lại padding `SplashScreen` (80dp), backlog "Editor UX gaps" (duplicate/move câu hỏi, autosave draft, default cover từ `res/`, crop ảnh, validation inline — xem block N16 trong file kế hoạch), 2 file usecase stub của luồng reset cũ chờ xóa tay trong IDE.
 - Bài học gần nhất: flag `remember` bị reset khi Navigation dispose composition → `rememberSaveable`; DELETE quiz là hard delete; PreserveCase Retrofit dùng chung cho endpoint camel/mixed case; mọi intent phải có UI trigger thật; dynamic backend schema không được kéo raw JSON/dotted path vào presentation; create game + host-token phải xử lý partial success idempotent; platform/lifecycle/effect ownership phải dừng ở Stateful Screen boundary, còn `XxxScreenContent` là UI thuần để Preview/test.
 - File kế hoạch chính: `myquizz-review-backend-ke-hoach-50-ngay.md` (root). Thư mục `knowledgement/` chứa bài học chi tiết từng giai đoạn — đọc file `nXX_knowledgement.md` tương ứng khi cần hiểu sâu lại quyết định của một giai đoạn cụ thể.
