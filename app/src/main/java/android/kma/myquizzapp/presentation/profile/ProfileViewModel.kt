@@ -7,9 +7,11 @@ import android.kma.myquizzapp.feature.auth.domain.usecase.LogoutUseCase
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -30,6 +32,9 @@ class ProfileViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(ProfileUiState())
     val uiState: StateFlow<ProfileUiState> = _uiState.asStateFlow()
+
+    private val _effect = Channel<ProfileEffect>()
+    val effect = _effect.receiveAsFlow()
 
     init {
         loadCurrentUser()
@@ -52,13 +57,17 @@ class ProfileViewModel @Inject constructor(
     fun logout() {
         viewModelScope.launch {
             when (logoutUseCase()) {
-                is Result.Success -> _uiState.update { it.copy(isLoggedOut = true) }
+                is Result.Success -> emitEffect(ProfileEffect.NavigateBack)
                 is Result.Error -> {
                     // Kể cả khi call logout API lỗi (ví dụ mất mạng), vẫn coi như đã
                     // đăng xuất ở client để không kẹt người dùng lại màn Profile.
-                    _uiState.update { it.copy(isLoggedOut = true) }
+                    emitEffect(ProfileEffect.NavigateBack)
                 }
             }
         }
+    }
+
+    private suspend fun emitEffect(effect: ProfileEffect) {
+        _effect.send(effect)
     }
 }

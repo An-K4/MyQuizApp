@@ -12,6 +12,5 @@ import android.kma.myquizzapp.core.common.model.User
 data class ProfileUiState(
     val user: User? = null,
     val isLoading: Boolean = true,
-    val error: String? = null,
-    val isLoggedOut: Boolean = false
+    val error: String? = null
 )

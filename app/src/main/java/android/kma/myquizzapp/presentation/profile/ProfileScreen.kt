@@ -44,8 +44,15 @@ fun ProfileScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    LaunchedEffect(uiState.isLoggedOut) {
-        if (uiState.isLoggedOut) onLoggedOut()
+    LaunchedEffect(Unit) {
+        viewModel.effect.collect { effect ->
+            when (effect) {
+                is ProfileEffect.NavigateBack -> onLoggedOut()
+                is ProfileEffect.ShowError -> {
+                    // TODO: Show toast/snackbar with effect.message
+                }
+            }
+        }
     }
 
     ProfileScreenContent(
