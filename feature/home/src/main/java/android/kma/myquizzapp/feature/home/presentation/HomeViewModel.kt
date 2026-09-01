@@ -7,9 +7,11 @@ import android.kma.myquizzapp.feature.home.domain.usecase.GetHomeContentUseCase
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -41,6 +43,9 @@ class HomeViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
+    private val _effect = Channel<HomeEffect>()
+    val effect = _effect.receiveAsFlow()
+
     init {
         // Load home content on init
         loadHomeContent()
@@ -53,8 +58,12 @@ class HomeViewModel @Inject constructor(
     fun handleIntent(intent: HomeIntent) {
         when (intent) {
             is HomeIntent.LoadHome -> loadHomeContent()
-            is HomeIntent.NavigateToSearch -> navigateToSearch()
-            is HomeIntent.QuizCardClicked -> navigateToQuizDetail(intent.quizId)
+            is HomeIntent.NavigateToSearch -> viewModelScope.launch {
+                emitEffect(HomeEffect.NavigateToSearch)
+            }
+            is HomeIntent.QuizCardClicked -> viewModelScope.launch {
+                emitEffect(HomeEffect.NavigateToQuizDetail(intent.quizId))
+            }
             is HomeIntent.Retry -> retry()
             is HomeIntent.CheckAuthState -> checkAuthState()
         }
@@ -104,19 +113,10 @@ class HomeViewModel @Inject constructor(
     }
 
     /**
-     * Navigate to SearchScreen.
-     * TODO: Implement navigation in Phase 4
+     * Emit a one-time effect.
      */
-    private fun navigateToSearch() {
-        // Will implement in Phase 4 with Navigation
-    }
-
-    /**
-     * Navigate to quiz detail screen.
-     * TODO: Implement navigation in Phase 4
-     */
-    private fun navigateToQuizDetail(quizId: Long) {
-        // Will implement in Phase 4 with Navigation
+    private suspend fun emitEffect(effect: HomeEffect) {
+        _effect.send(effect)
     }
 
     /**
