@@ -4,13 +4,11 @@ import android.kma.myquizzapp.core.common.error.toUserMessage
 import android.kma.myquizzapp.core.common.model.Question
 import android.kma.myquizzapp.core.common.model.QuestionType
 import android.kma.myquizzapp.core.common.model.Quiz
-import android.kma.myquizzapp.core.common.model.QuizPatch
 import android.kma.myquizzapp.core.common.result.Result
+import android.kma.myquizzapp.feature.quiz_manage.domain.model.QuizDraft
 import android.kma.myquizzapp.feature.quiz_manage.domain.usecase.GetQuizDetailUseCase
-import android.kma.myquizzapp.feature.quiz_manage.domain.usecase.UpdateQuizUseCase
-import android.kma.myquizzapp.feature.quiz_manage.domain.usecase.UploadImageUseCase
+import android.kma.myquizzapp.feature.quiz_manage.domain.usecase.UpdateQuizWithAssetsUseCase
 import android.kma.myquizzapp.feature.quiz_manage.presentation.components.QuestionDraft
-import android.kma.myquizzapp.feature.quiz_manage.presentation.components.toNewQuestion
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -40,8 +38,7 @@ import javax.inject.Inject
 @HiltViewModel
 class EditQuizViewModel @Inject constructor(
     private val getQuizDetailUseCase: GetQuizDetailUseCase,
-    private val updateQuizUseCase: UpdateQuizUseCase,
-    private val uploadImageUseCase: UploadImageUseCase,
+    private val updateQuizWithAssetsUseCase: UpdateQuizWithAssetsUseCase,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
@@ -242,49 +239,20 @@ class EditQuizViewModel @Inject constructor(
         _uiState.update { it.copy(isSubmitting = true, fieldErrors = emptyList(), errorMessage = null) }
 
         viewModelScope.launch {
-            // 1) Cover: chỉ upload khi user chọn ảnh MỚI; nếu không thì gửi lại URL cũ.
-            //    Backend PATCH bỏ qua field vắng mặt (không thể clear về null) nên dù
-            //    user bấm "Xóa ảnh" mà không chọn ảnh mới, cover cũ vẫn được giữ lại.
-            val coverImageUrl: String? = when {
-                state.coverImageUri != null ->
-                    when (val result = uploadImageUseCase(state.coverImageUri, folder = "quizzes")) {
-                        is Result.Success -> result.data
-                        is Result.Error -> {
-                            failSubmit(result.error.toUserMessage())
-                            return@launch
-                        }
-                    }
-                else -> state.existingCoverUrl
-            }
-
-            // 2) Ảnh từng câu hỏi: chỉ upload ảnh mới chọn. Bất kỳ ảnh nào lỗi ->
-            //    dừng toàn bộ, KHÔNG gọi PATCH (tránh lưu quiz thiếu ảnh).
-            val questionImageUrls = mutableMapOf<String, String>()
-            for (question in state.questions) {
-                val uri = question.imageUri ?: continue
-                when (val result = uploadImageUseCase(uri, folder = "questions")) {
-                    is Result.Success -> questionImageUrls[question.localId] = result.data
-                    is Result.Error -> {
-                        failSubmit(result.error.toUserMessage())
-                        return@launch
-                    }
-                }
-            }
-
-            // 3) PATCH: metadata đầy đủ + THAY THẾ toàn bộ câu hỏi.
-            val patch = QuizPatch(
-                quizName = state.quizName.trim(),
+            // Build QuizDraft từ UI state — validation đã xong ở trên
+            val draft = QuizDraft(
+                quizName = state.quizName,
                 quizDescription = state.quizDescription.trim().ifBlank { null },
                 quizLanguage = state.quizLanguage,
-                quizImage = coverImageUrl,
                 quizCategory = state.quizCategory.trim().ifBlank { null },
                 isPublic = state.isPublic,
-                questions = state.questions.map { draft ->
-                    draft.toNewQuestion(questionImageUrls[draft.localId] ?: draft.existingImageUrl)
-                }
+                coverImageUri = state.coverImageUri,
+                existingCoverUrl = state.existingCoverUrl,
+                questions = state.questions
             )
 
-            when (val result = updateQuizUseCase(quizId, patch)) {
+            // Delegate orchestration logic (upload + PATCH) to UseCase
+            when (val result = updateQuizWithAssetsUseCase(quizId, draft)) {
                 is Result.Success -> {
                     _uiState.update { it.copy(isSubmitting = false, isDirty = false) }
                     _effect.send(EditQuizEffect.QuizUpdated(result.data.id))

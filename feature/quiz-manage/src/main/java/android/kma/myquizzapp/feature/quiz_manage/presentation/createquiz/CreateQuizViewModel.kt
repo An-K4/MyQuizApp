@@ -1,13 +1,11 @@
 package android.kma.myquizzapp.feature.quiz_manage.presentation.createquiz
 
 import android.kma.myquizzapp.core.common.error.toUserMessage
-import android.kma.myquizzapp.core.common.model.NewQuiz
 import android.kma.myquizzapp.core.common.model.QuestionType
 import android.kma.myquizzapp.core.common.result.Result
-import android.kma.myquizzapp.feature.quiz_manage.domain.usecase.CreateQuizUseCase
-import android.kma.myquizzapp.feature.quiz_manage.domain.usecase.UploadImageUseCase
+import android.kma.myquizzapp.feature.quiz_manage.domain.model.QuizDraft
+import android.kma.myquizzapp.feature.quiz_manage.domain.usecase.CreateQuizWithAssetsUseCase
 import android.kma.myquizzapp.feature.quiz_manage.presentation.components.QuestionDraft
-import android.kma.myquizzapp.feature.quiz_manage.presentation.components.toNewQuestion
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -30,8 +28,7 @@ import javax.inject.Inject
  */
 @HiltViewModel
 class CreateQuizViewModel @Inject constructor(
-    private val createQuizUseCase: CreateQuizUseCase,
-    private val uploadImageUseCase: UploadImageUseCase
+    private val createQuizWithAssetsUseCase: CreateQuizWithAssetsUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(CreateQuizUiState())
@@ -153,43 +150,19 @@ class CreateQuizViewModel @Inject constructor(
         _uiState.update { it.copy(isSubmitting = true, fieldErrors = emptyList(), errorMessage = null) }
 
         viewModelScope.launch {
-            // 1) Ảnh cover (nếu có) — upload thật ngay bây giờ, không phải lúc chọn ảnh.
-            val coverImageUrl: String? = state.coverImageUri?.let { uri ->
-                when (val result = uploadImageUseCase(uri, folder = "quizzes")) {
-                    is Result.Success -> result.data
-                    is Result.Error -> {
-                        failSubmit(result.error.toUserMessage())
-                        return@launch
-                    }
-                }
-            }
-
-            // 2) Ảnh từng câu hỏi (nếu có). Bất kỳ ảnh nào lỗi -> dừng toàn bộ,
-            // KHÔNG gọi createQuiz (tránh tạo quiz thiếu ảnh).
-            val questionImageUrls = mutableMapOf<String, String>()
-            for (question in state.questions) {
-                val uri = question.imageUri ?: continue
-                when (val result = uploadImageUseCase(uri, folder = "questions")) {
-                    is Result.Success -> questionImageUrls[question.localId] = result.data
-                    is Result.Error -> {
-                        failSubmit(result.error.toUserMessage())
-                        return@launch
-                    }
-                }
-            }
-
-            // 3) Toàn bộ ảnh (nếu có) đã có publicUrl thật — tạo quiz.
-            val newQuiz = NewQuiz(
-                quizName = state.quizName.trim(),
+            // Build QuizDraft từ UI state — validation đã xong ở trên
+            val draft = QuizDraft(
+                quizName = state.quizName,
                 quizDescription = state.quizDescription.trim().ifBlank { null },
                 quizLanguage = state.quizLanguage,
-                quizImage = coverImageUrl,
                 quizCategory = state.quizCategory.trim().ifBlank { null },
                 isPublic = state.isPublic,
-                questions = state.questions.map { it.toNewQuestion(questionImageUrls[it.localId]) }
+                coverImageUri = state.coverImageUri,
+                questions = state.questions
             )
 
-            when (val result = createQuizUseCase(newQuiz)) {
+            // Delegate orchestration logic (upload + create) to UseCase
+            when (val result = createQuizWithAssetsUseCase(draft)) {
                 is Result.Success -> {
                     _uiState.update { it.copy(isSubmitting = false) }
                     _effect.send(CreateQuizEffect.QuizCreated(result.data.id))
