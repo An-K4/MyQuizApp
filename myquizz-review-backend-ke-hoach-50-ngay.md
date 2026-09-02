@@ -370,6 +370,28 @@ Lưu ý thêm: swagger ghi `/auth/refresh` trả tokens nhưng thực tế chỉ
 - ✅ Build/test máy thật đã xanh và code đã push. Chi tiết: `knowledgement/ui_stateful_stateless_refactor.md`.
 
 - ✅ **N18** (xong 30/8): Socket layer — `GameSocketClient` (namespace `/game`, thay cho ý tưởng `SocketFactory` trong doc), `GameEventMapper`, connect → `lobby:join`, spike reconnect. ⚠️ **Đã vá điểm lệch của doc tại đây**: contract lỗi socket thật là `{ event, code }` (schema `SocketError` trong `backend/src/docs/components/socket.doc.ts`) — KHÔNG có `message`, KHÔNG có prefix `UNAUTHORIZED:`/`FORBIDDEN:`/`CONFLICT:`/`GONE:`. Vì vậy **không thêm `AppError.Socket`** như doc yêu cầu: `AppError.Api(code)` đã map sẵn ~60 code sang tiếng Việt từ N16.5, thêm nhánh mới chỉ là trùng lặp. 4 code fatal (`GAME_TOKEN_INVALID`, `GAME_TOKEN_WRONG_ROOM`, `GAME_ROOM_NOT_FOUND`, `GAME_PLAYER_NOT_FOUND`) → thoát màn thay vì retry; riêng `GAME_TOKEN_INVALID` được thử refresh token đúng một lần trước khi thoát.
+
+**📝 N18.5: Polish Architecture (31/8 - 2/9/2026):**
+
+**Mục tiêu:** Chuẩn hóa Clean Architecture + MVI pattern toàn dự án sau khi hoàn thành N18.
+
+**Thành tựu:**
+- ✅ Sửa 5 vi phạm nghiêm trọng architecture: navigation logic in ViewModel (Home, Profile), god methods (CreateQuiz/EditQuiz submit ~50-65 lines), layer violations (ViewModels gọi trực tiếp multiple repositories thay vì qua UseCase)
+- ✅ Chuẩn hóa naming conventions: `handleIntent` → `onIntent` (26 occurrences, 16 files), `GameApi` → `GameApiService` (9 occurrences, 3 files)
+- ✅ Refactor navigation: tách `AppNavGraph.kt` (~267 lines) thành 4 feature graphs — `AuthNavGraph` (5 routes), `MainNavGraph` (6 routes), `QuizManageNavGraph` (5 routes), `GameNavGraph` (5 routes). AppNavGraph còn 60 lines (giảm 78%), chỉ giữ Splash + gọi 4 sub-graphs.
+- ✅ Thống nhất validation pattern: tạo 6 validators tái sử dụng ở `:core:common/validator` (ValidationResult, EmailValidator, PasswordValidator, QuizNameValidator, QuizDescriptionValidator, RoomSettingsValidator) thay vì inline validation rải rác; refactor 5 ViewModels (Login, Register, CreateQuiz, EditQuiz, CreateRoom) sang Pattern C.
+- ✅ Extract orchestration UseCases: `CreateQuizWithAssetsUseCase`, `UpdateQuizWithAssetsUseCase` (thay CreateQuiz/UpdateQuiz/UploadImage riêng lẻ), `GetQuizWithOwnershipUseCase` (thay GetQuizDetail) — ViewModels giảm từ 50-65 lines submit logic xuống ~30 lines.
+
+**Files affected:** 30+ files across 8 modules (app, core:common, core:network, feature:auth, feature:home, feature:quiz-manage).
+
+**Lessons learned:**
+- MVI Effect pattern phải áp dụng đồng nhất từ đầu cho mọi ViewModel — navigation/one-shot events KHÔNG BAO GIỜ ở ViewModel state, luôn qua Effect channel.
+- God methods (>40-50 lines) trong ViewModel.submit() là dấu hiệu thiếu UseCase orchestration layer — phải extract business logic ra UseCase, ViewModel chỉ validate + build DTO + delegate.
+- Validation logic dùng lại (email, password, quiz name) phải centralized ở `:core:common` thay vì duplicate ở mỗi ViewModel — Pattern C (validator objects) scale tốt hơn inline checks.
+- Navigation modular theo feature (4 NavGraphs) dễ maintain và parallel development hơn monolithic AppNavGraph — mỗi feature module có thể contribute routes riêng.
+
+**Chi tiết kỹ thuật:** `REFACTOR_CHECKLIST.md` (628 lines, 14 tasks, 4 sprints). Build/test thành công trên máy thật, code đã push 2/9.
+
 - **N19**: `feature:lobby` Player — lookup room, join REST → `socketToken` → connect; PlayerLobbyScreen.
 - **N20**: HostLobbyScreen + `lobby:config-update` (ACK `{ok, changed, config, ignored}`); chia sẻ mã phòng/QR.
 - 📚 Socket.IO Android nâng cao (`IO.Options.auth`, namespace, ACK `emit` + `Ack {}`, `EVENT_CONNECT`/`EVENT_DISCONNECT`), `callbackFlow` + `awaitClose`; làm quen MVI (Intent sealed → 1 StateFlow).

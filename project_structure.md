@@ -83,7 +83,11 @@ app/
 │   │   │   ├── SplashScreen.kt
 │   │   │   └── SplashViewModel.kt  # Dùng CheckAuthStateUseCase từ core:datastore
 │   │   └── navigation/
-│   │       └── AppNavGraph.kt      # Root NavHost - tổng hợp NavGraph từ features
+│   │       ├── AppNavGraph.kt      # 🆕 N18.5 - Root NavHost orchestrator (60 lines, giảm 78% từ 267 lines)
+│   │       ├── AuthNavGraph.kt     # 🆕 N18.5 - Auth routes: Login/Register/ForgotPassword/OtpVerification/ResetPassword
+│   │       ├── MainNavGraph.kt     # 🆕 N18.5 - Main routes: Home/Search/Discover/JoinRoom/Library/Profile
+│   │       ├── QuizManageNavGraph.kt  # 🆕 N18.5 - Quiz management routes: MyQuizzes/CreateQuiz/EditQuiz/QuizDetail/CreateRoom
+│   │       └── GameNavGraph.kt     # 🆕 N18.5 - Game routes: PlayerLobby/HostLobby/GamePlay/HostGame/FinalResult
 │   ├── AndroidManifest.xml
 │   └── res/
 └── build.gradle.kts                # Phụ thuộc TẤT CẢ modules
@@ -423,6 +427,13 @@ core/common/
 │   │   └── StoredCookie.kt               # data class thuần
 │   ├── cache/
 │   │   └── QuizCacheStore.kt             # 🟦 interface - implemented by core:database (RoomQuizCacheStore, N12 21/8)
+│   ├── validator/                        # 🆕 N18.5 (2/9) - Centralized validation (Pattern C)
+│   │   ├── ValidationResult.kt           # sealed interface Success/Error + extension helpers
+│   │   ├── EmailValidator.kt             # validate(email) using Android Patterns.EMAIL_ADDRESS
+│   │   ├── PasswordValidator.kt          # validate(password, minLength), validateForRegister(), validateConfirm()
+│   │   ├── QuizNameValidator.kt          # validate(name) - min 3, max 100 chars
+│   │   ├── QuizDescriptionValidator.kt   # validate(description) - max 500 chars, optional
+│   │   └── RoomSettingsValidator.kt      # validateRoomName/MaxPlayers/TimePerQuestion
 │   ├── model/                            # Domain models thuần Kotlin
 │   │   ├── User.kt
 │   │   ├── Quiz.kt
@@ -923,13 +934,12 @@ feature/quiz-manage/
 │   │       └── ImageUploadField.kt       # S3 presign upload
 │   └── domain/
 │       └── usecase/
-│           ├── GetQuizDetailUseCase.kt   # 🆕 N12 — cache-aside qua QuizCacheStore (fallback khi mất mạng)
-│           ├── CreateQuizUseCase.kt      # inject QuizRepository
-│           ├── UpdateQuizUseCase.kt
+│           ├── GetQuizWithOwnershipUseCase.kt  # 🆕 N18.5 - Orchestrates quiz detail + ownership check (replaces GetQuizDetailUseCase)
+│           ├── CreateQuizWithAssetsUseCase.kt  # 🆕 N18.5 - Orchestrates quiz creation + image uploads (replaces CreateQuizUseCase + UploadImageUseCase)
+│           ├── UpdateQuizWithAssetsUseCase.kt  # 🆕 N18.5 - Orchestrates quiz update + image uploads (replaces UpdateQuizUseCase + UploadImageUseCase)
 │           ├── DeleteQuizUseCase.kt
-│           ├── CreateGameSessionUseCase.kt  # inject GameSessionRepository
-│           ├── GetGameModesUseCase.kt       # GET /games/game-modes
-│           └── UploadImageUseCase.kt        # S3 presign flow
+│           ├── CreateGameSessionUseCase.kt     # inject GameSessionRepository
+│           └── GetGameModesUseCase.kt          # GET /games/game-modes
 └── build.gradle.kts
 ```
 
@@ -1463,9 +1473,9 @@ MyQuizApp được xây dựng với **13 modules** theo **Clean Architecture + 
 
 ---
 
-**Document Version:** 2.3  
-**Last Updated:** 2026-08-28  
-**Status:** Living document - Đã cập nhật socket layer thật của N18 (30/8): `GameEvent` + 3 interface socket ở `core:common`, `GameSocketClient`/`GameEventMapper`/2 impl ở `core:network`, HostLobby thật ở `feature:lobby`
+**Document Version:** 2.4  
+**Last Updated:** 2026-09-02  
+**Status:** Living document - Đã cập nhật socket layer thật của N18 (30/8): `GameEvent` + 3 interface socket ở `core:common`, `GameSocketClient`/`GameEventMapper`/2 impl ở `core:network`, HostLobby thật ở `feature:lobby`. Polish Architecture refactor N18.5 (31/8-2/9): 4 NavGraph modules, validation pattern unified (6 validators in :core:common), 3 orchestration UseCases in quiz-manage, naming conventions standardized.
 
 ---
 

@@ -101,6 +101,20 @@ Bản đầu Create Room đưa `Map<String, JsonElement>` và dotted path xuyên
 - Token socket có TTL riêng, ngắn hơn cookie đăng nhập. Gặp `GAME_TOKEN_INVALID` → refresh qua REST đúng MỘT lần (có guard chống vòng lặp refresh) rồi thoát nếu vẫn fail.
 - UiState realtime phải phân biệt "chưa có snapshot" với "snapshot rỗng" (cờ `hasLobbySnapshot`), và khi mất kết nối thì giữ nguyên dữ liệu cũ thay vì xóa về rỗng.
 
+### 3.8. Architecture Refactor Lessons (N18.5, 31/8-2/9/2026)
+
+**MVI Effect pattern phải consistent từ đầu:** Retrofitting Effect pattern vào 2 ViewModels (HomeViewModel, ProfileViewModel) đơn giản khi số lượng ít, nhưng nếu có 10-15 ViewModels đã dùng navigation methods/flags trong state thì chi phí refactor rất lớn. Thiết kế đúng từ đầu: navigation/one-shot events = Effect channel, KHÔNG BAO GIỜ là state flag hoặc method trong ViewModel. Effect là chuẩn tuyệt đối cho MVI, không có exception.
+
+**God methods >40-50 lines là dấu hiệu thiếu UseCase layer:** `CreateQuizViewModel.submit()` 50 dòng, `EditQuizViewModel.submit()` 65 dòng orchestrating upload + validation + DTO building — rõ ràng là business logic nhưng lại nằm ở presentation. Không nên "vá" bằng cách extract private methods trong ViewModel — phải extract UseCase để đưa logic xuống domain layer. Transfer objects (QuizDraft từ presentation xuống domain, QuizWithOwnership từ domain lên presentation) giúp data flow rõ ràng qua layer boundaries mà không ràng buộc lẫn nhau. ViewModels sau refactor giảm từ 50-65 dòng xuống ~30 dòng — chỉ còn validate input + build DTO + call UseCase + handle Result.
+
+**Layer violations: ViewModels KHÔNG BAO GIỜ gọi multiple repositories trực tiếp:** `QuizDetailViewModel` inject cả `QuizRepository` + `AuthRepository` rồi tự orchestrate "get quiz → get user → compare owner" vi phạm Clean Architecture — presentation không được biết cách coordinate domain logic. Phải tạo `GetQuizWithOwnershipUseCase` ở domain layer để encapsulate orchestration. ViewModel chỉ gọi 1 UseCase, UseCase mới gọi nhiều Repository.
+
+**Validation centralized scale tốt hơn scattered inline checks:** Pattern A (inline `if` trong ViewModel) dễ lặp lại logic, dễ lệch khi update requirement. Pattern B (private `validate()` method trong từng ViewModel) tốt hơn nhưng vẫn duplicate logic qua nhiều ViewModels. Pattern C (validators ở `:core:common`) cho phép reuse (`EmailValidator` dùng cho Login + Register, `QuizNameValidator` dùng cho Create + Edit), type-safe (`ValidationResult` sealed interface thay vì nullable String), testable (pure Kotlin, không phụ thuộc Android framework). Khi có 5-10 ViewModels dùng validation giống nhau, Pattern C tiết kiệm rất nhiều code và đảm bảo consistency.
+
+**Navigation modularization giúp parallel development và maintenance:** `AppNavGraph.kt` 267 dòng chứa tất cả routes khó maintain khi thêm features mới (conflict git, khó review, vi phạm SRP). Tách thành 4 graphs theo feature domain (Auth 5 routes, Main 6 routes, QuizManage 5 routes, Game 5 routes) giảm AppNavGraph còn 60 dòng (78%), mỗi feature có thể develop navigation riêng không conflict, dễ test riêng từng graph. Khi thêm feature mới chỉ cần tạo NavGraph mới và gọi trong AppNavGraph, không touch existing code.
+
+**Systematic refactor với incremental execution + mandatory review stops:** Workflow "xong từng việc dừng lại để tôi review" bắt lỗi sớm trong quá trình refactor 14 tasks (ví dụ: god method pattern phát hiện ngay khi làm CreateQuiz, áp dụng luôn cho EditQuiz). Build + test sau MỖI task (không đợi đến cuối) validate assumptions trước khi compound — sửa 1 task lỗi rẻ hơn rollback 3-4 tasks phụ thuộc. Tạo checklist chi tiết với ước tính thời gian giúp track progress và không overwhelm.
+
 ## 4. Quy tắc quy trình làm việc với user
 
 - User thường test trên **máy thật** sau khi agent báo "xong" — luồng có thể vẫn có bug trên máy thật dù build/compile sạch (ví dụ N15). Đừng coi "compile thành công" là bằng chứng đầy đủ feature hoạt động đúng — khi user gửi Logcat báo lỗi, đọc log thật (không suy đoán) để xác định đúng rõ lỗi backend hay client trước khi sửa.
