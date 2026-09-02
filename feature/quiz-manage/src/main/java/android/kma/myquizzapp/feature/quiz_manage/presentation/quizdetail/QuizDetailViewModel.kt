@@ -1,10 +1,11 @@
 package android.kma.myquizzapp.feature.quiz_manage.presentation.quizdetail
 
 import android.kma.myquizzapp.core.common.error.toUserMessage
-import android.kma.myquizzapp.core.common.repository.AuthRepository
 import android.kma.myquizzapp.core.common.result.Result
+import android.kma.myquizzapp.feature.quiz_manage.domain.model.QuizWithOwnership
 import android.kma.myquizzapp.feature.quiz_manage.domain.usecase.DeleteQuizUseCase
 import android.kma.myquizzapp.feature.quiz_manage.domain.usecase.GetQuizDetailUseCase
+import android.kma.myquizzapp.feature.quiz_manage.domain.usecase.GetQuizWithOwnershipUseCase
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -20,17 +21,15 @@ import javax.inject.Inject
 
 /**
  * ViewModel màn Chi tiết quiz. N16 bổ sung:
- * - isOwner: so quiz.quizOwner với user hiện tại (AuthRepository ở core:common —
- *   không vi phạm dependency rule) để hiện nút Chỉnh sửa/Xóa. Guest xem quiz
- *   public → getCurrentUser lỗi 401 → isOwner = false.
+ * - isOwner: check qua GetQuizWithOwnershipUseCase để hiện nút Chỉnh sửa/Xóa.
+ *   Guest xem quiz public → isOwner = false.
  * - Xóa quiz: hard delete qua DeleteQuizUseCase; lỗi thì giữ dialog mở kèm lý do
  *   (pattern QuizDetailPage web); thành công thì bắn QuizDeleted effect.
  */
 @HiltViewModel
 class QuizDetailViewModel @Inject constructor(
-    private val getQuizDetailUseCase: GetQuizDetailUseCase,
+    private val getQuizWithOwnershipUseCase: GetQuizWithOwnershipUseCase,
     private val deleteQuizUseCase: DeleteQuizUseCase,
-    private val authRepository: AuthRepository,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
@@ -68,18 +67,14 @@ class QuizDetailViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
 
-            when (val result = getQuizDetailUseCase(quizId)) {
+            when (val result = getQuizWithOwnershipUseCase(quizId)) {
                 is Result.Success -> {
-                    val isOwner = when (val userResult = authRepository.getCurrentUser()) {
-                        is Result.Success -> userResult.data.id == result.data.quizOwner
-                        is Result.Error -> false
-                    }
                     _uiState.update {
                         it.copy(
-                            quiz = result.data,
+                            quiz = result.data.quiz,
                             isLoading = false,
                             error = null,
-                            isOwner = isOwner
+                            isOwner = result.data.isOwner
                         )
                     }
                 }
