@@ -4,7 +4,7 @@ import android.kma.myquizzapp.core.common.cookie.CookieStore
 import android.kma.myquizzapp.core.common.repository.AuthRepository
 import android.kma.myquizzapp.core.network.BuildConfig
 import android.kma.myquizzapp.core.network.api.AuthApiService
-import android.kma.myquizzapp.core.network.api.GameApi
+import android.kma.myquizzapp.core.network.api.GameApiService
 import android.kma.myquizzapp.core.network.api.PasswordResetApiService
 import android.kma.myquizzapp.core.network.api.QuizApiService
 import android.kma.myquizzapp.core.network.api.StorageApiService
@@ -133,7 +133,7 @@ object NetworkModule {
     @Singleton
     fun provideGameApi(
         @PreserveCaseRetrofit retrofit: Retrofit
-    ): GameApi = retrofit.create()
+    ): GameApiService = retrofit.create()
 
     // Client riêng, KHÔNG cookie/authenticator — dùng để PUT ảnh thẳng lên storage
     // (S3-compatible, bên thứ 3). Xem RawUploadOkHttpClient để biết lý do phải tách.

@@ -11,7 +11,7 @@ import retrofit2.http.POST
 import retrofit2.http.Path
 
 /** Games REST API dùng PreserveCaseRetrofit vì payload trộn snake_case và camelCase. */
-interface GameApi {
+interface GameApiService {
     @GET("games/game-modes")
     suspend fun getGameModes(): Result<GameModesResponseDto>
 

@@ -6,12 +6,12 @@ import android.kma.myquizzapp.core.common.model.GameModeDescriptor
 import android.kma.myquizzapp.core.common.repository.GameSessionRepository
 import android.kma.myquizzapp.core.common.result.Result
 import android.kma.myquizzapp.core.common.result.map
-import android.kma.myquizzapp.core.network.api.GameApi
+import android.kma.myquizzapp.core.network.api.GameApiService
 import android.kma.myquizzapp.core.network.dto.toRequestDto
 import javax.inject.Inject
 
 class GameSessionRepositoryImpl @Inject constructor(
-    private val gameApi: GameApi
+    private val gameApi: GameApiService
 ) : GameSessionRepository {
 
     override suspend fun getGameModes(): Result<List<GameModeDescriptor>> =
