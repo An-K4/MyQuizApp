@@ -56,7 +56,7 @@ class QuizManageListViewModel @Inject constructor(
         .flatMapLatest { (params, _) -> getMyQuizzesUseCase(params) }
         .cachedIn(viewModelScope)
 
-    fun handleIntent(intent: QuizManageListIntent) {
+    fun onIntent(intent: QuizManageListIntent) {
         when (intent) {
             is QuizManageListIntent.VisibilityChanged ->
                 _uiState.update { it.copy(visibility = intent.visibility) }

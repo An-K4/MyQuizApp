@@ -45,7 +45,7 @@ fun HomeScreen(
     }
 
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
-        viewModel.handleIntent(HomeIntent.CheckAuthState)
+        viewModel.onIntent(HomeIntent.CheckAuthState)
     }
 
     HomeScreenContent(
@@ -54,7 +54,7 @@ fun HomeScreen(
         onNavigateToAuth = onNavigateToAuth,
         onNavigateToQuizDetail = onNavigateToQuizDetail,
         onNavigateToProfile = onNavigateToProfile,
-        onRetry = { viewModel.handleIntent(HomeIntent.Retry) },
+        onRetry = { viewModel.onIntent(HomeIntent.Retry) },
         modifier = modifier
     )
 }

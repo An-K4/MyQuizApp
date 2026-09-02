@@ -37,7 +37,7 @@ class CreateQuizViewModel @Inject constructor(
     private val _effect = Channel<CreateQuizEffect>(Channel.BUFFERED)
     val effect = _effect.receiveAsFlow()
 
-    fun handleIntent(intent: CreateQuizIntent) {
+    fun onIntent(intent: CreateQuizIntent) {
         when (intent) {
             is CreateQuizIntent.QuizNameChanged -> _uiState.update { it.copy(quizName = intent.value) }
             is CreateQuizIntent.QuizDescriptionChanged -> _uiState.update { it.copy(quizDescription = intent.value) }

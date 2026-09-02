@@ -46,7 +46,7 @@ fun SearchScreen(
                     !uiState.isLoadingMore &&
                     uiState.hasMore
                 ) {
-                    viewModel.handleIntent(SearchIntent.LoadMore)
+                    viewModel.onIntent(SearchIntent.LoadMore)
                 }
             }
     }
@@ -55,7 +55,7 @@ fun SearchScreen(
         uiState = uiState,
         focusRequester = focusRequester,
         listState = listState,
-        onIntent = viewModel::handleIntent,
+        onIntent = viewModel::onIntent,
         onNavigateBack = onNavigateBack,
         onNavigateToQuizDetail = onNavigateToQuizDetail,
         modifier = modifier

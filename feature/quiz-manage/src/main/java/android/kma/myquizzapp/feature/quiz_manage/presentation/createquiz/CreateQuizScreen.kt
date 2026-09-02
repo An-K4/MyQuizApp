@@ -31,8 +31,8 @@ fun CreateQuizScreen(
         pendingPickTarget = null
         if (uri != null && target != null) {
             when (target) {
-                PickTarget.Cover -> viewModel.handleIntent(CreateQuizIntent.PickCoverImage(uri))
-                is PickTarget.Question -> viewModel.handleIntent(CreateQuizIntent.PickQuestionImage(target.localId, uri))
+                PickTarget.Cover -> viewModel.onIntent(CreateQuizIntent.PickCoverImage(uri))
+                is PickTarget.Question -> viewModel.onIntent(CreateQuizIntent.PickQuestionImage(target.localId, uri))
             }
         }
     }
@@ -50,7 +50,7 @@ fun CreateQuizScreen(
     CreateQuizScreenContent(
         uiState = uiState,
         onNavigateBack = onNavigateBack,
-        onIntent = viewModel::handleIntent,
+        onIntent = viewModel::onIntent,
         onPickCoverImage = { launchImagePicker(PickTarget.Cover) },
         onPickQuestionImage = { launchImagePicker(PickTarget.Question(it)) },
         modifier = modifier

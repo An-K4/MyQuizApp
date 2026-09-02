@@ -55,7 +55,7 @@ class HomeViewModel @Inject constructor(
     /**
      * Handle user intents.
      */
-    fun handleIntent(intent: HomeIntent) {
+    fun onIntent(intent: HomeIntent) {
         when (intent) {
             is HomeIntent.LoadHome -> loadHomeContent()
             is HomeIntent.NavigateToSearch -> viewModelScope.launch {

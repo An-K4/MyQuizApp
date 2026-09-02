@@ -44,7 +44,7 @@ fun CreateRoomScreen(
     CreateRoomScreenContent(
         uiState = uiState,
         onNavigateBack = onNavigateBack,
-        onIntent = viewModel::handleIntent,
+        onIntent = viewModel::onIntent,
         modifier = modifier
     )
 }

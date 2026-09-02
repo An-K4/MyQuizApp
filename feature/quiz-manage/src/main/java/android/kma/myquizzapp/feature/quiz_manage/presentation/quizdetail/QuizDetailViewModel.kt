@@ -42,10 +42,10 @@ class QuizDetailViewModel @Inject constructor(
     val effect = _effect.receiveAsFlow()
 
     init {
-        handleIntent(QuizDetailIntent.LoadQuizDetail)
+        onIntent(QuizDetailIntent.LoadQuizDetail)
     }
 
-    fun handleIntent(intent: QuizDetailIntent) {
+    fun onIntent(intent: QuizDetailIntent) {
         when (intent) {
             is QuizDetailIntent.LoadQuizDetail -> loadQuizDetail()
             is QuizDetailIntent.Retry -> loadQuizDetail()

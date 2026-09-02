@@ -38,7 +38,7 @@ class SearchViewModel @Inject constructor(
     /**
      * Handle user intents.
      */
-    fun handleIntent(intent: SearchIntent) {
+    fun onIntent(intent: SearchIntent) {
         when (intent) {
             is SearchIntent.QueryChanged -> updateQuery(intent.query)
             is SearchIntent.SubmitSearch -> submitSearch()

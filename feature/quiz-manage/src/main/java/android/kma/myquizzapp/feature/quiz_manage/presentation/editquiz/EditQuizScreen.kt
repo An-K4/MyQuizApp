@@ -40,8 +40,8 @@ fun EditQuizScreen(
         pendingPickTarget = null
         if (uri != null && target != null) {
             when (target) {
-                PickTarget.Cover -> viewModel.handleIntent(EditQuizIntent.PickCoverImage(uri))
-                is PickTarget.Question -> viewModel.handleIntent(EditQuizIntent.PickQuestionImage(target.localId, uri))
+                PickTarget.Cover -> viewModel.onIntent(EditQuizIntent.PickCoverImage(uri))
+                is PickTarget.Question -> viewModel.onIntent(EditQuizIntent.PickQuestionImage(target.localId, uri))
             }
         }
     }
@@ -62,7 +62,7 @@ fun EditQuizScreen(
         onShowDiscardDialogChange = { showDiscardDialog = it },
         onNavigateBack = requestBack,
         onDiscardAndNavigateBack = onNavigateBack,
-        onIntent = viewModel::handleIntent,
+        onIntent = viewModel::onIntent,
         onPickCoverImage = { launchImagePicker(PickTarget.Cover) },
         onPickQuestionImage = { launchImagePicker(PickTarget.Question(it)) },
         modifier = modifier

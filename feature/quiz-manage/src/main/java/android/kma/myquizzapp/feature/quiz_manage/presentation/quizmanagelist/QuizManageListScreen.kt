@@ -47,7 +47,7 @@ fun QuizManageListScreen(
 
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
         if (skipFirstResume) skipFirstResume = false
-        else viewModel.handleIntent(QuizManageListIntent.Refresh)
+        else viewModel.onIntent(QuizManageListIntent.Refresh)
     }
 
     QuizManageListScreenContent(
@@ -55,7 +55,7 @@ fun QuizManageListScreen(
         quizzes = quizzes,
         sortMenuExpanded = sortMenuExpanded,
         onSortMenuExpandedChange = { sortMenuExpanded = it },
-        onIntent = viewModel::handleIntent,
+        onIntent = viewModel::onIntent,
         onRetry = quizzes::retry,
         onNavigateBack = onNavigateBack,
         onNavigateToCreateQuiz = onNavigateToCreateQuiz,

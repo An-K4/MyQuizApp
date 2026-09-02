@@ -64,7 +64,7 @@ fun HostLobbyScreen(
 
     HostLobbyScreenContent(
         uiState = uiState,
-        onIntent = viewModel::handleIntent,
+        onIntent = viewModel::onIntent,
         modifier = modifier
     )
 }

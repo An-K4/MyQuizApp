@@ -66,7 +66,7 @@ class HostLobbyViewModel @Inject constructor(
         connect()
     }
 
-    fun handleIntent(intent: HostLobbyIntent) {
+    fun onIntent(intent: HostLobbyIntent) {
         when (intent) {
             HostLobbyIntent.Retry -> connect()
             HostLobbyIntent.LeaveRoom -> leaveRoom()

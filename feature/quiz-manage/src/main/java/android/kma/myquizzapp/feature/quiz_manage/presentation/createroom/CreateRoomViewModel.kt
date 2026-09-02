@@ -43,7 +43,7 @@ class CreateRoomViewModel @Inject constructor(
         loadModes()
     }
 
-    fun handleIntent(intent: CreateRoomIntent) {
+    fun onIntent(intent: CreateRoomIntent) {
         when (intent) {
             CreateRoomIntent.RetryLoadModes -> loadModes()
             is CreateRoomIntent.SessionNameChanged -> updateSessionName(intent.value)

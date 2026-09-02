@@ -54,7 +54,7 @@ class EditQuizViewModel @Inject constructor(
         loadQuiz()
     }
 
-    fun handleIntent(intent: EditQuizIntent) {
+    fun onIntent(intent: EditQuizIntent) {
         when (intent) {
             is EditQuizIntent.LoadQuiz, is EditQuizIntent.Retry -> loadQuiz()
 

@@ -45,7 +45,7 @@ fun QuizDetailScreen(
     }
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
         if (skipFirstResume) skipFirstResume = false
-        else viewModel.handleIntent(QuizDetailIntent.LoadQuizDetail)
+        else viewModel.onIntent(QuizDetailIntent.LoadQuizDetail)
     }
 
     QuizDetailScreenContent(
@@ -53,7 +53,7 @@ fun QuizDetailScreen(
         onNavigateBack = onNavigateBack,
         onNavigateToCreateRoom = onNavigateToCreateRoom,
         onNavigateToEditQuiz = onNavigateToEditQuiz,
-        onIntent = viewModel::handleIntent,
+        onIntent = viewModel::onIntent,
         modifier = modifier
     )
 }
