@@ -6,6 +6,9 @@ import android.kma.myquizzapp.feature.auth.domain.usecase.RegisterUseCase
 import android.kma.myquizzapp.feature.auth.presentation.validation.AuthValidator
 import android.kma.myquizzapp.core.common.error.toUserMessage
 import android.kma.myquizzapp.core.common.result.Result
+import android.kma.myquizzapp.core.common.validator.EmailValidator
+import android.kma.myquizzapp.core.common.validator.PasswordValidator
+import android.kma.myquizzapp.core.common.validator.ValidationResult
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -53,10 +56,14 @@ class RegisterViewModel @Inject constructor(
     private fun submit() {
         val s = uiState.value
         // Validate client-side TRƯỚC — khớp registerSchema backend
-        val emailError = AuthValidator.emailError(s.email)
-        val passwordError = AuthValidator.registerPasswordError(s.password)
+        val emailResult = EmailValidator.validate(s.email.trim())
+        val passwordResult = PasswordValidator.validateForRegister(s.password)
         val fullnameError = AuthValidator.fullnameError(s.fullname)
         val phoneError = AuthValidator.phoneError(s.phone)
+
+        // Convert ValidationResult to String? for consistent error handling
+        val emailError = (emailResult as? ValidationResult.Error)?.message
+        val passwordError = (passwordResult as? ValidationResult.Error)?.message
 
         if (emailError != null || passwordError != null ||
             fullnameError != null || phoneError != null

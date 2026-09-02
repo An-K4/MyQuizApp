@@ -7,6 +7,8 @@ import android.kma.myquizzapp.core.common.model.GameConfigKey
 import android.kma.myquizzapp.core.common.model.GameMode
 import android.kma.myquizzapp.core.common.model.GameSession
 import android.kma.myquizzapp.core.common.result.Result
+import android.kma.myquizzapp.core.common.validator.RoomSettingsValidator
+import android.kma.myquizzapp.core.common.validator.ValidationResult
 import android.kma.myquizzapp.feature.quiz_manage.domain.usecase.CreateGameSessionUseCase
 import android.kma.myquizzapp.feature.quiz_manage.domain.usecase.GetGameModesUseCase
 import android.kma.myquizzapp.feature.quiz_manage.domain.usecase.GetHostTokenUseCase
@@ -160,8 +162,10 @@ class CreateRoomViewModel @Inject constructor(
         val form = state.modeConfig ?: return
         val invalidKeys = form.invalidKeys(descriptor)
         val errors = buildList {
-            if (state.sessionName.trim().length !in 2..100) {
-                add("Tên phòng phải có từ 2 đến 100 ký tự.")
+            // Validate room name using RoomSettingsValidator (Pattern C)
+            val nameResult = RoomSettingsValidator.validateRoomName(state.sessionName)
+            if (nameResult is ValidationResult.Error) {
+                add(nameResult.message)
             }
             if (invalidKeys.isNotEmpty()) {
                 add("Hãy kiểm tra lại các cấu hình đang được đánh dấu.")

@@ -5,6 +5,9 @@ import android.kma.myquizzapp.core.common.model.Question
 import android.kma.myquizzapp.core.common.model.QuestionType
 import android.kma.myquizzapp.core.common.model.Quiz
 import android.kma.myquizzapp.core.common.result.Result
+import android.kma.myquizzapp.core.common.validator.QuizDescriptionValidator
+import android.kma.myquizzapp.core.common.validator.QuizNameValidator
+import android.kma.myquizzapp.core.common.validator.ValidationResult
 import android.kma.myquizzapp.feature.quiz_manage.domain.model.QuizDraft
 import android.kma.myquizzapp.feature.quiz_manage.domain.usecase.GetQuizDetailUseCase
 import android.kma.myquizzapp.feature.quiz_manage.domain.usecase.UpdateQuizWithAssetsUseCase
@@ -192,9 +195,19 @@ class EditQuizViewModel @Inject constructor(
     private fun validate(state: EditQuizUiState): List<String> {
         // Cùng bộ rule với CreateQuizViewModel — khớp createQuestionSchema (quiz.schema.ts).
         val errors = mutableListOf<String>()
-        if (state.quizName.trim().length < 3) {
-            errors += "Tên quiz phải có ít nhất 3 ký tự."
+        
+        // Validate quiz name using QuizNameValidator (Pattern C)
+        val nameResult = QuizNameValidator.validate(state.quizName)
+        if (nameResult is ValidationResult.Error) {
+            errors += nameResult.message
         }
+        
+        // Validate quiz description using QuizDescriptionValidator (Pattern C)
+        val descResult = QuizDescriptionValidator.validate(state.quizDescription)
+        if (descResult is ValidationResult.Error) {
+            errors += descResult.message
+        }
+        
         if (state.questions.isEmpty()) {
             errors += "Quiz phải có ít nhất 1 câu hỏi."
         }

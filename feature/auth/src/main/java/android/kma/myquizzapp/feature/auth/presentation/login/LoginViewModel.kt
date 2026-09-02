@@ -5,9 +5,11 @@ import androidx.lifecycle.viewModelScope
 import android.kma.myquizzapp.feature.auth.domain.usecase.EnableGuestModeUseCase
 import android.kma.myquizzapp.feature.auth.domain.usecase.LoginUseCase
 import android.kma.myquizzapp.feature.auth.domain.usecase.LoginWithGoogleUseCase
-import android.kma.myquizzapp.feature.auth.presentation.validation.AuthValidator
 import android.kma.myquizzapp.core.common.error.toUserMessage
 import android.kma.myquizzapp.core.common.result.Result
+import android.kma.myquizzapp.core.common.validator.EmailValidator
+import android.kma.myquizzapp.core.common.validator.PasswordValidator
+import android.kma.myquizzapp.core.common.validator.ValidationResult
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -52,12 +54,19 @@ class LoginViewModel @Inject constructor(
         val s = uiState.value
         // Validate client-side TRƯỚC — tiết kiệm 1 round-trip; server vẫn validate lại
         // (server-authoritative), nên rule ở đây chỉ để UX, khớp auth.schema.ts.
-        val emailError = AuthValidator.emailError(s.email)
-        val passwordError = AuthValidator.loginPasswordError(s.password)
-        if (emailError != null || passwordError != null) {
-            _uiState.update { it.copy(emailError = emailError, passwordError = passwordError) }
+        val emailResult = EmailValidator.validate(s.email.trim())
+        val passwordResult = PasswordValidator.validate(s.password)
+
+        if (emailResult is ValidationResult.Error) {
+            _uiState.update { it.copy(emailError = emailResult.message) }
+        }
+        if (passwordResult is ValidationResult.Error) {
+            _uiState.update { it.copy(passwordError = passwordResult.message) }
+        }
+        if (emailResult is ValidationResult.Error || passwordResult is ValidationResult.Error) {
             return
         }
+
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
             val result = loginUseCase(s.email.trim(), s.password)
