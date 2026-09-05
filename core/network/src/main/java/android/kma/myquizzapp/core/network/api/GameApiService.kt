@@ -5,6 +5,9 @@ import android.kma.myquizzapp.core.network.dto.CreateGameRequestDto
 import android.kma.myquizzapp.core.network.dto.CreateGameResponseDto
 import android.kma.myquizzapp.core.network.dto.GameModesResponseDto
 import android.kma.myquizzapp.core.network.dto.HostTokenResponseDto
+import android.kma.myquizzapp.core.network.dto.JoinGameRequestDto
+import android.kma.myquizzapp.core.network.dto.JoinGameResponseDto
+import android.kma.myquizzapp.core.network.dto.RoomLookupResponseDto
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.POST
@@ -20,4 +23,24 @@ interface GameApiService {
 
     @POST("games/{id}/host-token")
     suspend fun getHostToken(@Path("id") gameId: Long): Result<HostTokenResponseDto>
+
+    /**
+     * Tra phòng theo mã. Endpoint PUBLIC — guest chưa đăng nhập vẫn gọi được.
+     *
+     * Path là `{code}` (mã 6 ký tự), KHÔNG phải id số — khác với các endpoint
+     * `games/{id}/...` bên trên.
+     */
+    @GET("games/{code}")
+    suspend fun lookupRoom(@Path("code") sessionCode: String): Result<RoomLookupResponseDto>
+
+    /**
+     * Vào phòng. optionalAuth: có cookie thì server dùng danh tính phiên đăng nhập
+     * và bỏ qua body; không có cookie thì bắt buộc có player_name + player_guest_id.
+     * Trả về 201 kèm socketToken phẳng.
+     */
+    @POST("games/{code}/join")
+    suspend fun joinRoom(
+        @Path("code") sessionCode: String,
+        @Body body: JoinGameRequestDto
+    ): Result<JoinGameResponseDto>
 }

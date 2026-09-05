@@ -35,9 +35,9 @@ data class LobbyUpdatedDto(
 /**
  * Một dòng người chơi trong lobby (schema LobbyPlayer ở socket.doc.ts).
  *
- * Backend còn gửi `player_avatar` và `lives`. N18 chưa dùng nên không khai báo —
- * ignoreUnknownKeys bỏ qua an toàn. Khi làm avatar trong lobby (N19) thì thêm vào
- * đây và vào domain LobbyPlayer cùng lúc.
+ * N19 đã khai báo `player_avatar` và `lives` (backend gửi từ đầu): avatar để hiển
+ * thị trong danh sách, `lives` cho mode survival. Cả hai nullable và có default nên
+ * payload thiếu field (mode thường, hoặc guest không avatar) vẫn parse được.
  *
  * `status` giữ nguyên String đúng bản chất backend (connected / disconnected /
  * eliminated / finished) — không parse thành enum để backend thêm giá trị mới
@@ -48,13 +48,17 @@ data class LobbyPlayerDto(
     val id: Long,
     @SerialName("player_name") val playerName: String,
     @SerialName("player_score") val playerScore: Int = 0,
-    val status: String = "connected"
+    val status: String = "connected",
+    @SerialName("player_avatar") val playerAvatar: String? = null,
+    val lives: Int? = null
 ) {
     fun toDomain() = LobbyPlayer(
         id = id,
         playerName = playerName,
         playerScore = playerScore,
-        status = status
+        status = status,
+        playerAvatar = playerAvatar,
+        lives = lives
     )
 }
 

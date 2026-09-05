@@ -12,8 +12,12 @@ import android.kma.myquizzapp.core.common.model.GameModeDescriptor
 import android.kma.myquizzapp.core.common.model.GameSession
 import android.kma.myquizzapp.core.common.model.IgnoredGameConfigField
 import android.kma.myquizzapp.core.common.model.IgnoredGameConfigReason
+import android.kma.myquizzapp.core.common.model.JoinRoomResult
+import android.kma.myquizzapp.core.common.model.JoinedPlayer
 import android.kma.myquizzapp.core.common.model.Pacing
+import android.kma.myquizzapp.core.common.model.RoomLookup
 import android.kma.myquizzapp.core.common.model.SessionStatus
+import android.kma.myquizzapp.core.network.socket.dto.LobbyPlayerDto
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
@@ -179,6 +183,115 @@ data class HostTokenResponseDto(val hostToken: HostTokenDto)
 
 @Serializable
 data class HostTokenDto(val socketToken: String)
+
+/**
+ * Response của `GET /games/{code}`.
+ *
+ * ⚠ LỒNG BA CẤP `data.session.session` — KHÔNG phải `data.session` như design doc ghi.
+ * Nguyên nhân nằm ở backend (game.controller.ts):
+ *
+ * ```ts
+ * const session = await gameService.getLobby(code)  // trả { session, players, config }
+ * return success(res, { session })                   // → data.session = { session, players, config }
+ * ```
+ *
+ * Biến bị đặt tên `session` nhưng thực chất là cả cụm lobby, nên object bị bọc thêm
+ * một lớp. Đây là bug backend do N19 phát hiện; client vẫn phải chạy được với server
+ * đang deploy nên DTO mô tả đúng payload THẬT. Khi backend sửa thành
+ * `success(res, lobby)` thì chỉ cần trỏ Retrofit sang [LobbySnapshotDto] và xóa lớp này.
+ *
+ * Dấu hiệu nhận biết nếu lỗi tái xuất hiện: kotlinx báo thiếu toàn bộ field của
+ * GameSessionDto tại `$.data.session` NHƯNG không báo thiếu `config` — vì `config`
+ * là field duy nhất tồn tại ở cả hai cấp.
+ */
+@Serializable
+data class RoomLookupResponseDto(val session: LobbySnapshotDto) {
+    fun toDomain(): RoomLookup = session.toDomain()
+}
+
+/**
+ * Ảnh chụp lobby công khai: session + danh sách người chơi đang có mặt.
+ *
+ * `config` xuất hiện hai lần trong payload (`session.config` và một bản sao ở cấp
+ * ngoài). Chỉ đọc `session.config` để không phải quyết định bên nào thắng — hai bản
+ * này luôn là cùng một object ở backend (`getLobby` trả `config: session.config`).
+ *
+ * `players` khi đọc từ Postgres là bản Pick (id, player_name, player_score, status),
+ * còn khi Redis còn nóng là full row. LobbyPlayerDto đã có default cho mọi field
+ * ngoài `id`/`player_name` nên cả hai dạng đều parse được — dùng lại đúng DTO của
+ * socket `lobby:updated` để lobby REST và lobby socket không lệch schema.
+ */
+@Serializable
+data class LobbySnapshotDto(
+    val session: GameSessionDto,
+    val players: List<LobbyPlayerDto> = emptyList()
+) {
+    fun toDomain(): RoomLookup = with(session) {
+        RoomLookup(
+            gameId = id,
+            sessionCode = sessionCode,
+            sessionName = sessionName,
+            mode = gameMode,
+            status = sessionStatus,
+            allowGuests = config.lobby.allowGuests,
+            allowLateJoin = config.lobby.allowLateJoin,
+            maxPlayers = config.lobby.maxPlayers,
+            // `players` là nguồn tươi nhất (cache/DB tại thời điểm gọi), trong khi
+            // `total_players` trên row chỉ được cập nhật khi ván kết thúc → nếu tin
+            // vào nó thì kiểm tra "phòng đã đầy" sẽ luôn sai.
+            totalPlayers = players.size,
+            questionCount = totalQuestions,
+            lives = config.flow.lives
+        )
+    }
+}
+
+/**
+ * Body của `POST /games/{code}/join`.
+ *
+ * Cả hai field đều nullable và Json dùng `explicitNulls = false`, nên người đã
+ * đăng nhập gửi `JoinGameRequestDto()` sẽ thành body rỗng `{}` — đúng thiết
+ * kế backend (controller tự dựng payload từ `req.user`, bỏ qua body).
+ *
+ * Tên field snake_case phải khai báo tường minh vì Retrofit/Json của games API
+ * dùng @PreserveCase (không có namingStrategy) — bẫy đã gặp ở N15/N16.
+ */
+@Serializable
+data class JoinGameRequestDto(
+    @SerialName("player_name") val playerName: String? = null,
+    @SerialName("player_guest_id") val playerGuestId: String? = null
+)
+
+/**
+ * Response của join (HTTP 201).
+ *
+ * `socketToken` nằm PHẲNG ngay trong `data`, không lồng như `hostToken.socketToken`.
+ */
+@Serializable
+data class JoinGameResponseDto(
+    val player: JoinedPlayerDto,
+    val socketToken: String
+) {
+    fun toDomain() = JoinRoomResult(
+        player = player.toDomain(),
+        socketToken = socketToken
+    )
+}
+
+@Serializable
+data class JoinedPlayerDto(
+    val id: Long,
+    @SerialName("player_name") val playerName: String,
+    @SerialName("player_avatar") val playerAvatar: String? = null,
+    val lives: Int? = null
+) {
+    fun toDomain() = JoinedPlayer(
+        id = id,
+        playerName = playerName,
+        playerAvatar = playerAvatar,
+        lives = lives
+    )
+}
 
 private fun String.toConfigKey(): GameConfigKey? = when (this) {
     "timing.perQuestionSeconds" -> GameConfigKey.PER_QUESTION_SECONDS

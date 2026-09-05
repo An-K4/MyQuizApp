@@ -41,10 +41,19 @@ data class LeaderboardEntry(
     val status: String
 )
 
+/**
+ * Một dòng người chơi trong lobby (payload `lobby:updated`).
+ *
+ * N19 bổ sung [playerAvatar] và [lives]: backend đã gửi sẵn từ đầu (schema
+ * LobbyPlayer ở socket.doc.ts) nhưng N18 chưa dùng. Cả hai đều nullable đúng bản
+ * chất: guest không có avatar, và `lives` chỉ có nghĩa ở mode survival.
+ */
 @Serializable
 data class LobbyPlayer(
     val id: Long,
     val playerName: String,
     val playerScore: Int,
-    val status: String
+    val status: String,
+    val playerAvatar: String? = null,
+    val lives: Int? = null
 )
