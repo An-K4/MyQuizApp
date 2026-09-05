@@ -226,7 +226,7 @@ myquizz-android/
 │   │       ├── presentation/
 │   │       │   ├── player/PlayerLobbyScreen.kt, PlayerLobbyViewModel.kt
 │   │       │   └── host/HostLobbyScreen.kt, HostLobbyViewModel.kt   # có UpdateConfig intent
-│   │       └── domain/usecase/ JoinGameAsPlayerUseCase.kt, GetHostSocketTokenUseCase.kt, LookupRoomUseCase.kt
+│   │       └── domain/usecase/ RefreshHostTokenUseCase.kt (N18), LookupRoomUseCase.kt + JoinGameUseCase.kt (N19)
 │   │       # 3 UseCase trên đều inject GameSessionRepository (🟦 core:common).
 │   │
 │   ├── game-player/                        # Gameplay phía Player — cả host-paced & self-paced (mục 6, 9)
@@ -609,7 +609,7 @@ Trạng thái đăng nhập được xác thực bằng cách gọi `GET /users/
 <tr>
 <td>GET</td>
 <td>`/games/:code`</td>
-<td>tra cứu phòng theo mã (JoinRoomScreen dùng để validate trước khi join)</td>
+<td>tra cứu phòng theo mã (JoinRoomScreen dùng để validate trước khi join). ⚠️ **Payload thật lồng ba cấp** `data.session.session` (+ `players`, `config`) vì `getGameByCode` đặt tên biến `session` cho cả cụm `{session, players, config}` của `getLobby` — bug backend, xem điểm lệch #11 trong file kế hoạch 50 ngày. Android map bằng `RoomLookupResponseDto` + `LobbySnapshotDto`; `totalPlayers` đếm từ `players` vì cột `total_players` không tăng khi join</td>
 </tr>
 <tr>
 <td>POST</td>
@@ -1088,8 +1088,8 @@ data class HostGameUiState(
 <td>validate mã phòng trước khi join</td>
 </tr>
 <tr>
-<td>`JoinGameAsPlayerUseCase`</td>
-<td>code, nickname, guestId?</td>
+<td>`JoinGameUseCase` (tên thật từ N19)</td>
+<td>code, playerName? (null nếu đã đăng nhập), guestId? (UUID từ `GuestIdentityStore`)</td>
 <td>`Result<PlayerSession + socketToken>`</td>
 <td></td>
 </tr>
@@ -1168,7 +1168,9 @@ interface GameSessionRepository { // REST phần tạo/join phòng
     suspend fun getGameModes(): Result<List<GameModeSpec>, AppError>
     suspend fun createSession(req: CreateSessionRequest): Result<GameSession, AppError>
     suspend fun lookupRoom(code: String): Result<GameSession, AppError>
-    suspend fun joinAsPlayer(code: String, nickname: String, guestId: String?): Result<JoinResult, AppError>
+    // ✅ Chốt ở N19: tên thật là joinRoom, playerName NULLABLE (người đã đăng nhập gửi body rỗng,
+    // server tự lấy danh tính từ cookie), và Result chỉ có 1 type param theo pattern dự án
+    suspend fun joinRoom(code: String, playerName: String?, guestId: String?): Result<JoinRoomResult>
     suspend fun getHostToken(gameId: Long): Result<String, AppError>
     suspend fun getLeaderboard(gameId: Long): Result<List<PlayerScore>, AppError>
     suspend fun getResults(gameId: Long): Result<GameResults, AppError>

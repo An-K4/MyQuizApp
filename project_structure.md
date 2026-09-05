@@ -293,6 +293,7 @@ core/datastore/
 ├── src/main/java/.../datastore/
 │   ├── PreferenceKeys.kt                 # Centralized preference keys
 │   ├── UserPreferences.kt                # DataStore wrapper với helper methods
+│   ├── GuestIdentityStore.kt             # 🆕 N19: UUID của khách (player_guest_id), sinh lần đầu cần join rồi giữ mãi
 │   ├── usecase/
 │   │   └── CheckAuthStateUseCase.kt      # 🟩 Cross-cutting: trả về AuthState (FIRST_LAUNCH/GUEST_MODE/AUTHENTICATED)
 │   └── di/
@@ -658,7 +659,8 @@ Phòng chờ trước khi game bắt đầu. Có 2 perspectives: **Host** (đi�
 
 #### Trách nhiệm
 - ✅ HostLobbyScreen + HostLobbyViewModel (N18: danh sách người chơi realtime + reconnect; update config để N20)
-- ⏳ PlayerLobbyScreen + PlayerLobbyViewModel (N19)
+- ✅ PlayerLobbyScreen + PlayerLobbyViewModel (N19, 5/9 — join REST → `socketToken` → socket realtime, đã test trên máy thật)
+- ✅ JoinRoomScreen (nhập mã phòng) + GuestNicknameScreen (chỉ khách thấy; người đã đăng nhập vào thẳng lobby) — N19
 - ✅ Real-time player list qua socket event **`lobby:updated`** — server bắn 1 snapshot đầy đủ, KHÔNG có `lobby:player-joined`/`lobby:player-left` như doc cũ ghi
 - ✅ Host có thể kick player, update config
 - ✅ Hiển thị room code + QR code để share
@@ -674,13 +676,30 @@ feature/lobby/
 │   │   │   ├── HostLobbyUiState.kt       # + hasLobbySnapshot, ConnectionStatus
 │   │   │   ├── HostLobbyIntent.kt        # Retry / LeaveRoom / ErrorShown
 │   │   │   └── HostLobbyEffect.kt        # ExitLobby(message)
-│   │   └── playerlobby/                   # ⏳ N19 — chưa có
+│   │   ├── joinroom/                       # 🆕 N19 (5/9) — nhập mã phòng, tra phòng trước khi join
+│   │   │   ├── JoinRoomScreen.kt          # Stateful + Content stateless; snackbar lý do bị rời phòng
+│   │   │   ├── JoinRoomViewModel.kt       # lookup → rẽ nhánh: đã login → join luôn / khách → GuestNickname
+│   │   │   ├── JoinRoomUiState.kt
+│   │   │   ├── JoinRoomIntent.kt
+│   │   │   └── JoinRoomEffect.kt
+│   │   ├── guestnickname/                  # 🆕 N19 (5/9) — chỉ dành cho khách
+│   │   │   ├── GuestNicknameScreen.kt
+│   │   │   ├── GuestNicknameViewModel.kt  # NicknameValidator + GuestIdentityStore (UUID)
+│   │   │   ├── GuestNicknameUiState.kt
+│   │   │   ├── GuestNicknameIntent.kt
+│   │   │   └── GuestNicknameEffect.kt
+│   │   └── playerlobby/                    # 🆕 N19 (5/9) — hàng thật, dùng lại socket layer N18
+│   │       ├── PlayerLobbyScreen.kt       # Stateful + Content stateless
+│   │       ├── PlayerLobbyViewModel.kt    # re-join sau MỌI Connected; token invalid = fatal (không refresh được)
+│   │       ├── PlayerLobbyUiState.kt
+│   │       ├── PlayerLobbyIntent.kt
+│   │       └── PlayerLobbyEffect.kt       # ExitLobby(message)
 │   └── domain/
 │       └── usecase/
 │           └── RefreshHostTokenUseCase.kt # 🆕 N18: POST /games/:id/host-token (idempotent)
 ```
 
-> ⚠️ Các use case `JoinGameAsPlayerUseCase`, `GetHostSocketTokenUseCase`, `LookupRoomUseCase`, `ConnectLobbySocketUseCase` trong v2.2 chỉ là **dự kiến**, chưa tồn tại. N18 không cần `ConnectLobbySocketUseCase` vì việc connect nằm trong `GameSocketRepository.events()` ở `core:network`; 3 use case còn lại sẽ chốt lại ở N19.
+> ✅ **Đã chốt ở N19 (5/9)**: use case thật của `feature:lobby` là `RefreshHostTokenUseCase` (N18), `LookupRoomUseCase` và `JoinGameUseCase` (N19). Tên dự kiến trong v2.2 không dùng: `JoinGameAsPlayerUseCase` → `JoinGameUseCase`; `GetHostSocketTokenUseCase` → `RefreshHostTokenUseCase`; `ConnectLobbySocketUseCase` **bỏ hẳn** vì connect nằm trong `GameSocketRepository.events()` ở `core:network`.
 
 ```text
 └── build.gradle.kts
@@ -1064,7 +1083,7 @@ abstract class DatabaseBindingModule {
 | `AuthRepository` | `core:common/repository` | `core:network` (AuthRepositoryImpl) | `feature:auth`, `core:datastore` (CheckAuthStateUseCase) |
 | `QuizRepository` | `core:common/repository` | `core:network` (QuizRepositoryImpl) | `feature:home`, `feature:quiz-manage` |
 | `GameSessionRepository` | `core:common/repository` | `core:network` (GameSessionRepositoryImpl) | `feature:lobby`, `feature:quiz-manage`, `feature:leaderboard` |
-| `GameSocketRepository` (base) | `core:common/repository` | `core:network/socket` (GameSocketClient) | `feature:lobby` (+ N19/N20) |
+| `GameSocketRepository` (base) | `core:common/repository` | `core:network/socket` (GameSocketClient) | `feature:lobby` (host ở N18, player ở N19), `feature:game-*` (N21+) |
 | `PlayerGameSocketRepository` | `core:common/repository` | `core:network/socket` (PlayerGameSocketRepositoryImpl) | `feature:lobby` (player), `feature:game-player` |
 | `HostGameSocketRepository` | `core:common/repository` | `core:network/socket` (HostGameSocketRepositoryImpl) | `feature:lobby` (host), `feature:game-host` |
 
@@ -1475,7 +1494,7 @@ MyQuizApp được xây dựng với **13 modules** theo **Clean Architecture + 
 
 **Document Version:** 2.4  
 **Last Updated:** 2026-09-02  
-**Status:** Living document - Đã cập nhật socket layer thật của N18 (30/8): `GameEvent` + 3 interface socket ở `core:common`, `GameSocketClient`/`GameEventMapper`/2 impl ở `core:network`, HostLobby thật ở `feature:lobby`. Polish Architecture refactor N18.5 (31/8-2/9): 4 NavGraph modules, validation pattern unified (6 validators in :core:common), 3 orchestration UseCases in quiz-manage, naming conventions standardized.
+**Status:** Living document - Đã cập nhật N19 (5/9): `feature:lobby` có đủ joinroom/guestnickname/playerlobby, `GuestIdentityStore` ở `core:datastore`, `RoomLookup`/`JoinRoomResult` + `lookupRoom`/`joinRoom` ở `core:common`. Trước đó: socket layer thật của N18 (30/8): `GameEvent` + 3 interface socket ở `core:common`, `GameSocketClient`/`GameEventMapper`/2 impl ở `core:network`, HostLobby thật ở `feature:lobby`. Polish Architecture refactor N18.5 (31/8-2/9): 4 NavGraph modules, validation pattern unified (6 validators in :core:common), 3 orchestration UseCases in quiz-manage, naming conventions standardized.
 
 ---
 
