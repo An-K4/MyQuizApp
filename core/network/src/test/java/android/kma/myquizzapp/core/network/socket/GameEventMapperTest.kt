@@ -57,6 +57,61 @@ class GameEventMapperTest {
     }
 
     @Test
+    fun `lobby player avatar and lives are read when present`() {
+        val payload = """
+            {
+              "session_status": "active",
+              "players": [
+                {
+                  "id": 9,
+                  "player_name": "Lan",
+                  "player_score": 0,
+                  "player_avatar": "https://cdn.example.com/a.png",
+                  "lives": 2,
+                  "status": "connected"
+                }
+              ]
+            }
+        """.trimIndent()
+
+        val event = mapper.map(GameSocketEvents.LOBBY_UPDATED, payload)
+
+        val player = (event as GameEvent.LobbyUpdated).lobby.players.single()
+        assertEquals("https://cdn.example.com/a.png", player.playerAvatar)
+        assertEquals(2, player.lives)
+    }
+
+    @Test
+    fun `lobby player without avatar and lives falls back to null`() {
+        // Guest không có avatar, mode thường không có lives — server có thể gửi null
+        // hoặc bỏ hẳn field. Cả hai trường hợp đều phải ra null, không được crash.
+        val payload = """
+            {
+              "session_status": "lobby",
+              "players": [
+                { "id": 3, "player_name": "Khách", "player_score": 0, "status": "connected" },
+                {
+                  "id": 4,
+                  "player_name": "Khách 2",
+                  "player_score": 0,
+                  "player_avatar": null,
+                  "lives": null,
+                  "status": "connected"
+                }
+              ]
+            }
+        """.trimIndent()
+
+        val players = (mapper.map(GameSocketEvents.LOBBY_UPDATED, payload)
+                as GameEvent.LobbyUpdated).lobby.players
+
+        assertNull(players[0].playerAvatar)
+        assertNull(players[0].lives)
+        assertNull(players[1].playerAvatar)
+        assertNull(players[1].lives)
+    }
+
+    @Test
     fun `lobby updated tolerates missing config and empty players`() {
         val event = mapper.map(
             GameSocketEvents.LOBBY_UPDATED,
