@@ -38,6 +38,10 @@ sealed interface Route {
     // Room creation
     @Serializable data class CreateRoom(val quizId: Long) : Route
     
+    // Nhập tên hiển thị cho KHÁCH — chỉ nằm giữa JoinRoom và PlayerLobby.
+    // Người đã đăng nhập không đi qua route này (backend lấy tên từ tài khoản).
+    @Serializable data class GuestNickname(val sessionCode: String) : Route
+
     // Gameplay routes - truyền socketToken qua argument
     @Serializable data class PlayerLobby(val gameId: Long, val playerId: Long, val socketToken: String) : Route
     @Serializable data class HostLobby(

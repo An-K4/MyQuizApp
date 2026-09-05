@@ -30,6 +30,9 @@ fun HomeScreen(
     onNavigateToAuth: () -> Unit,
     onNavigateToQuizDetail: (Long) -> Unit,
     onNavigateToProfile: () -> Unit,
+    // Tạm thời: lối vào màn nhập mã phòng đặt ở top bar để test N19. Khi có
+    // Bottom Navigation thật (N19.5) thì chuyển xuống tab "Tham gia" và bỏ nút này.
+    onNavigateToJoinRoom: () -> Unit = {},
     modifier: Modifier = Modifier,
     viewModel: HomeViewModel = hiltViewModel()
 ) {
@@ -54,6 +57,7 @@ fun HomeScreen(
         onNavigateToAuth = onNavigateToAuth,
         onNavigateToQuizDetail = onNavigateToQuizDetail,
         onNavigateToProfile = onNavigateToProfile,
+        onNavigateToJoinRoom = onNavigateToJoinRoom,
         onRetry = { viewModel.onIntent(HomeIntent.Retry) },
         modifier = modifier
     )
@@ -68,13 +72,15 @@ fun HomeScreenContent(
     onNavigateToQuizDetail: (Long) -> Unit,
     onNavigateToProfile: () -> Unit,
     onRetry: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onNavigateToJoinRoom: () -> Unit = {}
 ) {
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("MyQuizz") },
                 actions = {
+                    TextButton(onClick = onNavigateToJoinRoom) { Text("Vào phòng") }
                     IconButton(onClick = onNavigateToSearch) {
                         Icon(Icons.Default.Search, contentDescription = "Tìm kiếm")
                     }

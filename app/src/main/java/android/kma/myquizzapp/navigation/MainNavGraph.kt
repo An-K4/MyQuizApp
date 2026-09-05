@@ -1,11 +1,14 @@
 package android.kma.myquizzapp.navigation
 
 import androidx.compose.material3.Text
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.composable
 import android.kma.myquizzapp.feature.home.presentation.HomeScreen
 import android.kma.myquizzapp.feature.home.presentation.search.SearchScreen
+import android.kma.myquizzapp.feature.lobby.presentation.joinroom.JoinRoomScreen
 import android.kma.myquizzapp.presentation.profile.ProfileScreen
 
 /**
@@ -27,7 +30,9 @@ fun NavGraphBuilder.mainGraph(navController: NavHostController) {
             },
             onNavigateToProfile = {
                 navController.navigate(Route.Profile)
-            }
+            },
+            // Tạm thời cho tới khi có Bottom Navigation (N19.5).
+            onNavigateToJoinRoom = { navController.navigate(Route.JoinRoom) }
         )
     }
 
@@ -46,10 +51,29 @@ fun NavGraphBuilder.mainGraph(navController: NavHostController) {
         Text("Discover - Coming Soon")
     }
 
-    composable<Route.JoinRoom> {
-        // TODO: JoinRoomScreen() - guest có thể join bằng nickname
-        // Placeholder
-        Text("Join Room - Coming Soon")
+    composable<Route.JoinRoom> { entry ->
+        // Màn này còn sống sau khi lobby bị pop nên nó nhận và hiển thị lý do
+        // bị buộc rời phòng (xem KEY_LOBBY_EXIT_MESSAGE ở GameNavGraph).
+        val exitMessage by entry.savedStateHandle
+            .getStateFlow<String?>(KEY_LOBBY_EXIT_MESSAGE, null)
+            .collectAsState()
+
+        JoinRoomScreen(
+            onNavigateToPlayerLobby = { gameId, playerId, socketToken ->
+                navController.navigate(Route.PlayerLobby(gameId, playerId, socketToken))
+            },
+            onNavigateToGuestNickname = { sessionCode ->
+                navController.navigate(Route.GuestNickname(sessionCode))
+            },
+            onNavigateToLogin = {
+                navController.navigate(Route.AuthGraph) {
+                    popUpTo<Route.MainGraph> { inclusive = false }
+                }
+            },
+            onBack = { navController.popBackStack() },
+            exitMessage = exitMessage,
+            onExitMessageShown = { entry.savedStateHandle[KEY_LOBBY_EXIT_MESSAGE] = null }
+        )
     }
 
     // ----- PROTECTED ROUTES (require auth) -----
