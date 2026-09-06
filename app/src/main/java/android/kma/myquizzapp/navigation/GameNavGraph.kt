@@ -27,9 +27,10 @@ fun NavGraphBuilder.gameGraph(navController: NavHostController) {
         GuestNicknameScreen(
             onNavigateToPlayerLobby = { gameId, playerId, socketToken ->
                 navController.navigate(Route.PlayerLobby(gameId, playerId, socketToken)) {
-                    // Xóa màn nhập tên khỏi backstack nhưng giữ lại màn nhập mã:
-                    // rời phòng thì quay về đó vào lại được ngay, không bị đẩy về Home.
-                    popUpTo<Route.JoinRoom> { inclusive = false }
+                    // Xóa màn nhập tên khỏi backstack và quay về Trang chủ: từ N19.6
+                    // ô nhập mã nằm ngay trên Trang chủ, nên rời phòng là về đúng chỗ
+                    // vào lại được — trước đây phải giữ lại màn Join riêng cho việc này.
+                    popUpTo<Route.Home> { inclusive = false }
                 }
             },
             onExitWithMessage = { message -> navController.popWithMessage(message) },

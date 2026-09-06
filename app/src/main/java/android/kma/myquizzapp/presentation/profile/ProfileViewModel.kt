@@ -1,73 +1,56 @@
 package android.kma.myquizzapp.presentation.profile
 
-import android.kma.myquizzapp.core.common.error.toUserMessage
-import android.kma.myquizzapp.core.common.result.Result
-import android.kma.myquizzapp.feature.auth.domain.usecase.GetCurrentUserUseCase
 import android.kma.myquizzapp.feature.auth.domain.usecase.LogoutUseCase
+import android.kma.myquizzapp.feature.auth.domain.usecase.ObserveSessionUseCase
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
-import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /**
  * ViewModel cho màn Profile.
  *
- * Tải thông tin user hiện tại (tái sử dụng GetCurrentUserUseCase của
- * feature:auth — không tạo lại logic kiểm tra đăng nhập) và xử lý đăng
- * xuất. Mục "Xem quiz của tôi" chỉ là nav trigger (không qua ViewModel) sang
- * Route.MyQuizzes (QuizManageListScreen, feature:quiz-manage).
+ * N19.6 — KHÔNG còn `init { loadCurrentUser() }`. Đó chính là nguyên nhân bug:
+ * màn Hồ sơ là tab của bottom nav nên ViewModel của nó được giữ lại khi đổi
+ * tab; `init` chỉ chạy đúng một lần trong cả phiên, nên sau khi đăng xuất và
+ * vào lại, state cũ được dọn ra nguyên vẹn cùng thông tin người đã rời đi.
+ * Giờ màn này chỉ chiếu lại [ObserveSessionUseCase], không sở hữu dữ liệu user.
+ *
+ * Vì sao không tự gọi `refresh()` ở đây: AppNavGraph đã làm mới phiên lúc dụng
+ * thanh nav và mỗi lần app trở lại foreground. Thêm một lần gọi ở đây chỉ là
+ * request trùng — `GET /users/me` không có cache.
  */
 @HiltViewModel
 class ProfileViewModel @Inject constructor(
-    private val getCurrentUserUseCase: GetCurrentUserUseCase,
-    private val logoutUseCase: LogoutUseCase
+    observeSession: ObserveSessionUseCase,
+    private val logoutUseCase: LogoutUseCase,
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(ProfileUiState())
-    val uiState: StateFlow<ProfileUiState> = _uiState.asStateFlow()
+    val uiState: StateFlow<ProfileUiState> = observeSession()
+        .map { ProfileUiState(session = it) }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = ProfileUiState(),
+        )
 
     private val _effect = Channel<ProfileEffect>()
     val effect = _effect.receiveAsFlow()
 
-    init {
-        loadCurrentUser()
-    }
-
-    private fun loadCurrentUser() {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null) }
-            when (val result = getCurrentUserUseCase()) {
-                is Result.Success -> _uiState.update {
-                    it.copy(user = result.data, isLoading = false, error = null)
-                }
-                is Result.Error -> _uiState.update {
-                    it.copy(isLoading = false, error = result.error.toUserMessage())
-                }
-            }
-        }
-    }
-
     fun logout() {
         viewModelScope.launch {
-            when (logoutUseCase()) {
-                is Result.Success -> emitEffect(ProfileEffect.NavigateBack)
-                is Result.Error -> {
-                    // Kể cả khi call logout API lỗi (ví dụ mất mạng), vẫn coi như đã
-                    // đăng xuất ở client để không kẹt người dùng lại màn Profile.
-                    emitEffect(ProfileEffect.NavigateBack)
-                }
-            }
+            // Kể cả khi API logout lỗi (mất mạng...) vẫn coi như đã đăng xuất ở
+            // client — LogoutUseCase đã dọn cả cookie và session state ở cả hai
+            // nhánh, nên không cần phân biệt Success/Error ở đây nữa.
+            logoutUseCase()
+            _effect.send(ProfileEffect.NavigateBack)
         }
-    }
-
-    private suspend fun emitEffect(effect: ProfileEffect) {
-        _effect.send(effect)
     }
 }

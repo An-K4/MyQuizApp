@@ -1,9 +1,9 @@
 package android.kma.myquizzapp.feature.lobby.presentation.joinroom
 
 /**
- * MVI contract của màn nhập mã phòng.
+ * MVI contract của thẻ nhập mã phòng.
  *
- * Màn này CHỈ có ô mã phòng — không có ô nhập tên. Lý do: người đã đăng nhập
+ * Thẻ này CHỈ có ô mã phòng — không có ô nhập tên. Lý do: người đã đăng nhập
  * không được đặt tên khác (server lấy fullname từ tài khoản và bỏ qua body), còn
  * khách thì phải qua màn nhập tên riêng — và chỉ khi phòng cho phép khách.
  */
@@ -12,13 +12,23 @@ data class JoinRoomUiState(
     val isSubmitting: Boolean = false,
     /** Lỗi gắn trực tiếp dưới ô mã (sai mã, phòng đầy, trận đã bắt đầu). */
     val codeError: String? = null,
-    /** Lỗi chung hiển thị bằng snackbar (mất mạng, lỗi server). */
+    /** Lỗi chung hiển thị riêng trong thẻ (mất mạng, lỗi server). */
     val errorMessage: String? = null,
     /** Phòng không nhận khách — hiện dialog mời đăng nhập. */
     val guestBlocked: Boolean = false
 ) {
-    val canSubmit: Boolean get() = sessionCode.isNotBlank() && !isSubmitting
+    val canSubmit: Boolean get() = sessionCode.length == SESSION_CODE_LENGTH && !isSubmitting
 }
+
+/**
+ * Độ dài mã phòng — CỐ ĐỊNH 6 ký tự, không phải "từ 6 trở lên".
+ *
+ * Backend sinh mã bằng `generateSessionCode(len = 6)` từ bảng chữ
+ * `ABCDEFGHJKLMNPQRSTUVWXYZ23456789` — bỏ I, O, 0, 1 cho khỏi nhầm khi đọc mã
+ * cho nhau. Mã dài 7 ký tự không tồn tại, nên cho bấm "Vào phòng" ở độ dài đó
+ * chỉ đổi một lượt gọi mạng thành 404.
+ */
+const val SESSION_CODE_LENGTH = 6
 
 sealed interface JoinRoomIntent {
     data class CodeChanged(val value: String) : JoinRoomIntent

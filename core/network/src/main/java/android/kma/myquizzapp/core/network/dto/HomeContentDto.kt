@@ -8,9 +8,13 @@ import kotlinx.serialization.Serializable
 /**
  * DTO cho response từ GET /v1/quizzes/home
  * 
- * Backend trả sections khác nhau tùy auth state:
- * - Guest: featured, trending, newest, most_played
- * - Authenticated: thêm "continue" section
+ * Danh sách section KHÔNG cứng: backend đọc bảng `home_sections`
+ * (`is_active`, `position`) nên người vận hành thêm/bỏ/đảo section bằng SQL
+ * được, không cần ra bản mới. Vì vậy client chỉ được dựa vào [SectionType],
+ * tuyệt đối không dựa vào `title` hay vào việc "section X luôn có".
+ *
+ * Khác biệt theo phiên: section `continue` chỉ xuất hiện với user đã đăng
+ * nhập, và backend lọc bỏ mọi section rỗng trước khi trả về.
  */
 @Serializable
 data class HomeContentDto(

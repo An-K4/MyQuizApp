@@ -8,11 +8,13 @@ import javax.inject.Inject
 /**
  * Use case to fetch home content (sections of quiz cards).
  * 
- * Returns different sections based on authentication:
- * - Guest: "Phổ biến", "Mới nhất"
- * - Authenticated: "Đề xuất cho bạn", "Phổ biến", "Mới nhất", "Bạn đã tham gia"
- * 
- * Backend automatically determines sections based on session cookie.
+ * Backend tự quyết định trả những section nào dựa trên cookie phiên và bảng
+ * cấu hình `home_sections`. ĐỪNG liệt kê tên section ở đây: tiêu đề sửa được
+ * bằng SQL, số lượng section đổi được bất kỳ lúc nào, và section rỗng bị lọc
+ * trước khi trả về — mọi danh sách ghi cứng trong KDoc sẽ sai rất nhanh.
+ *
+ * Phần duy nhất ổn định: `sectionType` (5 giá trị, xem `SectionType`), và
+ * `continue` chỉ có khi đã đăng nhập.
  */
 class GetHomeContentUseCase @Inject constructor(
     private val quizRepository: QuizRepository

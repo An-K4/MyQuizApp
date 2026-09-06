@@ -13,7 +13,15 @@ import android.kma.myquizzapp.feature.quiz_manage.presentation.quizmanagelist.Qu
  * Quiz management navigation graph.
  * Contains quiz CRUD routes: MyQuizzes, CreateQuiz, EditQuiz, QuizDetail, CreateRoom.
  */
-fun NavGraphBuilder.quizManageGraph(navController: NavHostController) {
+fun NavGraphBuilder.quizManageGraph(
+    navController: NavHostController,
+    /**
+     * Chốt gác đăng nhập do AppNavGraph sở hữu: (lời nhắn, việc cần làm nếu đã
+     * đăng nhập). Graph không tự quyết định vì hộp thoại phải sống ngoài NavHost
+     * — gác là chặn TRƯỚC khi điều hướng, không phải điều hướng rồi chặn.
+     */
+    requireAuth: (String, () -> Unit) -> Unit,
+) {
     composable<Route.MyQuizzes> {
         // Tab "Thư viện" ở bottom nav (N19.5) — vẫn là danh sách "Quiz của tôi",
         // yêu cầu đăng nhập (cookie auth ở QuizApiService.getMyQuizzes).
@@ -21,7 +29,14 @@ fun NavGraphBuilder.quizManageGraph(navController: NavHostController) {
         // FAB trong màn đi thẳng vào editor (Route.CreateQuiz), chưa làm màn chọn
         // cách tạo như web — để dành tới khi có luồng import.
         QuizManageListScreen(
-            onNavigateToCreateQuiz = { navController.navigate(Route.CreateQuiz) },
+            onNavigateToCreateQuiz = {
+                // Trên lý thuyết là dư (FAB chỉ tồn tại trong Thư viện, mà Thư viện
+                // đã gác ở thanh nav) nhưng vẫn gác: editor chỉ POST khi bấm lưu,
+                // nên nếu lọt qua thì người dùng mất cả bài vừa soạn lúc ăn 401.
+                requireAuth("Đăng nhập để tạo quiz mới.") {
+                    navController.navigate(Route.CreateQuiz)
+                }
+            },
             onNavigateToQuizDetail = { quizId ->
                 navController.navigate(Route.QuizDetail(quizId))
             }
@@ -54,7 +69,12 @@ fun NavGraphBuilder.quizManageGraph(navController: NavHostController) {
         QuizDetailScreen(
             onNavigateBack = { navController.popBackStack() },
             onNavigateToCreateRoom = { quizId ->
-                navController.navigate(Route.CreateRoom(quizId))
+                // Gác NGAY ở đây, không để tới màn cấu hình phòng: khách vẫn xem
+                // được quiz detail từ Trang chủ, mà nếu để họ đặt tên phòng, chọn
+                // chế độ xong mới chặn thì toàn bộ cấu hình vừa nhập sẽ mất.
+                requireAuth("Đăng nhập để tạo phòng chơi từ quiz này.") {
+                    navController.navigate(Route.CreateRoom(quizId))
+                }
             },
             onNavigateToEditQuiz = { quizId ->
                 navController.navigate(Route.EditQuiz(quizId))

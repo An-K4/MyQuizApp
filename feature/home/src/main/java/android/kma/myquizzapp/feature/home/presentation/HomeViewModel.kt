@@ -2,16 +2,18 @@ package android.kma.myquizzapp.feature.home.presentation
 
 import android.kma.myquizzapp.core.common.error.toUserMessage
 import android.kma.myquizzapp.core.common.result.Result
-import android.kma.myquizzapp.feature.auth.domain.usecase.GetCurrentUserUseCase
+import android.kma.myquizzapp.feature.auth.domain.usecase.ObserveSessionUseCase
 import android.kma.myquizzapp.feature.home.domain.usecase.GetHomeContentUseCase
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -19,37 +21,48 @@ import javax.inject.Inject
 /**
  * ViewModel for Home screen (MVI pattern).
  *
- * Manages home content (sections of quiz cards) for browsing via scroll, và
- * trạng thái đăng nhập hiện tại (currentUser) để quyết định hiện nút
- * đăng nhập hay avatar cạnh nút tìm kiếm.
+ * Manages home content (sections of quiz cards) for browsing via scroll, cộng
+ * với trạng thái đăng nhập để quyết định có hiện lối đăng nhập ở top bar hay
+ * không.
  *
- * "Của tôi" (N13-14) không còn liên quan tới Home — mục đó giờ nằm
- * trong màn Profile (app-level), điều hướng thẳng sang Route.MyQuizzes.
- *
- * Lưu ý: AuthRepository chỉ có các suspend fun một lần (getCurrentUser,
- * isAuthenticated), không có Flow<User?> phản ứng theo thời gian thực. Vì
- * vậy checkAuthState() cần được gọi lại mệi khi Home resume (xem
- * LifecycleResumeEffect trong HomeScreen) để cập nhật sau khi người dùng
- * đăng nhập/đăng xuất ở màn khác rỚi quay lại.
+ * N19.6 — đã bỏ `checkAuthState()` và `HomeIntent.CheckAuthState`. Trước đây
+ * Home phải tự gọi lại `GET /users/me` mỗi lần ON_RESUME vì không có cách nào
+ * biết người dùng vừa đăng nhập/đăng xuất ở màn khác — tức là mỗi lần quay
+ * về Home là một request, chỉ để đồng bộ lại một bản sao. Giờ
+ * [ObserveSessionUseCase] đẩy thay đổi tới nơi, không ai phải đi hỏi lại.
  *
  * Search functionality is in a separate SearchViewModel/SearchScreen.
  */
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     private val getHomeContentUseCase: GetHomeContentUseCase,
-    private val getCurrentUserUseCase: GetCurrentUserUseCase
+    observeSession: ObserveSessionUseCase,
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(HomeUiState())
-    val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
+    /** Phần state do chính Home sở hữu (nội dung + loading + lỗi). */
+    private val _contentState = MutableStateFlow(HomeUiState())
+
+    /**
+     * State cuối = state của Home + phiên đăng nhập đọc từ nguồn chung.
+     *
+     * Home KHÔNG sở hữu trường [HomeUiState.session] — nó chỉ đi qua đây. Đó là
+     * lý do dùng `combine` chứ không phải copy giá trị vào `_contentState`:
+     * copy là tạo lại một bản sao có thể cũ.
+     */
+    val uiState: StateFlow<HomeUiState> =
+        combine(_contentState, observeSession()) { content, session ->
+            content.copy(session = session)
+        }.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = HomeUiState(),
+        )
 
     private val _effect = Channel<HomeEffect>()
     val effect = _effect.receiveAsFlow()
 
     init {
-        // Load home content on init
         loadHomeContent()
-        checkAuthState()
     }
 
     /**
@@ -65,7 +78,6 @@ class HomeViewModel @Inject constructor(
                 emitEffect(HomeEffect.NavigateToQuizDetail(intent.quizId))
             }
             is HomeIntent.Retry -> retry()
-            is HomeIntent.CheckAuthState -> checkAuthState()
         }
     }
 
@@ -74,11 +86,11 @@ class HomeViewModel @Inject constructor(
      */
     private fun loadHomeContent() {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoadingHome = true, homeError = null) }
+            _contentState.update { it.copy(isLoadingHome = true, homeError = null) }
 
             when (val result = getHomeContentUseCase()) {
                 is Result.Success -> {
-                    _uiState.update {
+                    _contentState.update {
                         it.copy(
                             homeSections = result.data,
                             isLoadingHome = false,
@@ -87,27 +99,13 @@ class HomeViewModel @Inject constructor(
                     }
                 }
                 is Result.Error -> {
-                    _uiState.update {
+                    _contentState.update {
                         it.copy(
                             isLoadingHome = false,
                             homeError = result.error.toUserMessage()
                         )
                     }
                 }
-            }
-        }
-    }
-
-    /**
-     * Kiểm tra trạng thái đăng nhập hiện tại. Lỗi (chưa đăng nhập / cookie
-     * không hợp lệ) được xử lý y hệt guest — currentUser = null, không hiện
-     * lỗi cho người dùng vì đây là trạng thái bình thường của guest.
-     */
-    private fun checkAuthState() {
-        viewModelScope.launch {
-            when (val result = getCurrentUserUseCase()) {
-                is Result.Success -> _uiState.update { it.copy(currentUser = result.data) }
-                is Result.Error -> _uiState.update { it.copy(currentUser = null) }
             }
         }
     }
@@ -123,7 +121,7 @@ class HomeViewModel @Inject constructor(
      * Retry failed operation.
      */
     private fun retry() {
-        if (_uiState.value.homeError != null) {
+        if (_contentState.value.homeError != null) {
             loadHomeContent()
         }
     }

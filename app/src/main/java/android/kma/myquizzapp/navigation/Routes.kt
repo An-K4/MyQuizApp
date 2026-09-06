@@ -21,8 +21,12 @@ sealed interface Route {
     
     // Bottom nav routes
     @Serializable data object Home : Route
-    @Serializable data object Discover : Route
-    @Serializable data object JoinRoom : Route
+    // sectionKey != null: vào từ nút "Xem thêm" của một section ở Trang chủ — màn
+    // Khám phá mở sẵn đúng section đó thay vì bắt người dùng tìm lại (N19.6).
+    @Serializable data class Discover(val sectionKey: String? = null) : Route
+    // N19.6: KHÔNG có Route.JoinRoom nữa. Ô nhập mã phòng giờ là một thế nằm trên
+    // Trang chủ (JoinRoomCard) — màn cũ chỉ có đúng ô đó rồi điều hướng đi ngay,
+    // không đủ nội dung để làm một điểm đến.
     // Tab "Hoạt động" (lịch sử chơi). N19.5 chỉ có placeholder — thay cho
     // Route.Library cũ, vốn trùng lặp với MyQuizzes và chưa từng có màn thật.
     @Serializable data object Activity : Route
@@ -41,7 +45,7 @@ sealed interface Route {
     // Room creation
     @Serializable data class CreateRoom(val quizId: Long) : Route
     
-    // Nhập tên hiển thị cho KHÁCH — chỉ nằm giữa JoinRoom và PlayerLobby.
+    // Nhập tên hiển thị cho KHÁCH — chỉ nằm giữa Trang chủ và PlayerLobby.
     // Người đã đăng nhập không đi qua route này (backend lấy tên từ tài khoản).
     @Serializable data class GuestNickname(val sessionCode: String) : Route
 

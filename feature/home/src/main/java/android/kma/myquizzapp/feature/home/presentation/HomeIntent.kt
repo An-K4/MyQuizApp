@@ -20,12 +20,9 @@ sealed interface HomeIntent {
 
     /** Retry after error */
     data object Retry : HomeIntent
-
-    /**
-     * Re-check login state (gọi lại getCurrentUser). Dùng khi Home resume
-     * (ví dụ: quay lại từ màn Đăng nhập hoặc màn Profile sau khi đăng xuất)
-     * vì AuthRepository chỉ expose suspend fun một lần, không có Flow phản
-     * ứng theo thời gian thực.
-     */
-    data object CheckAuthState : HomeIntent
 }
+
+// N19.6: đã xóa `CheckAuthState`. Nó tồn tại chỉ vì Home phải tự đi hỏi lại
+// `GET /users/me` mỗi lần resume để bắt kịp việc người dùng đăng nhập/đăng xuất
+// ở màn khác. Giờ trạng thái phiên được đẩy tức thời qua SessionRepository, nên
+// một intent "đi hỏi lại" vừa dư vừa là một request mạng mỗi lần đổi tab.
