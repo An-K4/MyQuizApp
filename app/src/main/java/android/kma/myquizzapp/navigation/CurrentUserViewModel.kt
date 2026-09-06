@@ -1,14 +1,16 @@
 package android.kma.myquizzapp.navigation
 
-import android.kma.myquizzapp.core.common.result.Result
-import android.kma.myquizzapp.feature.auth.domain.usecase.GetCurrentUserUseCase
+import android.kma.myquizzapp.core.common.model.SessionState
+import android.kma.myquizzapp.core.common.model.userOrNull
+import android.kma.myquizzapp.feature.auth.domain.usecase.ObserveSessionUseCase
+import android.kma.myquizzapp.feature.auth.domain.usecase.RefreshSessionUseCase
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -21,37 +23,40 @@ import javax.inject.Inject
  * lấy ViewModel scope theo destination. ViewModel này được scope theo Activity
  * (hiltViewModel() gọi trong AppNavGraph) nên sống đúng bằng vòng đời thanh nav.
  *
- * CHI PHÍ MẠNG: GetCurrentUserUseCase gọi thẳng GET /users/me, KHÔNG có cache
- * (xem AuthRepositoryImpl.getCurrentUser). Vì vậy tuyệt đối không gọi [refresh]
- * theo mỗi lần đổi tab. Chỉ gọi ở các mốc dữ liệu thực sự có thể đổi:
- *   1. lần đầu dựng thanh nav,
- *   2. app quay lại foreground (ON_RESUME của Activity),
- *   3. vừa rời luồng auth (đăng nhập/đăng ký xong),
- *   4. vừa đăng xuất.
- * [refresh] tự bỏ qua lời gọi trùng khi request trước còn bay, nên các mốc trên
- * chồng nhau lúc khởi động cũng chỉ tốn 1 request.
+ * N19.6 — không còn tự gọi API và tự giữ bản sao user nữa: avatar giờ là một
+ * phép chiếu (`map`) từ [ObserveSessionUseCase]. Hệ quả trực tiếp: đăng xuất ở
+ * màn Hồ sơ là avatar ở thanh nav biến mất trong cùng frame, không cần ai nhắc
+ * nó đi đọc lại.
+ *
+ * [refresh] giữ nguyên tên và ý nghĩa (AppNavGraph đang gọi ở lúc dụng thanh nav
+ * và khi app trở lại foreground), nhưng giờ chỉ ủy quyền cho repository — nơi
+ * duy nhất biết có cần gọi mạng hay không, và tự gộp các lời gọi trùng.
  */
 @HiltViewModel
 class CurrentUserViewModel @Inject constructor(
-    private val getCurrentUserUseCase: GetCurrentUserUseCase
+    observeSession: ObserveSessionUseCase,
+    private val refreshSession: RefreshSessionUseCase,
 ) : ViewModel() {
 
-    private val _avatarUrl = MutableStateFlow<String?>(null)
+    /**
+     * Trạng thái phiên cho các chốt gác đăng nhập ở AppNavGraph (N19.6).
+     *
+     * Đặt ở chính ViewModel này vì nó đã là chỗ duy nhất trong phạm vi Activity
+     * quan sát phiên; thêm một ViewModel riêng để gác chỉ tạo thêm một chỗ
+     * collect nữa mà không thêm thông tin gì.
+     */
+    val session: StateFlow<SessionState> = observeSession()
 
-    /** null = chưa đăng nhập, chưa tải xong, hoặc user không có avatar. */
-    val avatarUrl: StateFlow<String?> = _avatarUrl.asStateFlow()
-
-    private var inFlight: Job? = null
+    /** null = chưa đăng nhập, chưa xác định, hoặc user không có avatar. */
+    val avatarUrl: StateFlow<String?> = session
+        .map { it.userOrNull?.avatar }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.Eagerly,
+            initialValue = null,
+        )
 
     fun refresh() {
-        if (inFlight?.isActive == true) return
-        inFlight = viewModelScope.launch {
-            _avatarUrl.value = when (val result = getCurrentUserUseCase()) {
-                is Result.Success -> result.data.avatar
-                // Guest (401) hoặc mất mạng: về icon mặc định, KHÔNG báo lỗi — avatar
-                // ở thanh nav là chi tiết trang trí, không đáng chặn UI.
-                is Result.Error -> null
-            }
-        }
+        viewModelScope.launch { refreshSession() }
     }
 }
