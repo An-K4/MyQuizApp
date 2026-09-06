@@ -23,7 +23,9 @@ sealed interface Route {
     @Serializable data object Home : Route
     @Serializable data object Discover : Route
     @Serializable data object JoinRoom : Route
-    @Serializable data object Library : Route
+    // Tab "Hoạt động" (lịch sử chơi). N19.5 chỉ có placeholder — thay cho
+    // Route.Library cũ, vốn trùng lặp với MyQuizzes và chưa từng có màn thật.
+    @Serializable data object Activity : Route
     @Serializable data object Profile : Route
     
     // Search (full-screen modal from Home)
@@ -31,6 +33,7 @@ sealed interface Route {
     
     // Quiz routes
     @Serializable data class QuizDetail(val quizId: Long) : Route
+    // Đồng thời là tab "Thư viện" ở bottom nav (N19.5).
     @Serializable data object MyQuizzes : Route
     @Serializable data object CreateQuiz : Route
     @Serializable data class EditQuiz(val quizId: Long) : Route

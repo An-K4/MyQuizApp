@@ -34,7 +34,11 @@ import kotlinx.coroutines.flow.flowOf
 
 @Composable
 fun QuizManageListScreen(
-    onNavigateBack: () -> Unit,
+    /**
+     * Null khi màn này đóng vai tab cấp cao nhất trong bottom nav (N19.5) —
+     * lúc đó TopAppBar không hiện mũi tên back vì không có gì để quay lại.
+     */
+    onNavigateBack: (() -> Unit)? = null,
     onNavigateToCreateQuiz: () -> Unit,
     onNavigateToQuizDetail: (Long) -> Unit,
     modifier: Modifier = Modifier,
@@ -73,7 +77,7 @@ fun QuizManageListScreenContent(
     onSortMenuExpandedChange: (Boolean) -> Unit,
     onIntent: (QuizManageListIntent) -> Unit,
     onRetry: () -> Unit,
-    onNavigateBack: () -> Unit,
+    onNavigateBack: (() -> Unit)?,
     onNavigateToCreateQuiz: () -> Unit,
     onNavigateToQuizDetail: (Long) -> Unit,
     modifier: Modifier = Modifier
@@ -84,8 +88,10 @@ fun QuizManageListScreenContent(
             TopAppBar(
                 title = { Text("Quiz của tôi") },
                 navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Quay lại")
+                    onNavigateBack?.let { back ->
+                        IconButton(onClick = back) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Quay lại")
+                        }
                     }
                 }
             )

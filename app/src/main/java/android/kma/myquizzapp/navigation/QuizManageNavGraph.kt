@@ -15,9 +15,12 @@ import android.kma.myquizzapp.feature.quiz_manage.presentation.quizmanagelist.Qu
  */
 fun NavGraphBuilder.quizManageGraph(navController: NavHostController) {
     composable<Route.MyQuizzes> {
-        // Danh sách "Quiz của tôi" — yêu cầu đăng nhập (cookie auth ở QuizApiService.getMyQuizzes).
+        // Tab "Thư viện" ở bottom nav (N19.5) — vẫn là danh sách "Quiz của tôi",
+        // yêu cầu đăng nhập (cookie auth ở QuizApiService.getMyQuizzes).
+        // Là tab cấp cao nhất nên KHÔNG truyền onNavigateBack → TopAppBar bỏ mũi tên back.
+        // FAB trong màn đi thẳng vào editor (Route.CreateQuiz), chưa làm màn chọn
+        // cách tạo như web — để dành tới khi có luồng import.
         QuizManageListScreen(
-            onNavigateBack = { navController.popBackStack() },
             onNavigateToCreateQuiz = { navController.navigate(Route.CreateQuiz) },
             onNavigateToQuizDetail = { quizId ->
                 navController.navigate(Route.QuizDetail(quizId))

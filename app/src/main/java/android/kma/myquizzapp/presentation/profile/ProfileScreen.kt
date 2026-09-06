@@ -11,14 +11,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Logout
-import androidx.compose.material.icons.filled.Assignment
 import androidx.compose.material3.DividerDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -36,8 +33,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 @Composable
 fun ProfileScreen(
-    onNavigateBack: () -> Unit,
-    onNavigateToMyQuizzes: () -> Unit,
     onLoggedOut: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: ProfileViewModel = hiltViewModel()
@@ -57,8 +52,6 @@ fun ProfileScreen(
 
     ProfileScreenContent(
         uiState = uiState,
-        onNavigateBack = onNavigateBack,
-        onNavigateToMyQuizzes = onNavigateToMyQuizzes,
         onLogout = viewModel::logout,
         modifier = modifier
     )
@@ -68,22 +61,14 @@ fun ProfileScreen(
 @Composable
 fun ProfileScreenContent(
     uiState: ProfileUiState,
-    onNavigateBack: () -> Unit,
-    onNavigateToMyQuizzes: () -> Unit,
     onLogout: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Scaffold(
         modifier = modifier.fillMaxSize(),
         topBar = {
-            TopAppBar(
-                title = { Text("Hồ sơ") },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Quay lại")
-                    }
-                }
-            )
+            // Là tab cấp cao nhất (N19.5) nên không có nút back.
+            TopAppBar(title = { Text("Hồ sơ") })
         }
     ) { innerPadding ->
         Column(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
@@ -110,13 +95,8 @@ fun ProfileScreenContent(
                 }
             }
 
-            HorizontalDivider(Modifier, DividerDefaults.Thickness, DividerDefaults.color)
-            ListItem(
-                headlineContent = { Text("Quiz của tôi") },
-                supportingContent = { Text("Xem và quản lý các quiz bạn đã tạo") },
-                leadingContent = { Icon(Icons.Default.Assignment, contentDescription = null) },
-                modifier = Modifier.fillMaxWidth().clickable(onClick = onNavigateToMyQuizzes)
-            )
+            // "Quiz của tôi" đã chuyển thành tab Thư viện ở bottom nav (N19.5).
+            // Profile về sau chỉ hiển thị thông tin + cài đặt, không chứa navigation.
             HorizontalDivider(Modifier, DividerDefaults.Thickness, DividerDefaults.color)
             ListItem(
                 headlineContent = { Text("Đăng xuất") },
@@ -134,8 +114,6 @@ private fun ProfileScreenContentPreview() {
     MyQuizAppTheme {
         ProfileScreenContent(
             uiState = ProfileUiState(isLoading = false),
-            onNavigateBack = {},
-            onNavigateToMyQuizzes = {},
             onLogout = {}
         )
     }

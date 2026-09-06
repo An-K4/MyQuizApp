@@ -9,13 +9,21 @@ import androidx.navigation.compose.composable
 import android.kma.myquizzapp.feature.home.presentation.HomeScreen
 import android.kma.myquizzapp.feature.home.presentation.search.SearchScreen
 import android.kma.myquizzapp.feature.lobby.presentation.joinroom.JoinRoomScreen
+import android.kma.myquizzapp.presentation.activity.ActivityScreen
 import android.kma.myquizzapp.presentation.profile.ProfileScreen
 
 /**
  * Main application navigation graph.
- * Contains public routes (Home, Search, Discover, JoinRoom) and protected routes (Library, Profile).
+ * Contains public routes (Home, Search, Discover, JoinRoom) and protected routes (Activity, Profile).
+ *
+ * @param onCurrentUserChanged gọi khi phiên đăng nhập vừa đổi (hiện tại: đăng xuất)
+ *   để bottom nav nạp lại avatar. Bottom bar sống NGOÀI NavHost nên không tự biết
+ *   những thay đổi xảy ra bên trong graph.
  */
-fun NavGraphBuilder.mainGraph(navController: NavHostController) {
+fun NavGraphBuilder.mainGraph(
+    navController: NavHostController,
+    onCurrentUserChanged: () -> Unit
+) {
     // ----- PUBLIC ROUTES (accessible to everyone) -----
     composable<Route.Home> {
         HomeScreen(
@@ -27,12 +35,9 @@ fun NavGraphBuilder.mainGraph(navController: NavHostController) {
             },
             onNavigateToQuizDetail = { quizId ->
                 navController.navigate(Route.QuizDetail(quizId))
-            },
-            onNavigateToProfile = {
-                navController.navigate(Route.Profile)
-            },
-            // Tạm thời cho tới khi có Bottom Navigation (N19.5).
-            onNavigateToJoinRoom = { navController.navigate(Route.JoinRoom) }
+            }
+            // Avatar ở top bar đã bỏ — lối vào Hồ sơ giờ là tab cuối bottom nav,
+            // nơi chính avatar đó được dùng làm icon.
         )
     }
 
@@ -77,18 +82,23 @@ fun NavGraphBuilder.mainGraph(navController: NavHostController) {
     }
 
     // ----- PROTECTED ROUTES (require auth) -----
-    composable<Route.Library> {
-        // TODO: RequireAuth { LibraryScreen() }
-        // Placeholder
-        Text("Library - Requires Auth")
+    composable<Route.Activity> {
+        // Tab Hoạt động — N19.5 chỉ dựng placeholder. Hợp đồng backend đã audit
+        // được ghi trong KDoc của ActivityScreen.
+        ActivityScreen()
     }
 
     composable<Route.Profile> {
-        // Màn Profile — chứa "Quiz của tôi" và Đăng xuất.
+        // Tab Hồ sơ — từ N19.5 chỉ còn thông tin người dùng + Đăng xuất; lối vào
+        // "Quiz của tôi" đã thành tab Thư viện. Là tab nên không có nút back.
+        // Đăng xuất xong quay về tab Trang chủ (trước đây popBackStack sẽ thoát app).
         ProfileScreen(
-            onNavigateBack = { navController.popBackStack() },
-            onNavigateToMyQuizzes = { navController.navigate(Route.MyQuizzes) },
-            onLoggedOut = { navController.popBackStack() }
+            onLoggedOut = {
+                // Xoá avatar khỏi bottom nav: LogoutUseCase đã clear cookie nên
+                // /users/me sẽ trả 401 → tab Hồ sơ về lại icon mặc định.
+                onCurrentUserChanged()
+                navController.navigateToTab(Route.Home)
+            }
         )
     }
 }

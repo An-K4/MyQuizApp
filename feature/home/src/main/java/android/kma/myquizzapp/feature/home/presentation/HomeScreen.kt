@@ -2,10 +2,8 @@ package android.kma.myquizzapp.feature.home.presentation
 
 import android.content.res.Configuration
 import android.kma.myquizzapp.core.common.model.User
-import android.kma.myquizzapp.core.ui.components.Avatar
 import android.kma.myquizzapp.core.ui.components.HomeSectionRow
 import android.kma.myquizzapp.core.ui.theme.MyQuizAppTheme
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -29,10 +27,6 @@ fun HomeScreen(
     onNavigateToSearch: () -> Unit,
     onNavigateToAuth: () -> Unit,
     onNavigateToQuizDetail: (Long) -> Unit,
-    onNavigateToProfile: () -> Unit,
-    // Tạm thời: lối vào màn nhập mã phòng đặt ở top bar để test N19. Khi có
-    // Bottom Navigation thật (N19.5) thì chuyển xuống tab "Tham gia" và bỏ nút này.
-    onNavigateToJoinRoom: () -> Unit = {},
     modifier: Modifier = Modifier,
     viewModel: HomeViewModel = hiltViewModel()
 ) {
@@ -56,8 +50,6 @@ fun HomeScreen(
         onNavigateToSearch = onNavigateToSearch,
         onNavigateToAuth = onNavigateToAuth,
         onNavigateToQuizDetail = onNavigateToQuizDetail,
-        onNavigateToProfile = onNavigateToProfile,
-        onNavigateToJoinRoom = onNavigateToJoinRoom,
         onRetry = { viewModel.onIntent(HomeIntent.Retry) },
         modifier = modifier
     )
@@ -70,24 +62,22 @@ fun HomeScreenContent(
     onNavigateToSearch: () -> Unit,
     onNavigateToAuth: () -> Unit,
     onNavigateToQuizDetail: (Long) -> Unit,
-    onNavigateToProfile: () -> Unit,
     onRetry: () -> Unit,
-    modifier: Modifier = Modifier,
-    onNavigateToJoinRoom: () -> Unit = {}
+    modifier: Modifier = Modifier
 ) {
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("MyQuizz") },
                 actions = {
-                    TextButton(onClick = onNavigateToJoinRoom) { Text("Vào phòng") }
+                    // Nút "Vào phòng" tạm thời của N19 đã bỏ — lối vào giờ là tab
+                    // "Tham gia" ở giữa bottom nav (N19.5).
                     IconButton(onClick = onNavigateToSearch) {
                         Icon(Icons.Default.Search, contentDescription = "Tìm kiếm")
                     }
                     AuthHeaderAction(
                         currentUser = uiState.currentUser,
-                        onNavigateToAuth = onNavigateToAuth,
-                        onNavigateToProfile = onNavigateToProfile
+                        onNavigateToAuth = onNavigateToAuth
                     )
                 }
             )
@@ -103,21 +93,19 @@ fun HomeScreenContent(
     }
 }
 
+/**
+ * Góc phải top bar: CHỈ còn lối đăng nhập cho khách.
+ *
+ * Khi đã đăng nhập thì không hiện gì — avatar đã chuyển xuống tab "Hồ sơ" ở
+ * bottom nav (N19.5), để ở cả hai chỗ là dư thừa và làm top bar chật.
+ */
 @Composable
 private fun AuthHeaderAction(
     currentUser: User?,
-    onNavigateToAuth: () -> Unit,
-    onNavigateToProfile: () -> Unit
+    onNavigateToAuth: () -> Unit
 ) {
     if (currentUser == null) {
         TextButton(onClick = onNavigateToAuth) { Text("Đăng ký/Đăng nhập") }
-    } else {
-        Avatar(
-            avatarUrl = currentUser.avatar,
-            contentDescription = "Hồ sơ của tôi",
-            size = 36.dp,
-            modifier = Modifier.padding(end = 12.dp).clickable(onClick = onNavigateToProfile)
-        )
     }
 }
 
@@ -173,7 +161,6 @@ private fun HomeScreenContentPreview() {
             onNavigateToSearch = {},
             onNavigateToAuth = {},
             onNavigateToQuizDetail = {},
-            onNavigateToProfile = {},
             onRetry = {}
         )
     }
