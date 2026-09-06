@@ -1575,7 +1575,7 @@ fun MainScreen() {
 
 > ⚠️ **Lưu ý về Role-Aware Architecture**: Mặc dù navigation graph được merge, **GamePlay và HostGame vẫn dùng ViewModel hoàn toàn khác nhau** (`GameViewModel` vs `HostGameViewModel`) vì backend gửi payload Socket.IO khác nhau (`room` events vs `hostRoom` events). Merge graph chỉ ảnh hưởng **initial navigation/browsing**, không ảnh hưởng **gameplay role separation** (xem mục 6.3, 8).
 
-### 11.5. Cập nhật 22/8 — Home auth header & Profile (chưa có Bottom Navigation)
+### 11.5. Cập nhật 22/8 — Home auth header & Profile (giai đoạn trước Bottom Navigation — xem 11.6)
 
 ⚠️ **Sai khác so với mục 11.4**: tại thời điểm N13.5 (22/8), `BottomNavigationBar` 5 tab (Home/Discover/Join/Library/Profile) mô tả ở mục 11.4 **chưa được triển khai**. Điều hướng thực tế hiện đi qua `NavController` thông thường gọi từ `HomeScreen`, chưa có bottom nav bar. Quyết định cụ thể:
 
@@ -1585,6 +1585,44 @@ fun MainScreen() {
 - Thêm component chung `Avatar` ở `core:ui/components/Avatar.kt` (bọc Coil ở scope `implementation`, tự fallback icon khi avatar null/rỗng). **Quy ước mới**: mọi nơi cần hiển thị avatar user dùng component này qua dependency `core:ui` sẵn có, không tự thêm `coil.compose` riêng cho từng module gọi (khác với ảnh cover quiz — vẫn để mỗi feature tự khai Coil như `feature:quiz-manage` đang làm, vì hiển thị khác nhau theo từng nơi).
 - `Route.Library` (mục 11.3) vẫn còn trong sealed Route nhưng **chưa có điểm truy cập** (chưa có bottom nav) — "Quiz của tôi" hiện đi qua `Route.Profile` → `Route.MyQuizzes`, không qua `Route.Library`. Cần quyết định lại ở N16+: giữ `Route.Library` cho mục đích khác (có thể là danh sách quiz đã lưu/yêu thích công khai) hay hợp nhất với `Route.MyQuizzes`.
 ---
+### 11.6. Cập nhật 6/9 (N19.5) — Bottom Navigation thật
+
+Mục 11.4 mô tả bottom nav như một `Scaffold` trong `MainGraph` với 5 tab Home/Discover/Join/Library/Profile. Bản thi hành thật ở N19.5 khác 3 điểm, và đây là bản đúng:
+
+**1. Bar nằm NGOÀI `NavHost`, không nằm trong `MainGraph`.** `AppNavGraph` bọc `Scaffold` quanh `NavHost`; tab đang chọn suy ra từ destination hiện tại:
+
+```kotlin
+val currentDestination = navController.currentBackStackEntryAsState().value?.destination
+val selectedTab = TopLevelTab.entries.firstOrNull { tab ->
+    currentDestination?.hasRoute(tab.route::class) == true
+}
+// selectedTab == null  ->  không phải tab cấp cao nhất  ->  không render bottom bar
+```
+
+Hệ quả: màn con (Search, QuizDetail, editor) và toàn bộ màn game **tự động** ẩn bar, không cần cờ `showBottomBar` hay logic ẩn/hiện ở từng graph. Đánh đổi: bar không thuộc `NavBackStackEntry` nào nên không dùng được `hiltViewModel()` scope theo destination (xem điểm 3).
+
+**2. Danh sách tab thật (`TopLevelTab` ở `app/navigation/MainScaffold.kt`):**
+
+| Tab | Route | Ghi chú |
+| --- | --- | --- |
+| Trang chủ | `Route.Home` | |
+| Thư viện | `Route.MyQuizzes` | KHÔNG phải `Route.Library` — placeholder đó đã bị xóa; tạo quiz là FAB trong tab này, mở thẳng editor |
+| Tham gia | `Route.JoinRoom` | icon = `R.drawable.app_logo` qua `TopLevelTab.iconRes`; cùng cỡ 24dp như mọi tab, không phóng to |
+| Hoạt động | `Route.Activity` | placeholder — màn thật cần backend có `role=all` (hiện chỉ `role=played`/`hosted`) |
+| Hồ sơ | `Route.Profile` | icon = avatar user khi đã đăng nhập, fallback `Icons.Filled.Person` |
+
+`Route.Discover` không có tab và hiện chưa có đường vào — giữ lại kèm TODO. Bottom nav **chỉ chứa điểm đến, không chứa hành động**, nên không có tab "Tạo quiz" như một số bản thiết kế đề xuất.
+
+Đổi tab dùng `NavHostController.navigateToTab`: `popUpTo<Route.Home>` (start destination của `MainGraph`) + `saveState`/`restoreState` + `launchSingleTop` — nhờ vậy back ở tab bất kỳ về Trang chủ chứ không bật ngược lần lượt từng tab đã đi, và mỗi tab giữ nguyên state cuộn/paging của nó.
+
+**3. Avatar trên tab Hồ sơ — `CurrentUserViewModel` scope theo Activity.** Vì bar ở ngoài `NavHost`, avatar được cấp bởi một ViewModel scope Activity chứ không phải ViewModel của màn Profile. `AuthRepositoryImpl.getCurrentUser()` gọi thẳng `GET /users/me` và **không có cache**, nên `refresh()` chỉ được gọi ở 4 mốc: dựng bar lần đầu, app trở lại foreground (`ON_RESUME`), vừa RỜI `AuthGraph` (đăng nhập/đăng ký xong), và đăng xuất (Profile báo ngược ra qua `mainGraph(onCurrentUserChanged = ...)`). `refresh()` tự bỏ qua lời gọi trùng khi request trước còn bay. Guest/401/offline → `null` → icon mặc định, không chặn UI.
+
+Avatar và logo vẽ bằng `Image` chứ không `Icon`, vì `Icon` nhuộm nội dung theo `LocalContentColor` và sẽ bôi phẳng logo brand; đổi lại 2 tab này thể hiện trạng thái chọn qua indicator pill + màu nhãn thay vì màu icon.
+
+**4. Nhãn tab.** Nhãn tiếng Việt 9 ký tự ("Trang chủ", "Hoạt động") tràn 2 dòng trên máy hẹp và làm lệch chiều cao cả thanh nav. `rememberTabLabelFontSize()` tính cỡ chữ từ `screenWidthDp / số tab` theo nhãn dài nhất, kẹp 9–12sp, kèm `maxLines = 1` + `softWrap = false` + căn giữa. Lưu ý bảo trì: **thêm một nhãn dài sẽ làm nhỏ chữ của tất cả tab**.
+
+**5. Profile mất vai trò điều hướng.** Trước N19.5, Profile là cửa duy nhất vào "Quiz của tôi"; giờ màn đó là tab Thư viện, nên item điều hướng trong Profile đã bị bỏ và Profile chỉ còn thông tin + (về sau) cài đặt. `QuizManageListScreen.onNavigateBack` là nullable để không hiện nút back khi màn đóng vai tab gốc.
+
 ## 12. Dependency Injection — Hilt Modules
 <table header-row="true">
 <tr>

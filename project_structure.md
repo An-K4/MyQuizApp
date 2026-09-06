@@ -2,7 +2,7 @@
 
 > **Tài liệu cấu trúc dự án chi tiết**  
 > Mô tả vai trò, trách nhiệm và mối quan hệ giữa các module trong kiến trúc Multi-module Gradle  
-> **Version:** 2.3 | **Last Updated:** 2026-08-30
+> **Version:** 2.5 | **Last Updated:** 2026-09-06
 
 ---
 
@@ -82,10 +82,14 @@ app/
 │   │   ├── presentation/splash/
 │   │   │   ├── SplashScreen.kt
 │   │   │   └── SplashViewModel.kt  # Dùng CheckAuthStateUseCase từ core:datastore
+│   │   ├── presentation/profile/   # Hồ sơ - N19.5: chỉ còn thông tin + cài đặt, bỏ hết item điều hướng
+│   │   ├── presentation/activity/  # 🆕 N19.5 - ActivityScreen (placeholder, chờ backend có role=all)
 │   │   └── navigation/
-│   │       ├── AppNavGraph.kt      # 🆕 N18.5 - Root NavHost orchestrator (60 lines, giảm 78% từ 267 lines)
+│   │       ├── AppNavGraph.kt      # 🆕 N18.5 - Root NavHost orchestrator; N19.5: Scaffold + bottom bar bọc NGOÀI NavHost
+│   │       ├── MainScaffold.kt     # 🆕 N19.5 - TopLevelTab (5 tab) + MainBottomBar + navigateToTab
+│   │       ├── CurrentUserViewModel.kt # 🆕 N19.5 - avatar cho tab Hồ sơ; scope Activity vì bar nằm ngoài NavHost
 │   │       ├── AuthNavGraph.kt     # 🆕 N18.5 - Auth routes: Login/Register/ForgotPassword/OtpVerification/ResetPassword
-│   │       ├── MainNavGraph.kt     # 🆕 N18.5 - Main routes: Home/Search/Discover/JoinRoom/Library/Profile
+│   │       ├── MainNavGraph.kt     # 🆕 N18.5 - Main routes: Home/Search/Discover/JoinRoom/Activity/Profile
 │   │       ├── QuizManageNavGraph.kt  # 🆕 N18.5 - Quiz management routes: MyQuizzes/CreateQuiz/EditQuiz/QuizDetail/CreateRoom
 │   │       └── GameNavGraph.kt     # 🆕 N18.5 - Game routes: PlayerLobby/HostLobby/GamePlay/HostGame/FinalResult
 │   ├── AndroidManifest.xml
@@ -1492,9 +1496,9 @@ MyQuizApp được xây dựng với **13 modules** theo **Clean Architecture + 
 
 ---
 
-**Document Version:** 2.4  
-**Last Updated:** 2026-09-02  
-**Status:** Living document - Đã cập nhật N19 (5/9): `feature:lobby` có đủ joinroom/guestnickname/playerlobby, `GuestIdentityStore` ở `core:datastore`, `RoomLookup`/`JoinRoomResult` + `lookupRoom`/`joinRoom` ở `core:common`. Trước đó: socket layer thật của N18 (30/8): `GameEvent` + 3 interface socket ở `core:common`, `GameSocketClient`/`GameEventMapper`/2 impl ở `core:network`, HostLobby thật ở `feature:lobby`. Polish Architecture refactor N18.5 (31/8-2/9): 4 NavGraph modules, validation pattern unified (6 validators in :core:common), 3 orchestration UseCases in quiz-manage, naming conventions standardized.
+**Document Version:** 2.5  
+**Last Updated:** 2026-09-06  
+**Status:** Living document - Đã cập nhật N19.5 (6/9): Bottom Navigation thật ở `:app` — `navigation/MainScaffold.kt` (`TopLevelTab` 5 tab + `MainBottomBar`) và `navigation/CurrentUserViewModel.kt` (avatar tab Hồ sơ, scope Activity), `Scaffold` bọc ngoài `NavHost` nên màn con/màn game tự ẩn bar; `Route.Library` bị xóa — tab Thư viện dùng `Route.MyQuizzes`; Profile rút về thông tin + cài đặt; thêm `presentation/activity/ActivityScreen.kt` placeholder. Trước đó N19 (5/9): `feature:lobby` có đủ joinroom/guestnickname/playerlobby, `GuestIdentityStore` ở `core:datastore`, `RoomLookup`/`JoinRoomResult` + `lookupRoom`/`joinRoom` ở `core:common`. Trước đó: socket layer thật của N18 (30/8): `GameEvent` + 3 interface socket ở `core:common`, `GameSocketClient`/`GameEventMapper`/2 impl ở `core:network`, HostLobby thật ở `feature:lobby`. Polish Architecture refactor N18.5 (31/8-2/9): 4 NavGraph modules, validation pattern unified (6 validators in :core:common), 3 orchestration UseCases in quiz-manage, naming conventions standardized.
 
 ---
 
