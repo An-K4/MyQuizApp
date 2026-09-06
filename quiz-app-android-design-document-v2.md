@@ -1587,6 +1587,8 @@ fun MainScreen() {
 ---
 ### 11.6. Cập nhật 6/9 (N19.5) — Bottom Navigation thật
 
+> ⚠️ Mục này mô tả bản 5 tab của N19.5 và **đã bị N19.6 thay thế** (bottom nav còn 4 tab, không còn màn Join) — xem 11.7.
+
 Mục 11.4 mô tả bottom nav như một `Scaffold` trong `MainGraph` với 5 tab Home/Discover/Join/Library/Profile. Bản thi hành thật ở N19.5 khác 3 điểm, và đây là bản đúng:
 
 **1. Bar nằm NGOÀI `NavHost`, không nằm trong `MainGraph`.** `AppNavGraph` bọc `Scaffold` quanh `NavHost`; tab đang chọn suy ra từ destination hiện tại:
@@ -1607,7 +1609,7 @@ Hệ quả: màn con (Search, QuizDetail, editor) và toàn bộ màn game **t�
 | --- | --- | --- |
 | Trang chủ | `Route.Home` | |
 | Thư viện | `Route.MyQuizzes` | KHÔNG phải `Route.Library` — placeholder đó đã bị xóa; tạo quiz là FAB trong tab này, mở thẳng editor |
-| Tham gia | `Route.JoinRoom` | icon = `R.drawable.app_logo` qua `TopLevelTab.iconRes`; cùng cỡ 24dp như mọi tab, không phóng to |
+| ~~Tham gia~~ | ~~`Route.JoinRoom`~~ | **Đã xóa ở N19.6** cùng với `TopLevelTab.iconRes` — xem 11.7 |
 | Hoạt động | `Route.Activity` | placeholder — màn thật cần backend có `role=all` (hiện chỉ `role=played`/`hosted`) |
 | Hồ sơ | `Route.Profile` | icon = avatar user khi đã đăng nhập, fallback `Icons.Filled.Person` |
 
@@ -1622,6 +1624,24 @@ Avatar và logo vẽ bằng `Image` chứ không `Icon`, vì `Icon` nhuộm nộ
 **4. Nhãn tab.** Nhãn tiếng Việt 9 ký tự ("Trang chủ", "Hoạt động") tràn 2 dòng trên máy hẹp và làm lệch chiều cao cả thanh nav. `rememberTabLabelFontSize()` tính cỡ chữ từ `screenWidthDp / số tab` theo nhãn dài nhất, kẹp 9–12sp, kèm `maxLines = 1` + `softWrap = false` + căn giữa. Lưu ý bảo trì: **thêm một nhãn dài sẽ làm nhỏ chữ của tất cả tab**.
 
 **5. Profile mất vai trò điều hướng.** Trước N19.5, Profile là cửa duy nhất vào "Quiz của tôi"; giờ màn đó là tab Thư viện, nên item điều hướng trong Profile đã bị bỏ và Profile chỉ còn thông tin + (về sau) cài đặt. `QuizManageListScreen.onNavigateBack` là nullable để không hiện nút back khi màn đóng vai tab gốc.
+
+### 11.7. Cập nhật 6/9 (N19.6) — bottom nav 4 tab, xóa màn Join, Home gộp ô nhập mã
+
+**Bottom nav chỉ còn 4 tab** (mục 11.4 và 11.6 mô tả 5 tab — đã lỗi thời):
+
+| Tab | Route | Ghi chú |
+|---|---|---|
+| Trang chủ | `Route.Home` | `Icons.Filled.Home`; chứa luôn card nhập mã phòng ở đầu trang |
+| Thư viện | `Route.MyQuizzes` | gác đăng nhập ngay ở `onSelect`; FAB tạo quiz mở thẳng editor |
+| Hoạt động | `Route.Activity` | placeholder, chờ backend có `role=all` |
+| Hồ sơ | `Route.Profile` | `usesAvatar = true`; chưa đăng nhập thì hiện empty state có nút đăng nhập |
+
+- **`Route.JoinRoom` đã bị xóa.** Màn đó chỉ có một ô nhập mã rồi điều hướng đi ngay — là HÀNH ĐỘNG chứ không phải ĐIỂM ĐẾN, và khi làm tab giữa nổi bật thì tạo ra hai destination cùng tự nhận là quan trọng nhất (Trang chủ và Tham gia) trong khi ba tab còn lại thấp hơn hẳn.
+- Ô nhập mã trở thành `JoinRoomCard` (`feature:lobby/.../joinroom/`) và được `MainNavGraph` truyền vào `HomeScreen` qua slot `roomCodeCard: @Composable () -> Unit` ⇒ `feature:home` không phụ thuộc `feature:lobby`. `KEY_LOBBY_EXIT_MESSAGE` chuyển sang đặt ở back stack entry của Home; lý do bị rời phòng hiện **inline trong card** thay vì snackbar.
+- `Route.Discover(sectionKey: String? = null)` nhận sẵn `section_key` từ nút "Xem thêm" của Home. Nút chỉ hiện khi `sectionType in {trending, category, newest}` (ba loại có endpoint phân trang khớp 100%), xét theo `section_type` chứ **không** theo `title` vì ops sửa được title trong bảng `home_sections` bằng SQL. Màn Discover thật là **mốc N20.5**.
+- **Gác đăng nhập**: `AuthRequiredDialog` ở `core:ui`, `requireAuth: (String, () -> Unit) -> Unit` do `AppNavGraph` sở hữu, chặn **trước** khi điều hướng (không chặn trong màn đích). Chỉ chặn khi session là `Guest` đã xác nhận; `Unknown` đi qua. Mục 11.2 (`RequireAuth` composable) là thiết kế cũ — bản thực thi dùng `requireAuth` ở tầng navigation.
+- **Quy tắc layout Home** (bản ghim card đầu tiên đã bị bỏ vì che nửa màn hình khi lướt): đúng MỘT vùng cuộn `LazyColumn`; card nhập mã là `item` đầu tiên và cuộn đi được; không lồng `verticalScroll` quanh `LazyColumn`; không `fillMaxSize()` trong lazy item (`fillParentMaxHeight()` đẩy card khỏi màn hình) — dùng `heightIn(min = 200.dp)`; trạng thái tải/lỗi/rỗng bọc trong `DiscoverStatusCard` của riêng khối Khám phá, không thay cả trang. Số vùng lỗi khớp số request (`/quizzes/home` là một request ⇒ hai vùng: card nhập mã không thể lỗi, khối Khám phá có placeholder riêng).
+- Thứ tự nội dung Home: card nhập mã → `continue` (client ghim lên đầu, đè `position` của backend, không có nút "Xem thêm") → các section theo `position` trong `home_sections` → nút "Khám phá tất cả" → `Route.Discover(null)`.
 
 ## 12. Dependency Injection — Hilt Modules
 <table header-row="true">

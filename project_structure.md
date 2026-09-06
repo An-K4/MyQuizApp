@@ -2,7 +2,7 @@
 
 > **Tài liệu cấu trúc dự án chi tiết**  
 > Mô tả vai trò, trách nhiệm và mối quan hệ giữa các module trong kiến trúc Multi-module Gradle  
-> **Version:** 2.5 | **Last Updated:** 2026-09-06
+> **Version:** 2.6 | **Last Updated:** 2026-09-06
 
 ---
 
@@ -89,7 +89,7 @@ app/
 │   │       ├── MainScaffold.kt     # 🆕 N19.5 - TopLevelTab (5 tab) + MainBottomBar + navigateToTab
 │   │       ├── CurrentUserViewModel.kt # 🆕 N19.5 - avatar cho tab Hồ sơ; scope Activity vì bar nằm ngoài NavHost
 │   │       ├── AuthNavGraph.kt     # 🆕 N18.5 - Auth routes: Login/Register/ForgotPassword/OtpVerification/ResetPassword
-│   │       ├── MainNavGraph.kt     # 🆕 N18.5 - Main routes: Home/Search/Discover/JoinRoom/Activity/Profile
+│   │       ├── MainNavGraph.kt     # N18.5, sửa N19.6 - Main routes: Home/Search/Discover/Activity/Profile (JoinRoom đã xóa)
 │   │       ├── QuizManageNavGraph.kt  # 🆕 N18.5 - Quiz management routes: MyQuizzes/CreateQuiz/EditQuiz/QuizDetail/CreateRoom
 │   │       └── GameNavGraph.kt     # 🆕 N18.5 - Game routes: PlayerLobby/HostLobby/GamePlay/HostGame/FinalResult
 │   ├── AndroidManifest.xml
@@ -664,7 +664,7 @@ Phòng chờ trước khi game bắt đầu. Có 2 perspectives: **Host** (đi�
 #### Trách nhiệm
 - ✅ HostLobbyScreen + HostLobbyViewModel (N18: danh sách người chơi realtime + reconnect; update config để N20)
 - ✅ PlayerLobbyScreen + PlayerLobbyViewModel (N19, 5/9 — join REST → `socketToken` → socket realtime, đã test trên máy thật)
-- ✅ JoinRoomScreen (nhập mã phòng) + GuestNicknameScreen (chỉ khách thấy; người đã đăng nhập vào thẳng lobby) — N19
+- ✅ `JoinRoomCard` (ô nhập mã phòng, N19.6 nhúng vào Home qua slot `roomCodeCard`; trước đó là `JoinRoomScreen` riêng ở N19) + GuestNicknameScreen (chỉ khách thấy; người đã đăng nhập vào thẳng lobby)
 - ✅ Real-time player list qua socket event **`lobby:updated`** — server bắn 1 snapshot đầy đủ, KHÔNG có `lobby:player-joined`/`lobby:player-left` như doc cũ ghi
 - ✅ Host có thể kick player, update config
 - ✅ Hiển thị room code + QR code để share
@@ -680,12 +680,10 @@ feature/lobby/
 │   │   │   ├── HostLobbyUiState.kt       # + hasLobbySnapshot, ConnectionStatus
 │   │   │   ├── HostLobbyIntent.kt        # Retry / LeaveRoom / ErrorShown
 │   │   │   └── HostLobbyEffect.kt        # ExitLobby(message)
-│   │   ├── joinroom/                       # 🆕 N19 (5/9) — nhập mã phòng, tra phòng trước khi join
-│   │   │   ├── JoinRoomScreen.kt          # Stateful + Content stateless; snackbar lý do bị rời phòng
+│   │   ├── joinroom/                       # N19 (5/9) → N19.6 (6/9): card nhập mã nhúng ở Home
+│   │   │   ├── JoinRoomCard.kt             # 🆕 N19.6 — Card + Content stateless; lỗi & lý do bị rời phòng hiện inline
 │   │   │   ├── JoinRoomViewModel.kt       # lookup → rẽ nhánh: đã login → join luôn / khách → GuestNickname
-│   │   │   ├── JoinRoomUiState.kt
-│   │   │   ├── JoinRoomIntent.kt
-│   │   │   └── JoinRoomEffect.kt
+│   │   │   └── JoinRoomContract.kt         # 🆕 N19.6 — UiState + Intent + Effect + `SESSION_CODE_LENGTH = 6`
 │   │   ├── guestnickname/                  # 🆕 N19 (5/9) — chỉ dành cho khách
 │   │   │   ├── GuestNicknameScreen.kt
 │   │   │   ├── GuestNicknameViewModel.kt  # NicknameValidator + GuestIdentityStore (UUID)
@@ -1496,9 +1494,9 @@ MyQuizApp được xây dựng với **13 modules** theo **Clean Architecture + 
 
 ---
 
-**Document Version:** 2.5  
+**Document Version:** 2.6  
 **Last Updated:** 2026-09-06  
-**Status:** Living document - Đã cập nhật N19.5 (6/9): Bottom Navigation thật ở `:app` — `navigation/MainScaffold.kt` (`TopLevelTab` 5 tab + `MainBottomBar`) và `navigation/CurrentUserViewModel.kt` (avatar tab Hồ sơ, scope Activity), `Scaffold` bọc ngoài `NavHost` nên màn con/màn game tự ẩn bar; `Route.Library` bị xóa — tab Thư viện dùng `Route.MyQuizzes`; Profile rút về thông tin + cài đặt; thêm `presentation/activity/ActivityScreen.kt` placeholder. Trước đó N19 (5/9): `feature:lobby` có đủ joinroom/guestnickname/playerlobby, `GuestIdentityStore` ở `core:datastore`, `RoomLookup`/`JoinRoomResult` + `lookupRoom`/`joinRoom` ở `core:common`. Trước đó: socket layer thật của N18 (30/8): `GameEvent` + 3 interface socket ở `core:common`, `GameSocketClient`/`GameEventMapper`/2 impl ở `core:network`, HostLobby thật ở `feature:lobby`. Polish Architecture refactor N18.5 (31/8-2/9): 4 NavGraph modules, validation pattern unified (6 validators in :core:common), 3 orchestration UseCases in quiz-manage, naming conventions standardized.
+**Status:** Living document - Đã cập nhật N19.6 (6/9): `core:common` có `SessionState` + `SessionRepository` (impl `@Singleton` ở `core:network`) làm nguồn sự thật duy nhất cho trạng thái đăng nhập, `core:ui` có `AuthRequiredDialog` và `HomeSectionRow` hỗ trợ nút "Xem thêm"; `:app` bỏ tab Tham gia (bottom nav còn 4 tab: Trang chủ/Thư viện/Hoạt động/Hồ sơ) và sở hữu `requireAuth` ở `AppNavGraph`; `feature:lobby/joinroom` đổi `JoinRoomScreen` → `JoinRoomCard` nhúng vào Home qua slot, 3 file UiState/Intent/Effect gộp thành `JoinRoomContract.kt`; đã xóa `AuthState`, `CheckAuthStateUseCase`, `GetCurrentUserUseCase`, `Route.JoinRoom`. Trước đó N19.5 (6/9): Bottom Navigation thật ở `:app` — `navigation/MainScaffold.kt` (`TopLevelTab` 5 tab + `MainBottomBar`) và `navigation/CurrentUserViewModel.kt` (avatar tab Hồ sơ, scope Activity), `Scaffold` bọc ngoài `NavHost` nên màn con/màn game tự ẩn bar; `Route.Library` bị xóa — tab Thư viện dùng `Route.MyQuizzes`; Profile rút về thông tin + cài đặt; thêm `presentation/activity/ActivityScreen.kt` placeholder. Trước đó N19 (5/9): `feature:lobby` có đủ joinroom/guestnickname/playerlobby, `GuestIdentityStore` ở `core:datastore`, `RoomLookup`/`JoinRoomResult` + `lookupRoom`/`joinRoom` ở `core:common`. Trước đó: socket layer thật của N18 (30/8): `GameEvent` + 3 interface socket ở `core:common`, `GameSocketClient`/`GameEventMapper`/2 impl ở `core:network`, HostLobby thật ở `feature:lobby`. Polish Architecture refactor N18.5 (31/8-2/9): 4 NavGraph modules, validation pattern unified (6 validators in :core:common), 3 orchestration UseCases in quiz-manage, naming conventions standardized.
 
 ---
 
