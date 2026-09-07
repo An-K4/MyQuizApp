@@ -3,16 +3,20 @@ package android.kma.myquizzapp.core.network.socket
 import android.kma.myquizzapp.core.common.model.DisconnectReason
 import android.kma.myquizzapp.core.common.model.GameEvent
 import android.kma.myquizzapp.core.network.BuildConfig
+import io.socket.client.Ack
 import io.socket.client.IO
 import io.socket.client.Socket
 import io.socket.engineio.client.transports.WebSocket
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONObject
 import timber.log.Timber
 import java.util.concurrent.atomic.AtomicReference
 import javax.inject.Inject
+import kotlin.coroutines.resume
 
 /**
  * Bọc socket.io-client cho namespace `/game` thành một Flow.
@@ -112,6 +116,53 @@ class GameSocketClient @Inject constructor(
         if (payload == null) socket.emit(event) else socket.emit(event, payload)
     }
 
+    /**
+     * Gửi event CÓ ack và chờ server trả lời.
+     *
+     * Chỉ `lobby:config-update` và `question:answer` có ack ở backend; các lệnh
+     * điều khiển trận (`game:start`...) là fire-and-forget nên dùng [emit].
+     *
+     * Bắt buộc có timeout: nếu mạng rụng đúng lúc emit, socket.io không gọi ack và
+     * cũng không báo lỗi — không có timeout thì coroutine treo vĩnh viễn và nút
+     * đang "đang lưu..." không bao giờ trở lại. Hết hạn → [SocketAckResult.Timeout],
+     * không throw.
+     *
+     * Lưu ý: hết hạn chờ KHÔNG có nghĩa là server chưa xử lý. Patch vẫn có thể đã
+     * được áp dụng — tầng trên nên lấy lại sự thật từ `lobby:updated` thay vì
+     * giả định thất bại rồi gửi lại.
+     */
+    suspend fun emitWithAck(
+        event: String,
+        payload: JSONObject? = null,
+        timeoutMs: Long = ACK_TIMEOUT_MS
+    ): SocketAckResult {
+        val socket = socketRef.get()
+        if (socket == null) {
+            Timber.w("Bỏ qua emit %s: chưa có socket", event)
+            return SocketAckResult.NotConnected
+        }
+
+        // socket.io-client Java nhận ack qua overload emit(event, args, Ack).
+        val args = arrayOf<Any>(payload ?: JSONObject())
+        val result = withTimeoutOrNull(timeoutMs) {
+            suspendCancellableCoroutine<SocketAckResult> { continuation ->
+                socket.emit(event, args, Ack { ackArgs ->
+                    val raw = ackArgs?.firstOrNull()?.toString().orEmpty()
+                    // Callback của socket.io chạy trên thread riêng: nếu coroutine đã
+                    // bị hủy (rời màn hình) thì resume sẽ ném IllegalStateException.
+                    if (continuation.isActive) {
+                        continuation.resume(SocketAckResult.Payload(raw))
+                    }
+                })
+            }
+        }
+
+        if (result == null) {
+            Timber.w("Ack %s không về sau %d ms", event, timeoutMs)
+        }
+        return result ?: SocketAckResult.Timeout
+    }
+
     /** Ngắt kết nối chủ động (rời lobby) mà không cần hủy Flow. */
     fun disconnect() {
         socketRef.get()?.disconnect()
@@ -151,6 +202,12 @@ class GameSocketClient @Inject constructor(
         const val AUTH_TOKEN_KEY = "token"
         const val RECONNECT_ATTEMPTS = 5
         const val RECONNECT_DELAY_MS = 1_000L
+
+        /**
+         * Hạn chờ ack. Để 5s: dài hơn một vòng round-trip 3G tệ (~1-2s) nhưng
+         * vẫn đủ ngắn để host không tưởng app treo rồi bấm lại liên tục.
+         */
+        const val ACK_TIMEOUT_MS = 5_000L
 
         /** Chuỗi reason do socket.io đặt ra, không phải do backend. */
         const val REASON_SERVER_DISCONNECT = "io server disconnect"

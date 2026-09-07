@@ -127,6 +127,12 @@ class HostLobbyViewModel @Inject constructor(
 
             is GameEvent.Failed -> onFailure(event)
 
+            // Xác nhận trận đã bắt đầu. `game:start` KHÔNG có ack, nên đây là tín
+            // hiệu thành công duy nhất — chỗ này sẽ chuyển sang màn chơi của host
+            // (N20 lượt 3). Tạm bỏ qua để nút "Bắt đầu" chưa tồn tại không có đường
+            // nào dẫn tới đây.
+            is GameEvent.GameStarted -> Unit
+
             // Các event của giai đoạn chơi (question:*, leaderboard:*...) chưa dùng ở
             // N18. Bỏ qua có ý thức, đã có log ở tầng client.
             is GameEvent.Unhandled -> Unit

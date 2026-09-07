@@ -31,6 +31,23 @@ sealed interface GameEvent {
      */
     data class Failed(val event: String?, val code: String) : GameEvent
 
+    /**
+     * `game:started` — server đã chuyển session sang active và broadcast cho cả room.
+     *
+     * Đây là XÁC NHẬN DUY NHẤT rằng `game:start` thành công: `onStart` ở backend
+     * không có ack, lỗi thì về qua [Failed] với event = `game:start`. Vì vậy host
+     * phải neo việc điều hướng vào event này, không phải vào lúc bấm nút.
+     *
+     * @param config config đầy đủ lúc bắt đầu (đã normalize) — có thể khác với giá
+     *   trị host vừa chỉnh nếu backend tự điều chỉnh.
+     */
+    data class GameStarted(
+        val mode: GameMode,
+        val config: GameConfig,
+        val totalQuestions: Int,
+        val serverTime: String? = null
+    ) : GameEvent
+
     /** Event backend gửi mà N18 chưa xử lý — chỉ để log, không phải lỗi. */
     data class Unhandled(val event: String) : GameEvent
 }

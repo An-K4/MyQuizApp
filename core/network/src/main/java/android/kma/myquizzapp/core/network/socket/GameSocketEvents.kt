@@ -13,6 +13,15 @@ internal object GameSocketEvents {
     // ----- Client → server -----
     const val LOBBY_JOIN = "lobby:join"
     const val LOBBY_LEAVE = "lobby:leave"
+
+    /**
+     * `lobby:config-update` — event duy nhất của host CÓ ack.
+     *
+     * Payload nhận cả `{ config: {...} }` và object config trần (`raw.config ?? raw`
+     * trong `game.socket.ts`); ta gửi dạng bọc `config` cho rõ ràng.
+     */
+    const val LOBBY_CONFIG_UPDATE = "lobby:config-update"
+
     const val GAME_START = "game:start"
     const val GAME_NEXT = "game:next"
     const val GAME_PAUSE = "game:pause"
@@ -26,6 +35,9 @@ internal object GameSocketEvents {
     const val LOBBY_UPDATED = "lobby:updated"
     const val ERROR = "error"
 
+    /** Xác nhận trận đã bắt đầu — `game:start` không có ack nên phải dựa vào event này. */
+    const val GAME_STARTED = "game:started"
+
     /**
      * Toàn bộ event server có thể gửi trên `/game`.
      *
@@ -38,7 +50,7 @@ internal object GameSocketEvents {
         ERROR,
         "game:state",
         "game:countdown",
-        "game:started",
+        GAME_STARTED,
         "game:ended",
         "question:started",
         "question:locked",

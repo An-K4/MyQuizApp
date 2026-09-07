@@ -293,7 +293,7 @@ data class JoinedPlayerDto(
     )
 }
 
-private fun String.toConfigKey(): GameConfigKey? = when (this) {
+internal fun String.toConfigKey(): GameConfigKey? = when (this) {
     "timing.perQuestionSeconds" -> GameConfigKey.PER_QUESTION_SECONDS
     "timing.autoAdvance" -> GameConfigKey.AUTO_ADVANCE
     "timing.totalMatchSeconds" -> GameConfigKey.TOTAL_MATCH_SECONDS
@@ -348,7 +348,14 @@ private fun JsonElement.toDomainValue(key: GameConfigKey): GameConfigValue? = wh
     else -> (this as? JsonPrimitive)?.booleanOrNull?.let { GameConfigValue.BooleanValue(it) }
 }
 
-private fun Map<GameConfigKey, GameConfigValue>.toWireJsonObject(): JsonObject {
+/**
+ * Gấp map typed thành JSON lồng theo dotted path của backend.
+ *
+ * `internal` (không còn `private`) vì N20 dùng lại cho `lobby:config-update` ở
+ * package socket — hai đường REST và socket phải dùng CÙNG một bảng ánh xạ,
+ * nếu copy sang chỗ khác thì sớm muộn lệch nhau.
+ */
+internal fun Map<GameConfigKey, GameConfigValue>.toWireJsonObject(): JsonObject {
     val root = linkedMapOf<String, Any>()
     forEach { (key, value) -> putDottedPath(root, key.toWirePath(), value.toJsonElement()) }
     return root.toJsonObject()

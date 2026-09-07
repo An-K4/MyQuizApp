@@ -108,8 +108,13 @@ class PlayerLobbyViewModel @Inject constructor(
 
             is GameEvent.Failed -> onFailure(event)
 
-            // game:started và các event chơi sẽ được xử lý từ N21 (màn chơi). N19 chỉ
-            // dừng ở phòng chờ nên bỏ qua có ý thức, đã có log ở tầng client.
+            // Host đã bấm bắt đầu: backend broadcast cho cả room nên người chơi cũng
+            // nhận được. Điều hướng sang màn chơi thuộc N21; tới lúc đó thay Unit
+            // bằng effect chuyển màn, KHÔNG chuyển bằng cách chờ lobby:updated.
+            is GameEvent.GameStarted -> Unit
+
+            // Các event chơi khác sẽ được xử lý từ N21 (màn chơi). N19 chỉ dừng ở
+            // phòng chờ nên bỏ qua có ý thức, đã có log ở tầng client.
             is GameEvent.Unhandled -> Unit
         }
     }

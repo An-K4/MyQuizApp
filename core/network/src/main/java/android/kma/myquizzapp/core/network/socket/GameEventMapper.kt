@@ -2,6 +2,7 @@ package android.kma.myquizzapp.core.network.socket
 
 import android.kma.myquizzapp.core.common.model.GameEvent
 import android.kma.myquizzapp.core.network.di.PreserveCaseJson
+import android.kma.myquizzapp.core.network.socket.dto.GameStartedDto
 import android.kma.myquizzapp.core.network.socket.dto.LobbyUpdatedDto
 import android.kma.myquizzapp.core.network.socket.dto.SocketErrorDto
 import kotlinx.serialization.json.Json
@@ -26,6 +27,7 @@ class GameEventMapper @Inject constructor(
     fun map(event: String, payload: Any?): GameEvent = when (event) {
         GameSocketEvents.LOBBY_UPDATED -> mapLobbyUpdated(payload)
         GameSocketEvents.ERROR -> mapError(payload)
+        GameSocketEvents.GAME_STARTED -> mapGameStarted(payload)
         else -> GameEvent.Unhandled(event)
     }
 
@@ -35,6 +37,25 @@ class GameEventMapper @Inject constructor(
         }
         return dto?.let { GameEvent.LobbyUpdated(it.toDomain()) }
             ?: GameEvent.Failed(GameSocketEvents.LOBBY_UPDATED, CODE_CLIENT_PARSE_ERROR)
+    }
+
+    /**
+     * `game:started` — xác nhận duy nhất rằng `game:start` đã thành công (event đó
+     * không có ack). Host neo việc điều hướng vào đây nên parse lỗi phải thành
+     * [GameEvent.Failed] để nút "Bắt đầu" thoát trạng thái chờ, không được im lặng.
+     */
+    private fun mapGameStarted(payload: Any?): GameEvent {
+        val dto = decode(payload, GameSocketEvents.GAME_STARTED) {
+            json.decodeFromString(GameStartedDto.serializer(), it)
+        }
+        return dto?.let {
+            GameEvent.GameStarted(
+                mode = it.mode,
+                config = it.config,
+                totalQuestions = it.totalQuestions,
+                serverTime = it.serverTime
+            )
+        } ?: GameEvent.Failed(GameSocketEvents.GAME_STARTED, CODE_CLIENT_PARSE_ERROR)
     }
 
     private fun mapError(payload: Any?): GameEvent {
