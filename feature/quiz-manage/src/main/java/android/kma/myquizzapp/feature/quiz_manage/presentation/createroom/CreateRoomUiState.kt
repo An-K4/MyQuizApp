@@ -5,6 +5,7 @@ import android.kma.myquizzapp.core.common.model.GameMode
 import android.kma.myquizzapp.core.common.model.GameModeDescriptor
 import android.kma.myquizzapp.core.common.model.GameSession
 import android.kma.myquizzapp.core.common.model.IgnoredGameConfigField
+import android.kma.myquizzapp.core.ui.gameconfig.RoomConfigForm
 
 data class CreateRoomUiState(
     val isLoadingModes: Boolean = true,

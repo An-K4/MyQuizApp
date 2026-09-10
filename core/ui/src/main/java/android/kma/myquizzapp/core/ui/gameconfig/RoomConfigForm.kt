@@ -1,10 +1,22 @@
-package android.kma.myquizzapp.feature.quiz_manage.presentation.createroom
+package android.kma.myquizzapp.core.ui.gameconfig
 
+import android.kma.myquizzapp.core.common.model.GameConfig
 import android.kma.myquizzapp.core.common.model.GameConfigConstraint
 import android.kma.myquizzapp.core.common.model.GameConfigKey
 import android.kma.myquizzapp.core.common.model.GameConfigValue
 import android.kma.myquizzapp.core.common.model.GameModeDescriptor
 import android.kma.myquizzapp.core.common.model.ShowLeaderboard
+
+/*
+ * Form cấu hình phòng, dùng chung cho hai màn:
+ *  - CreateRoom (feature:quiz-manage): dựng từ default của descriptor.
+ *  - HostLobby (feature:lobby): dựng từ config THẬT của phòng đang mở.
+ *
+ * Vì sao nằm ở core:ui chứ không ở feature: N17 đặt nó trong quiz-manage vì lúc
+ * đó chỉ CreateRoom cần. Sang N20 host phải sửa lại config ngay trong lobby, và
+ * quy ước kiến trúc cấm feature phụ thuộc feature — nên thứ dùng chung phải hạ
+ * xuống core:ui.
+ */
 
 data class BooleanSettingUiState(
     val value: Boolean,
@@ -126,81 +138,109 @@ data class RoomConfigForm(
     }
 
     companion object {
-        fun fromDescriptor(descriptor: GameModeDescriptor): RoomConfigForm {
-            val defaults = descriptor.defaultConfig
-            return RoomConfigForm(
-                perQuestionSeconds = descriptor.numberSetting(
-                    GameConfigKey.PER_QUESTION_SECONDS,
-                    defaults.timing.perQuestionSeconds
-                ),
-                autoAdvance = descriptor.booleanSetting(GameConfigKey.AUTO_ADVANCE, defaults.timing.autoAdvance),
-                totalMatchSeconds = descriptor.numberSetting(
-                    GameConfigKey.TOTAL_MATCH_SECONDS,
-                    defaults.timing.totalMatchSeconds
-                ),
-                maxPlayers = descriptor.numberSetting(GameConfigKey.MAX_PLAYERS, defaults.lobby.maxPlayers),
-                allowLateJoin = descriptor.booleanSetting(GameConfigKey.ALLOW_LATE_JOIN, defaults.lobby.allowLateJoin),
-                allowGuests = descriptor.booleanSetting(GameConfigKey.ALLOW_GUESTS, defaults.lobby.allowGuests),
-                showCorrectAnswer = descriptor.booleanSetting(
-                    GameConfigKey.SHOW_CORRECT_ANSWER,
-                    defaults.flow.showCorrectAnswer
-                ),
-                showLeaderboard = descriptor.choiceSetting(
-                    GameConfigKey.SHOW_LEADERBOARD,
-                    when (defaults.flow.showLeaderboard) {
-                        ShowLeaderboard.NEVER -> "never"
-                        ShowLeaderboard.BETWEEN_QUESTIONS -> "between_questions"
-                        ShowLeaderboard.END_ONLY -> "end_only"
-                    }
-                ),
-                lives = descriptor.numberSetting(GameConfigKey.LIVES, defaults.flow.lives),
-                allowAnswerLate = descriptor.booleanSetting(
-                    GameConfigKey.ALLOW_ANSWER_LATE,
-                    defaults.flow.allowAnswerLate
-                ),
-                shuffleQuestions = descriptor.booleanSetting(
-                    GameConfigKey.SHUFFLE_QUESTIONS,
-                    defaults.flow.shuffleQuestions
-                ),
-                shuffleOptions = descriptor.booleanSetting(
-                    GameConfigKey.SHUFFLE_OPTIONS,
-                    defaults.flow.shuffleOptions
-                ),
-                showHint = descriptor.booleanSetting(GameConfigKey.SHOW_HINT, defaults.flow.showHint),
-                reviewMode = descriptor.booleanSetting(GameConfigKey.REVIEW_MODE, defaults.flow.reviewMode),
-                speedBonus = descriptor.booleanSetting(GameConfigKey.SPEED_BONUS, defaults.scoring.speedBonus),
-                negativeMarking = descriptor.booleanSetting(
-                    GameConfigKey.NEGATIVE_MARKING,
-                    defaults.scoring.negativeMarking
-                )
-            )
-        }
+        /**
+         * Form cho phòng CHƯA tồn tại: mọi giá trị lấy từ default của descriptor.
+         * Dùng ở CreateRoom.
+         */
+        fun fromDescriptor(descriptor: GameModeDescriptor): RoomConfigForm =
+            descriptor.buildForm { key ->
+                descriptor.editable[key]?.defaultValue
+                    ?: descriptor.locked[key]
+                    ?: descriptor.defaultConfig.valueOf(key)
+            }
+
+        /**
+         * Form cho phòng ĐANG tồn tại: giá trị lấy từ [config] thật của phòng, còn
+         * quyền sửa và ràng buộc vẫn lấy từ [descriptor].
+         *
+         * Không được suy ra editable/locked từ config — descriptor là nguồn duy
+         * nhất cho việc đó (backend `describeModeConfig`), và locked luôn thắng.
+         */
+        fun fromConfig(descriptor: GameModeDescriptor, config: GameConfig): RoomConfigForm =
+            descriptor.buildForm { key -> config.valueOf(key) }
     }
+}
+
+/** Đọc một khóa typed ra khỏi [GameConfig]. Chỗ duy nhất biết key nào nằm ở nhóm nào. */
+fun GameConfig.valueOf(key: GameConfigKey): GameConfigValue = when (key) {
+    GameConfigKey.PER_QUESTION_SECONDS -> GameConfigValue.NumberValue(timing.perQuestionSeconds)
+    GameConfigKey.AUTO_ADVANCE -> GameConfigValue.BooleanValue(timing.autoAdvance)
+    GameConfigKey.TOTAL_MATCH_SECONDS -> GameConfigValue.NumberValue(timing.totalMatchSeconds)
+    GameConfigKey.MAX_PLAYERS -> GameConfigValue.NumberValue(lobby.maxPlayers)
+    GameConfigKey.ALLOW_LATE_JOIN -> GameConfigValue.BooleanValue(lobby.allowLateJoin)
+    GameConfigKey.ALLOW_GUESTS -> GameConfigValue.BooleanValue(lobby.allowGuests)
+    GameConfigKey.SHOW_CORRECT_ANSWER -> GameConfigValue.BooleanValue(flow.showCorrectAnswer)
+    GameConfigKey.SHOW_LEADERBOARD -> GameConfigValue.ChoiceValue(flow.showLeaderboard.wireValue())
+    GameConfigKey.LIVES -> GameConfigValue.NumberValue(flow.lives)
+    GameConfigKey.ALLOW_ANSWER_LATE -> GameConfigValue.BooleanValue(flow.allowAnswerLate)
+    GameConfigKey.SHUFFLE_QUESTIONS -> GameConfigValue.BooleanValue(flow.shuffleQuestions)
+    GameConfigKey.SHUFFLE_OPTIONS -> GameConfigValue.BooleanValue(flow.shuffleOptions)
+    GameConfigKey.SHOW_HINT -> GameConfigValue.BooleanValue(flow.showHint)
+    GameConfigKey.REVIEW_MODE -> GameConfigValue.BooleanValue(flow.reviewMode)
+    GameConfigKey.SPEED_BONUS -> GameConfigValue.BooleanValue(scoring.speedBonus)
+    GameConfigKey.NEGATIVE_MARKING -> GameConfigValue.BooleanValue(scoring.negativeMarking)
+}
+
+/**
+ * Chuỗi wire của showLeaderboard.
+ *
+ * Constraint từ backend là danh sách chuỗi (`never|between_questions|end_only`),
+ * nên form phải so sánh cùng dạng chuỗi đó, không dùng tên enum Kotlin.
+ */
+private fun ShowLeaderboard.wireValue(): String = when (this) {
+    ShowLeaderboard.NEVER -> "never"
+    ShowLeaderboard.BETWEEN_QUESTIONS -> "between_questions"
+    ShowLeaderboard.END_ONLY -> "end_only"
 }
 
 private fun NumberSettingUiState.toDomainValue(): GameConfigValue.NumberValue =
     GameConfigValue.NumberValue(value.trim().toIntOrNull())
 
+/**
+ * Dựng form; [resolve] quyết định LẤY GIÁ TRỊ Ở ĐÂU, còn quyền sửa và ràng buộc
+ * luôn lấy từ descriptor. Tách như vậy để fromDescriptor và fromConfig không phải
+ * nhân đôi danh sách 16 field.
+ */
+private fun GameModeDescriptor.buildForm(
+    resolve: (GameConfigKey) -> GameConfigValue
+): RoomConfigForm = RoomConfigForm(
+    perQuestionSeconds = numberSetting(GameConfigKey.PER_QUESTION_SECONDS, resolve),
+    autoAdvance = booleanSetting(GameConfigKey.AUTO_ADVANCE, resolve),
+    totalMatchSeconds = numberSetting(GameConfigKey.TOTAL_MATCH_SECONDS, resolve),
+    maxPlayers = numberSetting(GameConfigKey.MAX_PLAYERS, resolve),
+    allowLateJoin = booleanSetting(GameConfigKey.ALLOW_LATE_JOIN, resolve),
+    allowGuests = booleanSetting(GameConfigKey.ALLOW_GUESTS, resolve),
+    showCorrectAnswer = booleanSetting(GameConfigKey.SHOW_CORRECT_ANSWER, resolve),
+    showLeaderboard = choiceSetting(GameConfigKey.SHOW_LEADERBOARD, resolve),
+    lives = numberSetting(GameConfigKey.LIVES, resolve),
+    allowAnswerLate = booleanSetting(GameConfigKey.ALLOW_ANSWER_LATE, resolve),
+    shuffleQuestions = booleanSetting(GameConfigKey.SHUFFLE_QUESTIONS, resolve),
+    shuffleOptions = booleanSetting(GameConfigKey.SHUFFLE_OPTIONS, resolve),
+    showHint = booleanSetting(GameConfigKey.SHOW_HINT, resolve),
+    reviewMode = booleanSetting(GameConfigKey.REVIEW_MODE, resolve),
+    speedBonus = booleanSetting(GameConfigKey.SPEED_BONUS, resolve),
+    negativeMarking = booleanSetting(GameConfigKey.NEGATIVE_MARKING, resolve)
+)
+
 private fun GameModeDescriptor.booleanSetting(
     key: GameConfigKey,
-    fallback: Boolean
+    resolve: (GameConfigKey) -> GameConfigValue
 ): BooleanSettingUiState {
-    val value = editable[key]?.defaultValue ?: locked[key] ?: GameConfigValue.BooleanValue(fallback)
+    val fallback = (defaultConfig.valueOf(key) as? GameConfigValue.BooleanValue)?.value ?: false
     return BooleanSettingUiState(
-        value = (value as? GameConfigValue.BooleanValue)?.value ?: fallback,
+        value = (resolve(key) as? GameConfigValue.BooleanValue)?.value ?: fallback,
         editable = key in editable
     )
 }
 
 private fun GameModeDescriptor.numberSetting(
     key: GameConfigKey,
-    fallback: Int?
+    resolve: (GameConfigKey) -> GameConfigValue
 ): NumberSettingUiState {
     val spec = editable[key]
-    val value = spec?.defaultValue ?: locked[key] ?: GameConfigValue.NumberValue(fallback)
     val constraint = spec?.constraint as? GameConfigConstraint.NumberConstraint
     return NumberSettingUiState(
-        value = (value as? GameConfigValue.NumberValue)?.value?.toString().orEmpty(),
+        value = (resolve(key) as? GameConfigValue.NumberValue)?.value?.toString().orEmpty(),
         min = constraint?.min,
         max = constraint?.max,
         nullable = constraint?.nullable ?: true,
@@ -211,13 +251,13 @@ private fun GameModeDescriptor.numberSetting(
 
 private fun GameModeDescriptor.choiceSetting(
     key: GameConfigKey,
-    fallback: String
+    resolve: (GameConfigKey) -> GameConfigValue
 ): ChoiceSettingUiState {
     val spec = editable[key]
-    val value = spec?.defaultValue ?: locked[key] ?: GameConfigValue.ChoiceValue(fallback)
     val constraint = spec?.constraint as? GameConfigConstraint.ChoiceConstraint
+    val fallback = (defaultConfig.valueOf(key) as? GameConfigValue.ChoiceValue)?.value.orEmpty()
     return ChoiceSettingUiState(
-        value = (value as? GameConfigValue.ChoiceValue)?.value ?: fallback,
+        value = (resolve(key) as? GameConfigValue.ChoiceValue)?.value ?: fallback,
         options = constraint?.values.orEmpty(),
         editable = spec != null
     )

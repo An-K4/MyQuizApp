@@ -85,7 +85,7 @@ private fun apiCodeToMessage(code: String): String = when (code) {
     // tình huống người dùng xử lý được. Hai code dưới đây thì ngược lại — thử lại
     // là hành động đúng, nên nói rõ cho họ biết.
     "CLIENT_ACK_TIMEOUT" -> "Server không phản hồi, vui lòng thử lại"
-    "CLIENT_NOT_CONNECTED" -> "Mất kết nối tối phòng, đang thử kết nối lại"
+    "CLIENT_NOT_CONNECTED" -> "Mất kết nối tới phòng, đang thử kết nối lại"
 
     // --- Upload ---
     "FILE_TOO_LARGE" -> "File vượt quá dung lượng cho phép"

@@ -9,10 +9,11 @@ import android.kma.myquizzapp.core.common.model.GameSession
 import android.kma.myquizzapp.core.common.result.Result
 import android.kma.myquizzapp.core.common.validator.RoomSettingsValidator
 import android.kma.myquizzapp.core.common.validator.ValidationResult
+import android.kma.myquizzapp.core.ui.gameconfig.RoomConfigForm
+import android.kma.myquizzapp.core.ui.gameconfig.buildGameConfigPatch
 import android.kma.myquizzapp.feature.quiz_manage.domain.usecase.CreateGameSessionUseCase
 import android.kma.myquizzapp.feature.quiz_manage.domain.usecase.GetGameModesUseCase
 import android.kma.myquizzapp.feature.quiz_manage.domain.usecase.GetHostTokenUseCase
-import android.kma.myquizzapp.feature.quiz_manage.domain.util.buildGameConfigPatch
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope

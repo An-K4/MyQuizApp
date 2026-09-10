@@ -3,6 +3,7 @@ package android.kma.myquizzapp.feature.quiz_manage.presentation.createroom
 import android.content.res.Configuration
 import android.kma.myquizzapp.core.common.model.GameMode
 import android.kma.myquizzapp.core.common.model.Pacing
+import android.kma.myquizzapp.core.ui.gameconfig.GameModeConfigEditor
 import android.kma.myquizzapp.core.ui.theme.MyQuizAppTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -138,7 +139,9 @@ private fun CreateRoomForm(
                 form = form,
                 invalidKeys = state.invalidConfigKeys,
                 enabled = !state.isWaitingForHostToken && !state.isSubmitting,
-                onIntent = onIntent
+                onToggle = { key, checked -> onIntent(CreateRoomIntent.ToggleChanged(key, checked)) },
+                onNumberChange = { key, value -> onIntent(CreateRoomIntent.NumberChanged(key, value)) },
+                onChoiceChange = { key, value -> onIntent(CreateRoomIntent.ChoiceChanged(key, value)) }
             )
         }
         if (state.validationErrors.isNotEmpty()) item {
