@@ -115,7 +115,9 @@ class PlayerLobbyViewModel @Inject constructor(
 
             // Các event chơi khác sẽ được xử lý từ N21 (màn chơi). N19 chỉ dừng ở
             // phòng chờ nên bỏ qua có ý thức, đã có log ở tầng client.
-            is GameEvent.Unhandled -> Unit
+            // Dùng `else`: màn phòng chờ của người chơi không xử lý event gameplay,
+            // nên việc GameEvent mọc thêm nhánh không được phép làm vỡ build file này.
+            else -> Unit
         }
     }
 

@@ -48,7 +48,86 @@ sealed interface GameEvent {
         val serverTime: String? = null
     ) : GameEvent
 
-    /** Event backend gửi mà N18 chưa xử lý — chỉ để log, không phải lỗi. */
+    /**
+     * `game:countdown` — đồng hồ trước câu đầu tiên.
+     *
+     * Đến cả khi host vừa kết nối vào giữa lúc đang đếm, nên phải dùng
+     * [GameCountdown.startsAt] (mốc tuyệt đối) chứ không tự đếm từ
+     * [GameCountdown.seconds] tại thời điểm nhận.
+     */
+    data class Countdown(
+        val countdown: GameCountdown,
+        val serverTime: String? = null
+    ) : GameEvent
+
+    /**
+     * `host:question` — câu hỏi kèm ĐÁP ÁN ĐÚNG, chỉ host room nhận.
+     *
+     * Host cũng nhận `question:started` (bản đã cắt đáp án) vì ở trong room chung.
+     * Màn host phải bỏ qua bản đó, nếu không sẽ render trùng và mất khoá đáp án.
+     */
+    data class HostQuestionReceived(
+        val hostQuestion: HostQuestion,
+        val serverTime: String? = null
+    ) : GameEvent
+
+    /** `question:locked` — câu hỏi đã đóng, ngay sau đó sẽ có [QuestionResultsReceived]. */
+    data class QuestionLocked(
+        val index: Int,
+        val reason: QuestionLockReason,
+        val serverTime: String? = null
+    ) : GameEvent
+
+    /** `question:results` — thời điểm đầu tiên được phép công bố đáp án. */
+    data class QuestionResultsReceived(
+        val results: QuestionResults,
+        val serverTime: String? = null
+    ) : GameEvent
+
+    /**
+     * `host:answer-received` — một người chơi cụ thể vừa trả lời.
+     *
+     * Chỉ host room nhận; bản dùng chung `answer:received` bị backend loại trừ host.
+     */
+    data class HostAnswerReceivedEvent(
+        val answer: HostAnswerReceived,
+        val serverTime: String? = null
+    ) : GameEvent
+
+    /** `leaderboard:host` — bảng theo dõi đầy đủ, luôn được gửi cho host. */
+    data class HostLeaderboardUpdated(
+        val leaderboard: HostLeaderboard,
+        val serverTime: String? = null
+    ) : GameEvent
+
+    /**
+     * `game:state` — snapshot toàn phòng, dùng để dựng lại màn sau reconnect.
+     *
+     * BẪY: [GameSnapshot.question] là bản công khai nên KHÔNG có đáp án đúng, và
+     * backend không phát lại `host:question`. Reconnect vào giữa một câu đang mở
+     * thì host mất khoá đáp án cho tới câu kế tiếp.
+     */
+    data class StateSnapshot(
+        val snapshot: GameSnapshot,
+        val serverTime: String? = null
+    ) : GameEvent
+
+    /**
+     * `game:ended` — trận kết thúc, payload đã mang sẵn bảng xếp hạng cuối và
+     * thống kê từng câu nên KHÔNG cần gọi thêm REST `GET /games/:id/results`.
+     */
+    data class GameEndedEvent(
+        val ended: GameEnded,
+        val serverTime: String? = null
+    ) : GameEvent
+
+    /** `player:eliminated` — một người chơi hết mạng (chỉ mode sinh tồn). */
+    data class PlayerEliminated(
+        val player: EliminatedPlayer,
+        val serverTime: String? = null
+    ) : GameEvent
+
+    /** Event backend gửi mà tầng hiện tại chưa xử lý — chỉ để log, không phải lỗi. */
     data class Unhandled(val event: String) : GameEvent
 }
 

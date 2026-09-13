@@ -173,7 +173,10 @@ class HostLobbyViewModel @Inject constructor(
 
             // Các event của giai đoạn chơi (question:*, leaderboard:*...) chưa dùng ở
             // N18. Bỏ qua có ý thức, đã có log ở tầng client.
-            is GameEvent.Unhandled -> Unit
+            // Dùng `else` thay vì liệt kê từng nhánh: màn lobby sẽ không bao giờ xử
+            // lý event gameplay, nên mỗi lần GameEvent mọc thêm nhánh mới không có
+            // lý do gì để file này vỡ build.
+            else -> Unit
         }
     }
 

@@ -27,9 +27,9 @@ interface HostGameSocketRepository : GameSocketRepository {
      * 1. Ack trả [ConfigUpdateAck.config] là config ĐẦY ĐỦ sau normalize, có thể
      *    khác cả ở field không nằm trong [patch]. Phải render lại form từ ack.
      *
-     * 2. `onConfigUpdate` KHÔNG kiểm tra `session_status`, nghĩa là gọi khi trận
-     *    đã chạy vẫn "thành công" và sửa config giữa trận. Client phải tự chặn:
-     *    chỉ cho sửa khi trạng thái còn là lobby.
+     * 2. `onConfigUpdate` không tự kiểm `session_status`, nhưng `writeConfig` chặn
+     *    bằng 409 `GAME_LOBBY_ONLY` khi phiên không còn ở lobby. Client vẫn nên tự
+     *    chặn sớm: chỉ mở bảng sửa khi phiên còn ở lobby, tránh một vòng gọi vô ích.
      *
      * Trả lỗi (không throw) khi host không còn quyền (`GAME_NOT_HOST`), phòng biến
      * mất (`GAME_ROOM_NOT_FOUND`), mất kết nối, hay ack không về kịp.
