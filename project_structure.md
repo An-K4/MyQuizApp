@@ -2,7 +2,7 @@
 
 > **Tài liệu cấu trúc dự án chi tiết**  
 > Mô tả vai trò, trách nhiệm và mối quan hệ giữa các module trong kiến trúc Multi-module Gradle  
-> **Version:** 2.7 | **Last Updated:** 2026-09-10
+> **Version:** 2.8 | **Last Updated:** 2026-09-13
 
 ---
 
@@ -41,7 +41,7 @@ MyQuizApp được xây dựng theo **Multi-module Gradle Architecture** với *
 - `:feature:home` - Quiz discovery, browse public quizzes
 - `:feature:lobby` - Waiting room (Host & Player)
 - `:feature:game-player` - Gameplay screen (Player perspective)
-- `:feature:game-host` - Host control console
+- `:feature:game-host` - Host control console — **đã triển khai thật ở N21** (`hostgame/`: `HostGameScreen` + `UiState`/`Intent`/`Effect`/`ViewModel`), điều khiển trận classic qua socket host room
 - `:feature:leaderboard` - Real-time rankings & final results
 - `:feature:quiz-manage` - CRUD quizzes (Host only)
 
