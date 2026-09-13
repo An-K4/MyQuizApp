@@ -1660,6 +1660,18 @@ Avatar và logo vẽ bằng `Image` chứ không `Icon`, vì `Icon` nhuộm nộ
 - Thanh filter ngoài giữ Tất cả/Chơi nhiều nhất/Xu hướng; topic và sort phụ nằm trong menu. Topic hiển thị tiếng Việt nhưng wire value giữ nguyên; `General`/“Tổng hợp” là category cụ thể, khác Tất cả (không gửi category).
 - `meta.pagination` dùng camelCase trong response chứa payload quiz snake_case. `PaginationMetaDto` phải alias `nextCursor`/`hasMore` bằng `@JsonNames`; nếu không Paging dừng sau trang đầu mà không crash.
 
+### 11.9. Cập nhật 13/9 (N22–N23) — Gameplay Player host-paced/classic
+
+- `PlayerLobby` nhận `game:started` và phát one-shot effect sang `Route.GamePlay(gameId, playerId, socketToken)`; pop lobby khỏi back stack. Effect phải phát **trước** khi hủy collector hiện tại, nếu không `send()` có thể bị `CancellationException` và mất navigation.
+- `feature:game-player` dùng MVI riêng cho player: `GameUiState` + `GameIntent` + `GameEffect` + `GamePhaseUi`; `GamePlayScreen` stateful, `GamePlayScreenContent` stateless; ViewModel chỉ đi qua `PlayerGameSessionUseCase`.
+- Input hỗ trợ đúng 4 wire type: `multiple_choice`, `multiple_select`, `short_answer`, `long_answer`. Giữ option order từ server; id `0`/`"0"` hợp lệ; không gửi lựa chọn rỗng hoặc text blank.
+- `PlayerGameSocketRepository.submitAnswer(PlayerAnswer)` trả `Result<AnswerAck>`; serialization `{answer: ...}` chỉ nằm ở `core:network`, không truyền JSON string qua domain/presentation.
+- Host-paced ACK thật chỉ xác nhận acceptance (`accepted`, `isLate`, `lives`, `eliminated`, `serverTime`). Các field `isCorrect`/`scoreEarned`/`totalScore`/`streak`/`correct_answer` chỉ có điều kiện ở self-paced; player host-paced không được tự suy luận đúng/sai.
+- ACK timeout/not-connected là **unknown outcome**: khóa input trước emit, không tự retry, emit `player:sync`, rồi dùng `game:state.player.answered_questions` xác định server đã ghi đáp án chưa. Chỉ mở lại khi snapshot nói chưa ghi và phase vẫn `question_active`.
+- Reconnect: sau mọi `Connected`, emit `lobby:join` rồi `player:sync`. Snapshot dựng lại phase/question/deadline/submitted; reconnect trong `showing_results` chỉ hiện trạng thái trung tính vì backend không replay đầy đủ `question:results`.
+- Timer dùng deadline tuyệt đối + `serverTime` offset; `endsAt=null` thì ẩn; khi UI về 0 chỉ khóa input, server vẫn là nơi quyết định phase.
+- `game:ended` hiện mới đưa Gameplay về phase finished. Điều hướng sang `FinalResult` và màn kết quả đầy đủ thuộc N24.
+
 ## 12. Dependency Injection — Hilt Modules
 <table header-row="true">
 <tr>
@@ -1784,29 +1796,21 @@ val offset = Instant.parse(serverTime).toEpochMilli() - System.currentTimeMillis
 - Khi mất kết nối và reconnect giữa chừng một câu hỏi self-paced, server gửi `question:awaiting_next` để đồng bộ lại UI — ViewModel cần một nhánh xử lý riêng cho event này, không map chung vào `SelfQuestion`.
 ---
 ## 14. Error Handling — theo đúng envelope backend
-Toàn bộ lỗi REST trả JSON `{success:false, error:{code}}` — **chỉ có `code`, không có `message`/`details`** (xem mục 4.6) — với HTTP status tương ứng (`400/401/403/404/409/413/500/503` — xem `error.handler.ts`). Lỗi [Socket.IO](http://Socket.IO) đi qua **event ****`error`** dạng `{event, message}` với message có prefix loại lỗi: `UNAUTHORIZED:`, `FORBIDDEN:`, `CONFLICT:`, `GONE:` (lỗi Socket vẫn có message, chỉ REST là code thuần).
+Toàn bộ lỗi REST trả JSON `{success:false, error:{code}}` — **chỉ có `code`, không có `message`/`details`** (xem mục 4.6) — với HTTP status tương ứng (`400/401/403/404/409/413/500/503` — xem `error.handler.ts`). Lỗi Socket.IO thật cũng dùng vocabulary code của backend: event không có ACK phát `error` dạng `{event, code}`; event có ACK trả callback dạng `{error:{code}}`. Android tái dùng `AppError.Api(code)` + mapper tiếng Việt, không tạo `AppError.Socket` dựa trên prefix message.
 ```kotlin
-sealed class AppError {
-    data class Http(val status: Int, val code: String) : AppError()   // code thô từ server, VD "VALIDATION_ERROR"
-    data class Socket(val sourceEvent: String, val message: String) : AppError() {
-        val kind: SocketErrorKind get() = when {
-            message.startsWith("UNAUTHORIZED") -> SocketErrorKind.UNAUTHORIZED
-            message.startsWith("FORBIDDEN") -> SocketErrorKind.FORBIDDEN
-            message.startsWith("CONFLICT") -> SocketErrorKind.CONFLICT   // VD: đã trả lời rồi, game chưa start
-            message.startsWith("GONE") -> SocketErrorKind.GONE           // VD: phòng đã kết thúc, bị kick
-            else -> SocketErrorKind.UNKNOWN
-        }
-    }
-    object NetworkError : AppError()
+sealed interface AppError {
+    data object Network : AppError
+    data object Unauthorized : AppError
+    data object Forbidden : AppError
+    data object Gone : AppError
+    data object NotFound : AppError
+    data class Server(val httpCode: Int) : AppError
+    data class Api(val code: String) : AppError // dùng chung code REST + Socket
+    data class Unknown(val cause: Throwable?) : AppError
 }
 
-// Map code (REST) hoặc kind (Socket) sang chuỗi hiển thị tiếng Việt — KHÔNG hiển thị code/message thô cho user.
-fun AppError.Http.toUiText(): UiText = when (code) {
-    "VALIDATION_ERROR" -> UiText.StringResource(R.string.error_validation)
-    "RESET_TICKET_INVALID" -> UiText.StringResource(R.string.error_reset_ticket_invalid)
-    "UNAUTHORIZED" -> UiText.StringResource(R.string.error_unauthorized)
-    else -> UiText.StringResource(R.string.error_generic)
-}
+// Không hiển thị code thô; REST error, socket event error và ACK error cùng đi qua mapper này.
+fun AppError.Api.toUserMessage(): String = apiCodeToMessage(code)
 ```
 `GONE` (VD: `player not in room`, `game is not active`) nên tự động điều hướng người chơi ra khỏi màn hình game về Home kèm thông báo, thay vì chỉ hiện snackbar như lỗi thông thường.
 ---
@@ -2027,7 +2031,7 @@ fun `self-paced answer reveals result immediately via ack`() = runTest {
 - Không hardcode `SOCKET_JWT_SECRET` hay bất kỳ secret nào phía client — client **chỉ nhận** `socketToken` đã ký sẵn từ REST, không tự tạo.
 - `socketToken` có TTL ngắn (`SOCKET_TOKEN_TTL`) — không cache dài hạn, hết hạn giữa game phải gọi lại REST `/join` hoặc `/host-token`.
 ### 18.2. Anti-cheat phía client (giữ nguyên tinh thần v1.0, chính xác hoá theo backend)
-- Disable input ngay sau khi emit `question:answer` (trước cả khi có ACK) để tránh double-submit — dù server đã tự chặn (`recordAnswer(..., allowChange=false)` → trả lỗi `CONFLICT: answer already submitted`), UI vẫn nên khóa sớm cho trải nghiệm mượt.
+- Disable input **trước khi** emit `question:answer` để tránh double-submit. Backend chặn bằng code `GAME_ANSWER_DUPLICATE`; nếu ACK timeout thì vẫn giữ khóa + `player:sync`, không tự retry vì server có thể đã ghi đáp án nhưng callback bị rơi.
 - **Không bao giờ** tự tính điểm/đúng-sai ở client để hiển thị "dự đoán" trước khi có phản hồi server — mọi con số hiển thị phải đến từ `AnswerAck`, `question:results`, hoặc `leaderboard:updated/host`.
 - Với host-paced, Player **không nhận** `correct_answer` cho tới khi `question:results` bắn ra sau `question:locked` — không lưu, không log payload trung gian nào chứa đáp án ở phía client trước thời điểm đó.
 ### 18.3. Network Security
