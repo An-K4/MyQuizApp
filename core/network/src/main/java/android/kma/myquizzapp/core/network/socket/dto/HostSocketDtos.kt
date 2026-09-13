@@ -1,7 +1,10 @@
 package android.kma.myquizzapp.core.network.socket.dto
 
 import android.kma.myquizzapp.core.common.model.AnswerStats
+import android.kma.myquizzapp.core.common.model.AnsweredQuestionSnapshot
 import android.kma.myquizzapp.core.common.model.EliminatedPlayer
+import android.kma.myquizzapp.core.common.model.PlayerQuestionStarted
+import android.kma.myquizzapp.core.common.model.PlayerStateSnapshot
 import android.kma.myquizzapp.core.common.model.GameConfig
 import android.kma.myquizzapp.core.common.model.GameCountdown
 import android.kma.myquizzapp.core.common.model.GameEnded
@@ -186,6 +189,28 @@ data class GameCountdownDto(
 }
 
 @Serializable
+data class QuestionStartedDto(
+    val question: PublicQuestionDto,
+    @SerialName("time_limit") val timeLimit: Int? = null,
+    val endsAt: String? = null,
+    val matchEndsAt: String? = null,
+    @SerialName("allow_answer_late") val allowAnswerLate: Boolean = false,
+    val remainingSeconds: Int? = null,
+    val lives: Int? = null,
+    val serverTime: String? = null
+) {
+    fun toDomain() = PlayerQuestionStarted(
+        question = question.toDomain(),
+        timeLimitSeconds = timeLimit,
+        endsAt = endsAt,
+        matchEndsAt = matchEndsAt,
+        allowAnswerLate = allowAnswerLate,
+        remainingSeconds = remainingSeconds,
+        lives = lives
+    )
+}
+
+@Serializable
 data class QuestionLockedDto(
     val index: Int = 0,
     val reason: String? = null,
@@ -316,6 +341,42 @@ data class QuestionStatDto(
 @Serializable
 data class CountdownStateDto(val startsAt: String? = null)
 
+@Serializable
+data class AnsweredQuestionStateDto(
+    @SerialName("question_id") val questionId: Long = 0L,
+    @SerialName("question_index") val questionIndex: Int = 0,
+    val answer: JsonElement? = null,
+    @SerialName("is_late") val isLate: Boolean = false,
+    @SerialName("answered_at") val answeredAt: String? = null
+) {
+    fun toDomain() = AnsweredQuestionSnapshot(
+        questionId = questionId,
+        questionIndex = questionIndex,
+        answerKeys = answer.toAnswerKeys(),
+        isLate = isLate,
+        answeredAt = answeredAt
+    )
+}
+
+@Serializable
+data class PlayerStateDto(
+    val id: Long = 0L,
+    @SerialName("player_name") val playerName: String = "",
+    val status: String = "connected",
+    val lives: Int? = null,
+    @SerialName("current_question_index") val currentQuestionIndex: Int = 0,
+    @SerialName("answered_questions") val answeredQuestions: List<AnsweredQuestionStateDto> = emptyList()
+) {
+    fun toDomain() = PlayerStateSnapshot(
+        id = id,
+        playerName = playerName,
+        status = status,
+        lives = lives,
+        currentQuestionIndex = currentQuestionIndex,
+        answeredQuestions = answeredQuestions.map { it.toDomain() }
+    )
+}
+
 /**
  * `game:state` — snapshot dụng để dựng lại màn hình sau reconnect.
  *
@@ -332,7 +393,10 @@ data class GameStateDto(
     val question: PublicQuestionDto? = null,
     val countdown: CountdownStateDto? = null,
     val endsAt: String? = null,
+    val matchEndsAt: String? = null,
+    @SerialName("allow_answer_late") val allowAnswerLate: Boolean = false,
     val remainingSeconds: Int? = null,
+    val player: PlayerStateDto? = null,
     val leaderboard: List<LeaderboardRowDto> = emptyList(),
     val serverTime: String? = null
 ) {
@@ -346,7 +410,10 @@ data class GameStateDto(
         question = question?.toDomain(),
         countdownStartsAt = countdown?.startsAt,
         endsAt = endsAt,
+        matchEndsAt = matchEndsAt,
+        allowAnswerLate = allowAnswerLate,
         remainingSeconds = remainingSeconds,
+        player = player?.toDomain(),
         leaderboard = leaderboard.map { it.toDomain() }
     )
 }

@@ -230,7 +230,10 @@ data class GameSnapshot(
     val question: PublicQuestion? = null,
     val countdownStartsAt: String? = null,
     val endsAt: String? = null,
+    val matchEndsAt: String? = null,
+    val allowAnswerLate: Boolean = false,
     val remainingSeconds: Int? = null,
+    val player: PlayerStateSnapshot? = null,
     val leaderboard: List<LeaderboardRow> = emptyList()
 )
 

@@ -13,6 +13,7 @@ import android.kma.myquizzapp.core.network.socket.dto.HostQuestionDto
 import android.kma.myquizzapp.core.network.socket.dto.LobbyUpdatedDto
 import android.kma.myquizzapp.core.network.socket.dto.PlayerEliminatedDto
 import android.kma.myquizzapp.core.network.socket.dto.QuestionLockedDto
+import android.kma.myquizzapp.core.network.socket.dto.QuestionStartedDto
 import android.kma.myquizzapp.core.network.socket.dto.QuestionResultsDto
 import android.kma.myquizzapp.core.network.socket.dto.SocketErrorDto
 import kotlinx.serialization.json.Json
@@ -47,6 +48,7 @@ class GameEventMapper @Inject constructor(
         GameSocketEvents.GAME_STATE -> mapState(payload)
         GameSocketEvents.GAME_ENDED -> mapGameEnded(payload)
         GameSocketEvents.HOST_QUESTION -> mapHostQuestion(payload)
+        GameSocketEvents.QUESTION_STARTED -> mapQuestionStarted(payload)
         GameSocketEvents.QUESTION_LOCKED -> mapQuestionLocked(payload)
         GameSocketEvents.QUESTION_RESULTS -> mapQuestionResults(payload)
         GameSocketEvents.HOST_ANSWER_RECEIVED -> mapHostAnswerReceived(payload)
@@ -111,6 +113,15 @@ class GameEventMapper @Inject constructor(
         return dto?.let {
             GameEvent.HostQuestionReceived(hostQuestion = it.toDomain(), serverTime = it.serverTime)
         } ?: GameEvent.Failed(GameSocketEvents.HOST_QUESTION, CODE_CLIENT_PARSE_ERROR)
+    }
+
+    private fun mapQuestionStarted(payload: Any?): GameEvent {
+        val dto = decode(payload, GameSocketEvents.QUESTION_STARTED) {
+            json.decodeFromString(QuestionStartedDto.serializer(), it)
+        }
+        return dto?.let {
+            GameEvent.QuestionStarted(started = it.toDomain(), serverTime = it.serverTime)
+        } ?: GameEvent.Failed(GameSocketEvents.QUESTION_STARTED, CODE_CLIENT_PARSE_ERROR)
     }
 
     private fun mapQuestionLocked(payload: Any?): GameEvent {

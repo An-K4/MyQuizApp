@@ -1,30 +1,24 @@
 package android.kma.myquizzapp.core.common.repository
 
-/**
- * Các lệnh chỉ player được gửi trên `/game`.
- *
- * Tương ứng client event của backend: `question:answer` (có ack), `question:next`
- * (self-paced), `player:sync`, `lobby:leave`.
- *
- * N18 chưa dùng interface này (player lobby là N19); khai báo sẵn để chốt ranh giới
- * vai trò ngay từ đầu, tránh sau này nhồi lệnh player vào repository của host.
- */
-interface PlayerGameSocketRepository : GameSocketRepository {
+import android.kma.myquizzapp.core.common.model.AnswerAck
+import android.kma.myquizzapp.core.common.model.PlayerAnswer
+import android.kma.myquizzapp.core.common.result.Result
 
-    /** `lobby:leave` — rời phòng khi còn ở lobby. */
+/** Các lệnh chỉ player được gửi trên namespace `/game`. */
+interface PlayerGameSocketRepository : GameSocketRepository {
+    /** `lobby:leave` — chỉ dùng khi còn ở phòng chờ. */
     suspend fun leaveLobby()
 
     /**
-     * `question:answer` — gửi đáp án, server trả kết quả qua ack callback.
-     *
-     * Đáp án đa kiểu (id, danh sách id, hoặc text tự luận) nên nhận String đã
-     * serialize ở tầng data; domain không phụ thuộc JsonElement.
+     * `question:answer` có ACK. Domain truyền đáp án typed; JSON chỉ được tạo ở
+     * core:network. Timeout không chứng minh server chưa ghi đáp án, vì vậy caller
+     * phải giữ input khóa rồi `sync()` thay vì tự gửi lại.
      */
-    suspend fun submitAnswer(rawAnswerJson: String)
+    suspend fun submitAnswer(answer: PlayerAnswer): Result<AnswerAck>
 
-    /** `question:next` — player tự chuyển câu (mode self-paced). */
+    /** `question:next` — self-paced, ngoài phạm vi N22–N23. */
     suspend fun requestNextQuestion()
 
-    /** `player:sync` — xin lại `game:state` sau khi reconnect. */
+    /** `player:sync` — xin snapshot mới sau reconnect/resume/ACK không chắc chắn. */
     suspend fun sync()
 }

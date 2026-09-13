@@ -56,6 +56,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 @Composable
 fun PlayerLobbyScreen(
     onExit: (message: String?) -> Unit,
+    onNavigateToGame: (gameId: Long, playerId: Long, socketToken: String) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: PlayerLobbyViewModel = hiltViewModel()
 ) {
@@ -65,6 +66,11 @@ fun PlayerLobbyScreen(
         viewModel.effect.collect { effect ->
             when (effect) {
                 is PlayerLobbyEffect.ExitLobby -> onExit(effect.message)
+                is PlayerLobbyEffect.NavigateToGame -> onNavigateToGame(
+                    effect.gameId,
+                    effect.playerId,
+                    effect.socketToken
+                )
             }
         }
     }

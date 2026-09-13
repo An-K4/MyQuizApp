@@ -1,5 +1,6 @@
 package android.kma.myquizzapp.core.network.socket.dto
 
+import android.kma.myquizzapp.core.common.model.AnswerAck
 import android.kma.myquizzapp.core.common.model.ConfigUpdateAck
 import android.kma.myquizzapp.core.common.model.GameConfig
 import android.kma.myquizzapp.core.common.model.GameMode
@@ -9,6 +10,7 @@ import android.kma.myquizzapp.core.common.model.SessionStatus
 import android.kma.myquizzapp.core.network.dto.IgnoredGameConfigFieldDto
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonElement
 
 /**
  * DTO cho payload socket của namespace `/game`.
@@ -136,3 +138,31 @@ data class GameStartedDto(
     @SerialName("total_questions") val totalQuestions: Int = 0,
     val serverTime: String? = null
 )
+
+/** ACK thật của question:answer. Field kết quả cá nhân vắng ở host-paced. */
+@Serializable
+data class AnswerAckDto(
+    val accepted: Boolean = false,
+    val isLate: Boolean = false,
+    val lives: Int? = null,
+    val eliminated: Boolean = false,
+    val serverTime: String? = null,
+    val isCorrect: Boolean? = null,
+    val scoreEarned: Int? = null,
+    val totalScore: Int? = null,
+    val streak: Int? = null,
+    @SerialName("correct_answer") val correctAnswer: JsonElement? = null
+) {
+    fun toDomain() = AnswerAck(
+        accepted = accepted,
+        isLate = isLate,
+        lives = lives,
+        eliminated = eliminated,
+        serverTime = serverTime,
+        isCorrect = isCorrect,
+        scoreEarned = scoreEarned,
+        totalScore = totalScore,
+        streak = streak,
+        correctAnswers = correctAnswer.toAnswerKeys()
+    )
+}

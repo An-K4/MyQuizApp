@@ -60,6 +60,12 @@ sealed interface GameEvent {
         val serverTime: String? = null
     ) : GameEvent
 
+    /** `question:started` — câu hỏi công khai dành cho player, không có đáp án đúng. */
+    data class QuestionStarted(
+        val started: PlayerQuestionStarted,
+        val serverTime: String? = null
+    ) : GameEvent
+
     /**
      * `host:question` — câu hỏi kèm ĐÁP ÁN ĐÚNG, chỉ host room nhận.
      *

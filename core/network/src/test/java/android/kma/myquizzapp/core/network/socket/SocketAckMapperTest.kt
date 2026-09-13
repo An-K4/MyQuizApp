@@ -5,23 +5,12 @@ import android.kma.myquizzapp.core.common.model.IgnoredGameConfigReason
 import android.kma.myquizzapp.core.common.result.Result
 import android.kma.myquizzapp.core.network.di.NetworkModule
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/**
- * Test cho [SocketAckMapper] — phủ đủ 4 nhánh của ack `lobby:config-update`:
- * thành công, thành công nhưng có field bị bỏ, lỗi có code, và không có ack.
- *
- * Dùng ĐÚNG Json của production (NetworkModule.providePreserveCaseJson) vì chính
- * cấu hình naming là chỗ từng gây lỗi ở N16/N17 — tự tạo Json trong test sẽ cho
- * test xanh trong khi app thật vỡ.
- *
- * Fixture copy theo `game.socket.ts::onConfigUpdate`:
- * `ack({ ok: true, changed, config: session.config, ignored })`.
- */
 class SocketAckMapperTest {
-
     private val mapper = SocketAckMapper(NetworkModule.providePreserveCaseJson())
 
     @Test
@@ -39,17 +28,10 @@ class SocketAckMapperTest {
               "ignored": []
             }
         """.trimIndent()
-
-        val result = mapper.toConfigUpdateAck(SocketAckResult.Payload(raw))
-
-        assertTrue(result is Result.Success)
-        val ack = (result as Result.Success).data
+        val ack = (mapper.toConfigUpdateAck(SocketAckResult.Payload(raw)) as Result.Success).data
         assertTrue(ack.changed)
         assertTrue(ack.ignored.isEmpty())
-        // Field camelCase lồng trong config phải đọc đúng, không bị namingStrategy
-        // đổi thành max_players rồng rồi rơi về default 100.
         assertEquals(50, ack.config.lobby.maxPlayers)
-        // null = dùng time limit của từng câu, khác hẳn 0 = không giới hạn.
         assertNull(ack.config.timing.perQuestionSeconds)
     }
 
@@ -67,10 +49,7 @@ class SocketAckMapperTest {
               ]
             }
         """.trimIndent()
-
         val ack = (mapper.toConfigUpdateAck(SocketAckResult.Payload(raw)) as Result.Success).data
-
-        // changed=false → backend KHÔNG broadcast lobby:updated, UI phải dùng ack này.
         assertEquals(false, ack.changed)
         assertEquals(3, ack.ignored.size)
         assertEquals("flow.lives", ack.ignored[0].rawPath)
@@ -81,27 +60,20 @@ class SocketAckMapperTest {
 
     @Test
     fun `ack loi giu nguyen code cua backend`() {
-        val result = mapper.toConfigUpdateAck(
-            SocketAckResult.Payload("""{"error":{"code":"GAME_NOT_HOST"}}""")
+        assertEquals(
+            Result.Error(AppError.Api("GAME_NOT_HOST")),
+            mapper.toConfigUpdateAck(SocketAckResult.Payload("""{"error":{"code":"GAME_NOT_HOST"}}"""))
         )
-
-        assertEquals(Result.Error(AppError.Api("GAME_NOT_HOST")), result)
     }
 
     @Test
     fun `khong co ack thanh loi timeout chu khong treo`() {
-        assertEquals(
-            Result.Error(AppError.Api(SocketAckMapper.CODE_ACK_TIMEOUT)),
-            mapper.toConfigUpdateAck(SocketAckResult.Timeout)
-        )
+        assertEquals(Result.Error(AppError.Api(SocketAckMapper.CODE_ACK_TIMEOUT)), mapper.toConfigUpdateAck(SocketAckResult.Timeout))
     }
 
     @Test
     fun `mat ket noi thanh code rieng cua client`() {
-        assertEquals(
-            Result.Error(AppError.Api(SocketAckMapper.CODE_NOT_CONNECTED)),
-            mapper.toConfigUpdateAck(SocketAckResult.NotConnected)
-        )
+        assertEquals(Result.Error(AppError.Api(SocketAckMapper.CODE_NOT_CONNECTED)), mapper.toConfigUpdateAck(SocketAckResult.NotConnected))
     }
 
     @Test
@@ -117,6 +89,45 @@ class SocketAckMapperTest {
         assertEquals(
             Result.Error(AppError.Api(GameEventMapper.CODE_CLIENT_PARSE_ERROR)),
             mapper.toConfigUpdateAck(SocketAckResult.Payload("""{"ok":false}"""))
+        )
+    }
+
+    @Test
+    fun `host paced answer ack parses without grading fields`() {
+        val result = mapper.toAnswerAck(
+            SocketAckResult.Payload("""{"accepted":true,"isLate":false,"lives":3,"eliminated":false,"serverTime":"2026-09-13T12:00:00.000Z"}""")
+        )
+        assertTrue(result is Result.Success)
+        val ack = (result as Result.Success).data
+        assertTrue(ack.accepted)
+        assertFalse(ack.isLate)
+        assertNull(ack.isCorrect)
+        assertNull(ack.scoreEarned)
+    }
+
+    @Test
+    fun `self paced expanded answer ack remains compatible`() {
+        val ack = (mapper.toAnswerAck(
+            SocketAckResult.Payload("""{"accepted":true,"isCorrect":true,"scoreEarned":800,"totalScore":1200,"streak":2,"correct_answer":["0","2"]}""")
+        ) as Result.Success).data
+        assertEquals(listOf("0", "2"), ack.correctAnswers)
+        assertEquals(true, ack.isCorrect)
+        assertEquals(800, ack.scoreEarned)
+    }
+
+    @Test
+    fun `answer ack nested error keeps backend code`() {
+        assertEquals(
+            Result.Error(AppError.Api("GAME_ANSWER_DUPLICATE")),
+            mapper.toAnswerAck(SocketAckResult.Payload("""{"error":{"code":"GAME_ANSWER_DUPLICATE"}}"""))
+        )
+    }
+
+    @Test
+    fun `answer ack timeout is explicit uncertainty error`() {
+        assertEquals(
+            Result.Error(AppError.Api(SocketAckMapper.CODE_ACK_TIMEOUT)),
+            mapper.toAnswerAck(SocketAckResult.Timeout)
         )
     }
 }

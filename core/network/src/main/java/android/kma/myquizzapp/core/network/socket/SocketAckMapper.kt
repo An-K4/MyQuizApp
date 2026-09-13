@@ -1,9 +1,11 @@
 package android.kma.myquizzapp.core.network.socket
 
 import android.kma.myquizzapp.core.common.error.AppError
+import android.kma.myquizzapp.core.common.model.AnswerAck
 import android.kma.myquizzapp.core.common.model.ConfigUpdateAck
 import android.kma.myquizzapp.core.common.result.Result
 import android.kma.myquizzapp.core.network.di.PreserveCaseJson
+import android.kma.myquizzapp.core.network.socket.dto.AnswerAckDto
 import android.kma.myquizzapp.core.network.socket.dto.ConfigUpdateAckDto
 import android.kma.myquizzapp.core.network.socket.dto.SocketAckErrorDto
 import kotlinx.serialization.json.Json
@@ -36,6 +38,26 @@ class SocketAckMapper @Inject constructor(
         SocketAckResult.Timeout -> Result.Error(AppError.Api(CODE_ACK_TIMEOUT))
 
         is SocketAckResult.Payload -> parseConfigUpdateAck(result.raw)
+    }
+
+    fun toAnswerAck(result: SocketAckResult): Result<AnswerAck> = when (result) {
+        SocketAckResult.NotConnected -> Result.Error(AppError.Api(CODE_NOT_CONNECTED))
+        SocketAckResult.Timeout -> Result.Error(AppError.Api(CODE_ACK_TIMEOUT))
+        is SocketAckResult.Payload -> parseAnswerAck(result.raw)
+    }
+
+    private fun parseAnswerAck(raw: String): Result<AnswerAck> {
+        if (raw.isBlank()) return Result.Error(AppError.Api(GameEventMapper.CODE_CLIENT_PARSE_ERROR))
+        val errorCode = runCatching {
+            json.decodeFromString(SocketAckErrorDto.serializer(), raw)
+        }.getOrNull()?.error?.code
+        if (errorCode != null) return Result.Error(AppError.Api(errorCode))
+        val dto = runCatching {
+            json.decodeFromString(AnswerAckDto.serializer(), raw)
+        }.onFailure { Timber.e(it, "Parse ack question:answer thất bại: %s", raw) }
+            .getOrNull() ?: return Result.Error(AppError.Api(GameEventMapper.CODE_CLIENT_PARSE_ERROR))
+        if (!dto.accepted) return Result.Error(AppError.Api(GameEventMapper.CODE_CLIENT_PARSE_ERROR))
+        return Result.Success(dto.toDomain())
     }
 
     private fun parseConfigUpdateAck(raw: String): Result<ConfigUpdateAck> {

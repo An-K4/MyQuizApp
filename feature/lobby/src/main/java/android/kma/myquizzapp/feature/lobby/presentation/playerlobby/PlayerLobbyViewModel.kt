@@ -43,6 +43,7 @@ class PlayerLobbyViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
+    private val gameId: Long = checkNotNull(savedStateHandle["gameId"])
     private val playerId: Long = checkNotNull(savedStateHandle["playerId"])
     private val socketToken: String = checkNotNull(savedStateHandle["socketToken"])
 
@@ -108,10 +109,13 @@ class PlayerLobbyViewModel @Inject constructor(
 
             is GameEvent.Failed -> onFailure(event)
 
-            // Host đã bấm bắt đầu: backend broadcast cho cả room nên người chơi cũng
-            // nhận được. Điều hướng sang màn chơi thuộc N21; tới lúc đó thay Unit
-            // bằng effect chuyển màn, KHÔNG chuyển bằng cách chờ lobby:updated.
-            is GameEvent.GameStarted -> Unit
+            is GameEvent.GameStarted -> {
+                // Phát effect trước khi hủy chính collector hiện tại; hủy trước sẽ
+                // làm send() ném CancellationException và mất điều hướng.
+                _effect.send(PlayerLobbyEffect.NavigateToGame(gameId, playerId, socketToken))
+                socketRepository.disconnect()
+                eventJob?.cancel()
+            }
 
             // Các event chơi khác sẽ được xử lý từ N21 (màn chơi). N19 chỉ dừng ở
             // phòng chờ nên bỏ qua có ý thức, đã có log ở tầng client.
@@ -139,9 +143,9 @@ class PlayerLobbyViewModel @Inject constructor(
     }
 
     private suspend fun exit(message: String?) {
+        _effect.send(PlayerLobbyEffect.ExitLobby(message))
         socketRepository.disconnect()
         eventJob?.cancel()
-        _effect.send(PlayerLobbyEffect.ExitLobby(message))
     }
 
     private companion object {

@@ -5,6 +5,7 @@ import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.composable
 import android.kma.myquizzapp.feature.game_host.presentation.hostgame.HostGameScreen
+import android.kma.myquizzapp.feature.game_player.presentation.GamePlayScreen
 import android.kma.myquizzapp.feature.lobby.presentation.guestnickname.GuestNicknameScreen
 import android.kma.myquizzapp.feature.lobby.presentation.hostlobby.HostLobbyScreen
 import android.kma.myquizzapp.feature.lobby.presentation.playerlobby.PlayerLobbyScreen
@@ -42,7 +43,12 @@ fun NavGraphBuilder.gameGraph(navController: NavHostController) {
     composable<Route.PlayerLobby> {
         // gameId / playerId / socketToken do PlayerLobbyViewModel đọc từ SavedStateHandle.
         PlayerLobbyScreen(
-            onExit = { message -> navController.popWithMessage(message) }
+            onExit = { message -> navController.popWithMessage(message) },
+            onNavigateToGame = { gameId, playerId, socketToken ->
+                navController.navigate(Route.GamePlay(gameId, playerId, socketToken)) {
+                    popUpTo<Route.PlayerLobby> { inclusive = true }
+                }
+            }
         )
     }
 
@@ -63,8 +69,7 @@ fun NavGraphBuilder.gameGraph(navController: NavHostController) {
     }
 
     composable<Route.GamePlay> {
-        // TODO: GamePlayScreen() - dùng GameViewModel
-        Text("Game Play - Coming Soon")
+        GamePlayScreen(onExit = { message -> navController.popWithMessage(message) })
     }
 
     composable<Route.HostGame> {

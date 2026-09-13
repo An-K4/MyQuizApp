@@ -40,4 +40,9 @@ sealed interface PlayerLobbyIntent {
 sealed interface PlayerLobbyEffect {
     /** Rời màn lobby; [message] là lý do cần báo lại cho màn trước (null = tự thoát). */
     data class ExitLobby(val message: String?) : PlayerLobbyEffect
+    data class NavigateToGame(
+        val gameId: Long,
+        val playerId: Long,
+        val socketToken: String
+    ) : PlayerLobbyEffect
 }
