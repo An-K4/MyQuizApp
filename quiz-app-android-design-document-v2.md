@@ -892,10 +892,19 @@ class SocketGameDataSource @Inject constructor(
 <tr>
 <td>`error`</td>
 <td>socket gây lỗi</td>
-<td>`{event, message}` — mọi lỗi nghiệp vụ (`CONFLICT`, `FORBIDDEN`, `GONE`...) đi qua đây, không phải HTTP status</td>
+<td>`{event, code}` — lỗi của client event không có ACK đi qua event `error`; event có ACK như `question:answer` trả lỗi trong ACK dưới `{error: {code}}`. Không parse prefix từ message.</td>
 </tr>
 </table>
 > ⚠️ **Nguyên tắc bảo mật quan trọng**: đáp án đúng (`correct_answer`) và ai trả lời đúng/sai (`is_correct`) **không bao giờ** được gửi cho Player room trong lúc câu hỏi còn active — chỉ Host room nhận được. Client Player **không được** cố gắng suy luận đáp án từ payload nhận được lúc `question:started`.
+### 5.3.1. Cập nhật N20 — ACK cấu hình và lệnh điều khiển không ACK
+
+- `lobby:config-update` là lệnh Host có ACK. Client gửi patch một phần và đọc `{changed, config, ignored}`; `config` trong ACK là nguồn sự thật sau khi server chạy `normalizeConfig`, nên form phải được dựng lại từ giá trị này.
+- Baseline để tạo patch trong Host Lobby là config hiện tại của phòng. Default của mode chỉ là baseline cho màn tạo phòng ban đầu.
+- `changed=false` chỉ là kết quả so sánh object sau normalize, không đồng nghĩa request bị từ chối. Lỗi vẫn đi theo payload ACK/error code tương ứng.
+- `game:start`, `game:next`, `game:pause`, `game:resume` và `game:end` không có ACK. Client xác nhận qua broadcast state/event kế tiếp; riêng `game:start` dùng timeout 5 giây để tránh trạng thái loading treo vô hạn.
+- Chốt không cho sửa config sau khi trận bắt đầu nằm ở tầng ghi config (`writeConfig`, lỗi `GAME_LOBBY_ONLY`), không được suy luận chỉ từ socket handler.
+- UI editor dùng chung nằm ở `core:ui/gameconfig`; feature không phụ thuộc feature. Form/domain giữ kiểu rõ ràng, còn JSON và dotted path chỉ tồn tại tại network boundary.
+
 ### 5.4. `AnswerAck` — kết quả trả lời qua ACK, không qua event riêng
 ```kotlin
 data class AnswerAck(
