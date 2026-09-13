@@ -1647,10 +1647,18 @@ Avatar và logo vẽ bằng `Image` chứ không `Icon`, vì `Icon` nhuộm nộ
 
 - **`Route.JoinRoom` đã bị xóa.** Màn đó chỉ có một ô nhập mã rồi điều hướng đi ngay — là HÀNH ĐỘNG chứ không phải ĐIỂM ĐẾN, và khi làm tab giữa nổi bật thì tạo ra hai destination cùng tự nhận là quan trọng nhất (Trang chủ và Tham gia) trong khi ba tab còn lại thấp hơn hẳn.
 - Ô nhập mã trở thành `JoinRoomCard` (`feature:lobby/.../joinroom/`) và được `MainNavGraph` truyền vào `HomeScreen` qua slot `roomCodeCard: @Composable () -> Unit` ⇒ `feature:home` không phụ thuộc `feature:lobby`. `KEY_LOBBY_EXIT_MESSAGE` chuyển sang đặt ở back stack entry của Home; lý do bị rời phòng hiện **inline trong card** thay vì snackbar.
-- `Route.Discover(sectionKey: String? = null)` nhận sẵn `section_key` từ nút "Xem thêm" của Home. Nút chỉ hiện khi `sectionType in {trending, category, newest}` (ba loại có endpoint phân trang khớp 100%), xét theo `section_type` chứ **không** theo `title` vì ops sửa được title trong bảng `home_sections` bằng SQL. Màn Discover thật là **mốc N20.5**.
+- `Route.Discover(sectionKey, sectionType, title, topic)` nhận context từ nút "Xem thêm" của Home. `section_type` và `topic` chọn query ban đầu; `title` chỉ là presentation/fallback, TopAppBar luôn hiển thị “Khám phá”. Nút chỉ hiện cho `trending`, `category`, `newest`; category chỉ hiện khi các item cùng resolve được một `quizCategory` nhất quán.
 - **Gác đăng nhập**: `AuthRequiredDialog` ở `core:ui`, `requireAuth: (String, () -> Unit) -> Unit` do `AppNavGraph` sở hữu, chặn **trước** khi điều hướng (không chặn trong màn đích). Chỉ chặn khi session là `Guest` đã xác nhận; `Unknown` đi qua. Mục 11.2 (`RequireAuth` composable) là thiết kế cũ — bản thực thi dùng `requireAuth` ở tầng navigation.
 - **Quy tắc layout Home** (bản ghim card đầu tiên đã bị bỏ vì che nửa màn hình khi lướt): đúng MỘT vùng cuộn `LazyColumn`; card nhập mã là `item` đầu tiên và cuộn đi được; không lồng `verticalScroll` quanh `LazyColumn`; không `fillMaxSize()` trong lazy item (`fillParentMaxHeight()` đẩy card khỏi màn hình) — dùng `heightIn(min = 200.dp)`; trạng thái tải/lỗi/rỗng bọc trong `DiscoverStatusCard` của riêng khối Khám phá, không thay cả trang. Số vùng lỗi khớp số request (`/quizzes/home` là một request ⇒ hai vùng: card nhập mã không thể lỗi, khối Khám phá có placeholder riêng).
-- Thứ tự nội dung Home: card nhập mã → `continue` (client ghim lên đầu, đè `position` của backend, không có nút "Xem thêm") → các section theo `position` trong `home_sections` → nút "Khám phá tất cả" → `Route.Discover(null)`.
+- Thứ tự nội dung Home: card nhập mã → `continue` (client ghim lên đầu, đè `position` của backend, không có nút "Xem thêm") → các section theo `position` trong `home_sections` → nút "Khám phá tất cả" → `Route.Discover(null, null, null, null)`.
+
+### 11.8. Cập nhật 13/9 (N20.5) — màn Khám phá thật
+
+- `DiscoverScreen` dùng Paging 3 cursor, page-size 12/prefetch 3; một `LazyColumn`, có loading/error/empty/append retry.
+- Query là `DiscoverFilter + DiscoverSort`: Xu hướng dùng `/quizzes/feed`; category mặc định dùng `/feed?topic=...`; các sort khác dùng anonymous `/quizzes/search?category=...&sort=...`.
+- `/search` optional-auth có thể trả thêm private/empty quiz của owner nếu gửi cookie, vì vậy Discover dùng Retrofit riêng với `CookieJar.NO_COOKIES` và `Authenticator.NONE`. Không dùng Retrofit authenticated hoặc PreserveCase Retrofit cho boundary public-only này.
+- Thanh filter ngoài giữ Tất cả/Chơi nhiều nhất/Xu hướng; topic và sort phụ nằm trong menu. Topic hiển thị tiếng Việt nhưng wire value giữ nguyên; `General`/“Tổng hợp” là category cụ thể, khác Tất cả (không gửi category).
+- `meta.pagination` dùng camelCase trong response chứa payload quiz snake_case. `PaginationMetaDto` phải alias `nextCursor`/`hasMore` bằng `@JsonNames`; nếu không Paging dừng sau trang đầu mà không crash.
 
 ## 12. Dependency Injection — Hilt Modules
 <table header-row="true">

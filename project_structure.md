@@ -609,6 +609,7 @@ Browse public quizzes, search, view "My Quizzes" (nếu logged in), entry point 
 #### Trách nhiệm
 - ✅ HomeScreen — tabs Khám phá/Của tôi qua `HomeSection` (N11, 17/8)
 - ✅ SearchScreen **riêng** (Option B, N11) — tách khỏi HomeScreen, auto-focus + infinite scroll
+- ✅ N20.5: `presentation/discover` có `DiscoverScreen` stateful + `DiscoverScreenContent` stateless, UiState/Intent/Effect tách file; `domain/discover` có query resolver, PagingSource và Observe use case. Discover dùng public-only QuizApiService để không lẫn quiz private của owner.
 - ✅ Search quizzes công khai (không cần login - `optionalAuthMiddleware`)
 - ⚠️ Quiz detail (preview + entry chơi) đã **chuyển sang `:feature:quiz-manage/presentation/quizdetail`** (N12, 21/8) — xem mục 3.7, không còn ở `feature:home`
 - ✅ Navigate to CreateRoomScreen (trong `:feature:quiz-manage`)
@@ -617,9 +618,20 @@ Browse public quizzes, search, view "My Quizzes" (nếu logged in), entry point 
 ```
 feature/home/
 ├── src/main/java/.../feature/home/
+│   ├── domain/
+│   │   └── discover/
+│   │       ├── DiscoverSource.kt         # Filter/sort/query + route resolver
+│   │       ├── DiscoverPagingSource.kt   # Cursor Paging; feed/search theo query
+│   │       └── ObserveDiscoverQuizzesUseCase.kt
 │   ├── presentation/
 │   │   ├── HomeScreen.kt                 # TopBar + tabs + sections scroll
 │   │   ├── HomeViewModel.kt
+│   │   ├── discover/
+│   │   │   ├── DiscoverScreen.kt
+│   │   │   ├── DiscoverViewModel.kt
+│   │   │   ├── DiscoverUiState.kt
+│   │   │   ├── DiscoverIntent.kt
+│   │   │   └── DiscoverEffect.kt
 │   │   ├── HomeUiState.kt
 │   │   ├── HomeIntent.kt
 │   │   └── search/
