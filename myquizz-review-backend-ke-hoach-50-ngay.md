@@ -98,7 +98,23 @@ Lưu ý thêm: swagger ghi `/auth/refresh` trả tokens nhưng thực tế chỉ
 | M6 — Release candidate | N45 | Test pass, release build R8, LeakCanary sạch |
 | M7 — Ship | N50 | Internal release Play Console + tài liệu bàn giao |
 
-## 6. Trạng thái hiện tại (chốt 11/8)
+## 6. Trạng thái hiện tại và lộ trình chuẩn (cập nhật 13/9/2026)
+
+> **Cách đọc:** mã N là định danh lịch sử ổn định, không đổi số sau khi đã commit. Thứ tự triển khai chuẩn lấy theo bảng dưới; các block Implementation Details phía sau là nhật ký kỹ thuật, không dùng để suy ra việc tiếp theo.
+
+| Mốc | Phạm vi hiện tại | Trạng thái | Thứ tự xử lý |
+|---|---|---|---|
+| N1–N20 | Nền tảng → Host Lobby | ✅ Hoàn thành | Lịch sử |
+| N20.5 | Màn Khám phá thật | ✅ Hoàn thành 13/9 | Lịch sử |
+| N20.6 | Quay lại phòng đang chơi | ⛔ Blocked bởi `GET /games/active` | Bỏ qua cho tới khi backend sẵn sàng |
+| N21 | Host Console classic; hấp thụ phần chính N31–N33 | ✅ Hoàn thành 13/9 | Lịch sử |
+| **N22–N23** | Gameplay player host-paced | ▶️ **Tiếp theo** | Ưu tiên hiện tại |
+| N24–N25 | Kết quả giữa câu + E2E classic | ⏳ Sau N22–N23 | Chốt M4 |
+| N26–N30 | Gameplay self-paced | ⏳ Chưa làm | Sau M4 |
+| N31–N33 | Host Console theo kế hoạch gốc | ↪️ Đã hấp thụ vào N21; chỉ còn phần self-paced | Không triển khai lại |
+| N34–N50 | Leaderboard, hardening, test, release | ⏳ Chưa làm | Theo roadmap |
+
+**Critical path hiện tại:** `N22 → N23 → N24 → N25/M4`. N20.6 là nhánh blocked, không được giữ critical path. N31–N33 là tham chiếu phạm vi cũ, không phải ba mốc cần làm lại.
 
 ### 6.1. ✅ Tuần 1 (N1–N5) đã xong — M1 chốt 9/8
 
@@ -215,10 +231,6 @@ Lưu ý thêm: swagger ghi `/auth/refresh` trả tokens nhưng thực tế chỉ
 ### Tuần 3 (N11–15) — Home & Quiz đọc
 
 - [x] **N11**: `feature:home` — search quiz công khai (paging), tab Khám phá/Của tôi. ✅ **Hoàn thành 17/8**
-- [x] **N12**: Quiz detail + cache Room. ✅ **Hoàn thành 21/8**
-- [x] **N13–14**: `feature:quiz-manage` — danh sách + tạo quiz; editor 4 loại câu hỏi (`multiple_choice`, `multiple_select`, `short_answer`, `long_answer`). ✅ **Hoàn thành 22/8**
-- [x] **N15**: Upload ảnh presign S3 2 bước (`UploadImageUseCase`, PUT trực tiếp, không cookie) + Coil. ✅ **Hoàn thành 24/8**
-- 📚 kotlinx.serialization (`@Serializable`, `JsonElement` cho `correct_answer` đa kiểu), Paging 3, S3 presign.
 
 **📝 N11 Implementation Details (17/8):**
 
@@ -260,6 +272,8 @@ Lưu ý thêm: swagger ghi `/auth/refresh` trả tokens nhưng thực tế chỉ
 
 **🎯 N11 Status: COMPLETE ✅** (17/8 evening) - Tested và chạy ổn, ready cho N12 (Quiz detail + Room cache)
 
+- [x] **N12**: Quiz detail + cache Room. ✅ **Hoàn thành 21/8**
+
 **📝 N12 Implementation Details (21/8):**
 
 - ✅ **Quiz Detail feature**: `QuizDetailScreen` + `QuizDetailViewModel`/`UiState`/`Intent` đặt hẳn ở `feature:quiz-manage/presentation/quizdetail` (không giữ ở `feature:home`) — `GetQuizDetailUseCase` cache-aside: gọi API trước, cache Room khi thành công, fallback đọc cache khi lỗi mạng.
@@ -274,6 +288,8 @@ Lưu ý thêm: swagger ghi `/auth/refresh` trả tokens nhưng thực tế chỉ
 - **Quy ước UiState/Intent/Effect tách file riêng** (`<Feature>UiState.kt`, `<Feature>Intent.kt`, `<Feature>Effect.kt`) được chốt làm chuẩn chung sau khi phát hiện `feature:auth` (5 ViewModel Login/Register/Forgot/Otp/Reset) đi lệch pattern so với `feature:home`/`feature:home/search`/`feature:quiz-manage` (định nghĩa nested trong ViewModel) — đã refactor lại `feature:auth` cho đồng bộ (22/8). **Mọi feature mới đặt UiState/Intent/Effect ở file riêng, không nested trong ViewModel.**
 - **Quiz cache (Room) là cơ chế fallback, không phải tính năng offline**: chỉ hữu ích khi mở lại **đúng quiz đã cache trước đó** mà request mạng thất bại (Home/Search không cache danh sách nên không thể chọn quiz mới lúc offline). Quyết định giữ nguyên scope fallback này (22/8), không mở rộng.
 - `NetworkModule` (`core:network`) chỉ *nhận* `CookieStore`/`QuizCacheStore` qua constructor injection, không tự `@Provides` — Hilt gộp graph đúng ở `:app` dù 2 module Gradle không biết nhau (xem project_structure.md mục 12.1 design doc).
+
+- [x] **N13–14**: `feature:quiz-manage` — danh sách + tạo quiz; editor 4 loại câu hỏi (`multiple_choice`, `multiple_select`, `short_answer`, `long_answer`). ✅ **Hoàn thành 22/8**
 
 **📝 N13–14 Implementation Details (22/8):**
 
@@ -293,6 +309,8 @@ Lưu ý thêm: swagger ghi `/auth/refresh` trả tokens nhưng thực tế chỉ
 - ✅ **Component `Avatar` chung mới** ở `core:ui/components/Avatar.kt` — quy ước mới cho toàn dự án: nơi nào cần hiển thị avatar user thì dùng component này (qua dependency `core:ui` đã có sẵn ở hầu hết module), **không** tự thêm `coil.compose` riêng — Coil là chi tiết nội bộ của `core:ui`. Chốt sau khi cân nhắc 2 hướng (thêm Coil trực tiếp vào module gọi vs. bọc trong `core:ui`), chọn hướng dùng lại vì avatar sẽ còn xuất hiện ở nhiều màn khác (lobby, leaderboard...).
 - ⚠️ **Chưa có Bottom Navigation** (mục 11.4 design doc mô tả 5 tab Home/Discover/Join/Library/Profile) — hiện tại điều hướng Profile/MyQuizzes đi qua `NavController` thông thường từ Home, chưa có bottom nav bar. Xem design doc mục 11.5 (mới thêm) để biết chi tiết sai khác.
 
+- [x] **N15**: Upload ảnh presign S3 2 bước (`UploadImageUseCase`, PUT trực tiếp, không cookie) + Coil. ✅ **Hoàn thành 24/8**
+
 **📝 N15 Implementation Details (24/8):**
 
 - ✅ **Domain/Data layer**: `PresignResult` (domain, `core:common`) + interface `StorageRepository` (`presignUpload(contentType, folder, fileSize)`, `uploadBytes(uploadUrl, contentType, bytes)`); impl ở `core:network` — `StorageApiService` (chỉ `POST /storage/presign`, qua Retrofit/`ResultCallAdapter` như API khác) + `StorageRepositoryImpl` (dùng `StorageApiService` lấy presigned URL, rồi tự PUT thẳng bytes ảnh lên `uploadUrl` bằng OkHttp thuần — **không** qua Retrofit, không cookie/auth header, vì đây là URL S3 presigned bên thứ 3, không phải backend của mình).
@@ -301,6 +319,8 @@ Lưu ý thêm: swagger ghi `/auth/refresh` trả tokens nhưng thực tế chỉ
 - ✅ **UI**: viết lại `CreateQuizViewModel.kt` (sửa bug file bị cắt cụt ở bản trước) + `CreateQuizScreen.kt` thêm UI chọn ảnh cover (image picker); thêm `activity-compose` (`libs.androidx.activity` 1.13.0) vào `feature/quiz-manage/build.gradle.kts` cho `rememberLauncherForActivityResult`.
 - 🔴 **Bug phát sinh khi test thật trên máy (24/8), đã fix cùng ngày**: Logcat cho thấy request `POST /storage/presign` gửi **snake_case** (`content_type`, `file_size`) dù `PresignUploadRequestDto` đã khai `@SerialName("contentType")`/`@SerialName("fileSize")` tường minh → backend trả `400 VALIDATION_ERROR` (đúng, vì schema thật của backend là camelCase — backend không có lỗi). **Nguyên nhân**: `Json { namingStrategy = JsonNamingStrategy.SnakeCase }` dùng chung toàn app (`NetworkModule.provideJson()`) vẫn biến đổi tên **sau khi đã resolve**, kể cả khi property đã có `@SerialName` tường minh — giả định trước đó rằng `@SerialName` sẽ "thoát" được `namingStrategy` chung là **sai**. **Fix**: tách hẳn `Json`/`Retrofit` riêng chỉ cho `StorageApiService` — 2 qualifier mới `@StorageJson` (Json **không** set `namingStrategy`) + `@StorageRetrofit` trong `Qualifiers.kt`, thêm `provideStorageJson()`/`provideStorageRetrofit()` trong `NetworkModule.kt`, đổi `provideStorageApiService` sang dùng `@StorageRetrofit`. Đã test lại trên máy thật, chạy đúng. Chi tiết đầy đủ ở `knowledgement/n15_knowledgement.md`.
 - ⚠️ **Phạm vi đã chốt (giữ nguyên)**: avatar upload **chưa làm** ở N15 (để dịp khác, cùng cơ chế presign này dùng lại được); upload ảnh cover quiz hoạt động đúng luồng presign 2 bước.
+
+- 📚 kotlinx.serialization (`@Serializable`, `JsonElement` cho `correct_answer` đa kiểu), Paging 3, S3 presign.
 
 ### Tuần 4 (N16–20) — Socket layer & Lobby
 
@@ -351,16 +371,6 @@ Lưu ý thêm: swagger ghi `/auth/refresh` trả tokens nhưng thực tế chỉ
 - Chuỗi create session → issue host token là hai request, phải thiết kế như partial transaction để retry idempotent phía client; tuyệt đối không create lại khi request token lỗi.
 - Khi backend trả một key trong cả `editable` và `locked`, client phải áp quy tắc deterministic `locked wins` để không vẽ control chỉnh được nhưng server lại âm thầm bỏ qua.
 
-**📝 N18 Implementation Details (30/8):**
-
-- **`core:common` (4 file domain mới)**: `GameEvent` (`Connected` / `Disconnected(DisconnectReason)` / `LobbyUpdated(LobbyState)` / `Failed(event, code)` / `Unhandled`), `LobbyState(sessionStatus, config, players, serverTime)`; `GameSocketRepository` (base: `events(socketToken)`, `joinLobby`, `disconnect`) + `HostGameSocketRepository` (`startGame/nextQuestion/pauseGame/resumeGame/endGame`) + `PlayerGameSocketRepository` (`leaveLobby/submitAnswer/requestNextQuestion/sync`). Tách interface theo vai trò để gửi sai lệnh thành lỗi biên dịch, không phải lỗi runtime từ server.
-- **`core:network` (7 file mới)**: `GameSocketClient` (`callbackFlow` + `awaitClose` dọn listener và socket, handshake `auth.token`, dịch lý do disconnect thành `DisconnectReason`), `GameEventMapper` (parse bằng `runCatching`, lỗi → `Failed(event, "CLIENT_PARSE_ERROR")`), `GameSocketEvents` (hằng tên 19 server event + các client event), `SocketDtos` (snake_case bằng `@SerialName` + `@PreserveCaseJson` — vẫn là cái bẫy của N15), `HostGameSocketRepositoryImpl`, `PlayerGameSocketRepositoryImpl`, `SocketBindingModule`.
-- **`core/common/build.gradle.kts`**: thêm `api(libs.kotlinx.coroutines.android)` — phải là `api` chứ không `implementation`, vì `Flow` nằm trong signature công khai của interface repository.
-- **`feature:lobby` (6 file mới)**: `HostLobbyUiState`/`HostLobbyIntent`/`HostLobbyEffect`/`HostLobbyViewModel`/`HostLobbyScreen` theo baseline Stateful + `HostLobbyScreenContent` stateless, cùng `RefreshHostTokenUseCase`. Chưa thêm Intent `StartGame` vì N18 không có UI trigger thật cho nó (luật "mọi Intent phải có đường kích hoạt thật") — để N20.
-- **Reconnect (spike đã thành hàng thật)**: `lobby:join` gọi lại sau mọi `Connected`; mất mạng → trạng thái `RECONNECTING`, giữ nguyên danh sách người chơi cũ; `io server disconnect` → thoát hẳn; `GAME_TOKEN_INVALID` → refresh token qua REST đúng một lần rồi kết nối lại, vẫn fail thì thoát.
-- **Test**: `GameEventMapperTest` 6 case (mixed snake/camel của `lobby:updated`, thiếu `config`, `error` giữ nguyên code, payload rác, payload null, event gameplay → `Unhandled`), fixture copy từ `socket.doc.ts`, dùng chính `NetworkModule.providePreserveCaseJson()` của production thay vì tự tạo `Json` trong test.
-- **Nợ nhỏ để lại**: `onExit(message)` ở nav graph chỉ `popBackStack`, chưa hiển thị lý do bị buộc rời phòng (N19 — ✅ đã trả 5/9: `KEY_LOBBY_EXIT_MESSAGE` qua `savedStateHandle` + snackbar ở JoinRoom); `submitAnswer` chưa xử lý ack (N21+); `player_avatar`/`lives` chưa vào DTO (N19 — ✅ đã thêm 5/9).
-
 **🧹 Refactor kiến trúc UI trước N18 (28/8, ngoài kế hoạch ngày):**
 
 - ✅ Audit đủ 14 file `*Screen.kt`; `LoginScreen`, `RegisterScreen`, `SplashScreen` đã đúng từ trước, 11 màn còn lại được chuẩn hóa thành Stateful `XxxScreen` + stateless `XxxScreenContent`.
@@ -371,6 +381,16 @@ Lưu ý thêm: swagger ghi `/auth/refresh` trả tokens nhưng thực tế chỉ
 - ✅ Build/test máy thật đã xanh và code đã push. Chi tiết: `knowledgement/ui_stateful_stateless_refactor.md`.
 
 - ✅ **N18** (xong 30/8): Socket layer — `GameSocketClient` (namespace `/game`, thay cho ý tưởng `SocketFactory` trong doc), `GameEventMapper`, connect → `lobby:join`, spike reconnect. ⚠️ **Đã vá điểm lệch của doc tại đây**: contract lỗi socket thật là `{ event, code }` (schema `SocketError` trong `backend/src/docs/components/socket.doc.ts`) — KHÔNG có `message`, KHÔNG có prefix `UNAUTHORIZED:`/`FORBIDDEN:`/`CONFLICT:`/`GONE:`. Vì vậy **không thêm `AppError.Socket`** như doc yêu cầu: `AppError.Api(code)` đã map sẵn ~60 code sang tiếng Việt từ N16.5, thêm nhánh mới chỉ là trùng lặp. 4 code fatal (`GAME_TOKEN_INVALID`, `GAME_TOKEN_WRONG_ROOM`, `GAME_ROOM_NOT_FOUND`, `GAME_PLAYER_NOT_FOUND`) → thoát màn thay vì retry; riêng `GAME_TOKEN_INVALID` được thử refresh token đúng một lần trước khi thoát.
+
+**📝 N18 Implementation Details (30/8):**
+
+- **`core:common` (4 file domain mới)**: `GameEvent` (`Connected` / `Disconnected(DisconnectReason)` / `LobbyUpdated(LobbyState)` / `Failed(event, code)` / `Unhandled`), `LobbyState(sessionStatus, config, players, serverTime)`; `GameSocketRepository` (base: `events(socketToken)`, `joinLobby`, `disconnect`) + `HostGameSocketRepository` (`startGame/nextQuestion/pauseGame/resumeGame/endGame`) + `PlayerGameSocketRepository` (`leaveLobby/submitAnswer/requestNextQuestion/sync`). Tách interface theo vai trò để gửi sai lệnh thành lỗi biên dịch, không phải lỗi runtime từ server.
+- **`core:network` (7 file mới)**: `GameSocketClient` (`callbackFlow` + `awaitClose` dọn listener và socket, handshake `auth.token`, dịch lý do disconnect thành `DisconnectReason`), `GameEventMapper` (parse bằng `runCatching`, lỗi → `Failed(event, "CLIENT_PARSE_ERROR")`), `GameSocketEvents` (hằng tên 19 server event + các client event), `SocketDtos` (snake_case bằng `@SerialName` + `@PreserveCaseJson` — vẫn là cái bẫy của N15), `HostGameSocketRepositoryImpl`, `PlayerGameSocketRepositoryImpl`, `SocketBindingModule`.
+- **`core/common/build.gradle.kts`**: thêm `api(libs.kotlinx.coroutines.android)` — phải là `api` chứ không `implementation`, vì `Flow` nằm trong signature công khai của interface repository.
+- **`feature:lobby` (6 file mới)**: `HostLobbyUiState`/`HostLobbyIntent`/`HostLobbyEffect`/`HostLobbyViewModel`/`HostLobbyScreen` theo baseline Stateful + `HostLobbyScreenContent` stateless, cùng `RefreshHostTokenUseCase`. Chưa thêm Intent `StartGame` vì N18 không có UI trigger thật cho nó (luật "mọi Intent phải có đường kích hoạt thật") — để N20.
+- **Reconnect (spike đã thành hàng thật)**: `lobby:join` gọi lại sau mọi `Connected`; mất mạng → trạng thái `RECONNECTING`, giữ nguyên danh sách người chơi cũ; `io server disconnect` → thoát hẳn; `GAME_TOKEN_INVALID` → refresh token qua REST đúng một lần rồi kết nối lại, vẫn fail thì thoát.
+- **Test**: `GameEventMapperTest` 6 case (mixed snake/camel của `lobby:updated`, thiếu `config`, `error` giữ nguyên code, payload rác, payload null, event gameplay → `Unhandled`), fixture copy từ `socket.doc.ts`, dùng chính `NetworkModule.providePreserveCaseJson()` của production thay vì tự tạo `Json` trong test.
+- **Nợ nhỏ để lại**: `onExit(message)` ở nav graph chỉ `popBackStack`, chưa hiển thị lý do bị buộc rời phòng (N19 — ✅ đã trả 5/9: `KEY_LOBBY_EXIT_MESSAGE` qua `savedStateHandle` + snackbar ở JoinRoom); `submitAnswer` chưa xử lý ack (N21+); `player_avatar`/`lives` chưa vào DTO (N19 — ✅ đã thêm 5/9).
 
 **📝 N18.5: Polish Architecture (31/8 - 2/9/2026):**
 
@@ -393,52 +413,44 @@ Lưu ý thêm: swagger ghi `/auth/refresh` trả tokens nhưng thực tế chỉ
 
 **Chi tiết kỹ thuật:** `REFACTOR_CHECKLIST.md` (628 lines, 14 tasks, 4 sprints). Build/test thành công trên máy thật, code đã push 2/9.
 
+### 6.8. N19–N20.6 — Lobby và Discover
+
 - [x] **N19**: `feature:lobby` Player — lookup room, join REST → `socketToken` → connect; PlayerLobbyScreen. ✅ **XONG 5/9**
+
+**📝 N19 Implementation Details (3–5/9):**
+
+- ✅ **Audit backend trước khi code** (đọc `game.route.ts`, `game.schema.ts`, `game.controller.ts`, `game.service.ts`, `socket.channels.ts`): `GET /games/:code` là **public**, `POST /games/:code/join` dùng **optionalAuth** (có cookie → player thật, không có → khách); `joinGameSchema` nhận `player_name` 1–50, `player_guest_id` **phải là UUID**; thứ tự guard của server: 404 `GAME_ROOM_NOT_FOUND` → 409 `GAME_ALREADY_STARTED` → 403 `GAME_GUESTS_NOT_ALLOWED` → 403 `GAME_HOST_CANNOT_JOIN` → 409 `GAME_ROOM_FULL`. Join trả `data.player` + `data.socketToken` **phẳng** (khác host token lồng một cấp `data.hostToken.socketToken`). Không có endpoint refresh token cho player — khác host, nên `GAME_TOKEN_INVALID` của player là fatal, join lại từ đầu.
+- ✅ **`core:common`**: `RoomLookup` (+ `isOpenForJoin`, `isFull`), `JoinRoomResult`/`JoinedPlayer`, `LobbyPlayer` thêm `playerAvatar`/`lives` (trả nợ N18), `NicknameValidator` (1–50 ký tự, khớp schema backend), `GameSessionRepository` thêm `lookupRoom`/`joinRoom`.
+- ✅ **`core:network` + `core:datastore`**: `GameApiService` thêm 2 endpoint; `GameDtos` thêm `RoomLookupResponseDto`/`LobbySnapshotDto`/`JoinGameRequestDto`/`JoinGameResponseDto`/`JoinedPlayerDto`; `LobbyPlayerDto` (socket dto) **dùng lại cho cả REST** — backend trả bản `Pick` khi đọc Postgres và full row khi Redis còn nóng, DTO có default nên parse được cả hai. `GuestIdentityStore` mới (DataStore): UUID sinh **lần đầu cần join** rồi giữ mãi — để backend nhận ra cùng một khách khi reconnect/xem lịch sử (`x-guest-id`).
+- ✅ **UseCase**: `LookupRoomUseCase` (normalize mã về uppercase + trim trước khi gọi), `JoinGameUseCase` (tự cấp guest UUID khi chưa đăng nhập).
+- ✅ **Presentation (3 package mới, đúng baseline Stateful/Stateless + UiState/Intent/Effect tách file)**: `joinroom` (nhập mã phòng), `guestnickname` (chỉ khách thấy màn này), `playerlobby` (realtime qua `PlayerGameSocketRepository`, hiện danh sách người chơi + trạng thái kết nối, host thoát/huỷ phòng → pop kèm lý do).
+- ✅ **Navigation**: `Route.GuestNickname(sessionCode)` mới; `GameNavGraph` viết lại với `KEY_LOBBY_EXIT_MESSAGE` + helper `popWithMessage`; `MainNavGraph` đọc message từ `savedStateHandle` của entry đích rồi hiện snackbar ở JoinRoom — **pattern chuẩn cho mọi "kết quả trả về khi pop"** từ nay.
+- 🔴 **Bug thật khi test trên máy (đã fix cùng ngày)**: crash `MissingFieldException` ở bước tra phòng — nguyên nhân là điểm lệch #11 (`data.session.session`). Fix bằng `LobbySnapshotDto` + KDoc ghi rõ đây là bug backend và cách dọn khi backend sửa. Rà lại toàn bộ mapping REST/socket của game trong cùng phiên: 5 endpoint + `lobby:updated` còn lại đều đúng, không phải sửa thêm.
+- ✅ **Test**: `GameDtosTest` thêm 3 case (payload lồng ba cấp → `RoomLookup` + đếm player, join trả `socketToken` phẳng + bỏ qua cột thừa của `player_sessions`, body join của người đã đăng nhập encode ra `{}`); `GameEventMapperTest` thêm 2 case cho `player_avatar`/`lives`.
+- ⚠️ **Nợ nhỏ để lại**: danh sách `players` lấy sẵn ở bước tra phòng chưa được đổ vào state đầu của PlayerLobby (socket `lobby:updated` fill ngay sau đó nên chưa cần); nút "Vào phòng" tạm ở Home đã bỏ ở N19.5 (thay bằng tab Tham gia); 2 file usecase stub từ N16.5 vẫn chờ xóa tay trong IDE.
+
+**🧠 Bài học N19:**
+
+- **Không tin tên key trong controller**: `success(res, { session })` đọc rất thuyết phục nhưng biến `session` ấy do `getLobby` trả và chứa cả `{session, players, config}`. Phải truy tiếp vào `*.service.ts` mới biết shape thật — mở rộng bài học N12 ("đọc controller thật") thêm một tầng.
+- **Đọc lỗi kotlinx như một manh mối, không chỉ là stacktrace**: danh sách "fields ... were missing" kèm `at path:` đủ để định vị lỗi. Field nào **không** bị báo thiếu chính là field thật sự có trong JSON — ở đây `config` vắng mặt trong danh sách đã tỏ ra cấp ngoài là cụm lobby chứ không phải object rỗng.
+- **Client phải map theo payload đang chạy, không theo payload đúng** — nhưng phải ghi KDoc nói rõ đây là bug backend + cách dọn, kèm test hồi quy để khi backend sửa thì test đỏ ngay thay vì user gặp crash.
+- **Đếm tại chỗ thay vì tin cột tổng hợp**: `total_players` chỉ được flush cuối ván nên luôn lệch trong lobby — kiểm tra "phòng đã đầy" phải đếm `players.size`.
+- **Quyền do server cấu hình, client chỉ phản ánh**: cho khách vào hay không nằm ở `config.lobby.allowGuests` của từng phòng; client không được hardcode chính sách, chỉ đọc cấu hình và hiển thị đúng lý do khi bị chặn.
+- **Nav result pattern**: muốn trả dữ liệu về màn trước lúc pop thì ghi vào `savedStateHandle` của back stack entry đích rồi đọc-và-xóa ở đó; đừng nhồi vào route argument hay ViewModel dùng chung.
 - [x] **N19.5** (bổ sung ngoài kế hoạch): Bottom Navigation thật cho `MainGraph` — trả nợ từ N13.5 (design doc 11.4/11.5/11.6). ✅ **XONG 6/9**
+
+**📝 N19.5 Implementation Details (6/9):**
+
+- **Pass 1 — khung điều hướng**: `navigation/MainScaffold.kt` mới (`TopLevelTab` 5 tab, `MainBottomBar`, `navigateToTab` với `popUpTo<Route.Home>` + `saveState`/`restoreState`); `AppNavGraph` bọc `Scaffold` **ngoài** `NavHost`, bar chỉ hiện khi destination `hasRoute` 1 trong 5 tab nên màn con/màn game tự ẩn, `consumeWindowInsets` để không cộng dồn padding; thêm `presentation/activity/ActivityScreen.kt` placeholder.
+- **Chốt trùng lặp Library/MyQuizzes**: xóa `Route.Library`, tab Thư viện trỏ thẳng `Route.MyQuizzes` — màn thật đã có từ N13, KHÔNG xây lại; `QuizManageListScreen.onNavigateBack` đổi thành nullable để bỏ nút back khi màn đóng vai tab gốc.
+- **Profile rút gọn**: bỏ item "Quiz của tôi" + back arrow → Profile chỉ còn thông tin và (về sau) cài đặt.
+- **Pass 2 — avatar & nhãn**: `navigation/CurrentUserViewModel.kt` mới (scope Activity, `avatarUrl`, `refresh()` tự dedupe) cấp avatar cho tab Hồ sơ, refresh đúng 4 mốc (dựng bar, `ON_RESUME`, rời `AuthGraph`, đăng xuất); bỏ avatar ở TopBar Home; cỡ chữ nhãn tính theo bề rộng màn hình để luôn 1 dòng và căn giữa.
+- **Pass 3 — polish**: bỏ nút Tham gia phóng to + nền tròn, mọi tab cùng cỡ icon 24dp; `TopLevelTab.iconRes` cho phép truyền drawable, tab Tham gia dùng `R.drawable.app_logo` vẽ bằng `Image` để không bị `Icon` nhuộm màu.
+- ⚠️ **Nợ để lại**: tab Hoạt động vẫn là placeholder — màn thật cần backend có `role=all` với cursor thống nhất (hiện chỉ `role=played|hosted`, tuyệt đối không merge phía client); `getCurrentUser()` chưa cache nên Home (`CheckAuthState`) và bottom bar gọi `/users/me` 2 lần riêng; `app_logo.png` là bitmap, nếu ở 24dp trông rối thì làm vector đơn sắc `ic_logo_mono.xml` rồi thay vào `iconRes` (không phải sửa code).
+
+**🧠 Bài học N19.5:** xem `knowledgement/n19_5_knowledgement.md`.
+
 - [x] **N19.6** (bổ sung ngoài kế hoạch): Session state một nguồn + gác đăng nhập + xóa màn Join + nút "Xem thêm" ở Home. ✅ **XONG 6/9**
-- [x] **N20**: HostLobbyScreen + `lobby:config-update` (ACK `{ok, changed, config, ignored}`); chia sẻ mã phòng (QR cắt khỏi phạm vi, thay bằng 2 nút copy mã/link). ✅ **XONG 10/9**
-- [x] **N20.5** (hoàn thành 13/9): màn **Khám phá** thật — Paging 3 cursor; nhận `sectionType/title/topic` từ Home để preselect filter; chip Tất cả/Chơi nhiều nhất/Xu hướng; sort + topic trong menu; top bar cố định “Khám phá”; public-only `/search` và `/feed` theo query. ✅ **XONG 13/9**
-
-**📝 N20.5 Implementation Details (13/9):**
-
-- ✅ **Contract Android-only, không sửa backend**: `trending` và category mặc định dùng `/quizzes/feed` (`topic` nullable); Tất cả/Mới nhất/Cũ nhất/Chơi nhiều/Tên A-Z/Z-A dùng `/quizzes/search`. Category từ Home lấy từ `QuizCard.quizCategory`, không suy diễn từ title; category section không có một topic nhất quán thì ẩn “Xem thêm”.
-- ✅ **Public-only boundary**: tạo `@PublicApiOkHttpClient` từ client chuẩn nhưng thay bằng `CookieJar.NO_COOKIES` + `Authenticator.NONE`, rồi `@PublicApiRetrofit`/`@PublicQuizApiService`. Lý do: `/search` là optional-auth, gửi cookie sẽ lẫn private/empty quiz của chính owner vào màn công khai. Vẫn tái dùng Json, converter, ResultCallAdapter, BASE_URL và interceptor từ client chuẩn.
-- ✅ **Paging + MVI**: `DiscoverQuery` (`filter`, `sort`) → `ObserveDiscoverQuizzesUseCase` → `DiscoverPagingSource`; page-size 12, prefetch 3, max request 24. `DiscoverUiState`/`Intent`/`Effect` tách file; `DiscoverScreen` stateful + `DiscoverScreenContent` stateless; đổi query tạo Pager generation mới và reset cursor.
-- ✅ **UX filter**: thanh ngoài chỉ giữ Tất cả/Chơi nhiều nhất/Xu hướng; menu chứa Mới nhất/Cũ nhất/Tên A-Z/Tên Z-A và các topic đã Việt hóa (General vẫn gửi wire value `General` nhưng hiển thị “Tổng hợp”). Đi từ Home category sẽ tự chọn đúng topic; top bar luôn “Khám phá”.
-- 🐛 **Bug thật sau test — luôn dừng đúng 3 quiz**: payload quiz dùng snake_case nhưng `meta.pagination` của backend dùng camelCase `nextCursor`/`hasMore`; Json SnakeCase bỏ qua hai key này nên chúng rơi về null/false, Paging tưởng hết trang. Fix bằng `@JsonNames` trên `PaginationMetaDto` + regression test dùng production Json; đồng thời trả Discover về initial/page-size 12.
-- ⚠️ **Dữ liệu**: gần 200 quiz của frontend là mock dataset, không phải production rows. Android chỉ render dữ liệu thật backend trả về. Backend không có taxonomy endpoint; sáu topic mặc định là taxonomy trình bày theo frontend, topic lạ từ Home vẫn được append động.
-- ✅ CI/workflow xanh sau commit trên `main`.
-- **N20.6** (mốc mới, đăng ký 6/9): **quay lại phòng đang chơi** — CẦN backend thêm endpoint kiểu `GET /games/active` trả `session_code` + socket token của phiên chưa kết thúc. Section `continue` hiện tại KHÔNG làm được việc này (xem mục 7 của `knowledgement/n19_6_knowledgement.md`).
-- 📚 Socket.IO Android nâng cao (`IO.Options.auth`, namespace, ACK `emit` + `Ack {}`, `EVENT_CONNECT`/`EVENT_DISCONNECT`), `callbackFlow` + `awaitClose`; làm quen MVI (Intent sealed → 1 StateFlow).
-
-**📝 N21 Implementation Details (11–13/9):**
-
-- ⚠️ **Đổi phạm vi so với kế hoạch gốc**: N21 làm **host console** (việc của N31–N33) thay vì màn chơi player. Lý do: N20 kết thúc bằng hand-off sang `HostGamePlaceholder`, để placeholder nằm đó suốt Tuần 5–6 thì host không chơi được ván nào. Hệ quả: N31–N33 coi như đã trả (trừ `host:player-progress` của self-paced), N22–N23 nhận phần màn chơi player, N24 vẫn là màn kết quả cuối trận thật.
-- ✅ **Audit backend + frontend web trước khi code** (`game.socket.ts`, `socket.channels.ts`, `socket.doc.ts`, `classic.mode.ts`, `scoring.ts`, `game.store.js`, `HostGameConsole.vue`, `QuestionStage.vue`) — 6 bẫy: (1) `game:next` trả 409 `GAME_ADVANCE_NOT_ALLOWED` khi `autoAdvance===true` nên classic **không được hiện nút chuyển câu**; (2) `game:next` ở `question_active` là chốt sớm, ở `showing_results` là sang câu, ở `countdown` là 409; (3) reconnect giữa câu **mất đáp án** vì `game:state` không kèm `correct_answer` ⇒ phải cache theo index và nói rõ với host; (4) pause chỉ nằm trong RAM server; (5) `stats` chỉ có phân bố khi `showCorrectAnswer=true`, còn lại chỉ có `total`; (6) `offset = serverTime − localNow` tính lại mọi message. Thêm: `game:next/pause/resume/end` đều **không có ack** — chỉ `lobby:config-update` và `question:answer` mới có, nên mọi lệnh điều khiển được xác nhận bằng broadcast kế tiếp chứ không phải bằng ack.
-- ✅ **`core:common`**: `HostGameModels.kt` mới — `GamePhase` (có `UNKNOWN` để backend thêm phase không làm sập màn), `PublicAnswerOption`, `PublicQuestion`, `HostQuestion`, `GameCountdown`, `QuestionLockReason`, `AnswerStats`, `QuestionResults`, `HostAnswerReceived`, `HostLeaderboard(Row)`, `LeaderboardRow`, `QuestionStat`, `GameSnapshot`, `GameEnded`, `EliminatedPlayer`. Hai quy ước: mọi mốc thời gian **giữ nguyên chuỗi ISO của server** (client tự bù lệch, không tin đồng hồ máy), và id lựa chọn + đáp án đúng đều quy về `String` (backend khai id là kiểu tự do "can be 0", `correct_answer` có thể là id / mảng id / chuỗi tự luận) ⇒ so khớp chỉ có một luật, giống web (`trim` + `lowercase`). `GameEvent` thêm 9 nhánh.
-- ✅ **`core:network`**: `HostSocketDtos.kt` (16 DTO) + `GameSocketEvents`/`GameEventMapper` viết lại cho 19 sự kiện server. Host **bỏ qua `question:started`** (host cũng nằm trong room chung, bản đó đã bị cắt đáp án nên sẽ ghi đè bản `host:question` có đáp án).
-- 🔴 **Bug thật khi test: mọi lựa chọn hiện "(ảnh)"** — nguyên nhân là đọc field theo `socket.doc.ts` (`text`/`image`) trong khi dữ liệu thật là `option_text`. Đã thay `AnswerOptionDto` bằng parser `JsonElement` thủ công: object → `id` (fallback vị trí khi thiếu/null) + text đọc `option_text` rồi mới `text`; chuỗi thuần → dùng **vị trí làm id** (khớp `options.map((option, index) => ({ id: index, ... }))` của `quiz.repository.ts`). Nhánh chuỗi thuần là từ `game.doc.ts` ("either [{ id, option_text }] rows or plain strings") — với DTO cũ nó sẽ làm rơi cả sự kiện `host:question`.
-- 🔴 **Bug thật khi test: câu tự luận bấm "Xem đáp án" không hiện gì** — đáp án được vẽ bằng cách in đậm lựa chọn đúng, mà câu tự luận không có lựa chọn nào. Đã thêm nhánh in đáp án ra chữ (nhiều đáp án thì liệt kê hết để host chấm tay), và nói rõ "không kèm đáp án mẫu" khi rỗng thay vì im lặng.
-- ✅ **`feature:game-host`**: `HostGameUiState`/`Intent`/`Effect`/`ViewModel`/`Screen` đúng baseline. State gồm `hasAnswerKey` + `isAnswerRevealed` tách đôi ("có đáp án hay không" khác "host đang muốn xem hay không"), đáp án **tự ẩn lại** mọi khi sang câu; `COMMAND_GUARD_MS = 800` chống bấm dồn; 4 code fatal (`GAME_TOKEN_INVALID`, `GAME_TOKEN_WRONG_ROOM`, `GAME_ROOM_NOT_FOUND`, `GAME_PLAYER_NOT_FOUND`) ⇒ thoát màn kèm lý do; một `LazyColumn` duy nhất theo bài học N19.6.
-- ✅ **Navigation**: `HostGamePlaceholder` **đã xóa hẳn** khỏi `GameNavGraph.kt`, route `Route.HostGame` trỏ thật sang `HostGameScreen`; `:app` đã có sẵn `:feature:game-host` từ M1 nên không phải sửa Gradle.
-- ✅ **Test**: `HostGameEventMapperTest` (12 case) ở `core:network`.
-- ⚠️ **Nợ để lại**: **ảnh câu hỏi chưa render** (nợ từ M2, `question_image` đã có sẵn trong `PublicQuestion` — đợt polish phải làm ở cả màn chơi/host/review/preview, cần kiểm tra Coil đã có trong version catalog chưa); chưa có test cho parser lựa chọn mới (3 case nên thêm: `{id, option_text}`, chuỗi thuần, `id = 0`); màn kết thúc trận còn là bảng gọn chờ N24; self-paced (`host:player-progress`, `question:awaiting_next`) ngoài phạm vi; loạt typo tiếng Việt trong comment chờ dọn một lượt.
-- 🧠 Bài học chi tiết: `knowledgement/n21_knowledgement.md`.
-
-**📝 N20 Implementation Details (10/9):**
-
-- ✅ **Audit backend trước khi code** (`config.rule.ts`, `game.socket.ts`, `game.service.ts`) — 4 điểm lệch so với giả định của kế hoạch: (1) `normalizeConfig` **ghi đè** giá trị host gửi lên (`perQuestionSeconds === 0` → `speedBonus=false`; self-paced + `between_questions` → `end_only`; `reviewMode` → cưỡng bức `showCorrectAnswer=true`); (2) `game:start` **không có ack**, chỉ `lobby:config-update` và `question:answer` mới có; (3) `changed` là so sánh `JSON.stringify` toàn bộ object nên `changed=false` KHÔNG có nghĩa lệnh bị từ chối; (4) chốt lobby-only nằm ở `writeConfig` (409 `GAME_LOBBY_ONLY`), không nằm ở handler `onConfigUpdate`.
-- ✅ **Socket ack layer (`core:network`)**: `GameSocketClient.emitWithAck(event, payload, timeoutMs = 5_000)` dùng `suspendCancellableCoroutine` + `withTimeoutOrNull` — bắt buộc có timeout vì socket.io không gọi ack và cũng không báo lỗi khi mạng rụng đúng lúc emit, không timeout thì nút "đang lưu" treo vĩnh viễn. `SocketAckResult` (`Payload`/`Timeout`/`NotConnected`) + `SocketAckMapper` (`CLIENT_ACK_TIMEOUT`, `CLIENT_NOT_CONNECTED`) + `ConfigUpdateAck(changed, config, ignored)`. `GameEvent.GameStarted(mode, config, totalQuestions, serverTime)` mới ở `core:common`.
-- ✅ **Editor cấu hình chuyển lên `core:ui/gameconfig`** (trả nợ N17 đặt sai module — `feature:lobby` không được phụ thuộc `feature:quiz-manage`): 6 file `RoomConfigForm` (state) / `BooleanSettingRow` / `NumberSettingField` / `ChoiceSettingField` / `GameModeConfigEditor` (dispatch theo mode) / `GameConfigPatchBuilder` (diff). Ràng buộc `core:ui` không có Hilt và không có kotlinx.serialization hóa ra là bộ lọc tốt: chỉ hàm thuần + composable stateless mới lên được. `ChoiceSettingSegment` đổi thành dropdown (`ChoiceSettingField`) vì 3 lựa chọn leaderboard có nhãn dài.
-- ✅ **Baseline của patch là tham số, không hard-code**: `buildGameConfigPatch(descriptor, values, baseline = descriptor.defaultBaseline())` — màn tạo phòng giữ baseline default, host lobby truyền `GameConfig.baselineFor(descriptor)` (config thật của phòng). Không sửa chỗ này thì "tắt lại một field vốn khác default" cho ra patch rỗng và UI vẫn báo đã lưu.
-- ✅ **`feature:lobby`**: `GetGameModesUseCase` + `UpdateRoomConfigUseCase` (`require(patch.isNotEmpty())`), `HostLobbyUiState` mở rộng (`config`/`mode`/`descriptor`/`configForm`/`invalidConfigKeys`/`isConfigSheetOpen`/`isLoadingSpec`/`isSavingConfig`/`configNotice`/`isStarting` + derived `canEditConfig`/`isConfigFormEnabled`/`canStartGame`/`shareLink`). Spec tải **lazy lúc mở sheet lần đầu** bằng 2 `async` song song (không endpoint nào trả cả session + config spec), cache lại cho các lần mở sau.
-- ✅ **UX bottom sheet (chốt sau khi user test)**: sheet **chỉ ở lại khi lỗi validate cục bộ** (field sai định dạng — lỗi nằm trong form nên đóng đi là phá dữ liệu đang gõ). Mọi kết quả khác đóng sheet + snackbar: lưu thành công, patch rỗng ("Chưa có thay đổi nào để lưu."), lỗi mạng/timeout/mất socket, phòng đã rời LOBBY. Tiêu chí phân loại không phải "thành công/thất bại" mà là "còn việc cho người dùng làm trong sheet hay không". Nút Lưu disable ngay khi bấm, nút Đóng disable trong lúc chờ ack, ViewModel có guard `if (isSavingConfig) return`.
-- ✅ **Bắt đầu trận**: `game:start` fire-and-forget → thành công chỉ được xác nhận bởi `game:started`; `startTimeoutJob` 5s tự hồi nút + báo "Máy chủ chưa xác nhận trận bắt đầu, hãy thử lại." Dialog cảnh báo khi phòng chưa có ai (`rememberSaveable` theo bài học N16). Điều hướng `Route.HostGame` + `popUpTo<Route.HostLobby>{inclusive=true}`; `HostGamePlaceholder` private trong `GameNavGraph.kt` chờ N21 (`feature:game-host` vẫn rỗng).
-- ✅ **Chia sẻ phòng**: bỏ QR khỏi phạm vi (cần thêm thư viện, mà người nhận vẫn phải có app), thay bằng `SessionCodeCard` với 2 `OutlinedButton` "Copy mã" / "Copy link" dùng `LocalClipboardManager`. `WEB_ORIGIN` để `const val` trong `HostLobbyUiState` thay vì `BuildConfig` — sai lệch có chủ ý, ghi lại để biết chỗ đổi khi cần theo môi trường.
-- ✅ **Test**: `SocketAckMapperTest` (7 case) + `GameStartedMapperTest` (3 case) ở `core:network`, `GameConfigPatchBuilderTest` (6 case, 4 case mới cho baseline) ở `core:ui`.
-- 🐛 **Build fail thật khi thêm `GameEvent.GameStarted`**: `'when' expression must be exhaustive` ở CẢ `HostLobbyViewModel` và `PlayerLobbyViewModel` — compiler làm đúng việc, buộc trả lời "player lobby phản ứng thế nào khi trận bắt đầu" thay vì để rơi vào `else`. Quy trình từ nay: thêm nhánh vào sealed class dùng chung ⇒ rà `when` ở TẤT CẢ module tiêu thụ trước khi build.
-- ⚠️ **Nợ để lại**: KDoc mục (2) của `HostGameSocketRepository` còn ghi sai rằng server không kiểm `session_status` khi update config; nhánh `ignored` **không thể kích hoạt từ UI** (field locked bị ẩn hẳn nên client không bao giờ gửi field mode không nhận — nó là lớp phòng thủ cho trường hợp backend đổi `MODE_CONFIG_SPEC`); nhánh timeout của `game:start` cũng khó test thủ công vì nút disable ngay khi mất mạng; dark mode của sheet hoãn sang N38.
-- 🧠 Bài học chi tiết: `knowledgement/n20_knowledgement.md`.
 
 **📝 N19.6 — Kế hoạch chi tiết (chốt 6/9, làm trước N20):**
 
@@ -492,44 +504,58 @@ Section không có nút **không phải lỗi** — nó trông "được tuyển
 - **Nợ ghi lại**: đổi `title` của section `continue` trong `home_sections` bằng SQL ("Tiếp tục chơi" hứa hẹn sai — thực chất là *quiz chơi dở*, không phải phòng đang mở); tab Hoạt động vẫn placeholder; `featured` vẫn chưa có đích phân trang.
 - 🧠 Bài học chi tiết: `knowledgement/n19_6_knowledgement.md`.
 
-**📝 N19.5 Implementation Details (6/9):**
-- **Pass 1 — khung điều hướng**: `navigation/MainScaffold.kt` mới (`TopLevelTab` 5 tab, `MainBottomBar`, `navigateToTab` với `popUpTo<Route.Home>` + `saveState`/`restoreState`); `AppNavGraph` bọc `Scaffold` **ngoài** `NavHost`, bar chỉ hiện khi destination `hasRoute` 1 trong 5 tab nên màn con/màn game tự ẩn, `consumeWindowInsets` để không cộng dồn padding; thêm `presentation/activity/ActivityScreen.kt` placeholder.
-- **Chốt trùng lặp Library/MyQuizzes**: xóa `Route.Library`, tab Thư viện trỏ thẳng `Route.MyQuizzes` — màn thật đã có từ N13, KHÔNG xây lại; `QuizManageListScreen.onNavigateBack` đổi thành nullable để bỏ nút back khi màn đóng vai tab gốc.
-- **Profile rút gọn**: bỏ item "Quiz của tôi" + back arrow → Profile chỉ còn thông tin và (về sau) cài đặt.
-- **Pass 2 — avatar & nhãn**: `navigation/CurrentUserViewModel.kt` mới (scope Activity, `avatarUrl`, `refresh()` tự dedupe) cấp avatar cho tab Hồ sơ, refresh đúng 4 mốc (dựng bar, `ON_RESUME`, rời `AuthGraph`, đăng xuất); bỏ avatar ở TopBar Home; cỡ chữ nhãn tính theo bề rộng màn hình để luôn 1 dòng và căn giữa.
-- **Pass 3 — polish**: bỏ nút Tham gia phóng to + nền tròn, mọi tab cùng cỡ icon 24dp; `TopLevelTab.iconRes` cho phép truyền drawable, tab Tham gia dùng `R.drawable.app_logo` vẽ bằng `Image` để không bị `Icon` nhuộm màu.
-- ⚠️ **Nợ để lại**: tab Hoạt động vẫn là placeholder — màn thật cần backend có `role=all` với cursor thống nhất (hiện chỉ `role=played|hosted`, tuyệt đối không merge phía client); `getCurrentUser()` chưa cache nên Home (`CheckAuthState`) và bottom bar gọi `/users/me` 2 lần riêng; `app_logo.png` là bitmap, nếu ở 24dp trông rối thì làm vector đơn sắc `ic_logo_mono.xml` rồi thay vào `iconRes` (không phải sửa code).
+- [x] **N20**: HostLobbyScreen + `lobby:config-update` (ACK `{ok, changed, config, ignored}`); chia sẻ mã phòng (QR cắt khỏi phạm vi, thay bằng 2 nút copy mã/link). ✅ **XONG 10/9**
 
-**🧠 Bài học N19.5:** xem `knowledgement/n19_5_knowledgement.md`.
+**📝 N20 Implementation Details (10/9):**
 
-**📝 N19 Implementation Details (3–5/9):**
+- ✅ **Audit backend trước khi code** (`config.rule.ts`, `game.socket.ts`, `game.service.ts`) — 4 điểm lệch so với giả định của kế hoạch: (1) `normalizeConfig` **ghi đè** giá trị host gửi lên (`perQuestionSeconds === 0` → `speedBonus=false`; self-paced + `between_questions` → `end_only`; `reviewMode` → cưỡng bức `showCorrectAnswer=true`); (2) `game:start` **không có ack**, chỉ `lobby:config-update` và `question:answer` mới có; (3) `changed` là so sánh `JSON.stringify` toàn bộ object nên `changed=false` KHÔNG có nghĩa lệnh bị từ chối; (4) chốt lobby-only nằm ở `writeConfig` (409 `GAME_LOBBY_ONLY`), không nằm ở handler `onConfigUpdate`.
+- ✅ **Socket ack layer (`core:network`)**: `GameSocketClient.emitWithAck(event, payload, timeoutMs = 5_000)` dùng `suspendCancellableCoroutine` + `withTimeoutOrNull` — bắt buộc có timeout vì socket.io không gọi ack và cũng không báo lỗi khi mạng rụng đúng lúc emit, không timeout thì nút "đang lưu" treo vĩnh viễn. `SocketAckResult` (`Payload`/`Timeout`/`NotConnected`) + `SocketAckMapper` (`CLIENT_ACK_TIMEOUT`, `CLIENT_NOT_CONNECTED`) + `ConfigUpdateAck(changed, config, ignored)`. `GameEvent.GameStarted(mode, config, totalQuestions, serverTime)` mới ở `core:common`.
+- ✅ **Editor cấu hình chuyển lên `core:ui/gameconfig`** (trả nợ N17 đặt sai module — `feature:lobby` không được phụ thuộc `feature:quiz-manage`): 6 file `RoomConfigForm` (state) / `BooleanSettingRow` / `NumberSettingField` / `ChoiceSettingField` / `GameModeConfigEditor` (dispatch theo mode) / `GameConfigPatchBuilder` (diff). Ràng buộc `core:ui` không có Hilt và không có kotlinx.serialization hóa ra là bộ lọc tốt: chỉ hàm thuần + composable stateless mới lên được. `ChoiceSettingSegment` đổi thành dropdown (`ChoiceSettingField`) vì 3 lựa chọn leaderboard có nhãn dài.
+- ✅ **Baseline của patch là tham số, không hard-code**: `buildGameConfigPatch(descriptor, values, baseline = descriptor.defaultBaseline())` — màn tạo phòng giữ baseline default, host lobby truyền `GameConfig.baselineFor(descriptor)` (config thật của phòng). Không sửa chỗ này thì "tắt lại một field vốn khác default" cho ra patch rỗng và UI vẫn báo đã lưu.
+- ✅ **`feature:lobby`**: `GetGameModesUseCase` + `UpdateRoomConfigUseCase` (`require(patch.isNotEmpty())`), `HostLobbyUiState` mở rộng (`config`/`mode`/`descriptor`/`configForm`/`invalidConfigKeys`/`isConfigSheetOpen`/`isLoadingSpec`/`isSavingConfig`/`configNotice`/`isStarting` + derived `canEditConfig`/`isConfigFormEnabled`/`canStartGame`/`shareLink`). Spec tải **lazy lúc mở sheet lần đầu** bằng 2 `async` song song (không endpoint nào trả cả session + config spec), cache lại cho các lần mở sau.
+- ✅ **UX bottom sheet (chốt sau khi user test)**: sheet **chỉ ở lại khi lỗi validate cục bộ** (field sai định dạng — lỗi nằm trong form nên đóng đi là phá dữ liệu đang gõ). Mọi kết quả khác đóng sheet + snackbar: lưu thành công, patch rỗng ("Chưa có thay đổi nào để lưu."), lỗi mạng/timeout/mất socket, phòng đã rời LOBBY. Tiêu chí phân loại không phải "thành công/thất bại" mà là "còn việc cho người dùng làm trong sheet hay không". Nút Lưu disable ngay khi bấm, nút Đóng disable trong lúc chờ ack, ViewModel có guard `if (isSavingConfig) return`.
+- ✅ **Bắt đầu trận**: `game:start` fire-and-forget → thành công chỉ được xác nhận bởi `game:started`; `startTimeoutJob` 5s tự hồi nút + báo "Máy chủ chưa xác nhận trận bắt đầu, hãy thử lại." Dialog cảnh báo khi phòng chưa có ai (`rememberSaveable` theo bài học N16). Điều hướng `Route.HostGame` + `popUpTo<Route.HostLobby>{inclusive=true}`; `HostGamePlaceholder` private trong `GameNavGraph.kt` chờ N21 (`feature:game-host` vẫn rỗng).
+- ✅ **Chia sẻ phòng**: bỏ QR khỏi phạm vi (cần thêm thư viện, mà người nhận vẫn phải có app), thay bằng `SessionCodeCard` với 2 `OutlinedButton` "Copy mã" / "Copy link" dùng `LocalClipboardManager`. `WEB_ORIGIN` để `const val` trong `HostLobbyUiState` thay vì `BuildConfig` — sai lệch có chủ ý, ghi lại để biết chỗ đổi khi cần theo môi trường.
+- ✅ **Test**: `SocketAckMapperTest` (7 case) + `GameStartedMapperTest` (3 case) ở `core:network`, `GameConfigPatchBuilderTest` (6 case, 4 case mới cho baseline) ở `core:ui`.
+- 🐛 **Build fail thật khi thêm `GameEvent.GameStarted`**: `'when' expression must be exhaustive` ở CẢ `HostLobbyViewModel` và `PlayerLobbyViewModel` — compiler làm đúng việc, buộc trả lời "player lobby phản ứng thế nào khi trận bắt đầu" thay vì để rơi vào `else`. Quy trình từ nay: thêm nhánh vào sealed class dùng chung ⇒ rà `when` ở TẤT CẢ module tiêu thụ trước khi build.
+- ⚠️ **Nợ để lại**: KDoc mục (2) của `HostGameSocketRepository` còn ghi sai rằng server không kiểm `session_status` khi update config; nhánh `ignored` **không thể kích hoạt từ UI** (field locked bị ẩn hẳn nên client không bao giờ gửi field mode không nhận — nó là lớp phòng thủ cho trường hợp backend đổi `MODE_CONFIG_SPEC`); nhánh timeout của `game:start` cũng khó test thủ công vì nút disable ngay khi mất mạng; dark mode của sheet hoãn sang N38.
+- 🧠 Bài học chi tiết: `knowledgement/n20_knowledgement.md`.
+- [x] **N20.5** (hoàn thành 13/9): màn **Khám phá** thật — Paging 3 cursor; nhận `sectionType/title/topic` từ Home để preselect filter; chip Tất cả/Chơi nhiều nhất/Xu hướng; sort + topic trong menu; top bar cố định “Khám phá”; public-only `/search` và `/feed` theo query. ✅ **XONG 13/9**
 
-- ✅ **Audit backend trước khi code** (đọc `game.route.ts`, `game.schema.ts`, `game.controller.ts`, `game.service.ts`, `socket.channels.ts`): `GET /games/:code` là **public**, `POST /games/:code/join` dùng **optionalAuth** (có cookie → player thật, không có → khách); `joinGameSchema` nhận `player_name` 1–50, `player_guest_id` **phải là UUID**; thứ tự guard của server: 404 `GAME_ROOM_NOT_FOUND` → 409 `GAME_ALREADY_STARTED` → 403 `GAME_GUESTS_NOT_ALLOWED` → 403 `GAME_HOST_CANNOT_JOIN` → 409 `GAME_ROOM_FULL`. Join trả `data.player` + `data.socketToken` **phẳng** (khác host token lồng một cấp `data.hostToken.socketToken`). Không có endpoint refresh token cho player — khác host, nên `GAME_TOKEN_INVALID` của player là fatal, join lại từ đầu.
-- ✅ **`core:common`**: `RoomLookup` (+ `isOpenForJoin`, `isFull`), `JoinRoomResult`/`JoinedPlayer`, `LobbyPlayer` thêm `playerAvatar`/`lives` (trả nợ N18), `NicknameValidator` (1–50 ký tự, khớp schema backend), `GameSessionRepository` thêm `lookupRoom`/`joinRoom`.
-- ✅ **`core:network` + `core:datastore`**: `GameApiService` thêm 2 endpoint; `GameDtos` thêm `RoomLookupResponseDto`/`LobbySnapshotDto`/`JoinGameRequestDto`/`JoinGameResponseDto`/`JoinedPlayerDto`; `LobbyPlayerDto` (socket dto) **dùng lại cho cả REST** — backend trả bản `Pick` khi đọc Postgres và full row khi Redis còn nóng, DTO có default nên parse được cả hai. `GuestIdentityStore` mới (DataStore): UUID sinh **lần đầu cần join** rồi giữ mãi — để backend nhận ra cùng một khách khi reconnect/xem lịch sử (`x-guest-id`).
-- ✅ **UseCase**: `LookupRoomUseCase` (normalize mã về uppercase + trim trước khi gọi), `JoinGameUseCase` (tự cấp guest UUID khi chưa đăng nhập).
-- ✅ **Presentation (3 package mới, đúng baseline Stateful/Stateless + UiState/Intent/Effect tách file)**: `joinroom` (nhập mã phòng), `guestnickname` (chỉ khách thấy màn này), `playerlobby` (realtime qua `PlayerGameSocketRepository`, hiện danh sách người chơi + trạng thái kết nối, host thoát/huỷ phòng → pop kèm lý do).
-- ✅ **Navigation**: `Route.GuestNickname(sessionCode)` mới; `GameNavGraph` viết lại với `KEY_LOBBY_EXIT_MESSAGE` + helper `popWithMessage`; `MainNavGraph` đọc message từ `savedStateHandle` của entry đích rồi hiện snackbar ở JoinRoom — **pattern chuẩn cho mọi "kết quả trả về khi pop"** từ nay.
-- 🔴 **Bug thật khi test trên máy (đã fix cùng ngày)**: crash `MissingFieldException` ở bước tra phòng — nguyên nhân là điểm lệch #11 (`data.session.session`). Fix bằng `LobbySnapshotDto` + KDoc ghi rõ đây là bug backend và cách dọn khi backend sửa. Rà lại toàn bộ mapping REST/socket của game trong cùng phiên: 5 endpoint + `lobby:updated` còn lại đều đúng, không phải sửa thêm.
-- ✅ **Test**: `GameDtosTest` thêm 3 case (payload lồng ba cấp → `RoomLookup` + đếm player, join trả `socketToken` phẳng + bỏ qua cột thừa của `player_sessions`, body join của người đã đăng nhập encode ra `{}`); `GameEventMapperTest` thêm 2 case cho `player_avatar`/`lives`.
-- ⚠️ **Nợ nhỏ để lại**: danh sách `players` lấy sẵn ở bước tra phòng chưa được đổ vào state đầu của PlayerLobby (socket `lobby:updated` fill ngay sau đó nên chưa cần); nút "Vào phòng" tạm ở Home đã bỏ ở N19.5 (thay bằng tab Tham gia); 2 file usecase stub từ N16.5 vẫn chờ xóa tay trong IDE.
+**📝 N20.5 Implementation Details (13/9):**
 
-**🧠 Bài học N19:**
+- ✅ **Contract Android-only, không sửa backend**: `trending` và category mặc định dùng `/quizzes/feed` (`topic` nullable); Tất cả/Mới nhất/Cũ nhất/Chơi nhiều/Tên A-Z/Z-A dùng `/quizzes/search`. Category từ Home lấy từ `QuizCard.quizCategory`, không suy diễn từ title; category section không có một topic nhất quán thì ẩn “Xem thêm”.
+- ✅ **Public-only boundary**: tạo `@PublicApiOkHttpClient` từ client chuẩn nhưng thay bằng `CookieJar.NO_COOKIES` + `Authenticator.NONE`, rồi `@PublicApiRetrofit`/`@PublicQuizApiService`. Lý do: `/search` là optional-auth, gửi cookie sẽ lẫn private/empty quiz của chính owner vào màn công khai. Vẫn tái dùng Json, converter, ResultCallAdapter, BASE_URL và interceptor từ client chuẩn.
+- ✅ **Paging + MVI**: `DiscoverQuery` (`filter`, `sort`) → `ObserveDiscoverQuizzesUseCase` → `DiscoverPagingSource`; page-size 12, prefetch 3, max request 24. `DiscoverUiState`/`Intent`/`Effect` tách file; `DiscoverScreen` stateful + `DiscoverScreenContent` stateless; đổi query tạo Pager generation mới và reset cursor.
+- ✅ **UX filter**: thanh ngoài chỉ giữ Tất cả/Chơi nhiều nhất/Xu hướng; menu chứa Mới nhất/Cũ nhất/Tên A-Z/Tên Z-A và các topic đã Việt hóa (General vẫn gửi wire value `General` nhưng hiển thị “Tổng hợp”). Đi từ Home category sẽ tự chọn đúng topic; top bar luôn “Khám phá”.
+- 🐛 **Bug thật sau test — luôn dừng đúng 3 quiz**: payload quiz dùng snake_case nhưng `meta.pagination` của backend dùng camelCase `nextCursor`/`hasMore`; Json SnakeCase bỏ qua hai key này nên chúng rơi về null/false, Paging tưởng hết trang. Fix bằng `@JsonNames` trên `PaginationMetaDto` + regression test dùng production Json; đồng thời trả Discover về initial/page-size 12.
+- ⚠️ **Dữ liệu**: gần 200 quiz của frontend là mock dataset, không phải production rows. Android chỉ render dữ liệu thật backend trả về. Backend không có taxonomy endpoint; sáu topic mặc định là taxonomy trình bày theo frontend, topic lạ từ Home vẫn được append động.
+- ✅ CI/workflow xanh sau commit trên `main`.
+- 📚 Socket.IO Android nâng cao (`IO.Options.auth`, namespace, ACK `emit` + `Ack {}`, `EVENT_CONNECT`/`EVENT_DISCONNECT`), `callbackFlow` + `awaitClose`; làm quen MVI (Intent sealed → 1 StateFlow).
 
-- **Không tin tên key trong controller**: `success(res, { session })` đọc rất thuyết phục nhưng biến `session` ấy do `getLobby` trả và chứa cả `{session, players, config}`. Phải truy tiếp vào `*.service.ts` mới biết shape thật — mở rộng bài học N12 ("đọc controller thật") thêm một tầng.
-- **Đọc lỗi kotlinx như một manh mối, không chỉ là stacktrace**: danh sách "fields ... were missing" kèm `at path:` đủ để định vị lỗi. Field nào **không** bị báo thiếu chính là field thật sự có trong JSON — ở đây `config` vắng mặt trong danh sách đã tỏ ra cấp ngoài là cụm lobby chứ không phải object rỗng.
-- **Client phải map theo payload đang chạy, không theo payload đúng** — nhưng phải ghi KDoc nói rõ đây là bug backend + cách dọn, kèm test hồi quy để khi backend sửa thì test đỏ ngay thay vì user gặp crash.
-- **Đếm tại chỗ thay vì tin cột tổng hợp**: `total_players` chỉ được flush cuối ván nên luôn lệch trong lobby — kiểm tra "phòng đã đầy" phải đếm `players.size`.
-- **Quyền do server cấu hình, client chỉ phản ánh**: cho khách vào hay không nằm ở `config.lobby.allowGuests` của từng phòng; client không được hardcode chính sách, chỉ đọc cấu hình và hiển thị đúng lý do khi bị chặn.
-- **Nav result pattern**: muốn trả dữ liệu về màn trước lúc pop thì ghi vào `savedStateHandle` của back stack entry đích rồi đọc-và-xóa ở đó; đừng nhồi vào route argument hay ViewModel dùng chung.
+- [ ] **N20.6 — BLOCKED, ngoài critical path**: quay lại phòng đang chơi; cần backend thêm endpoint kiểu `GET /games/active` trả `session_code` + socket token của phiên chưa kết thúc. Không giữ N22–N25 lại để chờ mốc này. Section `continue` hiện tại KHÔNG làm được việc này (xem mục 7 của `knowledgement/n19_6_knowledgement.md`).
 
 ### Tuần 5 (N21–25) — Gameplay Player: host-paced (classic)
 
-- **N21** ✅ **hoàn tất 13/9 — nhưng đổi phạm vi**: làm **host console** (kéo N31–N33 lên) thay vì màn chơi player, vì N20 đã hand-off sang placeholder. `HostGameScreen` + `HostGameViewModel` + 16 DTO host + 12 test mapper.
-- **N22** (nhận thêm việc của N21 cũ): `GameViewModel` + `GamePhaseUi` state machine; countdown overlay từ `game:countdown`; `question:started` → `question:locked` → `question:results`; `AnswerInput` dispatcher 4 loại câu.
-- **N23**: Timer sync theo offset `serverTime` (dùng lại cách đã làm ở N21); khóa input ngay sau submit.
-- **N24**: `leaderboard:updated` + `answer:received` (không lộ đúng/sai); kết quả giữa câu.
-- **N25**: E2E classic nhiều máy thật → **Chốt M4**.
+- [x] **N21 — hoàn tất 13/9, đổi phạm vi có chủ đích**: làm **host console** và hấp thụ phần chính của N31–N33 thay vì màn chơi player. `HostGameScreen` + `HostGameViewModel` + 16 DTO host + 12 test mapper.
+
+**📝 N21 Implementation Details (11–13/9):**
+
+- ⚠️ **Đổi phạm vi so với kế hoạch gốc**: N21 làm **host console** (việc của N31–N33) thay vì màn chơi player. Lý do: N20 kết thúc bằng hand-off sang `HostGamePlaceholder`, để placeholder nằm đó suốt Tuần 5–6 thì host không chơi được ván nào. Hệ quả: N31–N33 coi như đã trả (trừ `host:player-progress` của self-paced), N22–N23 nhận phần màn chơi player, N24 vẫn là màn kết quả cuối trận thật.
+- ✅ **Audit backend + frontend web trước khi code** (`game.socket.ts`, `socket.channels.ts`, `socket.doc.ts`, `classic.mode.ts`, `scoring.ts`, `game.store.js`, `HostGameConsole.vue`, `QuestionStage.vue`) — 6 bẫy: (1) `game:next` trả 409 `GAME_ADVANCE_NOT_ALLOWED` khi `autoAdvance===true` nên classic **không được hiện nút chuyển câu**; (2) `game:next` ở `question_active` là chốt sớm, ở `showing_results` là sang câu, ở `countdown` là 409; (3) reconnect giữa câu **mất đáp án** vì `game:state` không kèm `correct_answer` ⇒ phải cache theo index và nói rõ với host; (4) pause chỉ nằm trong RAM server; (5) `stats` chỉ có phân bố khi `showCorrectAnswer=true`, còn lại chỉ có `total`; (6) `offset = serverTime − localNow` tính lại mọi message. Thêm: `game:next/pause/resume/end` đều **không có ack** — chỉ `lobby:config-update` và `question:answer` mới có, nên mọi lệnh điều khiển được xác nhận bằng broadcast kế tiếp chứ không phải bằng ack.
+- ✅ **`core:common`**: `HostGameModels.kt` mới — `GamePhase` (có `UNKNOWN` để backend thêm phase không làm sập màn), `PublicAnswerOption`, `PublicQuestion`, `HostQuestion`, `GameCountdown`, `QuestionLockReason`, `AnswerStats`, `QuestionResults`, `HostAnswerReceived`, `HostLeaderboard(Row)`, `LeaderboardRow`, `QuestionStat`, `GameSnapshot`, `GameEnded`, `EliminatedPlayer`. Hai quy ước: mọi mốc thời gian **giữ nguyên chuỗi ISO của server** (client tự bù lệch, không tin đồng hồ máy), và id lựa chọn + đáp án đúng đều quy về `String` (backend khai id là kiểu tự do "can be 0", `correct_answer` có thể là id / mảng id / chuỗi tự luận) ⇒ so khớp chỉ có một luật, giống web (`trim` + `lowercase`). `GameEvent` thêm 9 nhánh.
+- ✅ **`core:network`**: `HostSocketDtos.kt` (16 DTO) + `GameSocketEvents`/`GameEventMapper` viết lại cho 19 sự kiện server. Host **bỏ qua `question:started`** (host cũng nằm trong room chung, bản đó đã bị cắt đáp án nên sẽ ghi đè bản `host:question` có đáp án).
+- 🔴 **Bug thật khi test: mọi lựa chọn hiện "(ảnh)"** — nguyên nhân là đọc field theo `socket.doc.ts` (`text`/`image`) trong khi dữ liệu thật là `option_text`. Đã thay `AnswerOptionDto` bằng parser `JsonElement` thủ công: object → `id` (fallback vị trí khi thiếu/null) + text đọc `option_text` rồi mới `text`; chuỗi thuần → dùng **vị trí làm id** (khớp `options.map((option, index) => ({ id: index, ... }))` của `quiz.repository.ts`). Nhánh chuỗi thuần là từ `game.doc.ts` ("either [{ id, option_text }] rows or plain strings") — với DTO cũ nó sẽ làm rơi cả sự kiện `host:question`.
+- 🔴 **Bug thật khi test: câu tự luận bấm "Xem đáp án" không hiện gì** — đáp án được vẽ bằng cách in đậm lựa chọn đúng, mà câu tự luận không có lựa chọn nào. Đã thêm nhánh in đáp án ra chữ (nhiều đáp án thì liệt kê hết để host chấm tay), và nói rõ "không kèm đáp án mẫu" khi rỗng thay vì im lặng.
+- ✅ **`feature:game-host`**: `HostGameUiState`/`Intent`/`Effect`/`ViewModel`/`Screen` đúng baseline. State gồm `hasAnswerKey` + `isAnswerRevealed` tách đôi ("có đáp án hay không" khác "host đang muốn xem hay không"), đáp án **tự ẩn lại** mọi khi sang câu; `COMMAND_GUARD_MS = 800` chống bấm dồn; 4 code fatal (`GAME_TOKEN_INVALID`, `GAME_TOKEN_WRONG_ROOM`, `GAME_ROOM_NOT_FOUND`, `GAME_PLAYER_NOT_FOUND`) ⇒ thoát màn kèm lý do; một `LazyColumn` duy nhất theo bài học N19.6.
+- ✅ **Navigation**: `HostGamePlaceholder` **đã xóa hẳn** khỏi `GameNavGraph.kt`, route `Route.HostGame` trỏ thật sang `HostGameScreen`; `:app` đã có sẵn `:feature:game-host` từ M1 nên không phải sửa Gradle.
+- ✅ **Test**: `HostGameEventMapperTest` (12 case) ở `core:network`.
+- ⚠️ **Nợ để lại**: **ảnh câu hỏi chưa render** (nợ từ M2, `question_image` đã có sẵn trong `PublicQuestion` — đợt polish phải làm ở cả màn chơi/host/review/preview, cần kiểm tra Coil đã có trong version catalog chưa); chưa có test cho parser lựa chọn mới (3 case nên thêm: `{id, option_text}`, chuỗi thuần, `id = 0`); màn kết thúc trận còn là bảng gọn chờ N24; self-paced (`host:player-progress`, `question:awaiting_next`) ngoài phạm vi; loạt typo tiếng Việt trong comment chờ dọn một lượt.
+- 🧠 Bài học chi tiết: `knowledgement/n21_knowledgement.md`.
+- [ ] **N22 — TIẾP THEO** (nhận phần state machine của N21 cũ): `GameViewModel` + `GamePhaseUi`; countdown overlay từ `game:countdown`; `question:started` → `question:locked` → `question:results`; `AnswerInput` dispatcher 4 loại câu.
+- [ ] **N23** (nhận phần timer/input của N21 cũ): timer sync theo offset `serverTime` dùng lại cách N21; khóa input ngay sau submit.
+- [ ] **N24**: `leaderboard:updated` + `answer:received` (không lộ đúng/sai); kết quả giữa câu.
+- [ ] **N25**: E2E classic nhiều máy thật → **Chốt M4**.
 - 📚 MVI thực chiến (sealed phases, one-shot events), timer offset. **Bắt đầu unit test ViewModel bằng Turbine từ tuần này** — không dồn Tuần 9.
 
 ### Tuần 6 (N26–30) — Gameplay Player: self-paced (solo/survival/marathon/practice)
@@ -541,13 +567,15 @@ Section không có nút **không phải lỗi** — nó trông "được tuyển
 - **N30**: `player:sync` khi resume; token hết hạn → gọi lại REST lấy token mới.
 - 📚 Đọc `sendSelfQuestion`/`onAnswer` trong `game.socket.ts` trước khi code — domain khó nhất app; player clock phía server.
 
-### Tuần 7 (N31–35) — Host console & Leaderboard
+### Tuần 7 (N31–35) — Phạm vi cũ Host Console + Leaderboard
 
-- **N31** ✅ **đã làm ở N21** (13/9): `HostGameScreen` + `HostGameViewModel` riêng; `game:state` làm nguồn chính.
-- **N32** 🟡 **phần lớn đã làm ở N21**: `host:question` (có đáp án) và `host:answer-received` (có `is_correct`) xong; **còn lại** `host:player-progress` (self-paced) — đợi Tuần 6.
-- **N33** ✅ **đã làm ở N21**: điều khiển pause/resume/end + ẩn nút next khi `autoAdvance=true` (server trả 409). Còn nhánh next thực tế khi self-paced bật `autoAdvance=false`.
-- **N34**: `leaderboard:host` full table.
-- **N35**: `feature:leaderboard` — FinalResultScreen + REST fallback `/v1/games/:id/results` + thống kê từng câu → **Chốt M5**.
+> N31–N33 được giữ làm mã tham chiếu lịch sử, nhưng không còn là ba mốc triển khai độc lập sau khi N21 hấp thụ Host Console. Không làm lại phần đã hoàn thành.
+
+- [x] **N31 — CLOSED, absorbed by N21** (13/9): `HostGameScreen` + `HostGameViewModel`; `game:state` làm nguồn chính.
+- [ ] **N32 — PARTIAL, absorbed by N21**: `host:question` và `host:answer-received` đã xong; phần còn lại `host:player-progress` xử lý cùng self-paced N26–N30, không mở lại toàn bộ N32.
+- [x] **N33 — CLOSED, absorbed by N21**: pause/resume/end và rule ẩn next khi `autoAdvance=true` đã xong; nhánh next cho self-paced làm cùng N26–N30.
+- [ ] **N34**: `leaderboard:host` full table.
+- [ ] **N35**: `feature:leaderboard` — FinalResultScreen + REST fallback `/v1/games/:id/results` + thống kê từng câu → **Chốt M5**.
 - 📚 Không chủ đề mới — củng cố MVI + socket; map đúng payload host room.
 
 ### Tuần 8 (N36–40) — Hardening & polish
