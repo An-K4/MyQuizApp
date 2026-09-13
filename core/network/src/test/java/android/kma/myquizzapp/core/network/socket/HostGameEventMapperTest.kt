@@ -301,18 +301,18 @@ class HostGameEventMapperTest {
     }
 
     /**
-     * Host NẰM TRONG room chung nên vẫn nhận `question:started` (bản đã cắt đáp án).
-     * Mapper phải để nó rơi vào Unhandled, nếu không bản không có đáp án sẽ ghi đè
-     * bản `host:question` đến trước đó và host mất khoá đáp án.
+     * Mapper dùng chung phải map `question:started` cho player. Host vẫn nhận event
+     * public này trong room chung nhưng HostGameViewModel chủ động bỏ qua, nên nó
+     * không ghi đè `host:question` có đáp án.
      */
     @Test
-    fun `question started khong duoc map thanh event rieng`() {
+    fun `question started duoc map de player su dung`() {
         val event = mapper.map(
             GameSocketEvents.QUESTION_STARTED,
             """{"question":{"index":0,"total":1,"id":1,"question_type":"multiple_choice","question_text":"X"}}"""
         )
 
-        assertEquals(GameEvent.Unhandled(GameSocketEvents.QUESTION_STARTED), event)
+        assertTrue(event is GameEvent.QuestionStarted)
     }
 
     @Test

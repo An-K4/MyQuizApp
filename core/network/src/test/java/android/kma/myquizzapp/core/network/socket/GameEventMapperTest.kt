@@ -158,9 +158,12 @@ class GameEventMapperTest {
     }
 
     @Test
-    fun `gameplay events are reported as unhandled not dropped`() {
-        val event = mapper.map("question:started", """{"index":0}""")
+    fun `question started maps to typed gameplay event`() {
+        val event = mapper.map(
+            GameSocketEvents.QUESTION_STARTED,
+            """{"question":{"index":0,"total":1,"id":1,"question_type":"multiple_choice","question_text":"X"}}"""
+        )
 
-        assertEquals(GameEvent.Unhandled("question:started"), event)
+        assertTrue(event is GameEvent.QuestionStarted)
     }
 }

@@ -31,10 +31,10 @@ import javax.inject.Inject
  * Class này cố tình KHÔNG throw: một payload lạ không được phép làm chết cả
  * Flow đang giữ phòng. Lỗi parse trả về GameEvent.Failed để UI có cái hiển thị.
  *
- * N21 bổ sung phần gameplay của host. Một lưu ý về phạm vi: `question:started`
- * KHÔNG được map thành event riêng. Host vẫn nhận nó (ở trong room chung) nhưng
- * đó là bản đã cắt `correct_answer`; nếu map và xử lý thì bản này sẽ ghi đè bản
- * `host:question` có đáp án. Để nó rơi vào [GameEvent.Unhandled] là có ý thức.
+ * N21 bổ sung gameplay host; N22–N23 bổ sung gameplay player nên mapper dùng chung
+ * phải map `question:started` thành [GameEvent.QuestionStarted]. Host vẫn nhận bản
+ * public này trong room chung nhưng HostGameViewModel chủ động bỏ qua; chỉ player
+ * dùng nó, vì vậy không ghi đè `host:question` có `correct_answer`.
  */
 class GameEventMapper @Inject constructor(
     @PreserveCaseJson private val json: Json
