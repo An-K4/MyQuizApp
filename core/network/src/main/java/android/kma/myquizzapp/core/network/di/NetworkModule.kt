@@ -22,6 +22,7 @@ import dagger.hilt.components.SingletonComponent
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonNamingStrategy
+import okhttp3.Authenticator
 import okhttp3.CookieJar
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -87,6 +88,36 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideQuizApiService(retrofit: Retrofit): QuizApiService = retrofit.create()
+
+    @PublicApiOkHttpClient
+    @Provides
+    @Singleton
+    fun providePublicApiOkHttpClient(okHttpClient: OkHttpClient): OkHttpClient =
+        okHttpClient.newBuilder()
+            .cookieJar(CookieJar.NO_COOKIES)
+            .authenticator(Authenticator.NONE)
+            .build()
+
+    @PublicApiRetrofit
+    @Provides
+    @Singleton
+    fun providePublicApiRetrofit(
+        json: Json,
+        @PublicApiOkHttpClient okHttpClient: OkHttpClient
+    ): Retrofit =
+        Retrofit.Builder()
+            .baseUrl(BuildConfig.BASE_URL)
+            .client(okHttpClient)
+            .addCallAdapterFactory(ResultCallAdapterFactory(json))
+            .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
+            .build()
+
+    @PublicQuizApiService
+    @Provides
+    @Singleton
+    fun providePublicQuizApiService(
+        @PublicApiRetrofit retrofit: Retrofit
+    ): QuizApiService = retrofit.create()
 
     /**
      * Json/Retrofit dùng chung cho các backend endpoint cần giữ nguyên tên field

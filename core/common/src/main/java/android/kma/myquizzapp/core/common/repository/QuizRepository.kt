@@ -37,6 +37,12 @@ interface QuizRepository {
      * limit 1-24; đổi keyword phải reset cursor về null.
      */
     suspend fun searchQuizzes(keyword: String, cursor: String?, limit: Int): Result<List<QuizCard>>
+
+    /** Public-only browse, gọi /search bằng HTTP client không cookie. */
+    suspend fun searchPublicQuizzes(category: String?, sort: String, cursor: String?, limit: Int): Result<List<QuizCard>>
+
+    /** Public feed sắp theo hot_score, có thể lọc chính xác theo quiz_category. */
+    suspend fun getQuizFeed(topic: String?, cursor: String?, limit: Int): Result<List<QuizCard>>
     
     /**
      * Lấy 1 trang danh sách quiz của user hiện tại (N13-14).

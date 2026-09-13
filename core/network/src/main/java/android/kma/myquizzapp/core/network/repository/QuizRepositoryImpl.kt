@@ -14,6 +14,7 @@ import android.kma.myquizzapp.core.common.result.map
 import android.kma.myquizzapp.core.network.api.QuizApiService
 import android.kma.myquizzapp.core.network.dto.toDomain
 import android.kma.myquizzapp.core.network.dto.toRequestDto
+import android.kma.myquizzapp.core.network.di.PublicQuizApiService
 import timber.log.Timber
 import javax.inject.Inject
 
@@ -31,6 +32,7 @@ import javax.inject.Inject
  */
 class QuizRepositoryImpl @Inject constructor(
     private val quizApi: QuizApiService,
+    @PublicQuizApiService private val publicQuizApi: QuizApiService,
     private val quizCacheStore: QuizCacheStore
 ) : QuizRepository {
     
@@ -40,9 +42,34 @@ class QuizRepositoryImpl @Inject constructor(
     override suspend fun searchQuizzes(keyword: String, cursor: String?, limit: Int): Result<List<QuizCard>> =
         // Backend bọc response trong { quizzes: [...] } → unwrap QuizListDto.quizzes.
         // page cursor (meta.pagination) được .map giữ lại nguyên vẹn qua Result.page.
-        quizApi.searchQuizzes(keyword, cursor, limit).map { dto ->
+        quizApi.searchQuizzes(keyword, cursor = cursor, limit = limit).map { dto ->
             dto.quizzes.map { it.toDomain() }
         }
+
+    override suspend fun searchPublicQuizzes(
+        category: String?,
+        sort: String,
+        cursor: String?,
+        limit: Int
+    ): Result<List<QuizCard>> =
+        publicQuizApi.searchQuizzes(
+            keyword = null,
+            category = category?.trim()?.takeIf { it.isNotEmpty() },
+            sort = sort,
+            cursor = cursor,
+            limit = limit
+        ).map { dto -> dto.quizzes.map { it.toDomain() } }
+
+    override suspend fun getQuizFeed(
+        topic: String?,
+        cursor: String?,
+        limit: Int
+    ): Result<List<QuizCard>> =
+        quizApi.getQuizFeed(
+            topic = topic?.trim()?.takeIf { it.isNotEmpty() },
+            cursor = cursor,
+            limit = limit
+        ).map { dto -> dto.quizzes.map { it.toDomain() } }
     
     override suspend fun getMyQuizzes(params: MyQuizzesParams): Result<List<QuizSummary>> =
         // Backend bọc response trong { quizzes: [...] } → unwrap QuizSummaryListDto.quizzes.

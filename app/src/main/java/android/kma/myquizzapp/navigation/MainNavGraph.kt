@@ -1,6 +1,5 @@
 package android.kma.myquizzapp.navigation
 
-import androidx.compose.material3.Text
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.navigation.NavGraphBuilder
@@ -9,6 +8,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.toRoute
 import android.kma.myquizzapp.feature.home.presentation.HomeScreen
 import android.kma.myquizzapp.feature.home.presentation.search.SearchScreen
+import android.kma.myquizzapp.feature.home.presentation.discover.DiscoverScreen
 import android.kma.myquizzapp.feature.lobby.presentation.joinroom.JoinRoomCard
 import android.kma.myquizzapp.presentation.activity.ActivityScreen
 import android.kma.myquizzapp.presentation.profile.ProfileScreen
@@ -44,8 +44,8 @@ fun NavGraphBuilder.mainGraph(
             onNavigateToQuizDetail = { quizId ->
                 navController.navigate(Route.QuizDetail(quizId))
             },
-            onNavigateToDiscover = { sectionKey ->
-                navController.navigate(Route.Discover(sectionKey))
+            onNavigateToDiscover = { sectionKey, sectionType, title, topic ->
+                navController.navigate(Route.Discover(sectionKey, sectionType, title, topic))
             },
             // Ô nhập mã phòng — trước N19.6 là cả một màn riêng (Route.JoinRoom).
             // Tầng navigation nối thế của feature:lobby vào Home để hai feature
@@ -86,11 +86,16 @@ fun NavGraphBuilder.mainGraph(
     }
 
     composable<Route.Discover> { entry ->
-        // TODO: DiscoverScreen() — gọi GET /quizzes/search và GET /quizzes/feed.
-        // Màn thật còn là một mốc riêng trong kế hoạch; placeholder này hiện
-        // sẵn sectionKey để kiểm tra nút "Xem thêm" ở Trang chủ truyền đúng.
-        val sectionKey = entry.toRoute<Route.Discover>().sectionKey
-        Text("Discover - Coming Soon (section: ${sectionKey ?: "tất cả"})")
+        val route = entry.toRoute<Route.Discover>()
+        DiscoverScreen(
+            sectionType = route.sectionType,
+            title = route.title,
+            topic = route.topic,
+            onNavigateBack = { navController.popBackStack() },
+            onNavigateToQuizDetail = { quizId ->
+                navController.navigate(Route.QuizDetail(quizId))
+            }
+        )
     }
 
     // ----- PROTECTED ROUTES (require auth) -----

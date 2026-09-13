@@ -1,6 +1,8 @@
 ﻿package android.kma.myquizzapp.core.network.dto
 
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonNames
 
 @Serializable
 data class ApiEnvelope<T>(
@@ -31,10 +33,11 @@ data class Meta(
  * (xem response.ts success()/paginationMeta() ở backend). ResultCall
  * (ApiCallResult.kt) đọc field này và gắn vào Result.Success.page.
  */
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable
 data class PaginationMetaDto(
     val limit: Int,
-    val nextCursor: String? = null,
-    val hasMore: Boolean = false,
+    @JsonNames("nextCursor") val nextCursor: String? = null,
+    @JsonNames("hasMore") val hasMore: Boolean = false,
     val total: Int? = null
 )

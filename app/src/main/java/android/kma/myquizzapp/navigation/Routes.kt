@@ -21,9 +21,13 @@ sealed interface Route {
     
     // Bottom nav routes
     @Serializable data object Home : Route
-    // sectionKey != null: vào từ nút "Xem thêm" của một section ở Trang chủ — màn
-    // Khám phá mở sẵn đúng section đó thay vì bắt người dùng tìm lại (N19.6).
-    @Serializable data class Discover(val sectionKey: String? = null) : Route
+    // Metadata được chụp lúc bấm Xem thêm để màn đích không phải gọi lại /home.
+    @Serializable data class Discover(
+        val sectionKey: String? = null,
+        val sectionType: String? = null,
+        val title: String? = null,
+        val topic: String? = null
+    ) : Route
     // N19.6: KHÔNG có Route.JoinRoom nữa. Ô nhập mã phòng giờ là một thế nằm trên
     // Trang chủ (JoinRoomCard) — màn cũ chỉ có đúng ô đó rồi điều hướng đi ngay,
     // không đủ nội dung để làm một điểm đến.

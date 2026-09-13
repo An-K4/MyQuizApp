@@ -38,7 +38,7 @@ interface QuizApiService {
      * Optional auth: public search, không cần login.
      * 
      * N16.5: dùng cursor pagination THẬT (listing.service.ts — keyset, cursor opaque
-     * base64url, sort mặc định "new"). cursor null = trang đầu. KHÔNG truyền page —
+     * base64url, sort mặc định "newest"). cursor null = trang đầu. KHÔNG truyền page —
      * backend không đọc; bản cũ load more chỉ lặp lại trang 1 (bug thật).
      * Cursor/hasMore nằm trong meta.pagination → Result.Success.page (ApiCallResult).
      * Đổi keyword giữa chừng phải reset cursor về null, nếu không ăn QUIZ_CURSOR_INVALID
@@ -48,7 +48,17 @@ interface QuizApiService {
      */
     @GET("quizzes/search")
     suspend fun searchQuizzes(
-        @Query("keyword") keyword: String,
+        @Query("keyword") keyword: String?,
+        @Query("category") category: String? = null,
+        @Query("sort") sort: String? = null,
+        @Query("cursor") cursor: String?,
+        @Query("limit") limit: Int
+    ): Result<QuizListDto>
+
+    /** GET /v1/quizzes/feed?topic=...&cursor=...&limit=... */
+    @GET("quizzes/feed")
+    suspend fun getQuizFeed(
+        @Query("topic") topic: String?,
         @Query("cursor") cursor: String?,
         @Query("limit") limit: Int
     ): Result<QuizListDto>

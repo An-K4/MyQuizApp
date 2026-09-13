@@ -1,6 +1,7 @@
 package android.kma.myquizzapp.feature.home.presentation
 
 import android.content.res.Configuration
+import android.kma.myquizzapp.core.common.model.HomeSection
 import android.kma.myquizzapp.core.ui.components.HomeSectionRow
 import android.kma.myquizzapp.core.ui.theme.MyQuizAppTheme
 import androidx.compose.foundation.layout.*
@@ -37,7 +38,7 @@ fun HomeScreen(
     onNavigateToSearch: () -> Unit,
     onNavigateToAuth: () -> Unit,
     onNavigateToQuizDetail: (Long) -> Unit,
-    onNavigateToDiscover: (sectionKey: String?) -> Unit,
+    onNavigateToDiscover: (sectionKey: String?, sectionType: String?, title: String?, topic: String?) -> Unit,
     roomCodeCard: @Composable () -> Unit = {},
     modifier: Modifier = Modifier,
     viewModel: HomeViewModel = hiltViewModel()
@@ -76,7 +77,7 @@ fun HomeScreenContent(
     onNavigateToAuth: () -> Unit,
     onNavigateToQuizDetail: (Long) -> Unit,
     onRetry: () -> Unit,
-    onNavigateToDiscover: (sectionKey: String?) -> Unit = {},
+    onNavigateToDiscover: (sectionKey: String?, sectionType: String?, title: String?, topic: String?) -> Unit = { _, _, _, _ -> },
     roomCodeCard: @Composable () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -152,7 +153,7 @@ private fun HomeFeed(
     uiState: HomeUiState,
     onQuizClick: (Long) -> Unit,
     onRetry: () -> Unit,
-    onNavigateToDiscover: (sectionKey: String?) -> Unit,
+    onNavigateToDiscover: (sectionKey: String?, sectionType: String?, title: String?, topic: String?) -> Unit,
     roomCodeCard: @Composable () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -212,7 +213,14 @@ private fun HomeFeed(
                         section = section,
                         onQuizClick = onQuizClick,
                         onSeeMore = if (section.hasSeeMore) {
-                            { onNavigateToDiscover(section.sectionKey) }
+                            {
+                                onNavigateToDiscover(
+                                    section.sectionKey,
+                                    section.sectionType,
+                                    section.title,
+                                    section.discoverTopic
+                                )
+                            }
                         } else {
                             // Section không có nút vẫn hiển thị bình thường — trông
                             // như một danh sách được chọn sẵn, không phải bị hỏng.
@@ -224,7 +232,7 @@ private fun HomeFeed(
                 // 3) Lối vào màn Khám phá đầy đủ (nhiều section hơn Trang chủ).
                 item(key = KEY_DISCOVER_ALL) {
                     TextButton(
-                        onClick = { onNavigateToDiscover(null) },
+                        onClick = { onNavigateToDiscover(null, null, null, null) },
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
                     ) { Text("Khám phá tất cả") }
                 }

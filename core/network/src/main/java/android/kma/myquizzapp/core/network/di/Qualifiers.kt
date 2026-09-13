@@ -33,3 +33,18 @@ annotation class PreserveCaseJson
 @Qualifier
 @Retention(AnnotationRetention.RUNTIME)
 annotation class PreserveCaseRetrofit
+
+/** HTTP client backend không cookie/authenticator cho public discovery. */
+@Qualifier
+@Retention(AnnotationRetention.RUNTIME)
+annotation class PublicApiOkHttpClient
+
+/** Retrofit backend không mang phiên đăng nhập. */
+@Qualifier
+@Retention(AnnotationRetention.RUNTIME)
+annotation class PublicApiRetrofit
+
+/** QuizApiService tạo từ PublicApiRetrofit. */
+@Qualifier
+@Retention(AnnotationRetention.RUNTIME)
+annotation class PublicQuizApiService

@@ -67,5 +67,15 @@ private val PAGINABLE_SECTION_TYPES = setOf("trending", "category", "newest")
  * Nhận diện bằng `sectionType`, TUYỆT ĐỐI không bằng `title`: title nằm trong
  * bảng `home_sections` và người vận hành sửa được bằng SQL bất kỳ lúc nào.
  */
+val HomeSection.discoverTopic: String?
+    get() {
+        if (sectionType != "category") return null
+        val categories = items.mapNotNull {
+            it.quizCategory?.trim()?.takeIf(String::isNotEmpty)
+        }.distinct()
+        return categories.singleOrNull()
+    }
+
 val HomeSection.hasSeeMore: Boolean
-    get() = sectionType in PAGINABLE_SECTION_TYPES
+    get() = sectionType in PAGINABLE_SECTION_TYPES &&
+        (sectionType != "category" || discoverTopic != null)
