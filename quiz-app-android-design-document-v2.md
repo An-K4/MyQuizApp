@@ -1670,7 +1670,10 @@ Avatar và logo vẽ bằng `Image` chứ không `Icon`, vì `Icon` nhuộm nộ
 - ACK timeout/not-connected là **unknown outcome**: khóa input trước emit, không tự retry, emit `player:sync`, rồi dùng `game:state.player.answered_questions` xác định server đã ghi đáp án chưa. Chỉ mở lại khi snapshot nói chưa ghi và phase vẫn `question_active`.
 - Reconnect: sau mọi `Connected`, emit `lobby:join` rồi `player:sync`. Snapshot dựng lại phase/question/deadline/submitted; reconnect trong `showing_results` chỉ hiện trạng thái trung tính vì backend không replay đầy đủ `question:results`.
 - Timer dùng deadline tuyệt đối + `serverTime` offset; `endsAt=null` thì ẩn; khi UI về 0 chỉ khóa input, server vẫn là nơi quyết định phase.
-- `game:ended` hiện mới đưa Gameplay về phase finished. Điều hướng sang `FinalResult` và màn kết quả đầy đủ thuộc N24.
+- ✅ **N24 (15/9/2026)**: `game:ended` được lưu tạm qua `GameResultRepository`, phát `NavigateToFinalResult` và điều hướng sang `Route.FinalResult(gameId, playerId)`; Gameplay bị pop khỏi back stack. `FinalResultScreen` render bảng cuối từ socket, highlight Player hiện tại và có fallback an toàn khi process recreation làm mất transient result.
+- `answer:received` chỉ cập nhật progress đã trả lời/tổng player active, không chứa đúng-sai. `question:results` là nguồn kết quả giữa câu; `leaderboard:updated` là snapshot thay thế, không cộng dồn.
+- Visibility phải bám config server: `between_questions` chỉ hiện bảng trong Results; `end_only`/`never` không hiện rank/score live. Khi `showCorrectAnswer=false`, reducer xóa answer key + distribution và dùng outcome trung tính trước khi state tới UI.
+- Pause/resume Player không có event riêng: đọc `sessionStatus` từ `game:state`, khóa input ở cả UI và ViewModel; resume chỉ mở nếu câu còn active và Player chưa submit.
 
 ## 12. Dependency Injection — Hilt Modules
 <table header-row="true">
@@ -2032,7 +2035,7 @@ fun `self-paced answer reveals result immediately via ack`() = runTest {
 - `socketToken` có TTL ngắn (`SOCKET_TOKEN_TTL`) — không cache dài hạn, hết hạn giữa game phải gọi lại REST `/join` hoặc `/host-token`.
 ### 18.2. Anti-cheat phía client (giữ nguyên tinh thần v1.0, chính xác hoá theo backend)
 - Disable input **trước khi** emit `question:answer` để tránh double-submit. Backend chặn bằng code `GAME_ANSWER_DUPLICATE`; nếu ACK timeout thì vẫn giữ khóa + `player:sync`, không tự retry vì server có thể đã ghi đáp án nhưng callback bị rơi.
-- **Không bao giờ** tự tính điểm/đúng-sai ở client để hiển thị "dự đoán" trước khi có phản hồi server — mọi con số hiển thị phải đến từ `AnswerAck`, `question:results`, hoặc `leaderboard:updated/host`.
+- **Không bao giờ** tự tính điểm/đúng-sai ở client để hiển thị "dự đoán" trước khi có phản hồi server — mọi con số hiển thị phải đến từ `AnswerAck`, `question:results`, hoặc `leaderboard:updated/host`. N24 bổ sung lớp phòng thủ visibility: dữ liệu có trong payload vẫn phải bị loại khỏi UiState nếu config không cho phép reveal.
 - Với host-paced, Player **không nhận** `correct_answer` cho tới khi `question:results` bắn ra sau `question:locked` — không lưu, không log payload trung gian nào chứa đáp án ở phía client trước thời điểm đó.
 ### 18.3. Network Security
 ```xml
