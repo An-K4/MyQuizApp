@@ -1,12 +1,14 @@
 ﻿package android.kma.myquizzapp.core.network.di
 
 import android.kma.myquizzapp.core.common.repository.AuthRepository
+import android.kma.myquizzapp.core.common.repository.GameResultRepository
 import android.kma.myquizzapp.core.common.repository.GameSessionRepository
 import android.kma.myquizzapp.core.common.repository.QuizRepository
 import android.kma.myquizzapp.core.common.repository.SessionRepository
 import android.kma.myquizzapp.core.common.repository.StorageRepository
 import android.kma.myquizzapp.core.network.repository.AuthRepositoryImpl
 import android.kma.myquizzapp.core.network.repository.GameSessionRepositoryImpl
+import android.kma.myquizzapp.core.network.repository.InMemoryGameResultRepository
 import android.kma.myquizzapp.core.network.repository.QuizRepositoryImpl
 import android.kma.myquizzapp.core.network.repository.SessionRepositoryImpl
 import android.kma.myquizzapp.core.network.repository.StorageRepositoryImpl
@@ -37,6 +39,12 @@ abstract class NetworkBindingModule {
     abstract fun bindGameSessionRepository(
         gameSessionRepositoryImpl: GameSessionRepositoryImpl
     ): GameSessionRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindGameResultRepository(
+        impl: InMemoryGameResultRepository
+    ): GameResultRepository
 
     // N19.6: @Singleton ở đây là bắt buộc, không phải tối ưu. SessionRepository
     // GIỮ STATE (StateFlow trạng thái đăng nhập); nhiều instance = nhiều nguồn

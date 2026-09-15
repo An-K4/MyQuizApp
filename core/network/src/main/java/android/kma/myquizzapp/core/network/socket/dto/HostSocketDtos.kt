@@ -1,5 +1,6 @@
 package android.kma.myquizzapp.core.network.socket.dto
 
+import android.kma.myquizzapp.core.common.model.AnswerProgress
 import android.kma.myquizzapp.core.common.model.AnswerStats
 import android.kma.myquizzapp.core.common.model.AnsweredQuestionSnapshot
 import android.kma.myquizzapp.core.common.model.EliminatedPlayer
@@ -236,6 +237,16 @@ data class QuestionResultsDto(
 }
 
 @Serializable
+data class AnswerProgressDto(
+    val index: Int = 0,
+    val answered: Int = 0,
+    val activePlayers: Int = 0,
+    val serverTime: String? = null
+) {
+    fun toDomain() = AnswerProgress(index, answered, activePlayers)
+}
+
+@Serializable
 data class AnsweringPlayerDto(
     val id: Long = 0L,
     @SerialName("player_name") val playerName: String = ""
@@ -313,15 +324,27 @@ data class LeaderboardRowDto(
     val rank: Int = 0,
     val id: Long = 0L,
     @SerialName("player_name") val playerName: String = "",
-    @SerialName("player_score") val playerScore: Int = 0
+    @SerialName("player_score") val playerScore: Int = 0,
+    @SerialName("correct_answers_count") val correctAnswersCount: Int? = null,
+    val streak: Int? = null,
+    val status: String? = null
 ) {
     fun toDomain() = LeaderboardRow(
         rank = rank,
         id = id,
         playerName = playerName,
-        playerScore = playerScore
+        playerScore = playerScore,
+        correctAnswersCount = correctAnswersCount,
+        streak = streak,
+        status = status
     )
 }
+
+@Serializable
+data class PlayerLeaderboardDto(
+    val leaderboard: List<LeaderboardRowDto> = emptyList(),
+    val serverTime: String? = null
+)
 
 @Serializable
 data class QuestionStatDto(

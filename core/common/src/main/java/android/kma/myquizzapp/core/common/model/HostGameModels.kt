@@ -196,12 +196,27 @@ data class HostLeaderboard(
     val answeredTotal: Int = 0
 )
 
-/** Một dòng bảng xếp hạng công khai (`LeaderboardRow`). */
+/** Tiến độ trả lời công khai của câu host-paced (`answer:received`). */
+data class AnswerProgress(
+    val index: Int,
+    val answered: Int,
+    val activePlayers: Int
+)
+
+/**
+ * Một dòng bảng xếp hạng công khai.
+ *
+ * Live `leaderboard:updated` chỉ có bốn field đầu. `game:ended` bổ sung ba field
+ * nullable phía sau; để nullable giúp client phân biệt "backend không gửi" với 0.
+ */
 data class LeaderboardRow(
     val rank: Int,
     val id: Long,
     val playerName: String,
-    val playerScore: Int
+    val playerScore: Int,
+    val correctAnswersCount: Int? = null,
+    val streak: Int? = null,
+    val status: String? = null
 )
 
 /** Thống kê một câu hỏi trong tổng kết trận (`QuestionStat`). */

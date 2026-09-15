@@ -4,6 +4,7 @@ import android.kma.myquizzapp.core.common.model.GameConfig
 import android.kma.myquizzapp.core.common.model.GameConfigConstraint
 import android.kma.myquizzapp.core.common.model.GameConfigKey
 import android.kma.myquizzapp.core.common.model.GameConfigValue
+import android.kma.myquizzapp.core.common.model.GameMode
 import android.kma.myquizzapp.core.common.model.GameModeDescriptor
 import android.kma.myquizzapp.core.common.model.ShowLeaderboard
 
@@ -61,12 +62,31 @@ data class RoomConfigForm(
         GameConfigKey.AUTO_ADVANCE -> copy(autoAdvance = autoAdvance.copy(value = value))
         GameConfigKey.ALLOW_LATE_JOIN -> copy(allowLateJoin = allowLateJoin.copy(value = value))
         GameConfigKey.ALLOW_GUESTS -> copy(allowGuests = allowGuests.copy(value = value))
-        GameConfigKey.SHOW_CORRECT_ANSWER -> copy(showCorrectAnswer = showCorrectAnswer.copy(value = value))
+        // Backend normalize: reviewMode=true luôn ép showCorrectAnswer=true.
+        // Vì vậy muốn ẩn đáp án thì phải tắt luôn quyền xem lại trong cùng form,
+        // nếu không server sẽ bật đáp án trở lại ngay sau khi lưu.
+        GameConfigKey.SHOW_CORRECT_ANSWER -> copy(
+            showCorrectAnswer = showCorrectAnswer.copy(value = value),
+            reviewMode = if (!value && reviewMode.editable) {
+                reviewMode.copy(value = false)
+            } else {
+                reviewMode
+            }
+        )
         GameConfigKey.ALLOW_ANSWER_LATE -> copy(allowAnswerLate = allowAnswerLate.copy(value = value))
         GameConfigKey.SHUFFLE_QUESTIONS -> copy(shuffleQuestions = shuffleQuestions.copy(value = value))
         GameConfigKey.SHUFFLE_OPTIONS -> copy(shuffleOptions = shuffleOptions.copy(value = value))
         GameConfigKey.SHOW_HINT -> copy(showHint = showHint.copy(value = value))
-        GameConfigKey.REVIEW_MODE -> copy(reviewMode = reviewMode.copy(value = value))
+        // Bật xem lại cần answer key; phản chiếu normalizeConfig của backend ngay
+        // trên UI thay vì để người dùng lưu xong mới thấy công tắc kia tự bật lại.
+        GameConfigKey.REVIEW_MODE -> copy(
+            reviewMode = reviewMode.copy(value = value),
+            showCorrectAnswer = if (value && showCorrectAnswer.editable) {
+                showCorrectAnswer.copy(value = true)
+            } else {
+                showCorrectAnswer
+            }
+        )
         GameConfigKey.SPEED_BONUS -> copy(speedBonus = speedBonus.copy(value = value))
         GameConfigKey.NEGATIVE_MARKING -> copy(negativeMarking = negativeMarking.copy(value = value))
         else -> this
@@ -147,7 +167,7 @@ data class RoomConfigForm(
                 descriptor.editable[key]?.defaultValue
                     ?: descriptor.locked[key]
                     ?: descriptor.defaultConfig.valueOf(key)
-            }
+            }.applyModeRules(descriptor.mode)
 
         /**
          * Form cho phòng ĐANG tồn tại: giá trị lấy từ [config] thật của phòng, còn
@@ -158,7 +178,25 @@ data class RoomConfigForm(
          */
         fun fromConfig(descriptor: GameModeDescriptor, config: GameConfig): RoomConfigForm =
             descriptor.buildForm { key -> config.valueOf(key) }
+                .applyModeRules(descriptor.mode)
     }
+}
+
+/**
+ * Các ràng buộc mà backend áp sau mọi lần merge config.
+ *
+ * Marathon luôn bật đáp án đúng dù descriptor hiện vẫn đánh dấu field này là
+ * editable. Khóa ngay trên form để UI không cho lưu một lựa chọn chắc chắn bị
+ * backend ghi đè.
+ */
+private fun RoomConfigForm.applyModeRules(mode: GameMode): RoomConfigForm = when (mode) {
+    GameMode.MARATHON -> copy(
+        showCorrectAnswer = showCorrectAnswer.copy(value = true, editable = false)
+    )
+    GameMode.CLASSIC,
+    GameMode.SOLO,
+    GameMode.SURVIVAL,
+    GameMode.PRACTICE -> this
 }
 
 /** Đọc một khóa typed ra khỏi [GameConfig]. Chỗ duy nhất biết key nào nằm ở nhóm nào. */

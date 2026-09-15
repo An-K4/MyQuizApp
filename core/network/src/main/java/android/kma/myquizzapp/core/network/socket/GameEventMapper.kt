@@ -3,6 +3,7 @@ package android.kma.myquizzapp.core.network.socket
 import android.kma.myquizzapp.core.common.model.GameEvent
 import android.kma.myquizzapp.core.common.model.QuestionLockReason
 import android.kma.myquizzapp.core.network.di.PreserveCaseJson
+import android.kma.myquizzapp.core.network.socket.dto.AnswerProgressDto
 import android.kma.myquizzapp.core.network.socket.dto.GameCountdownDto
 import android.kma.myquizzapp.core.network.socket.dto.GameEndedDto
 import android.kma.myquizzapp.core.network.socket.dto.GameStartedDto
@@ -12,6 +13,7 @@ import android.kma.myquizzapp.core.network.socket.dto.HostLeaderboardDto
 import android.kma.myquizzapp.core.network.socket.dto.HostQuestionDto
 import android.kma.myquizzapp.core.network.socket.dto.LobbyUpdatedDto
 import android.kma.myquizzapp.core.network.socket.dto.PlayerEliminatedDto
+import android.kma.myquizzapp.core.network.socket.dto.PlayerLeaderboardDto
 import android.kma.myquizzapp.core.network.socket.dto.QuestionLockedDto
 import android.kma.myquizzapp.core.network.socket.dto.QuestionStartedDto
 import android.kma.myquizzapp.core.network.socket.dto.QuestionResultsDto
@@ -51,6 +53,8 @@ class GameEventMapper @Inject constructor(
         GameSocketEvents.QUESTION_STARTED -> mapQuestionStarted(payload)
         GameSocketEvents.QUESTION_LOCKED -> mapQuestionLocked(payload)
         GameSocketEvents.QUESTION_RESULTS -> mapQuestionResults(payload)
+        GameSocketEvents.ANSWER_RECEIVED -> mapAnswerProgress(payload)
+        GameSocketEvents.LEADERBOARD_UPDATED -> mapPlayerLeaderboard(payload)
         GameSocketEvents.HOST_ANSWER_RECEIVED -> mapHostAnswerReceived(payload)
         GameSocketEvents.LEADERBOARD_HOST -> mapHostLeaderboard(payload)
         GameSocketEvents.PLAYER_ELIMINATED -> mapPlayerEliminated(payload)
@@ -144,6 +148,27 @@ class GameEventMapper @Inject constructor(
         return dto?.let {
             GameEvent.QuestionResultsReceived(results = it.toDomain(), serverTime = it.serverTime)
         } ?: GameEvent.Failed(GameSocketEvents.QUESTION_RESULTS, CODE_CLIENT_PARSE_ERROR)
+    }
+
+    private fun mapAnswerProgress(payload: Any?): GameEvent {
+        val dto = decode(payload, GameSocketEvents.ANSWER_RECEIVED) {
+            json.decodeFromString(AnswerProgressDto.serializer(), it)
+        }
+        return dto?.let {
+            GameEvent.AnswerProgressUpdated(it.toDomain(), it.serverTime)
+        } ?: GameEvent.Failed(GameSocketEvents.ANSWER_RECEIVED, CODE_CLIENT_PARSE_ERROR)
+    }
+
+    private fun mapPlayerLeaderboard(payload: Any?): GameEvent {
+        val dto = decode(payload, GameSocketEvents.LEADERBOARD_UPDATED) {
+            json.decodeFromString(PlayerLeaderboardDto.serializer(), it)
+        }
+        return dto?.let {
+            GameEvent.PlayerLeaderboardUpdated(
+                leaderboard = it.leaderboard.map { row -> row.toDomain() },
+                serverTime = it.serverTime
+            )
+        } ?: GameEvent.Failed(GameSocketEvents.LEADERBOARD_UPDATED, CODE_CLIENT_PARSE_ERROR)
     }
 
     private fun mapHostAnswerReceived(payload: Any?): GameEvent {

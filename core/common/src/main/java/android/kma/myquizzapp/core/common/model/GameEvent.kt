@@ -90,6 +90,18 @@ sealed interface GameEvent {
         val serverTime: String? = null
     ) : GameEvent
 
+    /** `answer:received` — snapshot tiến độ của câu hiện tại, chỉ room player nhận. */
+    data class AnswerProgressUpdated(
+        val progress: AnswerProgress,
+        val serverTime: String? = null
+    ) : GameEvent
+
+    /** `leaderboard:updated` — bảng lean cho player, tuân theo flow.showLeaderboard. */
+    data class PlayerLeaderboardUpdated(
+        val leaderboard: List<LeaderboardRow>,
+        val serverTime: String? = null
+    ) : GameEvent
+
     /**
      * `host:answer-received` — một người chơi cụ thể vừa trả lời.
      *

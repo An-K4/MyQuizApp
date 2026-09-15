@@ -62,5 +62,5 @@ sealed interface Route {
     ) : Route
     @Serializable data class GamePlay(val gameId: Long, val playerId: Long, val socketToken: String) : Route
     @Serializable data class HostGame(val gameId: Long, val socketToken: String) : Route
-    @Serializable data class FinalResult(val gameId: Long) : Route
+    @Serializable data class FinalResult(val gameId: Long, val playerId: Long) : Route
 }

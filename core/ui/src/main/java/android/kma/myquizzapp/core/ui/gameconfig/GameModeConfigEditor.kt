@@ -170,7 +170,12 @@ private fun CommonStudySettings(scope: EditorScope) {
     BooleanSetting(scope, "Trộn câu hỏi", GameConfigKey.SHUFFLE_QUESTIONS, scope.form.shuffleQuestions)
     BooleanSetting(scope, "Trộn lựa chọn", GameConfigKey.SHUFFLE_OPTIONS, scope.form.shuffleOptions)
     BooleanSetting(scope, "Hiện gợi ý", GameConfigKey.SHOW_HINT, scope.form.showHint)
-    BooleanSetting(scope, "Cho phép xem lại", GameConfigKey.REVIEW_MODE, scope.form.reviewMode)
+    BooleanSetting(
+        scope,
+        "Cho phép xem lại (cần hiện đáp án đúng)",
+        GameConfigKey.REVIEW_MODE,
+        scope.form.reviewMode
+    )
 }
 
 @Composable

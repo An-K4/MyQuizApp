@@ -1,6 +1,5 @@
 package android.kma.myquizzapp.navigation
 
-import androidx.compose.material3.Text
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.composable
@@ -9,6 +8,7 @@ import android.kma.myquizzapp.feature.game_player.presentation.GamePlayScreen
 import android.kma.myquizzapp.feature.lobby.presentation.guestnickname.GuestNicknameScreen
 import android.kma.myquizzapp.feature.lobby.presentation.hostlobby.HostLobbyScreen
 import android.kma.myquizzapp.feature.lobby.presentation.playerlobby.PlayerLobbyScreen
+import android.kma.myquizzapp.feature.leaderboard.presentation.FinalResultScreen
 
 /**
  * Key dùng để chuyển lý do bị buộc rời phòng về màn trước.
@@ -69,7 +69,14 @@ fun NavGraphBuilder.gameGraph(navController: NavHostController) {
     }
 
     composable<Route.GamePlay> {
-        GamePlayScreen(onExit = { message -> navController.popWithMessage(message) })
+        GamePlayScreen(
+            onExit = { message -> navController.popWithMessage(message) },
+            onNavigateToFinalResult = { gameId, playerId ->
+                navController.navigate(Route.FinalResult(gameId, playerId)) {
+                    popUpTo<Route.GamePlay> { inclusive = true }
+                }
+            }
+        )
     }
 
     composable<Route.HostGame> {
@@ -85,8 +92,14 @@ fun NavGraphBuilder.gameGraph(navController: NavHostController) {
     }
 
     composable<Route.FinalResult> {
-        // TODO: FinalResultScreen()
-        Text("Final Result - Coming Soon")
+        FinalResultScreen(
+            onHome = {
+                navController.navigate(Route.Home) {
+                    popUpTo<Route.Home> { inclusive = false }
+                    launchSingleTop = true
+                }
+            }
+        )
     }
 }
 

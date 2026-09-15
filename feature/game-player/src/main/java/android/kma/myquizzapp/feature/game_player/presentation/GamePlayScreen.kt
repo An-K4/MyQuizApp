@@ -43,12 +43,18 @@ import kotlinx.coroutines.delay
 @Composable
 fun GamePlayScreen(
     onExit: (String?) -> Unit,
+    onNavigateToFinalResult: (Long, Long) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: GameViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     LaunchedEffect(Unit) {
-        viewModel.effect.collect { if (it is GameEffect.Exit) onExit(it.message) }
+        viewModel.effect.collect {
+            when (it) {
+                is GameEffect.Exit -> onExit(it.message)
+                is GameEffect.NavigateToFinalResult -> onNavigateToFinalResult(it.gameId, it.playerId)
+            }
+        }
     }
     GamePlayScreenContent(state, viewModel::onIntent, modifier)
 }
@@ -79,7 +85,17 @@ fun GamePlayScreenContent(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             item { ConnectionBanner(state.connection) }
+            if (state.isPaused) {
+                item {
+                    Card(Modifier.fillMaxWidth()) {
+                        Text("Trận đang tạm dừng — chờ Host tiếp tục", Modifier.padding(16.dp))
+                    }
+                }
+            }
             item { PhaseHeader(state, onIntent) }
+            if (state.answeredCount != null && state.activePlayers != null) {
+                item { Text("Đã trả lời: ${state.answeredCount}/${state.activePlayers}") }
+            }
             state.question?.let { question ->
                 item {
                     Text("Câu ${question.index + 1}/${question.total}", style = MaterialTheme.typography.labelLarge)
@@ -88,12 +104,12 @@ fun GamePlayScreenContent(
                 }
                 when (question.questionType) {
                     "multiple_choice" -> items(question.answerOptions, key = { it.id }) { option ->
-                        SingleOption(option, state.selectedOptionId == option.id, !state.isInputLocked) {
+                        SingleOption(option, state.selectedOptionId == option.id, state.isAnswerInputEnabled) {
                             onIntent(GameIntent.SelectOption(option.id))
                         }
                     }
                     "multiple_select" -> items(question.answerOptions, key = { it.id }) { option ->
-                        MultipleOption(option, option.id in state.selectedOptionIds, !state.isInputLocked) {
+                        MultipleOption(option, option.id in state.selectedOptionIds, state.isAnswerInputEnabled) {
                             onIntent(GameIntent.ToggleOption(option.id))
                         }
                     }
@@ -101,7 +117,7 @@ fun GamePlayScreenContent(
                         OutlinedTextField(
                             value = state.textAnswer,
                             onValueChange = { onIntent(GameIntent.ChangeText(it)) },
-                            enabled = !state.isInputLocked,
+                            enabled = state.isAnswerInputEnabled,
                             minLines = if (question.questionType == "long_answer") 4 else 1,
                             label = { Text("Câu trả lời") },
                             modifier = Modifier.fillMaxWidth()
@@ -126,12 +142,42 @@ fun GamePlayScreenContent(
                                 Text("Đang chờ câu tiếp theo")
                                 Text("Kết quả chi tiết không thể phát lại sau khi kết nối lại.")
                             } else {
-                                Text("Đáp án đã được công bố", style = MaterialTheme.typography.titleMedium)
-                                state.results?.correctAnswers?.takeIf { it.isNotEmpty() }?.let {
-                                    Text("Đáp án đúng: ${it.joinToString()}")
+                                Text(when (state.outcome) {
+                                    QuestionOutcome.CORRECT -> "Chính xác!"
+                                    QuestionOutcome.INCORRECT -> "Chưa chính xác"
+                                    QuestionOutcome.HIDDEN, null -> "Kết quả đã được ghi nhận"
+                                }, style = MaterialTheme.typography.titleMedium)
+                                if (state.showCorrectAnswer == true) {
+                                    state.results?.correctAnswers?.takeIf { it.isNotEmpty() }?.let {
+                                        Text("Đáp án đúng: ${it.joinToString()}")
+                                    }
+                                    state.results?.stats?.distribution?.takeIf { it.isNotEmpty() }?.let { distribution ->
+                                        Text("Phân bố: " + distribution.entries.joinToString { "${it.key}: ${it.value}" })
+                                    }
+                                }
+                                if (state.canShowLiveLeaderboard && state.playerRank != null && state.playerScore != null) {
+                                    Text("Bạn đang hạng ${state.playerRank} • ${state.playerScore} điểm")
+                                }
+                                state.results?.nextQuestionAt?.let { next ->
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text("Câu tiếp theo sau: ")
+                                        DeadlineCountdown(next, state.serverOffsetMs, null) {}
+                                    }
                                 }
                             }
                         }
+                    }
+                }
+            }
+            if (state.canShowLiveLeaderboard) {
+                item { Text("Bảng xếp hạng", style = MaterialTheme.typography.titleMedium) }
+                items(state.leaderboard, key = { "leaderboard-${it.id}" }) { row ->
+                    Card(Modifier.fillMaxWidth()) {
+                        Text(
+                            "#${row.rank}  ${row.playerName} — ${row.playerScore} điểm" +
+                                if (row.id == state.playerId) "  (Bạn)" else "",
+                            Modifier.padding(14.dp)
+                        )
                     }
                 }
             }

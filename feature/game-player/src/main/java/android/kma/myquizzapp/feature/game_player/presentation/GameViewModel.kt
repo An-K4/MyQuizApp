@@ -6,7 +6,10 @@ import android.kma.myquizzapp.core.common.model.DisconnectReason
 import android.kma.myquizzapp.core.common.model.GameEvent
 import android.kma.myquizzapp.core.common.model.GamePhase
 import android.kma.myquizzapp.core.common.model.GameSnapshot
+import android.kma.myquizzapp.core.common.model.LeaderboardRow
 import android.kma.myquizzapp.core.common.model.PlayerAnswer
+import android.kma.myquizzapp.core.common.model.SessionStatus
+import android.kma.myquizzapp.core.common.model.ShowLeaderboard
 import android.kma.myquizzapp.core.common.result.Result
 import android.kma.myquizzapp.feature.game_player.domain.PlayerGameSessionUseCase
 import androidx.lifecycle.SavedStateHandle
@@ -28,10 +31,11 @@ class GameViewModel @Inject constructor(
     private val session: PlayerGameSessionUseCase,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
+    private val gameId: Long = checkNotNull(savedStateHandle["gameId"])
     private val playerId: Long = checkNotNull(savedStateHandle["playerId"])
     private val socketToken: String = checkNotNull(savedStateHandle["socketToken"])
     private var eventJob: Job? = null
-    private val _uiState = MutableStateFlow(GameUiState())
+    private val _uiState = MutableStateFlow(GameUiState(playerId = playerId))
     val uiState = _uiState.asStateFlow()
     private val _effect = Channel<GameEffect>(Channel.BUFFERED)
     val effect = _effect.receiveAsFlow()
@@ -40,15 +44,15 @@ class GameViewModel @Inject constructor(
 
     fun onIntent(intent: GameIntent) {
         when (intent) {
-            is GameIntent.SelectOption -> _uiState.update { if (it.isInputLocked) it else it.copy(selectedOptionId = intent.id) }
+            is GameIntent.SelectOption -> _uiState.update { if (!it.isAnswerInputEnabled) it else it.copy(selectedOptionId = intent.id) }
             is GameIntent.ToggleOption -> _uiState.update { state ->
-                if (state.isInputLocked) state else state.copy(
+                if (!state.isAnswerInputEnabled) state else state.copy(
                     selectedOptionIds = state.selectedOptionIds.toMutableSet().apply {
                         if (!add(intent.id)) remove(intent.id)
                     }
                 )
             }
-            is GameIntent.ChangeText -> _uiState.update { if (it.isInputLocked) it else it.copy(textAnswer = intent.value) }
+            is GameIntent.ChangeText -> _uiState.update { if (!it.isAnswerInputEnabled) it else it.copy(textAnswer = intent.value) }
             GameIntent.Submit -> submit()
             GameIntent.Retry -> connect()
             GameIntent.Sync -> viewModelScope.launch { session.sync() }
@@ -73,6 +77,20 @@ class GameViewModel @Inject constructor(
                 _uiState.update { it.copy(connection = GameConnection.CONNECTED) }
                 session.joinAndSync()
             }
+            is GameEvent.LobbyUpdated -> _uiState.update { state ->
+                state.withServerConfig(
+                    sessionStatus = event.lobby.sessionStatus,
+                    showCorrectAnswer = event.lobby.config.flow.showCorrectAnswer,
+                    showLeaderboard = event.lobby.config.flow.showLeaderboard
+                )
+            }
+            is GameEvent.GameStarted -> _uiState.update { state ->
+                state.withServerConfig(
+                    sessionStatus = SessionStatus.ACTIVE,
+                    showCorrectAnswer = event.config.flow.showCorrectAnswer,
+                    showLeaderboard = event.config.flow.showLeaderboard
+                )
+            }
             is GameEvent.Disconnected -> when (event.reason) {
                 DisconnectReason.TRANSPORT -> _uiState.update { it.copy(connection = GameConnection.RECONNECTING, isInputLocked = true) }
                 DisconnectReason.SERVER_DISCONNECT -> exit("Máy chủ đã đóng kết nối tới phòng này.")
@@ -94,40 +112,88 @@ class GameViewModel @Inject constructor(
                     isInputLocked = false,
                     isSubmitting = false,
                     isConfirming = false,
-                    results = null
+                    results = null,
+                    outcome = null,
+                    answeredCount = null,
+                    activePlayers = null
                 )
+            }
+            is GameEvent.AnswerProgressUpdated -> _uiState.update { state ->
+                if (state.question?.index != event.progress.index) state else state.copy(
+                    answeredCount = event.progress.answered,
+                    activePlayers = event.progress.activePlayers
+                )
+            }
+            is GameEvent.PlayerLeaderboardUpdated -> {
+                if (_uiState.value.showLeaderboard == ShowLeaderboard.BETWEEN_QUESTIONS) {
+                    applyLeaderboard(event.leaderboard)
+                }
             }
             is GameEvent.QuestionLocked -> _uiState.update { state ->
-                if (state.question?.index != event.index) state else state.copy(phase = GamePhaseUi.Locked, isInputLocked = true)
+                if (state.question?.index != event.index || state.results?.index == event.index) state
+                else state.copy(phase = GamePhaseUi.Locked, isInputLocked = true)
             }
             is GameEvent.QuestionResultsReceived -> _uiState.update { state ->
-                if (state.question?.index != event.results.index) state else state.copy(
-                    phase = GamePhaseUi.Results(), results = event.results, isInputLocked = true, isSubmitting = false, isConfirming = false
-                )
+                if (state.question?.index != event.results.index) state else {
+                    val feedback = resolveQuestionFeedback(
+                        showCorrectAnswer = state.showCorrectAnswer,
+                        questionType = state.question.questionType,
+                        submitted = state.submittedAnswerKeys,
+                        results = event.results
+                    )
+                    state.copy(
+                        phase = GamePhaseUi.Results(),
+                        results = feedback.results,
+                        outcome = feedback.outcome,
+                        isInputLocked = true,
+                        isSubmitting = false,
+                        isConfirming = false
+                    )
+                }
             }
             is GameEvent.StateSnapshot -> restore(event.snapshot)
-            is GameEvent.GameEndedEvent -> _uiState.update { it.copy(phase = GamePhaseUi.Finished, isInputLocked = true) }
+            is GameEvent.GameEndedEvent -> finish(event)
             is GameEvent.PlayerEliminated -> if (event.player.id == playerId) {
                 _uiState.update { it.copy(phase = GamePhaseUi.Finished, isInputLocked = true, errorMessage = "Bạn đã bị loại khỏi trận.") }
             }
             is GameEvent.Failed -> onFailure(event.code)
-            else -> Unit // Host-only/lobby/optional player events are intentionally ignored here.
+            is GameEvent.HostQuestionReceived,
+            is GameEvent.HostAnswerReceivedEvent,
+            is GameEvent.HostLeaderboardUpdated,
+            is GameEvent.Unhandled -> Unit
         }
+    }
+
+    private fun applyLeaderboard(rows: List<LeaderboardRow>) {
+        val me = rows.firstOrNull { it.id == playerId }
+        _uiState.update { it.copy(leaderboard = rows, playerRank = me?.rank, playerScore = me?.playerScore) }
     }
 
     private fun restore(snapshot: GameSnapshot) {
         val answered = snapshot.player?.answerFor(snapshot.index)
         _uiState.update { old ->
+            val hasCurrentResults = old.results?.index == snapshot.index
             val phase = when (snapshot.phase) {
                 GamePhase.COUNTDOWN -> GamePhaseUi.Countdown(snapshot.countdownStartsAt)
                 GamePhase.QUESTION_ACTIVE -> if (answered != null) GamePhaseUi.Submitted else GamePhaseUi.Question
-                GamePhase.QUESTION_LOCKED -> GamePhaseUi.Locked
-                GamePhase.SHOWING_RESULTS -> GamePhaseUi.Results(restoredWithoutDetails = old.results?.index != snapshot.index)
+                GamePhase.QUESTION_LOCKED -> if (hasCurrentResults) old.phase else GamePhaseUi.Locked
+                GamePhase.SHOWING_RESULTS -> GamePhaseUi.Results(restoredWithoutDetails = !hasCurrentResults)
                 GamePhase.FINISHED -> GamePhaseUi.Finished
                 GamePhase.UNKNOWN -> old.phase
             }
+            val status = snapshot.sessionStatus ?: old.sessionStatus
+            val showCorrect = snapshot.config?.flow?.showCorrectAnswer ?: old.showCorrectAnswer
+            val showBoard = snapshot.config?.flow?.showLeaderboard ?: old.showLeaderboard
+            val snapshotRows = snapshot.leaderboard
+            val rows = if (showBoard == ShowLeaderboard.BETWEEN_QUESTIONS) {
+                if (snapshotRows.isNotEmpty()) snapshotRows else old.leaderboard
+            } else emptyList()
+            val me = rows.firstOrNull { it.id == playerId }
             old.copy(
                 connection = GameConnection.CONNECTED,
+                sessionStatus = status,
+                showCorrectAnswer = showCorrect,
+                showLeaderboard = showBoard,
                 phase = phase,
                 question = snapshot.question ?: old.question,
                 endsAt = snapshot.endsAt,
@@ -136,11 +202,37 @@ class GameViewModel @Inject constructor(
                 selectedOptionId = answered?.answerKeys?.singleOrNull() ?: old.selectedOptionId,
                 selectedOptionIds = answered?.answerKeys?.toSet() ?: old.selectedOptionIds,
                 textAnswer = answered?.answerKeys?.singleOrNull() ?: old.textAnswer,
-                isInputLocked = snapshot.phase != GamePhase.QUESTION_ACTIVE || answered != null,
+                leaderboard = rows,
+                playerRank = me?.rank,
+                playerScore = me?.playerScore,
+                isInputLocked = status == SessionStatus.PAUSED ||
+                    snapshot.phase != GamePhase.QUESTION_ACTIVE || answered != null,
                 isSubmitting = false,
                 isConfirming = false
             )
         }
+    }
+
+    private fun GameUiState.withServerConfig(
+        sessionStatus: SessionStatus?,
+        showCorrectAnswer: Boolean,
+        showLeaderboard: ShowLeaderboard
+    ): GameUiState {
+        val mayShowBoard = showLeaderboard == ShowLeaderboard.BETWEEN_QUESTIONS
+        val resumedInput = sessionStatus == SessionStatus.ACTIVE && phase == GamePhaseUi.Question
+        return copy(
+            sessionStatus = sessionStatus,
+            showCorrectAnswer = showCorrectAnswer,
+            showLeaderboard = showLeaderboard,
+            leaderboard = if (mayShowBoard) leaderboard else emptyList(),
+            playerRank = if (mayShowBoard) playerRank else null,
+            playerScore = if (mayShowBoard) playerScore else null,
+            isInputLocked = when {
+                sessionStatus == SessionStatus.PAUSED -> true
+                resumedInput -> false
+                else -> isInputLocked
+            }
+        )
     }
 
     private fun submit() {
@@ -171,6 +263,14 @@ class GameViewModel @Inject constructor(
         }
     }
 
+    private suspend fun finish(event: GameEvent.GameEndedEvent) {
+        session.saveResult(gameId, playerId, event.ended)
+        _uiState.update { it.copy(phase = GamePhaseUi.Finished, isInputLocked = true) }
+        _effect.send(GameEffect.NavigateToFinalResult(gameId, playerId))
+        session.disconnect()
+        eventJob?.cancel()
+    }
+
     private suspend fun onFailure(code: String) {
         val message = AppError.Api(code).toUserMessage()
         if (code in FATAL_CODES) exit(message) else _uiState.update { it.copy(errorMessage = message) }
@@ -186,15 +286,23 @@ class GameViewModel @Inject constructor(
         is GameEvent.QuestionStarted -> serverTime
         is GameEvent.QuestionLocked -> serverTime
         is GameEvent.QuestionResultsReceived -> serverTime
+        is GameEvent.AnswerProgressUpdated -> serverTime
+        is GameEvent.PlayerLeaderboardUpdated -> serverTime
         is GameEvent.StateSnapshot -> serverTime
         is GameEvent.GameStarted -> serverTime
         is GameEvent.GameEndedEvent -> serverTime
         is GameEvent.PlayerEliminated -> serverTime
-        else -> null
+        GameEvent.Connected,
+        is GameEvent.Disconnected,
+        is GameEvent.LobbyUpdated,
+        is GameEvent.Failed,
+        is GameEvent.Unhandled -> null
+        is GameEvent.HostQuestionReceived -> serverTime
+        is GameEvent.HostAnswerReceivedEvent -> serverTime
+        is GameEvent.HostLeaderboardUpdated -> serverTime
     }
 
     private suspend fun exit(message: String?) {
-        // Có thể được gọi ngay bên trong collector; phát effect trước khi hủy job.
         _effect.send(GameEffect.Exit(message))
         session.disconnect()
         eventJob?.cancel()
