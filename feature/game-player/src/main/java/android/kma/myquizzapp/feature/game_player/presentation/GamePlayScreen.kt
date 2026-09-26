@@ -155,6 +155,13 @@ fun GamePlayScreenContent(
                                         Text("Phân bố: " + distribution.entries.joinToString { "${it.key}: ${it.value}" })
                                     }
                                 }
+                                if (state.isSelfPaced) {
+                                    if (state.wasLate) Text("Câu trả lời được ghi nhận sau thời hạn.")
+                                    state.scoreEarned?.let { Text("Điểm câu này: $it") }
+                                    state.totalScore?.let { Text("Tổng điểm: $it") }
+                                    state.streak?.let { Text("Chuỗi đúng: $it") }
+                                    state.lives?.let { Text("Mạng còn lại: $it") }
+                                }
                                 if (state.canShowLiveLeaderboard && state.playerRank != null && state.playerScore != null) {
                                     Text("Bạn đang hạng ${state.playerRank} • ${state.playerScore} điểm")
                                 }

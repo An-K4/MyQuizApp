@@ -1,6 +1,7 @@
 package android.kma.myquizzapp.feature.game_player.presentation
 
 import android.kma.myquizzapp.core.common.model.LeaderboardRow
+import android.kma.myquizzapp.core.common.model.Pacing
 import android.kma.myquizzapp.core.common.model.PublicQuestion
 import android.kma.myquizzapp.core.common.model.QuestionResults
 import android.kma.myquizzapp.core.common.model.SessionStatus
@@ -24,6 +25,7 @@ data class GameUiState(
     val connection: GameConnection = GameConnection.CONNECTING,
     val playerId: Long? = null,
     val sessionStatus: SessionStatus? = null,
+    val pacing: Pacing = Pacing.HOST,
     val showCorrectAnswer: Boolean? = null,
     val showLeaderboard: ShowLeaderboard? = null,
     val phase: GamePhaseUi = GamePhaseUi.Connecting,
@@ -32,6 +34,8 @@ data class GameUiState(
     val selectedOptionIds: Set<String> = emptySet(),
     val textAnswer: String = "",
     val endsAt: String? = null,
+    val matchEndsAt: String? = null,
+    val allowAnswerLate: Boolean = false,
     val serverOffsetMs: Long = 0L,
     val remainingSeconds: Int? = null,
     val isInputLocked: Boolean = true,
@@ -44,10 +48,15 @@ data class GameUiState(
     val leaderboard: List<LeaderboardRow> = emptyList(),
     val playerRank: Int? = null,
     val playerScore: Int? = null,
+    val totalScore: Int? = null,
+    val scoreEarned: Int? = null,
+    val streak: Int? = null,
+    val wasLate: Boolean = false,
     val lives: Int? = null,
     val errorMessage: String? = null
 ) {
     val isPaused: Boolean get() = sessionStatus == SessionStatus.PAUSED
+    val isSelfPaced: Boolean get() = pacing == Pacing.SELF
     val isAnswerInputEnabled: Boolean get() = !isInputLocked && !isPaused
     val canShowLiveLeaderboard: Boolean
         get() = showLeaderboard == ShowLeaderboard.BETWEEN_QUESTIONS &&

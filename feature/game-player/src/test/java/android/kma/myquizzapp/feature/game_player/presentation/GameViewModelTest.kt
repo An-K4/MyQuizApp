@@ -12,6 +12,7 @@ import android.kma.myquizzapp.core.common.model.GameEvent
 import android.kma.myquizzapp.core.common.model.GamePhase
 import android.kma.myquizzapp.core.common.model.GameSnapshot
 import android.kma.myquizzapp.core.common.model.LeaderboardRow
+import android.kma.myquizzapp.core.common.model.Pacing
 import android.kma.myquizzapp.core.common.model.PlayerAnswer
 import android.kma.myquizzapp.core.common.model.PlayerQuestionStarted
 import android.kma.myquizzapp.core.common.model.PlayerStateSnapshot
@@ -172,6 +173,68 @@ class GameViewModelTest {
     }
 
     @Test
+    fun `self paced answer ack shows immediate server authoritative feedback`() = runTest(dispatcher) {
+        socket.submitResult = Result.Success(
+            AnswerAck(
+                accepted = true,
+                isCorrect = true,
+                scoreEarned = 800,
+                totalScore = 1200,
+                streak = 2,
+                correctAnswers = listOf("a")
+            )
+        )
+        startQuestion(pacing = Pacing.SELF)
+        viewModel.onIntent(GameIntent.SelectOption("a"))
+        viewModel.onIntent(GameIntent.Submit)
+        runCurrent()
+
+        val state = viewModel.uiState.value
+        assertTrue(state.phase is GamePhaseUi.Results)
+        assertEquals(QuestionOutcome.CORRECT, state.outcome)
+        assertEquals(listOf("a"), state.results?.correctAnswers)
+        assertEquals(800, state.scoreEarned)
+        assertEquals(1200, state.totalScore)
+        assertEquals(2, state.streak)
+        assertTrue(state.isInputLocked)
+    }
+
+    @Test
+    fun `self paced hidden answer ack cannot leak grading fields`() = runTest(dispatcher) {
+        socket.submitResult = Result.Success(
+            AnswerAck(
+                accepted = true,
+                isCorrect = true,
+                scoreEarned = 800,
+                totalScore = 1200,
+                streak = 2,
+                correctAnswers = listOf("a")
+            )
+        )
+        startQuestion(pacing = Pacing.SELF, showCorrectAnswer = false)
+        viewModel.onIntent(GameIntent.SelectOption("a"))
+        viewModel.onIntent(GameIntent.Submit)
+        runCurrent()
+
+        val state = viewModel.uiState.value
+        assertTrue(state.phase is GamePhaseUi.Results)
+        assertEquals(QuestionOutcome.HIDDEN, state.outcome)
+        assertTrue(state.results?.correctAnswers.orEmpty().isEmpty())
+        assertNull(state.scoreEarned)
+        assertNull(state.totalScore)
+        assertNull(state.streak)
+    }
+
+    @Test
+    fun `self paced soft deadline keeps input open when late answers are allowed`() = runTest(dispatcher) {
+        startQuestion(pacing = Pacing.SELF, allowAnswerLate = true)
+        viewModel.onIntent(GameIntent.DeadlineReached)
+        runCurrent()
+
+        assertFalse(viewModel.uiState.value.isInputLocked)
+    }
+
+    @Test
     fun `ack uncertainty keeps input locked and requests sync`() = runTest(dispatcher) {
         socket.submitResult = Result.Error(AppError.Api("CLIENT_ACK_TIMEOUT"))
         startQuestion()
@@ -310,23 +373,42 @@ class GameViewModelTest {
 
     private suspend fun TestScope.startQuestion(
         showCorrectAnswer: Boolean = true,
-        showLeaderboard: ShowLeaderboard = ShowLeaderboard.BETWEEN_QUESTIONS
+        showLeaderboard: ShowLeaderboard = ShowLeaderboard.BETWEEN_QUESTIONS,
+        pacing: Pacing = Pacing.HOST,
+        allowAnswerLate: Boolean = false
     ) {
         runCurrent()
-        socket.emit(configEvent(SessionStatus.ACTIVE, showCorrectAnswer, showLeaderboard))
-        socket.emit(GameEvent.QuestionStarted(PlayerQuestionStarted(question(), endsAt = "2026-09-15T14:00:30Z")))
+        socket.emit(configEvent(SessionStatus.ACTIVE, showCorrectAnswer, showLeaderboard, pacing, allowAnswerLate))
+        socket.emit(
+            GameEvent.QuestionStarted(
+                PlayerQuestionStarted(
+                    question(),
+                    endsAt = "2026-09-15T14:00:30Z",
+                    allowAnswerLate = allowAnswerLate
+                )
+            )
+        )
         runCurrent()
     }
 
     private fun configEvent(
         status: SessionStatus,
         showCorrectAnswer: Boolean = true,
-        showLeaderboard: ShowLeaderboard = ShowLeaderboard.BETWEEN_QUESTIONS
+        showLeaderboard: ShowLeaderboard = ShowLeaderboard.BETWEEN_QUESTIONS,
+        pacing: Pacing = Pacing.HOST,
+        allowAnswerLate: Boolean = false
     ) = GameEvent.StateSnapshot(
         GameSnapshot(
             sessionStatus = status,
             phase = GamePhase.QUESTION_ACTIVE,
-            config = GameConfig(flow = GameConfig.Flow(showCorrectAnswer = showCorrectAnswer, showLeaderboard = showLeaderboard)),
+            config = GameConfig(
+                flow = GameConfig.Flow(
+                    pacing = pacing,
+                    showCorrectAnswer = showCorrectAnswer,
+                    showLeaderboard = showLeaderboard,
+                    allowAnswerLate = allowAnswerLate
+                )
+            ),
             index = 0,
             question = question()
         )

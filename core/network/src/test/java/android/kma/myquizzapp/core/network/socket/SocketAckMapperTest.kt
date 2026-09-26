@@ -108,11 +108,19 @@ class SocketAckMapperTest {
     @Test
     fun `self paced expanded answer ack remains compatible`() {
         val ack = (mapper.toAnswerAck(
-            SocketAckResult.Payload("""{"accepted":true,"isCorrect":true,"scoreEarned":800,"totalScore":1200,"streak":2,"correct_answer":["0","2"]}""")
+            SocketAckResult.Payload(
+                """{"accepted":true,"isLate":true,"lives":2,"eliminated":false,"serverTime":"2026-09-26T12:00:00.000Z","isCorrect":true,"scoreEarned":800,"totalScore":1200,"streak":2,"correct_answer":["0","2"]}"""
+            )
         ) as Result.Success).data
         assertEquals(listOf("0", "2"), ack.correctAnswers)
         assertEquals(true, ack.isCorrect)
         assertEquals(800, ack.scoreEarned)
+        assertEquals(1200, ack.totalScore)
+        assertEquals(2, ack.streak)
+        assertEquals(2, ack.lives)
+        assertTrue(ack.isLate)
+        assertFalse(ack.eliminated)
+        assertEquals("2026-09-26T12:00:00.000Z", ack.serverTime)
     }
 
     @Test

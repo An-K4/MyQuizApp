@@ -26,6 +26,10 @@ class PlayerGameEventMapperTest {
               },
               "time_limit": 20,
               "endsAt": "2026-09-13T12:00:20.000Z",
+              "matchEndsAt": "2026-09-13T12:05:00.000Z",
+              "allow_answer_late": true,
+              "remainingSeconds": 12,
+              "lives": 3,
               "serverTime": "2026-09-13T12:00:00.000Z"
             }""".trimIndent()
         )
@@ -35,6 +39,12 @@ class PlayerGameEventMapperTest {
         assertEquals("A", started.question.answerOptions[0].text)
         assertEquals("1", started.question.answerOptions[1].id)
         assertEquals("B", started.question.answerOptions[1].text)
+        assertEquals(20, started.timeLimitSeconds)
+        assertEquals("2026-09-13T12:00:20.000Z", started.endsAt)
+        assertEquals("2026-09-13T12:05:00.000Z", started.matchEndsAt)
+        assertTrue(started.allowAnswerLate)
+        assertEquals(12, started.remainingSeconds)
+        assertEquals(3, started.lives)
     }
 
     @Test

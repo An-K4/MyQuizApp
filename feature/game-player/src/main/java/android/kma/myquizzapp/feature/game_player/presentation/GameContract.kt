@@ -1,5 +1,6 @@
 package android.kma.myquizzapp.feature.game_player.presentation
 
+import android.kma.myquizzapp.core.common.model.AnswerAck
 import android.kma.myquizzapp.core.common.model.QuestionResults
 
 internal data class QuestionFeedback(
@@ -25,6 +26,25 @@ internal fun resolveQuestionFeedback(
     return QuestionFeedback(
         results = results,
         outcome = evaluateOutcome(questionType, submitted, results.correctAnswers)
+    )
+}
+
+internal fun resolveSelfPacedFeedback(
+    showCorrectAnswer: Boolean?,
+    questionIndex: Int,
+    ack: AnswerAck
+): QuestionFeedback {
+    val canReveal = showCorrectAnswer == true && ack.isCorrect != null
+    return QuestionFeedback(
+        results = QuestionResults(
+            index = questionIndex,
+            correctAnswers = if (canReveal) ack.correctAnswers else emptyList()
+        ),
+        outcome = when {
+            !canReveal -> QuestionOutcome.HIDDEN
+            ack.isCorrect == true -> QuestionOutcome.CORRECT
+            else -> QuestionOutcome.INCORRECT
+        }
     )
 }
 

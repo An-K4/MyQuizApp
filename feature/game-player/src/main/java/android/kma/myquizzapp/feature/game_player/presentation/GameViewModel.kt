@@ -2,7 +2,9 @@ package android.kma.myquizzapp.feature.game_player.presentation
 
 import android.kma.myquizzapp.core.common.error.AppError
 import android.kma.myquizzapp.core.common.error.toUserMessage
+import android.kma.myquizzapp.core.common.model.AnswerAck
 import android.kma.myquizzapp.core.common.model.DisconnectReason
+import android.kma.myquizzapp.core.common.model.GameConfig
 import android.kma.myquizzapp.core.common.model.GameEvent
 import android.kma.myquizzapp.core.common.model.GamePhase
 import android.kma.myquizzapp.core.common.model.GameSnapshot
@@ -58,7 +60,9 @@ class GameViewModel @Inject constructor(
             GameIntent.Sync -> viewModelScope.launch { session.sync() }
             GameIntent.Leave -> viewModelScope.launch { exit(null) }
             GameIntent.DeadlineReached -> _uiState.update { state ->
-                if (state.phase == GamePhaseUi.Question) state.copy(isInputLocked = true) else state
+                if (state.phase == GamePhaseUi.Question && !state.allowAnswerLate) {
+                    state.copy(isInputLocked = true)
+                } else state
             }
             GameIntent.ErrorShown -> _uiState.update { it.copy(errorMessage = null) }
         }
@@ -86,15 +90,13 @@ class GameViewModel @Inject constructor(
             is GameEvent.LobbyUpdated -> _uiState.update { state ->
                 state.withServerConfig(
                     sessionStatus = event.lobby.sessionStatus,
-                    showCorrectAnswer = event.lobby.config.flow.showCorrectAnswer,
-                    showLeaderboard = event.lobby.config.flow.showLeaderboard
+                    config = event.lobby.config
                 )
             }
             is GameEvent.GameStarted -> _uiState.update { state ->
                 state.withServerConfig(
                     sessionStatus = SessionStatus.ACTIVE,
-                    showCorrectAnswer = event.config.flow.showCorrectAnswer,
-                    showLeaderboard = event.config.flow.showLeaderboard
+                    config = event.config
                 )
             }
             is GameEvent.Disconnected -> when (event.reason) {
@@ -113,6 +115,8 @@ class GameViewModel @Inject constructor(
                     selectedOptionIds = emptySet(),
                     textAnswer = "",
                     endsAt = event.started.endsAt,
+                    matchEndsAt = event.started.matchEndsAt,
+                    allowAnswerLate = event.started.allowAnswerLate,
                     remainingSeconds = event.started.remainingSeconds,
                     lives = event.started.lives,
                     isInputLocked = false,
@@ -120,6 +124,8 @@ class GameViewModel @Inject constructor(
                     isConfirming = false,
                     results = null,
                     outcome = null,
+                    scoreEarned = null,
+                    wasLate = false,
                     answeredCount = null,
                     activePlayers = null
                 )
@@ -200,8 +206,11 @@ class GameViewModel @Inject constructor(
                 GamePhase.UNKNOWN -> old.phase
             }
             val status = snapshot.sessionStatus ?: old.sessionStatus
-            val showCorrect = snapshot.config?.flow?.showCorrectAnswer ?: old.showCorrectAnswer
-            val showBoard = snapshot.config?.flow?.showLeaderboard ?: old.showLeaderboard
+            val config = snapshot.config
+            val pacing = config?.flow?.pacing ?: old.pacing
+            val showCorrect = config?.flow?.showCorrectAnswer ?: old.showCorrectAnswer
+            val showBoard = config?.flow?.showLeaderboard ?: old.showLeaderboard
+            val allowAnswerLate = config?.flow?.allowAnswerLate ?: snapshot.allowAnswerLate
             val snapshotRows = snapshot.leaderboard
             val rows = if (showBoard == ShowLeaderboard.BETWEEN_QUESTIONS) {
                 if (snapshotRows.isNotEmpty()) snapshotRows else old.leaderboard
@@ -210,11 +219,14 @@ class GameViewModel @Inject constructor(
             old.copy(
                 connection = GameConnection.CONNECTED,
                 sessionStatus = status,
+                pacing = pacing,
                 showCorrectAnswer = showCorrect,
                 showLeaderboard = showBoard,
                 phase = phase,
                 question = snapshot.question ?: old.question,
                 endsAt = snapshot.endsAt,
+                matchEndsAt = snapshot.matchEndsAt,
+                allowAnswerLate = allowAnswerLate,
                 remainingSeconds = snapshot.remainingSeconds,
                 lives = snapshot.player?.lives ?: old.lives,
                 selectedOptionId = answered?.answerKeys?.singleOrNull() ?: old.selectedOptionId,
@@ -233,15 +245,18 @@ class GameViewModel @Inject constructor(
 
     private fun GameUiState.withServerConfig(
         sessionStatus: SessionStatus?,
-        showCorrectAnswer: Boolean,
-        showLeaderboard: ShowLeaderboard
+        config: GameConfig
     ): GameUiState {
+        val showCorrectAnswer = config.flow.showCorrectAnswer
+        val showLeaderboard = config.flow.showLeaderboard
         val mayShowBoard = showLeaderboard == ShowLeaderboard.BETWEEN_QUESTIONS
         val resumedInput = sessionStatus == SessionStatus.ACTIVE && phase == GamePhaseUi.Question
         return copy(
             sessionStatus = sessionStatus,
+            pacing = config.flow.pacing,
             showCorrectAnswer = showCorrectAnswer,
             showLeaderboard = showLeaderboard,
+            allowAnswerLate = config.flow.allowAnswerLate,
             leaderboard = if (mayShowBoard) leaderboard else emptyList(),
             playerRank = if (mayShowBoard) playerRank else null,
             playerScore = if (mayShowBoard) playerScore else null,
@@ -266,9 +281,7 @@ class GameViewModel @Inject constructor(
         _uiState.update { it.copy(phase = GamePhaseUi.Submitted, isInputLocked = true, isSubmitting = true) }
         viewModelScope.launch {
             when (val result = session.submit(answer)) {
-                is Result.Success -> _uiState.update {
-                    it.copy(isSubmitting = false, isConfirming = false, lives = result.data.lives ?: it.lives)
-                }
+                is Result.Success -> applyAnswerAck(result.data)
                 is Result.Error -> {
                     val code = (result.error as? AppError.Api)?.code.orEmpty()
                     if (code in FATAL_CODES) exit(result.error.toUserMessage())
@@ -278,6 +291,43 @@ class GameViewModel @Inject constructor(
                     }
                 }
             }
+        }
+    }
+
+    private fun applyAnswerAck(ack: AnswerAck) {
+        updateOffset(ack.serverTime)
+        _uiState.update { state ->
+            if (!state.isSelfPaced) {
+                return@update state.copy(
+                    isSubmitting = false,
+                    isConfirming = false,
+                    lives = ack.lives ?: state.lives
+                )
+            }
+            val questionIndex = state.question?.index ?: return@update state.copy(
+                isSubmitting = false,
+                isConfirming = false,
+                lives = ack.lives ?: state.lives
+            )
+            val feedback = resolveSelfPacedFeedback(
+                showCorrectAnswer = state.showCorrectAnswer,
+                questionIndex = questionIndex,
+                ack = ack
+            )
+            val canReveal = state.showCorrectAnswer == true && ack.isCorrect != null
+            state.copy(
+                phase = GamePhaseUi.Results(),
+                isInputLocked = true,
+                isSubmitting = false,
+                isConfirming = false,
+                results = feedback.results,
+                outcome = feedback.outcome,
+                totalScore = ack.totalScore.takeIf { canReveal } ?: state.totalScore,
+                scoreEarned = ack.scoreEarned.takeIf { canReveal },
+                streak = ack.streak.takeIf { canReveal } ?: state.streak,
+                wasLate = ack.isLate,
+                lives = ack.lives ?: state.lives
+            )
         }
     }
 
