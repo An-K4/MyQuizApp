@@ -6,7 +6,7 @@ import android.kma.myquizzapp.core.common.model.QuestionResults
 import android.kma.myquizzapp.core.common.model.SessionStatus
 import android.kma.myquizzapp.core.common.model.ShowLeaderboard
 
-enum class GameConnection { CONNECTING, CONNECTED, RECONNECTING }
+enum class GameConnection { CONNECTING, CONNECTED, RECONNECTING, RECONNECT_FAILED }
 
 enum class QuestionOutcome { CORRECT, INCORRECT, HIDDEN }
 

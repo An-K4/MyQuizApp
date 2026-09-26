@@ -161,10 +161,20 @@ class HostGameViewModel @Inject constructor(
         }
     }
 
-    private fun onDisconnected(reason: DisconnectReason) {
-        // Chủ động rời màn thì không phải sự cố, không báo "mất kết nối".
-        if (reason == DisconnectReason.CLIENT) return
-        _uiState.update { it.copy(connection = HostGameConnection.RECONNECTING) }
+    private suspend fun onDisconnected(reason: DisconnectReason) {
+        when (reason) {
+            // Chủ động rời màn thì không phải sự cố.
+            DisconnectReason.CLIENT -> Unit
+            // Rớt transport: Socket.IO sẽ tự reconnect; giữ snapshot cũ trên màn.
+            DisconnectReason.TRANSPORT -> _uiState.update {
+                it.copy(connection = HostGameConnection.RECONNECTING)
+            }
+            // `io server disconnect` không được Socket.IO tự retry. Ở lại màn với
+            // nhãn "đang kết nối lại" sẽ treo vô hạn, nên phải thoát rõ ràng.
+            DisconnectReason.SERVER_DISCONNECT -> _effects.emit(
+                HostGameEffect.ExitGame(MESSAGE_SERVER_DISCONNECTED)
+            )
+        }
     }
 
     private fun onCountdown(event: GameEvent.Countdown) {
@@ -345,6 +355,11 @@ class HostGameViewModel @Inject constructor(
      */
     private suspend fun onFailure(event: GameEvent.Failed) {
         commandGuardJob?.cancel()
+        if (event.code == CODE_RECONNECT_EXHAUSTED) {
+            // Màn Host đã có nút Kết nối lại trong trạng thái RECONNECTING.
+            // Không hiện thêm snackbar chung sau khi Socket.IO cạn lượt.
+            return
+        }
         if (event.code in FATAL_CODES) {
             _effects.emit(HostGameEffect.ExitGame(messageForCode(event.code)))
             return
@@ -436,6 +451,7 @@ class HostGameViewModel @Inject constructor(
 
     private companion object {
         const val KEY_SOCKET_TOKEN = "socketToken"
+        const val CODE_RECONNECT_EXHAUSTED = "CLIENT_RECONNECT_EXHAUSTED"
 
         /**
          * Hạn mở lại nút sau khi gửi lệnh không ack. Đủ dài để chặn bấm đúp, đủ
@@ -451,6 +467,7 @@ class HostGameViewModel @Inject constructor(
         )
 
         const val MESSAGE_SESSION_LOST = "Phiên điều khiển không còn hợp lệ"
+        const val MESSAGE_SERVER_DISCONNECTED = "Máy chủ đã đóng kết nối tới phòng này"
         const val MESSAGE_NO_ANSWER_KEY =
             "Chưa có đáp án cho câu này (do vừa kết nối lại giữa câu)"
 

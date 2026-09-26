@@ -1,11 +1,16 @@
 package android.kma.myquizzapp.core.network.socket
 
+import android.content.Context
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
 import android.kma.myquizzapp.core.common.model.DisconnectReason
 import android.kma.myquizzapp.core.common.model.GameEvent
 import android.kma.myquizzapp.core.network.BuildConfig
 import io.socket.client.Ack
 import io.socket.client.IO
 import io.socket.client.Socket
+import dagger.hilt.android.qualifiers.ApplicationContext
 import io.socket.engineio.client.transports.WebSocket
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -14,6 +19,8 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONObject
 import timber.log.Timber
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
 import javax.inject.Inject
 import kotlin.coroutines.resume
@@ -32,8 +39,12 @@ import kotlin.coroutines.resume
  * có socket nào tồn tại ngoài vòng đời của Flow.
  */
 class GameSocketClient @Inject constructor(
+    @ApplicationContext context: Context,
     private val mapper: GameEventMapper
 ) {
+    private val connectivityManager = checkNotNull(
+        context.getSystemService(ConnectivityManager::class.java)
+    )
 
     /**
      * Socket đang sống của lần collect hiện tại, dùng cho [emit].
@@ -68,9 +79,12 @@ class GameSocketClient @Inject constructor(
         }
 
         val socket = IO.socket(BuildConfig.SOCKET_URL + GameSocketEvents.NAMESPACE, options)
+        val connectErrorCount = AtomicInteger(0)
+        val networkValidated = AtomicBoolean(connectivityManager.hasValidatedNetwork())
         socketRef.set(socket)
 
         socket.on(Socket.EVENT_CONNECT) {
+            connectErrorCount.set(0)
             Timber.d("Socket /game connected")
             trySend(GameEvent.Connected)
         }
@@ -82,9 +96,40 @@ class GameSocketClient @Inject constructor(
         }
 
         socket.on(Socket.EVENT_CONNECT_ERROR) { args ->
-            val code = args.firstOrNull().toHandshakeErrorCode()
-            Timber.e("Socket /game connect_error: %s", code)
-            trySend(GameEvent.Failed(event = Socket.EVENT_CONNECT_ERROR, code = code))
+            val raw = args.firstOrNull()
+            val code = raw.toHandshakeErrorCode()
+            val attempt = connectErrorCount.incrementAndGet()
+            val throwable = raw as? Throwable
+            // Chỉ log kiểu lỗi/message/cause để chẩn đoán transport hoặc handshake.
+            // Không log options.auth, socket token, cookie hay toàn bộ payload.
+            if (throwable != null) {
+                Timber.e(
+                    throwable,
+                    "Socket /game connect_error #%d: mapped=%s type=%s message=%s cause=%s",
+                    attempt,
+                    code,
+                    throwable.javaClass.name,
+                    throwable.message,
+                    throwable.cause.describeForLog()
+                )
+            } else {
+                Timber.e(
+                    "Socket /game connect_error #%d: mapped=%s type=%s message=%s",
+                    attempt,
+                    code,
+                    raw?.javaClass?.name,
+                    (raw as? String)
+                )
+            }
+            val emittedCode = if (
+                code == GameEventMapper.CODE_CONNECT_FAILED &&
+                attempt >= RECONNECT_ATTEMPTS
+            ) {
+                CODE_RECONNECT_EXHAUSTED
+            } else {
+                code
+            }
+            trySend(GameEvent.Failed(event = Socket.EVENT_CONNECT_ERROR, code = emittedCode))
         }
 
         GameSocketEvents.SERVER_EVENTS.forEach { name ->
@@ -93,10 +138,44 @@ class GameSocketClient @Inject constructor(
             }
         }
 
-        socket.connect()
+        val networkCallback = object : ConnectivityManager.NetworkCallback() {
+            override fun onCapabilitiesChanged(network: Network, capabilities: NetworkCapabilities) {
+                val isValidated = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+                    capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+                val wasValidated = networkValidated.getAndSet(isValidated)
+                if (isValidated && !wasValidated && !socket.connected()) {
+                    connectErrorCount.set(0)
+                    Timber.d("Mạng đã sẵn sàng; kết nối lại socket /game")
+                    socket.connect()
+                }
+            }
+
+            override fun onLost(network: Network) {
+                networkValidated.set(connectivityManager.hasValidatedNetwork())
+            }
+
+            override fun onUnavailable() {
+                networkValidated.set(false)
+            }
+        }
+
+        val callbackRegistered = runCatching {
+            connectivityManager.registerDefaultNetworkCallback(networkCallback)
+        }.onFailure {
+            Timber.w(it, "Không thể theo dõi trạng thái mạng; dùng retry của Socket.IO")
+        }.isSuccess
+
+        if (networkValidated.get() || !callbackRegistered) {
+            socket.connect()
+        } else {
+            Timber.d("Chờ mạng được xác thực trước khi kết nối socket /game")
+        }
 
         awaitClose {
             Timber.d("Dóng socket /game")
+            if (callbackRegistered) {
+                runCatching { connectivityManager.unregisterNetworkCallback(networkCallback) }
+            }
             socket.off()
             socket.disconnect()
             socketRef.compareAndSet(socket, null)
@@ -168,6 +247,13 @@ class GameSocketClient @Inject constructor(
         socketRef.get()?.disconnect()
     }
 
+    private fun ConnectivityManager.hasValidatedNetwork(): Boolean {
+        val network = activeNetwork ?: return false
+        val capabilities = getNetworkCapabilities(network) ?: return false
+        return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+            capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+    }
+
     private fun String?.toDisconnectReason(): DisconnectReason = when (this) {
         // Server chủ động đá (token sai, phòng đóng...): socket.io sẽ KHÔNG tự
         // reconnect. Tầng trên phải điều hướng ra ngoài thay vì chờ vô vọng.
@@ -184,6 +270,13 @@ class GameSocketClient @Inject constructor(
      * exception của tầng transport (mất mạng, DNS...) — khi đó chuỗi không phải
      * code, ta trả code riêng của client để không giả mạo vocabulary backend.
      */
+    private fun Throwable?.describeForLog(): String = generateSequence(this) { it.cause }
+        .take(MAX_LOGGED_CAUSES)
+        .joinToString(" <- ") { cause ->
+            "${cause.javaClass.name}: ${cause.message}"
+        }
+        .ifBlank { "none" }
+
     private fun Any?.toHandshakeErrorCode(): String {
         val text = when (this) {
             null -> null
@@ -202,6 +295,8 @@ class GameSocketClient @Inject constructor(
         const val AUTH_TOKEN_KEY = "token"
         const val RECONNECT_ATTEMPTS = 5
         const val RECONNECT_DELAY_MS = 1_000L
+        const val MAX_LOGGED_CAUSES = 4
+        const val CODE_RECONNECT_EXHAUSTED = "CLIENT_RECONNECT_EXHAUSTED"
 
         /**
          * Hạn chờ ack. Để 5s: dài hơn một vòng round-trip 3G tệ (~1-2s) nhưng
