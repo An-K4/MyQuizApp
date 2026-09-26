@@ -66,7 +66,13 @@ class GameViewModel @Inject constructor(
 
     private fun connect() {
         eventJob?.cancel()
-        _uiState.update { it.copy(connection = if (it.question == null) GameConnection.CONNECTING else GameConnection.RECONNECTING) }
+        _uiState.update {
+            it.copy(
+                connection = if (it.question == null) GameConnection.CONNECTING else GameConnection.RECONNECTING,
+                errorMessage = null,
+                isInputLocked = true
+            )
+        }
         eventJob = viewModelScope.launch { session.events(socketToken).collect(::onEvent) }
     }
 
@@ -173,9 +179,21 @@ class GameViewModel @Inject constructor(
         val answered = snapshot.player?.answerFor(snapshot.index)
         _uiState.update { old ->
             val hasCurrentResults = old.results?.index == snapshot.index
+            // ACK thành công là bằng chứng server đã ghi đáp án. Một snapshot thiếu
+            // answered_questions (pause/resume hoặc cache vừa reconnect) không được
+            // mở lại input. Chỉ ACK bất định (isConfirming=true) mới cho phép snapshot
+            // "chưa trả lời" mở lại câu đang active.
+            val hasLocallyAcceptedOrPendingAnswer =
+                old.question?.index == snapshot.index &&
+                    old.phase == GamePhaseUi.Submitted &&
+                    !old.isConfirming
             val phase = when (snapshot.phase) {
                 GamePhase.COUNTDOWN -> GamePhaseUi.Countdown(snapshot.countdownStartsAt)
-                GamePhase.QUESTION_ACTIVE -> if (answered != null) GamePhaseUi.Submitted else GamePhaseUi.Question
+                GamePhase.QUESTION_ACTIVE -> when {
+                    hasCurrentResults -> old.phase
+                    answered != null || hasLocallyAcceptedOrPendingAnswer -> GamePhaseUi.Submitted
+                    else -> GamePhaseUi.Question
+                }
                 GamePhase.QUESTION_LOCKED -> if (hasCurrentResults) old.phase else GamePhaseUi.Locked
                 GamePhase.SHOWING_RESULTS -> GamePhaseUi.Results(restoredWithoutDetails = !hasCurrentResults)
                 GamePhase.FINISHED -> GamePhaseUi.Finished
@@ -206,7 +224,7 @@ class GameViewModel @Inject constructor(
                 playerRank = me?.rank,
                 playerScore = me?.playerScore,
                 isInputLocked = status == SessionStatus.PAUSED ||
-                    snapshot.phase != GamePhase.QUESTION_ACTIVE || answered != null,
+                    phase != GamePhaseUi.Question || answered != null,
                 isSubmitting = false,
                 isConfirming = false
             )
@@ -272,8 +290,20 @@ class GameViewModel @Inject constructor(
     }
 
     private suspend fun onFailure(code: String) {
-        val message = AppError.Api(code).toUserMessage()
-        if (code in FATAL_CODES) exit(message) else _uiState.update { it.copy(errorMessage = message) }
+        when {
+            code in FATAL_CODES -> exit(AppError.Api(code).toUserMessage())
+            code == CODE_RECONNECT_EXHAUSTED -> _uiState.update {
+                it.copy(
+                    connection = GameConnection.RECONNECT_FAILED,
+                    isInputLocked = true,
+                    errorMessage = null
+                )
+            }
+            // Các lỗi transport trung gian đã được banner RECONNECTING thể hiện.
+            // Không bật snackbar sau mỗi lần Socket.IO tự retry.
+            code == CODE_CONNECT_FAILED -> Unit
+            else -> _uiState.update { it.copy(errorMessage = AppError.Api(code).toUserMessage()) }
+        }
     }
 
     private fun updateOffset(serverTime: String?) {
@@ -309,6 +339,9 @@ class GameViewModel @Inject constructor(
     }
 
     private companion object {
+        const val CODE_CONNECT_FAILED = "CLIENT_CONNECT_FAILED"
+        const val CODE_RECONNECT_EXHAUSTED = "CLIENT_RECONNECT_EXHAUSTED"
+
         val FATAL_CODES = setOf("GAME_TOKEN_INVALID", "GAME_TOKEN_WRONG_ROOM", "GAME_ROOM_NOT_FOUND", "GAME_PLAYER_NOT_FOUND")
     }
 }

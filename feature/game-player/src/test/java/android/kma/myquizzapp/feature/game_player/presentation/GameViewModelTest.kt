@@ -1,0 +1,404 @@
+package android.kma.myquizzapp.feature.game_player.presentation
+
+import android.kma.myquizzapp.core.common.error.AppError
+import android.kma.myquizzapp.core.common.model.AnswerAck
+import android.kma.myquizzapp.core.common.model.AnswerProgress
+import android.kma.myquizzapp.core.common.model.AnswerStats
+import android.kma.myquizzapp.core.common.model.AnsweredQuestionSnapshot
+import android.kma.myquizzapp.core.common.model.DisconnectReason
+import android.kma.myquizzapp.core.common.model.GameConfig
+import android.kma.myquizzapp.core.common.model.GameEnded
+import android.kma.myquizzapp.core.common.model.GameEvent
+import android.kma.myquizzapp.core.common.model.GamePhase
+import android.kma.myquizzapp.core.common.model.GameSnapshot
+import android.kma.myquizzapp.core.common.model.LeaderboardRow
+import android.kma.myquizzapp.core.common.model.PlayerAnswer
+import android.kma.myquizzapp.core.common.model.PlayerQuestionStarted
+import android.kma.myquizzapp.core.common.model.PlayerStateSnapshot
+import android.kma.myquizzapp.core.common.model.PublicAnswerOption
+import android.kma.myquizzapp.core.common.model.PublicQuestion
+import android.kma.myquizzapp.core.common.model.QuestionLockReason
+import android.kma.myquizzapp.core.common.model.QuestionResults
+import android.kma.myquizzapp.core.common.model.SessionStatus
+import android.kma.myquizzapp.core.common.model.ShowLeaderboard
+import android.kma.myquizzapp.core.common.repository.GameResultRepository
+import android.kma.myquizzapp.core.common.repository.PlayerGameSocketRepository
+import android.kma.myquizzapp.core.common.repository.StoredGameResult
+import android.kma.myquizzapp.core.common.result.Result
+import android.kma.myquizzapp.feature.game_player.domain.PlayerGameSessionUseCase
+import androidx.lifecycle.SavedStateHandle
+import app.cash.turbine.test
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestDispatcher
+import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.setMain
+import org.junit.After
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Before
+import org.junit.Test
+
+@OptIn(ExperimentalCoroutinesApi::class)
+class GameViewModelTest {
+    private val dispatcher: TestDispatcher = StandardTestDispatcher()
+    private lateinit var socket: FakePlayerGameSocketRepository
+    private lateinit var results: FakeGameResultRepository
+    private lateinit var viewModel: GameViewModel
+
+    @Before
+    fun setUp() {
+        Dispatchers.setMain(dispatcher)
+        socket = FakePlayerGameSocketRepository()
+        results = FakeGameResultRepository()
+        viewModel = GameViewModel(
+            PlayerGameSessionUseCase(socket, results),
+            SavedStateHandle(mapOf("gameId" to GAME_ID, "playerId" to PLAYER_ID, "socketToken" to TOKEN))
+        )
+    }
+
+    @After
+    fun tearDown() {
+        Dispatchers.resetMain()
+    }
+
+    @Test
+    fun `connected always rejoins lobby then syncs including reconnect`() = runTest(dispatcher) {
+        runCurrent()
+        socket.emit(GameEvent.Connected)
+        runCurrent()
+        assertEquals(GameConnection.CONNECTED, viewModel.uiState.value.connection)
+        assertEquals(1, socket.joinCalls)
+        assertEquals(1, socket.syncCalls)
+
+        socket.emit(GameEvent.Disconnected(DisconnectReason.TRANSPORT))
+        runCurrent()
+        assertEquals(GameConnection.RECONNECTING, viewModel.uiState.value.connection)
+        assertTrue(viewModel.uiState.value.isInputLocked)
+
+        socket.emit(GameEvent.Connected)
+        runCurrent()
+        assertEquals(2, socket.joinCalls)
+        assertEquals(2, socket.syncCalls)
+    }
+
+    @Test
+    fun `reconnect exhaustion shows retry and retry starts a fresh connection`() = runTest(dispatcher) {
+        startQuestion()
+        assertEquals(1, socket.eventsCalls)
+
+        socket.emit(GameEvent.Disconnected(DisconnectReason.TRANSPORT))
+        socket.emit(GameEvent.Failed("connect_error", "CLIENT_CONNECT_FAILED"))
+        runCurrent()
+        assertEquals(GameConnection.RECONNECTING, viewModel.uiState.value.connection)
+        assertNull(viewModel.uiState.value.errorMessage)
+        assertTrue(viewModel.uiState.value.isInputLocked)
+
+        socket.emit(GameEvent.Failed("connect_error", "CLIENT_RECONNECT_EXHAUSTED"))
+        runCurrent()
+        assertEquals(GameConnection.RECONNECT_FAILED, viewModel.uiState.value.connection)
+        assertTrue(viewModel.uiState.value.isInputLocked)
+
+        viewModel.onIntent(GameIntent.Retry)
+        runCurrent()
+        assertEquals(GameConnection.RECONNECTING, viewModel.uiState.value.connection)
+        assertEquals(2, socket.eventsCalls)
+
+        socket.emit(GameEvent.Connected)
+        runCurrent()
+        assertEquals(GameConnection.CONNECTED, viewModel.uiState.value.connection)
+        assertEquals(1, socket.joinCalls)
+        assertEquals(1, socket.syncCalls)
+    }
+
+    @Test
+    fun `classic sequence reaches results without leaking hidden answer`() = runTest(dispatcher) {
+        startQuestion(showCorrectAnswer = false)
+        viewModel.onIntent(GameIntent.SelectOption("a"))
+        viewModel.onIntent(GameIntent.Submit)
+        runCurrent()
+        assertTrue(viewModel.uiState.value.phase is GamePhaseUi.Submitted)
+
+        socket.emit(GameEvent.AnswerProgressUpdated(AnswerProgress(0, 1, 2)))
+        socket.emit(GameEvent.QuestionLocked(0, QuestionLockReason.ALL_ANSWERED))
+        socket.emit(
+            GameEvent.QuestionResultsReceived(
+                QuestionResults(0, correctAnswers = listOf("a"), stats = AnswerStats(2, mapOf("a" to 1, "b" to 1)))
+            )
+        )
+        runCurrent()
+
+        val state = viewModel.uiState.value
+        assertTrue(state.phase is GamePhaseUi.Results)
+        assertEquals(QuestionOutcome.HIDDEN, state.outcome)
+        assertTrue(state.results!!.correctAnswers.isEmpty())
+        assertTrue(state.results.stats.distribution.isEmpty())
+        assertEquals(1, state.answeredCount)
+        assertEquals(2, state.activePlayers)
+    }
+
+    @Test
+    fun `submit locks before ack and sends typed answer once`() = runTest(dispatcher) {
+        val gate = CompletableDeferred<Result<AnswerAck>>()
+        socket.submitGate = gate
+        startQuestion()
+        viewModel.onIntent(GameIntent.SelectOption("a"))
+        viewModel.onIntent(GameIntent.Submit)
+        runCurrent()
+
+        val waiting = viewModel.uiState.value
+        assertTrue(waiting.phase is GamePhaseUi.Submitted)
+        assertTrue(waiting.isInputLocked)
+        assertTrue(waiting.isSubmitting)
+        assertEquals(listOf(PlayerAnswer.SingleChoice("a")), socket.answers)
+
+        viewModel.onIntent(GameIntent.Submit)
+        runCurrent()
+        assertEquals(1, socket.answers.size)
+
+        gate.complete(Result.Success(AnswerAck(accepted = true)))
+        runCurrent()
+        assertFalse(viewModel.uiState.value.isSubmitting)
+        assertTrue(viewModel.uiState.value.isInputLocked)
+    }
+
+    @Test
+    fun `ack uncertainty keeps input locked and requests sync`() = runTest(dispatcher) {
+        socket.submitResult = Result.Error(AppError.Api("CLIENT_ACK_TIMEOUT"))
+        startQuestion()
+        viewModel.onIntent(GameIntent.SelectOption("a"))
+        viewModel.onIntent(GameIntent.Submit)
+        runCurrent()
+
+        val state = viewModel.uiState.value
+        assertTrue(state.phase is GamePhaseUi.Submitted)
+        assertTrue(state.isInputLocked)
+        assertTrue(state.isConfirming)
+        assertEquals(1, socket.syncCalls)
+        assertEquals(1, socket.answers.size)
+    }
+
+    @Test
+    fun `sync snapshot keeps submitted when server recorded answer`() = runTest(dispatcher) {
+        socket.submitResult = Result.Error(AppError.Api("CLIENT_ACK_TIMEOUT"))
+        startQuestion()
+        viewModel.onIntent(GameIntent.SelectOption("a"))
+        viewModel.onIntent(GameIntent.Submit)
+        runCurrent()
+
+        socket.emit(snapshot(answered = true))
+        runCurrent()
+        val state = viewModel.uiState.value
+        assertTrue(state.phase is GamePhaseUi.Submitted)
+        assertTrue(state.isInputLocked)
+        assertFalse(state.isConfirming)
+        assertEquals("a", state.selectedOptionId)
+    }
+
+    @Test
+    fun `sync snapshot reopens only when server did not record answer and question is active`() = runTest(dispatcher) {
+        socket.submitResult = Result.Error(AppError.Api("CLIENT_ACK_TIMEOUT"))
+        startQuestion()
+        viewModel.onIntent(GameIntent.SelectOption("a"))
+        viewModel.onIntent(GameIntent.Submit)
+        runCurrent()
+
+        socket.emit(snapshot(answered = false))
+        runCurrent()
+        val state = viewModel.uiState.value
+        assertTrue(state.phase is GamePhaseUi.Question)
+        assertFalse(state.isInputLocked)
+        assertFalse(state.isConfirming)
+    }
+
+    @Test
+    fun `late active snapshot cannot pull current results backwards`() = runTest(dispatcher) {
+        startQuestion()
+        socket.emit(GameEvent.QuestionResultsReceived(QuestionResults(0, correctAnswers = listOf("a"))))
+        runCurrent()
+        assertTrue(viewModel.uiState.value.phase is GamePhaseUi.Results)
+
+        socket.emit(snapshot(answered = false))
+        runCurrent()
+        assertTrue(viewModel.uiState.value.phase is GamePhaseUi.Results)
+        assertTrue(viewModel.uiState.value.isInputLocked)
+        assertEquals(0, viewModel.uiState.value.results?.index)
+    }
+
+    @Test
+    fun `pause locks answer and resume opens only unanswered active question`() = runTest(dispatcher) {
+        startQuestion()
+        viewModel.onIntent(GameIntent.SelectOption("a"))
+        socket.emit(configEvent(SessionStatus.PAUSED))
+        runCurrent()
+        assertTrue(viewModel.uiState.value.isPaused)
+        assertFalse(viewModel.uiState.value.canSubmit)
+
+        socket.emit(configEvent(SessionStatus.ACTIVE))
+        runCurrent()
+        assertFalse(viewModel.uiState.value.isPaused)
+        assertTrue(viewModel.uiState.value.canSubmit)
+    }
+
+    @Test
+    fun `confirmed answer stays submitted across pause and resume even when snapshot omits answer`() = runTest(dispatcher) {
+        startQuestion()
+        viewModel.onIntent(GameIntent.SelectOption("a"))
+        viewModel.onIntent(GameIntent.Submit)
+        runCurrent()
+        assertTrue(viewModel.uiState.value.phase is GamePhaseUi.Submitted)
+
+        socket.emit(snapshot(answered = false, status = SessionStatus.PAUSED))
+        socket.emit(snapshot(answered = false, status = SessionStatus.ACTIVE))
+        runCurrent()
+
+        val state = viewModel.uiState.value
+        assertTrue(state.phase is GamePhaseUi.Submitted)
+        assertTrue(state.isInputLocked)
+        viewModel.onIntent(GameIntent.SelectOption("b"))
+        viewModel.onIntent(GameIntent.Submit)
+        runCurrent()
+        assertEquals("a", viewModel.uiState.value.selectedOptionId)
+        assertEquals(1, socket.answers.size)
+    }
+
+    @Test
+    fun `leaderboard visibility follows server config`() = runTest(dispatcher) {
+        startQuestion(showLeaderboard = ShowLeaderboard.BETWEEN_QUESTIONS)
+        val rows = listOf(LeaderboardRow(1, PLAYER_ID, "Kiro", 100))
+        socket.emit(GameEvent.PlayerLeaderboardUpdated(rows))
+        socket.emit(GameEvent.QuestionResultsReceived(QuestionResults(0, correctAnswers = listOf("a"))))
+        runCurrent()
+        assertTrue(viewModel.uiState.value.canShowLiveLeaderboard)
+        assertEquals(1, viewModel.uiState.value.playerRank)
+
+        socket.emit(configEvent(SessionStatus.ACTIVE, showLeaderboard = ShowLeaderboard.END_ONLY))
+        runCurrent()
+        assertFalse(viewModel.uiState.value.canShowLiveLeaderboard)
+        assertTrue(viewModel.uiState.value.leaderboard.isEmpty())
+        assertNull(viewModel.uiState.value.playerRank)
+
+        socket.emit(configEvent(SessionStatus.ACTIVE, showLeaderboard = ShowLeaderboard.NEVER))
+        socket.emit(GameEvent.PlayerLeaderboardUpdated(rows))
+        runCurrent()
+        assertTrue(viewModel.uiState.value.leaderboard.isEmpty())
+    }
+
+    @Test
+    fun `game ended stores result emits navigation and disconnects`() = runTest(dispatcher) {
+        runCurrent()
+        val ended = GameEnded(leaderboard = listOf(LeaderboardRow(1, PLAYER_ID, "Kiro", 900)))
+        viewModel.effect.test {
+            socket.emit(GameEvent.GameEndedEvent(ended))
+            runCurrent()
+            assertEquals(GameEffect.NavigateToFinalResult(GAME_ID, PLAYER_ID), awaitItem())
+            cancelAndIgnoreRemainingEvents()
+        }
+        assertEquals(StoredGameResult(GAME_ID, PLAYER_ID, ended), results.get(GAME_ID))
+        assertEquals(1, socket.disconnectCalls)
+        assertTrue(viewModel.uiState.value.phase is GamePhaseUi.Finished)
+    }
+
+    private suspend fun TestScope.startQuestion(
+        showCorrectAnswer: Boolean = true,
+        showLeaderboard: ShowLeaderboard = ShowLeaderboard.BETWEEN_QUESTIONS
+    ) {
+        runCurrent()
+        socket.emit(configEvent(SessionStatus.ACTIVE, showCorrectAnswer, showLeaderboard))
+        socket.emit(GameEvent.QuestionStarted(PlayerQuestionStarted(question(), endsAt = "2026-09-15T14:00:30Z")))
+        runCurrent()
+    }
+
+    private fun configEvent(
+        status: SessionStatus,
+        showCorrectAnswer: Boolean = true,
+        showLeaderboard: ShowLeaderboard = ShowLeaderboard.BETWEEN_QUESTIONS
+    ) = GameEvent.StateSnapshot(
+        GameSnapshot(
+            sessionStatus = status,
+            phase = GamePhase.QUESTION_ACTIVE,
+            config = GameConfig(flow = GameConfig.Flow(showCorrectAnswer = showCorrectAnswer, showLeaderboard = showLeaderboard)),
+            index = 0,
+            question = question()
+        )
+    )
+
+    private fun snapshot(
+        answered: Boolean,
+        status: SessionStatus = SessionStatus.ACTIVE
+    ) = GameEvent.StateSnapshot(
+        GameSnapshot(
+            sessionStatus = status,
+            phase = GamePhase.QUESTION_ACTIVE,
+            config = GameConfig(),
+            index = 0,
+            totalQuestions = 1,
+            question = question(),
+            player = PlayerStateSnapshot(
+                id = PLAYER_ID,
+                playerName = "Kiro",
+                status = "connected",
+                answeredQuestions = if (answered) {
+                    listOf(AnsweredQuestionSnapshot(questionId = 10, questionIndex = 0, answerKeys = listOf("a")))
+                } else emptyList()
+            )
+        )
+    )
+
+    private fun question() = PublicQuestion(
+        index = 0,
+        total = 1,
+        id = 10,
+        questionType = "multiple_choice",
+        questionText = "2 + 2?",
+        answerOptions = listOf(PublicAnswerOption("a", "4"), PublicAnswerOption("b", "5"))
+    )
+
+    private companion object {
+        const val GAME_ID = 101L
+        const val PLAYER_ID = 202L
+        const val TOKEN = "socket-token"
+    }
+}
+
+private class FakePlayerGameSocketRepository : PlayerGameSocketRepository {
+    private val eventFlow = MutableSharedFlow<GameEvent>(extraBufferCapacity = 64)
+    var eventsCalls = 0
+    var joinCalls = 0
+    var syncCalls = 0
+    var disconnectCalls = 0
+    val answers = mutableListOf<PlayerAnswer>()
+    var submitResult: Result<AnswerAck> = Result.Success(AnswerAck(accepted = true))
+    var submitGate: CompletableDeferred<Result<AnswerAck>>? = null
+
+    override fun events(socketToken: String): Flow<GameEvent> {
+        eventsCalls++
+        return eventFlow
+    }
+    suspend fun emit(event: GameEvent) { eventFlow.emit(event) }
+    override suspend fun joinLobby() { joinCalls++ }
+    override suspend fun disconnect() { disconnectCalls++ }
+    override suspend fun leaveLobby() = Unit
+    override suspend fun requestNextQuestion() = Unit
+    override suspend fun sync() { syncCalls++ }
+    override suspend fun submitAnswer(answer: PlayerAnswer): Result<AnswerAck> {
+        answers += answer
+        return submitGate?.await() ?: submitResult
+    }
+}
+
+private class FakeGameResultRepository : GameResultRepository {
+    private val values = mutableMapOf<Long, StoredGameResult>()
+    override fun save(value: StoredGameResult) { values[value.gameId] = value }
+    override fun get(gameId: Long): StoredGameResult? = values[gameId]
+    override fun clear(gameId: Long) { values.remove(gameId) }
+}

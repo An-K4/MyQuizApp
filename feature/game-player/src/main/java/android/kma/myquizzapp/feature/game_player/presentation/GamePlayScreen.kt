@@ -84,7 +84,7 @@ fun GamePlayScreenContent(
             modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            item { ConnectionBanner(state.connection) }
+            item { ConnectionBanner(state.connection, onIntent) }
             if (state.isPaused) {
                 item {
                     Card(Modifier.fillMaxWidth()) {
@@ -138,7 +138,7 @@ fun GamePlayScreenContent(
                 item {
                     Card(Modifier.fillMaxWidth()) {
                         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            if ((state.phase as GamePhaseUi.Results).restoredWithoutDetails) {
+                            if (state.phase.restoredWithoutDetails) {
                                 Text("Đang chờ câu tiếp theo")
                                 Text("Kết quả chi tiết không thể phát lại sau khi kết nối lại.")
                             } else {
@@ -186,11 +186,34 @@ fun GamePlayScreenContent(
 }
 
 @Composable
-private fun ConnectionBanner(connection: GameConnection) {
+private fun ConnectionBanner(
+    connection: GameConnection,
+    onIntent: (GameIntent) -> Unit
+) {
     when (connection) {
         GameConnection.CONNECTED -> Unit
         GameConnection.CONNECTING -> Text("Đang kết nối…")
-        GameConnection.RECONNECTING -> Text("Mất kết nối — đang đồng bộ lại…", color = MaterialTheme.colorScheme.error)
+        GameConnection.RECONNECTING -> Text(
+            "Mất kết nối — đang đồng bộ lại…",
+            color = MaterialTheme.colorScheme.error
+        )
+        GameConnection.RECONNECT_FAILED -> Card(Modifier.fillMaxWidth()) {
+            Column(
+                Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    "Không thể kết nối lại. Hãy kiểm tra mạng rồi thử lại.",
+                    color = MaterialTheme.colorScheme.error
+                )
+                Button(
+                    onClick = { onIntent(GameIntent.Retry) },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Kết nối lại")
+                }
+            }
+        }
     }
 }
 
