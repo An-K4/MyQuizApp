@@ -22,6 +22,7 @@ import java.time.Instant
 import javax.inject.Inject
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
@@ -37,6 +38,7 @@ class GameViewModel @Inject constructor(
     private val playerId: Long = checkNotNull(savedStateHandle["playerId"])
     private val socketToken: String = checkNotNull(savedStateHandle["socketToken"])
     private var eventJob: Job? = null
+    private var nextTimeoutJob: Job? = null
     private val _uiState = MutableStateFlow(GameUiState(playerId = playerId))
     val uiState = _uiState.asStateFlow()
     private val _effect = Channel<GameEffect>(Channel.BUFFERED)
@@ -56,6 +58,7 @@ class GameViewModel @Inject constructor(
             }
             is GameIntent.ChangeText -> _uiState.update { if (!it.isAnswerInputEnabled) it else it.copy(textAnswer = intent.value) }
             GameIntent.Submit -> submit()
+            GameIntent.NextQuestion -> requestNextQuestion()
             GameIntent.Retry -> connect()
             GameIntent.Sync -> viewModelScope.launch { session.sync() }
             GameIntent.Leave -> viewModelScope.launch { exit(null) }
@@ -100,36 +103,52 @@ class GameViewModel @Inject constructor(
                 )
             }
             is GameEvent.Disconnected -> when (event.reason) {
-                DisconnectReason.TRANSPORT -> _uiState.update { it.copy(connection = GameConnection.RECONNECTING, isInputLocked = true) }
+                DisconnectReason.TRANSPORT -> {
+                    nextTimeoutJob?.cancel()
+                    _uiState.update {
+                        it.copy(
+                            connection = GameConnection.RECONNECTING,
+                            isInputLocked = true,
+                            canRequestNext = false,
+                            isRequestingNext = false
+                        )
+                    }
+                }
                 DisconnectReason.SERVER_DISCONNECT -> exit("Máy chủ đã đóng kết nối tới phòng này.")
                 DisconnectReason.CLIENT -> Unit
             }
             is GameEvent.Countdown -> _uiState.update {
                 it.copy(phase = GamePhaseUi.Countdown(event.countdown.startsAt), question = null, isInputLocked = true)
             }
-            is GameEvent.QuestionStarted -> _uiState.update {
-                it.copy(
-                    phase = GamePhaseUi.Question,
-                    question = event.started.question,
-                    selectedOptionId = null,
-                    selectedOptionIds = emptySet(),
-                    textAnswer = "",
-                    endsAt = event.started.endsAt,
-                    matchEndsAt = event.started.matchEndsAt,
-                    allowAnswerLate = event.started.allowAnswerLate,
-                    remainingSeconds = event.started.remainingSeconds,
-                    lives = event.started.lives,
-                    isInputLocked = false,
-                    isSubmitting = false,
-                    isConfirming = false,
-                    results = null,
-                    outcome = null,
-                    scoreEarned = null,
-                    wasLate = false,
-                    answeredCount = null,
-                    activePlayers = null
-                )
+            is GameEvent.QuestionStarted -> {
+                nextTimeoutJob?.cancel()
+                _uiState.update {
+                    it.copy(
+                        phase = GamePhaseUi.Question,
+                        question = event.started.question,
+                        selectedOptionId = null,
+                        selectedOptionIds = emptySet(),
+                        textAnswer = "",
+                        endsAt = event.started.endsAt,
+                        matchEndsAt = event.started.matchEndsAt,
+                        allowAnswerLate = event.started.allowAnswerLate,
+                        remainingSeconds = event.started.remainingSeconds,
+                        lives = event.started.lives,
+                        isInputLocked = false,
+                        isSubmitting = false,
+                        isConfirming = false,
+                        canRequestNext = false,
+                        isRequestingNext = false,
+                        results = null,
+                        outcome = null,
+                        scoreEarned = null,
+                        wasLate = false,
+                        answeredCount = null,
+                        activePlayers = null
+                    )
+                }
             }
+            is GameEvent.QuestionAwaitingNext -> applyAwaitingNext(event)
             is GameEvent.AnswerProgressUpdated -> _uiState.update { state ->
                 if (state.question?.index != event.progress.index) state else state.copy(
                     answeredCount = event.progress.answered,
@@ -168,7 +187,13 @@ class GameViewModel @Inject constructor(
             is GameEvent.PlayerEliminated -> if (event.player.id == playerId) {
                 _uiState.update { it.copy(phase = GamePhaseUi.Finished, isInputLocked = true, errorMessage = "Bạn đã bị loại khỏi trận.") }
             }
-            is GameEvent.Failed -> onFailure(event.code)
+            is GameEvent.Failed -> {
+                if (event.event == EVENT_QUESTION_NEXT) {
+                    nextTimeoutJob?.cancel()
+                    _uiState.update { it.copy(isRequestingNext = false, canRequestNext = true) }
+                }
+                onFailure(event.code)
+            }
             is GameEvent.HostQuestionReceived,
             is GameEvent.HostAnswerReceivedEvent,
             is GameEvent.HostLeaderboardUpdated,
@@ -208,6 +233,7 @@ class GameViewModel @Inject constructor(
             val status = snapshot.sessionStatus ?: old.sessionStatus
             val config = snapshot.config
             val pacing = config?.flow?.pacing ?: old.pacing
+            val autoAdvance = config?.timing?.autoAdvance ?: old.autoAdvance
             val showCorrect = config?.flow?.showCorrectAnswer ?: old.showCorrectAnswer
             val showBoard = config?.flow?.showLeaderboard ?: old.showLeaderboard
             val allowAnswerLate = config?.flow?.allowAnswerLate ?: snapshot.allowAnswerLate
@@ -220,6 +246,7 @@ class GameViewModel @Inject constructor(
                 connection = GameConnection.CONNECTED,
                 sessionStatus = status,
                 pacing = pacing,
+                autoAdvance = autoAdvance,
                 showCorrectAnswer = showCorrect,
                 showLeaderboard = showBoard,
                 phase = phase,
@@ -254,6 +281,7 @@ class GameViewModel @Inject constructor(
         return copy(
             sessionStatus = sessionStatus,
             pacing = config.flow.pacing,
+            autoAdvance = config.timing.autoAdvance,
             showCorrectAnswer = showCorrectAnswer,
             showLeaderboard = showLeaderboard,
             allowAnswerLate = config.flow.allowAnswerLate,
@@ -314,12 +342,15 @@ class GameViewModel @Inject constructor(
                 questionIndex = questionIndex,
                 ack = ack
             )
+            val hasNextQuestion = state.question?.let { it.index + 1 < it.total } == true
             val canReveal = state.showCorrectAnswer == true && ack.isCorrect != null
             state.copy(
                 phase = GamePhaseUi.Results(),
                 isInputLocked = true,
                 isSubmitting = false,
                 isConfirming = false,
+                canRequestNext = !state.autoAdvance && hasNextQuestion,
+                isRequestingNext = false,
                 results = feedback.results,
                 outcome = feedback.outcome,
                 totalScore = ack.totalScore.takeIf { canReveal } ?: state.totalScore,
@@ -331,10 +362,66 @@ class GameViewModel @Inject constructor(
         }
     }
 
+    private fun applyAwaitingNext(event: GameEvent.QuestionAwaitingNext) {
+        nextTimeoutJob?.cancel()
+        val awaiting = event.awaiting
+        val ack = AnswerAck(
+            accepted = true,
+            lives = awaiting.lives,
+            serverTime = event.serverTime,
+            isCorrect = awaiting.isCorrect,
+            scoreEarned = awaiting.scoreEarned,
+            totalScore = awaiting.playerScore,
+            correctAnswers = awaiting.correctAnswers
+        )
+        _uiState.update { state ->
+            val feedback = resolveSelfPacedFeedback(
+                showCorrectAnswer = state.showCorrectAnswer,
+                questionIndex = awaiting.questionIndex,
+                ack = ack
+            )
+            val canReveal = state.showCorrectAnswer == true
+            state.copy(
+                phase = GamePhaseUi.Results(),
+                isInputLocked = true,
+                isSubmitting = false,
+                isConfirming = false,
+                canRequestNext = state.isSelfPaced && !state.autoAdvance,
+                isRequestingNext = false,
+                results = feedback.results,
+                outcome = feedback.outcome,
+                totalScore = awaiting.playerScore.takeIf { canReveal } ?: state.totalScore,
+                scoreEarned = awaiting.scoreEarned.takeIf { canReveal },
+                lives = awaiting.lives ?: state.lives
+            )
+        }
+    }
+
+    private fun requestNextQuestion() {
+        val state = _uiState.value
+        if (!state.shouldShowNextAction || state.isRequestingNext || state.connection != GameConnection.CONNECTED) return
+        _uiState.update { it.copy(isRequestingNext = true, errorMessage = null) }
+        nextTimeoutJob?.cancel()
+        viewModelScope.launch {
+            session.requestNext()
+            nextTimeoutJob = viewModelScope.launch {
+                delay(NEXT_TIMEOUT_MS)
+                _uiState.update { current ->
+                    if (!current.isRequestingNext) current else current.copy(
+                        isRequestingNext = false,
+                        canRequestNext = true,
+                        errorMessage = "Máy chủ chưa gửi câu tiếp theo, hãy thử lại."
+                    )
+                }
+            }
+        }
+    }
+
     private suspend fun finish(event: GameEvent.GameEndedEvent) {
         session.saveResult(gameId, playerId, event.ended)
         _uiState.update { it.copy(phase = GamePhaseUi.Finished, isInputLocked = true) }
         _effect.send(GameEffect.NavigateToFinalResult(gameId, playerId))
+        nextTimeoutJob?.cancel()
         session.disconnect()
         eventJob?.cancel()
     }
@@ -364,6 +451,7 @@ class GameViewModel @Inject constructor(
     private fun GameEvent.serverTimeOrNull(): String? = when (this) {
         is GameEvent.Countdown -> serverTime
         is GameEvent.QuestionStarted -> serverTime
+        is GameEvent.QuestionAwaitingNext -> serverTime
         is GameEvent.QuestionLocked -> serverTime
         is GameEvent.QuestionResultsReceived -> serverTime
         is GameEvent.AnswerProgressUpdated -> serverTime
@@ -384,11 +472,14 @@ class GameViewModel @Inject constructor(
 
     private suspend fun exit(message: String?) {
         _effect.send(GameEffect.Exit(message))
+        nextTimeoutJob?.cancel()
         session.disconnect()
         eventJob?.cancel()
     }
 
     private companion object {
+        const val EVENT_QUESTION_NEXT = "question:next"
+        const val NEXT_TIMEOUT_MS = 5_000L
         const val CODE_CONNECT_FAILED = "CLIENT_CONNECT_FAILED"
         const val CODE_RECONNECT_EXHAUSTED = "CLIENT_RECONNECT_EXHAUSTED"
 

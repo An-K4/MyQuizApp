@@ -48,6 +48,34 @@ class PlayerGameEventMapperTest {
     }
 
     @Test
+    fun `question awaiting next maps previous result and player state`() {
+        val event = mapper.map(
+            GameSocketEvents.QUESTION_AWAITING_NEXT,
+            """{
+              "previous_result": {
+                "question_index": 0,
+                "is_correct": true,
+                "score_earned": 800,
+                "correct_answer": ["0", "2"]
+              },
+              "player_score": 1200,
+              "lives": 2,
+              "serverTime": "2026-09-26T12:00:00.000Z"
+            }""".trimIndent()
+        )
+
+        assertTrue(event is GameEvent.QuestionAwaitingNext)
+        val awaiting = (event as GameEvent.QuestionAwaitingNext).awaiting
+        assertEquals(0, awaiting.questionIndex)
+        assertTrue(awaiting.isCorrect)
+        assertEquals(800, awaiting.scoreEarned)
+        assertEquals(listOf("0", "2"), awaiting.correctAnswers)
+        assertEquals(1200, awaiting.playerScore)
+        assertEquals(2, awaiting.lives)
+        assertEquals("2026-09-26T12:00:00.000Z", event.serverTime)
+    }
+
+    @Test
     fun `game state restores answered question snapshot`() {
         val event = mapper.map(
             GameSocketEvents.GAME_STATE,

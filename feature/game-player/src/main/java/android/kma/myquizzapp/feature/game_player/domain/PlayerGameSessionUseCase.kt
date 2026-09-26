@@ -18,6 +18,7 @@ class PlayerGameSessionUseCase @Inject constructor(
         repository.sync()
     }
     suspend fun submit(answer: PlayerAnswer) = repository.submitAnswer(answer)
+    suspend fun requestNext() = repository.requestNextQuestion()
     fun saveResult(gameId: Long, playerId: Long, result: GameEnded) {
         gameResults.save(StoredGameResult(gameId, playerId, result))
     }

@@ -14,6 +14,7 @@ import android.kma.myquizzapp.core.common.model.GameSnapshot
 import android.kma.myquizzapp.core.common.model.LeaderboardRow
 import android.kma.myquizzapp.core.common.model.Pacing
 import android.kma.myquizzapp.core.common.model.PlayerAnswer
+import android.kma.myquizzapp.core.common.model.PlayerAwaitingNext
 import android.kma.myquizzapp.core.common.model.PlayerQuestionStarted
 import android.kma.myquizzapp.core.common.model.PlayerStateSnapshot
 import android.kma.myquizzapp.core.common.model.PublicAnswerOption
@@ -37,6 +38,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestDispatcher
 import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -197,6 +199,7 @@ class GameViewModelTest {
         assertEquals(1200, state.totalScore)
         assertEquals(2, state.streak)
         assertTrue(state.isInputLocked)
+        assertFalse(state.shouldShowNextAction)
     }
 
     @Test
@@ -232,6 +235,96 @@ class GameViewModelTest {
         runCurrent()
 
         assertFalse(viewModel.uiState.value.isInputLocked)
+    }
+
+    @Test
+    fun `manual next emits once and next question confirms transition`() = runTest(dispatcher) {
+        startQuestion(pacing = Pacing.SELF, autoAdvance = false)
+        viewModel.onIntent(GameIntent.SelectOption("a"))
+        viewModel.onIntent(GameIntent.Submit)
+        runCurrent()
+        assertTrue(viewModel.uiState.value.shouldShowNextAction)
+
+        viewModel.onIntent(GameIntent.NextQuestion)
+        viewModel.onIntent(GameIntent.NextQuestion)
+        runCurrent()
+        assertEquals(1, socket.nextCalls)
+        assertTrue(viewModel.uiState.value.isRequestingNext)
+
+        socket.emit(GameEvent.QuestionStarted(PlayerQuestionStarted(question())))
+        runCurrent()
+        assertTrue(viewModel.uiState.value.phase is GamePhaseUi.Question)
+        assertFalse(viewModel.uiState.value.isRequestingNext)
+        assertFalse(viewModel.uiState.value.shouldShowNextAction)
+    }
+
+    @Test
+    fun `awaiting next restores result and next action`() = runTest(dispatcher) {
+        startQuestion(pacing = Pacing.SELF, autoAdvance = false)
+        socket.emit(
+            GameEvent.QuestionAwaitingNext(
+                PlayerAwaitingNext(
+                    questionIndex = 0,
+                    isCorrect = true,
+                    scoreEarned = 800,
+                    correctAnswers = listOf("a"),
+                    playerScore = 1200,
+                    lives = 2
+                )
+            )
+        )
+        runCurrent()
+
+        val state = viewModel.uiState.value
+        assertTrue(state.phase is GamePhaseUi.Results)
+        assertEquals(QuestionOutcome.CORRECT, state.outcome)
+        assertEquals(800, state.scoreEarned)
+        assertEquals(1200, state.totalScore)
+        assertEquals(2, state.lives)
+        assertTrue(state.shouldShowNextAction)
+    }
+
+    @Test
+    fun `awaiting next cannot leak hidden grading fields`() = runTest(dispatcher) {
+        startQuestion(pacing = Pacing.SELF, autoAdvance = false, showCorrectAnswer = false)
+        socket.emit(
+            GameEvent.QuestionAwaitingNext(
+                PlayerAwaitingNext(
+                    questionIndex = 0,
+                    isCorrect = true,
+                    scoreEarned = 800,
+                    correctAnswers = listOf("a"),
+                    playerScore = 1200
+                )
+            )
+        )
+        runCurrent()
+
+        val state = viewModel.uiState.value
+        assertEquals(QuestionOutcome.HIDDEN, state.outcome)
+        assertTrue(state.results?.correctAnswers.orEmpty().isEmpty())
+        assertNull(state.scoreEarned)
+        assertNull(state.totalScore)
+        assertTrue(state.shouldShowNextAction)
+    }
+
+    @Test
+    fun `manual next timeout reopens action without sending twice`() = runTest(dispatcher) {
+        startQuestion(pacing = Pacing.SELF, autoAdvance = false)
+        viewModel.onIntent(GameIntent.SelectOption("a"))
+        viewModel.onIntent(GameIntent.Submit)
+        runCurrent()
+        viewModel.onIntent(GameIntent.NextQuestion)
+        runCurrent()
+
+        advanceTimeBy(5_001)
+        runCurrent()
+
+        val state = viewModel.uiState.value
+        assertFalse(state.isRequestingNext)
+        assertTrue(state.shouldShowNextAction)
+        assertEquals("Máy chủ chưa gửi câu tiếp theo, hãy thử lại.", state.errorMessage)
+        assertEquals(1, socket.nextCalls)
     }
 
     @Test
@@ -375,10 +468,11 @@ class GameViewModelTest {
         showCorrectAnswer: Boolean = true,
         showLeaderboard: ShowLeaderboard = ShowLeaderboard.BETWEEN_QUESTIONS,
         pacing: Pacing = Pacing.HOST,
-        allowAnswerLate: Boolean = false
+        allowAnswerLate: Boolean = false,
+        autoAdvance: Boolean = true
     ) {
         runCurrent()
-        socket.emit(configEvent(SessionStatus.ACTIVE, showCorrectAnswer, showLeaderboard, pacing, allowAnswerLate))
+        socket.emit(configEvent(SessionStatus.ACTIVE, showCorrectAnswer, showLeaderboard, pacing, allowAnswerLate, autoAdvance))
         socket.emit(
             GameEvent.QuestionStarted(
                 PlayerQuestionStarted(
@@ -396,12 +490,14 @@ class GameViewModelTest {
         showCorrectAnswer: Boolean = true,
         showLeaderboard: ShowLeaderboard = ShowLeaderboard.BETWEEN_QUESTIONS,
         pacing: Pacing = Pacing.HOST,
-        allowAnswerLate: Boolean = false
+        allowAnswerLate: Boolean = false,
+        autoAdvance: Boolean = true
     ) = GameEvent.StateSnapshot(
         GameSnapshot(
             sessionStatus = status,
             phase = GamePhase.QUESTION_ACTIVE,
             config = GameConfig(
+                timing = GameConfig.Timing(autoAdvance = autoAdvance),
                 flow = GameConfig.Flow(
                     pacing = pacing,
                     showCorrectAnswer = showCorrectAnswer,
@@ -423,7 +519,7 @@ class GameViewModelTest {
             phase = GamePhase.QUESTION_ACTIVE,
             config = GameConfig(),
             index = 0,
-            totalQuestions = 1,
+            totalQuestions = 2,
             question = question(),
             player = PlayerStateSnapshot(
                 id = PLAYER_ID,
@@ -438,7 +534,7 @@ class GameViewModelTest {
 
     private fun question() = PublicQuestion(
         index = 0,
-        total = 1,
+        total = 2,
         id = 10,
         questionType = "multiple_choice",
         questionText = "2 + 2?",
@@ -458,6 +554,7 @@ private class FakePlayerGameSocketRepository : PlayerGameSocketRepository {
     var joinCalls = 0
     var syncCalls = 0
     var disconnectCalls = 0
+    var nextCalls = 0
     val answers = mutableListOf<PlayerAnswer>()
     var submitResult: Result<AnswerAck> = Result.Success(AnswerAck(accepted = true))
     var submitGate: CompletableDeferred<Result<AnswerAck>>? = null
@@ -470,7 +567,7 @@ private class FakePlayerGameSocketRepository : PlayerGameSocketRepository {
     override suspend fun joinLobby() { joinCalls++ }
     override suspend fun disconnect() { disconnectCalls++ }
     override suspend fun leaveLobby() = Unit
-    override suspend fun requestNextQuestion() = Unit
+    override suspend fun requestNextQuestion() { nextCalls++ }
     override suspend fun sync() { syncCalls++ }
     override suspend fun submitAnswer(answer: PlayerAnswer): Result<AnswerAck> {
         answers += answer

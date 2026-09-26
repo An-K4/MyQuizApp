@@ -4,6 +4,7 @@ import android.kma.myquizzapp.core.common.model.AnswerProgress
 import android.kma.myquizzapp.core.common.model.AnswerStats
 import android.kma.myquizzapp.core.common.model.AnsweredQuestionSnapshot
 import android.kma.myquizzapp.core.common.model.EliminatedPlayer
+import android.kma.myquizzapp.core.common.model.PlayerAwaitingNext
 import android.kma.myquizzapp.core.common.model.PlayerQuestionStarted
 import android.kma.myquizzapp.core.common.model.PlayerStateSnapshot
 import android.kma.myquizzapp.core.common.model.GameConfig
@@ -207,6 +208,31 @@ data class QuestionStartedDto(
         matchEndsAt = matchEndsAt,
         allowAnswerLate = allowAnswerLate,
         remainingSeconds = remainingSeconds,
+        lives = lives
+    )
+}
+
+@Serializable
+data class PreviousQuestionResultDto(
+    @SerialName("question_index") val questionIndex: Int = 0,
+    @SerialName("is_correct") val isCorrect: Boolean = false,
+    @SerialName("score_earned") val scoreEarned: Int = 0,
+    @SerialName("correct_answer") val correctAnswer: JsonElement? = null
+)
+
+@Serializable
+data class QuestionAwaitingNextDto(
+    @SerialName("previous_result") val previousResult: PreviousQuestionResultDto = PreviousQuestionResultDto(),
+    @SerialName("player_score") val playerScore: Int = 0,
+    val lives: Int? = null,
+    val serverTime: String? = null
+) {
+    fun toDomain() = PlayerAwaitingNext(
+        questionIndex = previousResult.questionIndex,
+        isCorrect = previousResult.isCorrect,
+        scoreEarned = previousResult.scoreEarned,
+        correctAnswers = previousResult.correctAnswer.toAnswerKeys(),
+        playerScore = playerScore,
         lives = lives
     )
 }

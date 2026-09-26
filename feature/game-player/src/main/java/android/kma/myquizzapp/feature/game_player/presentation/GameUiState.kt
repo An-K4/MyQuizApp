@@ -26,6 +26,7 @@ data class GameUiState(
     val playerId: Long? = null,
     val sessionStatus: SessionStatus? = null,
     val pacing: Pacing = Pacing.HOST,
+    val autoAdvance: Boolean = true,
     val showCorrectAnswer: Boolean? = null,
     val showLeaderboard: ShowLeaderboard? = null,
     val phase: GamePhaseUi = GamePhaseUi.Connecting,
@@ -41,6 +42,8 @@ data class GameUiState(
     val isInputLocked: Boolean = true,
     val isSubmitting: Boolean = false,
     val isConfirming: Boolean = false,
+    val canRequestNext: Boolean = false,
+    val isRequestingNext: Boolean = false,
     val results: QuestionResults? = null,
     val outcome: QuestionOutcome? = null,
     val answeredCount: Int? = null,
@@ -58,6 +61,8 @@ data class GameUiState(
     val isPaused: Boolean get() = sessionStatus == SessionStatus.PAUSED
     val isSelfPaced: Boolean get() = pacing == Pacing.SELF
     val isAnswerInputEnabled: Boolean get() = !isInputLocked && !isPaused
+    val shouldShowNextAction: Boolean
+        get() = isSelfPaced && !autoAdvance && phase is GamePhaseUi.Results && canRequestNext
     val canShowLiveLeaderboard: Boolean
         get() = showLeaderboard == ShowLeaderboard.BETWEEN_QUESTIONS &&
             phase is GamePhaseUi.Results && leaderboard.isNotEmpty()

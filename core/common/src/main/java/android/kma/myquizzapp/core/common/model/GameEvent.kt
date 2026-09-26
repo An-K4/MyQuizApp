@@ -90,6 +90,12 @@ sealed interface GameEvent {
         val serverTime: String? = null
     ) : GameEvent
 
+    /** `question:awaiting_next` — self-paced đã trả lời xong và đang chờ Player bấm Next. */
+    data class QuestionAwaitingNext(
+        val awaiting: PlayerAwaitingNext,
+        val serverTime: String? = null
+    ) : GameEvent
+
     /** `answer:received` — snapshot tiến độ của câu hiện tại, chỉ room player nhận. */
     data class AnswerProgressUpdated(
         val progress: AnswerProgress,

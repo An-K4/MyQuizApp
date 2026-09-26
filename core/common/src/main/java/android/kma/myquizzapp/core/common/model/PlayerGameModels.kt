@@ -36,6 +36,16 @@ data class PlayerQuestionStarted(
     val lives: Int? = null
 )
 
+/** `question:awaiting_next` — kết quả câu trước khi Player reconnect trong lúc chờ Next. */
+data class PlayerAwaitingNext(
+    val questionIndex: Int,
+    val isCorrect: Boolean,
+    val scoreEarned: Int,
+    val correctAnswers: List<String> = emptyList(),
+    val playerScore: Int,
+    val lives: Int? = null
+)
+
 /** Một câu đã được server ghi nhận trong `game:state.player.answered_questions`. */
 data class AnsweredQuestionSnapshot(
     val questionId: Long,

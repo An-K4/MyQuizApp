@@ -162,6 +162,19 @@ fun GamePlayScreenContent(
                                     state.streak?.let { Text("Chuỗi đúng: $it") }
                                     state.lives?.let { Text("Mạng còn lại: $it") }
                                 }
+                                if (state.shouldShowNextAction) {
+                                    Button(
+                                        onClick = { onIntent(GameIntent.NextQuestion) },
+                                        enabled = !state.isRequestingNext && state.connection == GameConnection.CONNECTED,
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        if (state.isRequestingNext) {
+                                            CircularProgressIndicator()
+                                        } else {
+                                            Text("Câu tiếp theo")
+                                        }
+                                    }
+                                }
                                 if (state.canShowLiveLeaderboard && state.playerRank != null && state.playerScore != null) {
                                     Text("Bạn đang hạng ${state.playerRank} • ${state.playerScore} điểm")
                                 }
