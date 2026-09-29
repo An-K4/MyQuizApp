@@ -2,7 +2,7 @@
 
 > **Tài liệu cấu trúc dự án chi tiết**  
 > Mô tả vai trò, trách nhiệm và mối quan hệ giữa các module trong kiến trúc Multi-module Gradle  
-> **Version:** 2.10 | **Last Updated:** 2026-09-15
+> **Version:** 2.11 | **Last Updated:** 2026-09-27
 
 ---
 
@@ -40,8 +40,8 @@ MyQuizApp được xây dựng theo **Multi-module Gradle Architecture** với *
 - `:feature:auth` - Login, Register, Google One Tap
 - `:feature:home` - Quiz discovery, browse public quizzes
 - `:feature:lobby` - Waiting room (Host & Player)
-- `:feature:game-player` - **Gameplay Player host-paced hoàn thiện qua N22–N24, harden ở N25**: state machine, input 4 loại câu, typed ACK/reconnect, progress + kết quả giữa câu, leaderboard/config gating, giữ Submitted qua pause/resume, chống stale snapshot, `RECONNECT_FAILED` + Retry và hand-off Final Result
-- `:feature:game-host` - Host control console — **đã triển khai thật ở N21** (`hostgame/`: `HostGameScreen` + `UiState`/`Intent`/`Effect`/`ViewModel`), điều khiển trận classic qua socket host room
+- `:feature:game-player` - **Gameplay Player host-paced + self-paced qua N22–N28**: Classic, Solo manual-next, Survival lives/elimination, Marathon timer tổng/timeout/finish; typed ACK/reconnect, Final Result và hardening N25
+- `:feature:game-host` - Host control console — **Classic hoàn thành ở N21; self-paced còn N28.5**. Hiện có `HostGameScreen` + `UiState`/`Intent`/`Effect`/`ViewModel` và điều khiển socket host room
 - `:feature:leaderboard` - **Final Result thật từ N24**: nhận transient `game:ended`, highlight Player hiện tại, fallback khi leaderboard bị ẩn/process recreation
 - `:feature:quiz-manage` - CRUD quizzes (Host only)
 
@@ -764,6 +764,8 @@ Màn hình chơi game phía Player. Hỗ trợ cả **host-paced** (classic - t�
 - ✅ N24: `game:ended` → lưu transient result → `NavigateToFinalResult`
 - ✅ N25 Android hardening: Submitted không bị mở lại sau pause/resume; snapshot cũ không kéo Results lùi; `GameConnection.RECONNECT_FAILED` + Retry tạo connection mới; Host phân biệt transport với `SERVER_DISCONNECT`
 - ✅ N25 regression tests: `GameViewModelTest` phủ stale snapshot, pause/resume submitted và reconnect exhaustion → Retry → join + sync; `HostGameViewModelTest` có 6 case cho state machine/disconnect
+- ✅ N26–N27: self-paced ACK feedback, soft deadline, manual `question:next` và restore `question:awaiting_next`
+- ✅ N28: Survival lives/elimination; Marathon giữ timer câu và timer tổng riêng; typed `question:timeout`/`player:finished`; phase cá nhân `Eliminated`/`PlayerFinished` chờ `game:ended`
 - ⚠️ N25 E2E chưa pass: backend presence race vẫn có thể loại Player đã reconnect khỏi `activePlayers`; chi tiết ở `N25_E2E_CLASSIC_CHECKLIST.md` và `knowledgement/n25_knowledgement.md`
 
 #### Cấu trúc thư mục
@@ -844,15 +846,16 @@ dependencies {
 **📦 Module Type:** `com.android.library`
 
 #### Mục đích
-Màn hình điều khiển game phía Host. Host có thể pause/resume, skip question, xem real-time submissions, và monitor player progress (self-paced modes).
+Màn hình điều khiển game phía Host. N21 đã hoàn thiện luồng Classic/host-paced. Dashboard theo dõi tiến độ riêng cho self-paced chưa hoàn chỉnh và được tách thành N28.5.
 
 #### Trách nhiệm
 - ✅ HostGameScreen - dashboard theo dõi game
 - ✅ HostGameViewModel với `HostGameUiState` riêng (KHÔNG dùng chung với Player)
 - ✅ Emit host actions: `host:start`, `host:pause`, `host:resume`, `host:next`, `host:end`
-- ✅ Receive host-only events: `host:question`, `host:answer-received`, `host:player-progress`
-- ✅ Display leaderboard realtime
+- ✅ Classic: nhận `host:question`, `host:answer-received`, `leaderboard:host`; hiển thị câu/đáp án, submissions và leaderboard realtime
 - ✅ Config update qua `lobby:config-update` (lobby phase only)
+- ⏳ N28.5 self-paced: xử lý `host:player-progress`, `player:finished`, `player:eliminated`; render tiến độ/điểm/lives/status theo từng Player; không giả định câu hỏi chung và không hiện `game:next`
+- ⚠️ Backend gate N28.5: progress hiện thiếu lives/streak, timeout không phát progress và late-join active không refresh `leaderboard:host`; Android không polling hoặc tự suy dữ liệu
 
 #### Cấu trúc thư mục
 ```

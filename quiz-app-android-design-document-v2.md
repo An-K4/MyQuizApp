@@ -1,6 +1,6 @@
 > Đối chiếu với backend thực tế tại `github.com/Ntd1411/myquizz` (Express + TypeScript + [Socket.IO](http://Socket.IO) + PostgreSQL + Redis).
 > Đây là bản viết lại của design doc v1.0, sửa toàn bộ phần hợp đồng API/Socket cho khớp với code backend thật (không còn là template quiz-app chung chung).
-> Cập nhật 26/9/2026 sau N25: Android Classic đã được harden cho pause/resume, stale snapshot và reconnect theo mạng đã xác thực; M4 chưa chốt vì backend còn presence race giữa socket cũ disconnect và socket mới join.
+> Cập nhật 27/9/2026 sau N28: Player self-paced đã hỗ trợ Solo manual-next, Survival lives/elimination và Marathon timer tổng/timeout/finish. Host Console hiện mới đúng cho Classic; N28.5 sẽ bổ sung dashboard self-paced. M4 vẫn chưa chốt vì backend còn presence race và các lỗi snapshot/Marathon đã ghi trong kế hoạch.
 **Kotlin • Jetpack Compose • MVI + Clean Architecture • **[**Socket.IO**](http://Socket.IO)** • Retrofit + Cookie Auth**
 ---
 ## Mục lục
@@ -967,7 +967,7 @@ Lưu `socketToken` (KHÔNG lưu vào DataStore lâu dài — nó có TTL ngắn 
 <tr>
 <td>`marathon`</td>
 <td>`self`</td>
-<td>Giới hạn tổng thời gian (`totalMatchSeconds`), câu hỏi **lặp vòng** khi hết bộ câu hỏi</td>
+<td>Giới hạn tổng thời gian (`totalMatchSeconds`) **riêng cho từng Player**, bắt đầu khi Player nhận câu đầu; người late-join vẫn có đủ budget. Câu hỏi **lặp vòng** khi hết bộ câu hỏi.</td>
 </tr>
 <tr>
 <td>`practice`</td>
@@ -1022,8 +1022,10 @@ data class GameUiState(
     val error: UiText? = null
 )
 ```
-`GameViewModel` chọn nhánh `RoomQuestion` hay `SelfQuestion` dựa trên `config.flow.pacing`, subscribe đúng tập event tương ứng (host-paced lắng `question:started/locked/results`; self-paced lắng `question:awaiting_next/timeout` + đọc kết quả trực tiếp từ ACK của `question:answer`).
+`GameViewModel` chọn nhánh host-paced hay self-paced dựa trên `config.flow.pacing`. Host-paced lắng `question:started/locked/results`; self-paced đọc feedback từ ACK và xử lý typed `question:awaiting_next`, `question:timeout`, `player:eliminated`, `player:finished`. Từ N28, UI giữ riêng timer câu (`endsAt`) và timer tổng Marathon (`matchEndsAt`), có phase cá nhân `Eliminated`/`PlayerFinished`, nhưng chỉ `game:ended` mới lưu kết quả đầy đủ và điều hướng Final Result.
 ### 6.3. Host UI cần state riêng
+
+> **Trạng thái triển khai:** N21 mới hoàn thiện console cho Classic/host-paced. N28.5 sẽ thêm nhánh self-paced. Ở nhánh này Host không có một “câu hiện tại của phòng” và không dùng `game:next`; dashboard phải dựng từ `game:state`, `host:player-progress`, `player:finished`, `player:eliminated` và `leaderboard:host`, hiển thị tiến độ/điểm/lives/status riêng từng Player. Marathon không có đồng hồ chung vì mỗi Player có `matchEndsAt` riêng. Audit 27/9 cho thấy backend hiện chưa gửi lives trong `host:player-progress`, không phát progress khi auto-timeout và không refresh host snapshot khi late-join active; Android không polling hoặc tự suy dữ liệu để che các khoảng trống này.
 ```kotlin
 data class HostGameUiState(
     val session: GameSessionSnapshotUi,       // từ game:state
