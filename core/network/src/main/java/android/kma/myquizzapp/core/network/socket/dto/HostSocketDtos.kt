@@ -5,7 +5,9 @@ import android.kma.myquizzapp.core.common.model.AnswerStats
 import android.kma.myquizzapp.core.common.model.AnsweredQuestionSnapshot
 import android.kma.myquizzapp.core.common.model.EliminatedPlayer
 import android.kma.myquizzapp.core.common.model.PlayerAwaitingNext
+import android.kma.myquizzapp.core.common.model.PlayerFinished
 import android.kma.myquizzapp.core.common.model.PlayerQuestionStarted
+import android.kma.myquizzapp.core.common.model.PlayerQuestionTimeout
 import android.kma.myquizzapp.core.common.model.PlayerStateSnapshot
 import android.kma.myquizzapp.core.common.model.GameConfig
 import android.kma.myquizzapp.core.common.model.GameCountdown
@@ -234,6 +236,24 @@ data class QuestionAwaitingNextDto(
         correctAnswers = previousResult.correctAnswer.toAnswerKeys(),
         playerScore = playerScore,
         lives = lives
+    )
+}
+
+@Serializable
+data class QuestionTimeoutDto(
+    val index: Int = 0,
+    @SerialName("question_id") val questionId: Long? = null,
+    @SerialName("correct_answer") val correctAnswer: JsonElement? = null,
+    val lives: Int? = null,
+    val eliminated: Boolean = false,
+    val serverTime: String? = null
+) {
+    fun toDomain() = PlayerQuestionTimeout(
+        questionIndex = index,
+        questionId = questionId,
+        correctAnswers = correctAnswer.toAnswerKeys(),
+        lives = lives,
+        eliminated = eliminated
     )
 }
 
@@ -488,4 +508,27 @@ data class PlayerEliminatedDto(
     val serverTime: String? = null
 ) {
     fun toDomain() = EliminatedPlayer(id = id, playerName = playerName)
+}
+
+@Serializable
+data class FinishedPlayerDto(
+    val id: Long = 0L,
+    @SerialName("player_score") val playerScore: Int = 0,
+    @SerialName("correct_answers_count") val correctAnswersCount: Int = 0,
+    val status: String = "finished"
+)
+
+@Serializable
+data class PlayerFinishedDto(
+    val player: FinishedPlayerDto = FinishedPlayerDto(),
+    val leaderboard: List<LeaderboardRowDto> = emptyList(),
+    val serverTime: String? = null
+) {
+    fun toDomain() = PlayerFinished(
+        id = player.id,
+        playerScore = player.playerScore,
+        correctAnswersCount = player.correctAnswersCount,
+        status = player.status,
+        leaderboard = leaderboard.map { it.toDomain() }
+    )
 }

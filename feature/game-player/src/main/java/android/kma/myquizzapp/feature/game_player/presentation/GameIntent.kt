@@ -6,6 +6,7 @@ sealed interface GameIntent {
     data class ChangeText(val value: String) : GameIntent
     data object Submit : GameIntent
     data object NextQuestion : GameIntent
+    data object MatchDeadlineReached : GameIntent
     data object Retry : GameIntent
     data object Sync : GameIntent
     data object Leave : GameIntent

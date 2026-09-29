@@ -96,6 +96,12 @@ sealed interface GameEvent {
         val serverTime: String? = null
     ) : GameEvent
 
+    /** `question:timeout` — câu self-paced đã hết giờ và được server chấm là sai. */
+    data class QuestionTimedOut(
+        val timeout: PlayerQuestionTimeout,
+        val serverTime: String? = null
+    ) : GameEvent
+
     /** `answer:received` — snapshot tiến độ của câu hiện tại, chỉ room player nhận. */
     data class AnswerProgressUpdated(
         val progress: AnswerProgress,
@@ -148,6 +154,12 @@ sealed interface GameEvent {
     /** `player:eliminated` — một người chơi hết mạng (chỉ mode sinh tồn). */
     data class PlayerEliminated(
         val player: EliminatedPlayer,
+        val serverTime: String? = null
+    ) : GameEvent
+
+    /** `player:finished` — một player self-paced đã hoàn tất, phòng có thể vẫn đang chạy. */
+    data class PlayerFinishedEvent(
+        val finished: PlayerFinished,
         val serverTime: String? = null
     ) : GameEvent
 

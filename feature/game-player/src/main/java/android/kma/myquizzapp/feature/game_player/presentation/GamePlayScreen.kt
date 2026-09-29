@@ -93,10 +93,33 @@ fun GamePlayScreenContent(
                 }
             }
             item { PhaseHeader(state, onIntent) }
+            if (
+                state.isSelfPaced && !state.isPersonallyDone &&
+                (state.lives != null || state.hasMatchBudget)
+            ) {
+                item { SelfPacedStatus(state, onIntent) }
+            }
+            when (state.phase) {
+                GamePhaseUi.Eliminated -> item {
+                    PersonalCompletionCard(
+                        title = "Bạn đã hết mạng",
+                        message = "Kết quả đã được ghi nhận. Đang chờ những người chơi còn lại.",
+                        score = state.totalScore ?: state.playerScore
+                    )
+                }
+                GamePhaseUi.PlayerFinished -> item {
+                    PersonalCompletionCard(
+                        title = if (state.matchTimeExpired) "Đã hết thời gian" else "Bạn đã hoàn thành",
+                        message = "Đang chờ trận đấu kết thúc để xem kết quả cuối cùng.",
+                        score = state.totalScore ?: state.playerScore
+                    )
+                }
+                else -> Unit
+            }
             if (state.answeredCount != null && state.activePlayers != null) {
                 item { Text("Đã trả lời: ${state.answeredCount}/${state.activePlayers}") }
             }
-            state.question?.let { question ->
+            state.question?.takeUnless { state.isPersonallyDone || state.phase == GamePhaseUi.Finished }?.let { question ->
                 item {
                     Text("Câu ${question.index + 1}/${question.total}", style = MaterialTheme.typography.labelLarge)
                     Text(question.questionText, style = MaterialTheme.typography.headlineSmall)
@@ -156,11 +179,14 @@ fun GamePlayScreenContent(
                                     }
                                 }
                                 if (state.isSelfPaced) {
-                                    if (state.wasLate) Text("Câu trả lời được ghi nhận sau thời hạn.")
+                                    if (state.timedOut) {
+                                        Text("Đã hết thời gian cho câu này.")
+                                    } else if (state.wasLate) {
+                                        Text("Câu trả lời được ghi nhận sau thời hạn.")
+                                    }
                                     state.scoreEarned?.let { Text("Điểm câu này: $it") }
                                     state.totalScore?.let { Text("Tổng điểm: $it") }
                                     state.streak?.let { Text("Chuỗi đúng: $it") }
-                                    state.lives?.let { Text("Mạng còn lại: $it") }
                                 }
                                 if (state.shouldShowNextAction) {
                                     Button(
@@ -201,6 +227,41 @@ fun GamePlayScreenContent(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun SelfPacedStatus(state: GameUiState, onIntent: (GameIntent) -> Unit) {
+    Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            state.lives?.let { Text("Mạng còn lại: $it", style = MaterialTheme.typography.titleMedium) }
+            state.matchEndsAt?.let { deadline ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(if (state.matchTimeExpired) "Đã hết thời gian" else "Thời gian toàn trận")
+                    DeadlineCountdown(deadline, state.serverOffsetMs, null) {
+                        onIntent(GameIntent.MatchDeadlineReached)
+                    }
+                }
+                if (state.matchTimeExpired && !state.isPersonallyDone) {
+                    Text("Đang chờ máy chủ chốt kết quả…")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PersonalCompletionCard(title: String, message: String, score: Int?) {
+    Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(title, style = MaterialTheme.typography.titleLarge)
+            Text(message)
+            score?.let { Text("Tổng điểm: $it") }
         }
     }
 }
@@ -253,6 +314,8 @@ private fun PhaseHeader(state: GameUiState, onIntent: (GameIntent) -> Unit) {
                     GamePhaseUi.Submitted -> if (state.isConfirming) "Đang xác nhận câu trả lời" else "Đã gửi câu trả lời"
                     GamePhaseUi.Locked -> "Câu hỏi đã khóa"
                     is GamePhaseUi.Results -> "Kết quả"
+                    GamePhaseUi.Eliminated -> "Đã bị loại"
+                    GamePhaseUi.PlayerFinished -> "Đã hoàn thành phần chơi"
                     GamePhaseUi.Finished -> "Trận đã kết thúc"
                 },
                 style = MaterialTheme.typography.titleMedium

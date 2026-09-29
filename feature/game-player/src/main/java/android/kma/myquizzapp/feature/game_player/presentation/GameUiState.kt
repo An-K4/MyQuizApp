@@ -18,6 +18,8 @@ sealed interface GamePhaseUi {
     data object Submitted : GamePhaseUi
     data object Locked : GamePhaseUi
     data class Results(val restoredWithoutDetails: Boolean = false) : GamePhaseUi
+    data object Eliminated : GamePhaseUi
+    data object PlayerFinished : GamePhaseUi
     data object Finished : GamePhaseUi
 }
 
@@ -55,7 +57,9 @@ data class GameUiState(
     val scoreEarned: Int? = null,
     val streak: Int? = null,
     val wasLate: Boolean = false,
+    val timedOut: Boolean = false,
     val lives: Int? = null,
+    val matchTimeExpired: Boolean = false,
     val errorMessage: String? = null
 ) {
     val isPaused: Boolean get() = sessionStatus == SessionStatus.PAUSED
@@ -63,9 +67,15 @@ data class GameUiState(
     val isAnswerInputEnabled: Boolean get() = !isInputLocked && !isPaused
     val shouldShowNextAction: Boolean
         get() = isSelfPaced && !autoAdvance && phase is GamePhaseUi.Results && canRequestNext
+    val hasMatchBudget: Boolean get() = matchEndsAt != null
+    val isPersonallyDone: Boolean
+        get() = phase == GamePhaseUi.Eliminated || phase == GamePhaseUi.PlayerFinished
     val canShowLiveLeaderboard: Boolean
-        get() = showLeaderboard == ShowLeaderboard.BETWEEN_QUESTIONS &&
-            phase is GamePhaseUi.Results && leaderboard.isNotEmpty()
+        get() = leaderboard.isNotEmpty() && when {
+            showLeaderboard == ShowLeaderboard.NEVER -> false
+            isPersonallyDone -> true
+            else -> showLeaderboard == ShowLeaderboard.BETWEEN_QUESTIONS && phase is GamePhaseUi.Results
+        }
 
     val canSubmit: Boolean get() = isAnswerInputEnabled && when (question?.questionType) {
         "multiple_choice" -> selectedOptionId != null

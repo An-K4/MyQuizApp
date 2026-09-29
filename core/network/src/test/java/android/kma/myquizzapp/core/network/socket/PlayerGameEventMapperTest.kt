@@ -76,6 +76,62 @@ class PlayerGameEventMapperTest {
     }
 
     @Test
+    fun `question timeout maps result lives and elimination`() {
+        val event = mapper.map(
+            GameSocketEvents.QUESTION_TIMEOUT,
+            """{
+              "index": 2,
+              "question_id": 33,
+              "is_correct": false,
+              "correct_answer": "a",
+              "lives": 0,
+              "eliminated": true,
+              "serverTime": "2026-09-27T12:00:00.000Z"
+            }""".trimIndent()
+        )
+
+        assertTrue(event is GameEvent.QuestionTimedOut)
+        val timeout = (event as GameEvent.QuestionTimedOut).timeout
+        assertEquals(2, timeout.questionIndex)
+        assertEquals(33L, timeout.questionId)
+        assertEquals(listOf("a"), timeout.correctAnswers)
+        assertEquals(0, timeout.lives)
+        assertTrue(timeout.eliminated)
+        assertEquals("2026-09-27T12:00:00.000Z", event.serverTime)
+    }
+
+    @Test
+    fun `player finished maps personal result and leaderboard`() {
+        val event = mapper.map(
+            GameSocketEvents.PLAYER_FINISHED,
+            """{
+              "player": {
+                "id": 7,
+                "player_score": 2400,
+                "correct_answers_count": 3,
+                "status": "finished"
+              },
+              "leaderboard": [{
+                "rank": 1,
+                "id": 7,
+                "player_name": "Kiro",
+                "player_score": 2400
+              }],
+              "serverTime": "2026-09-27T12:05:00.000Z"
+            }""".trimIndent()
+        )
+
+        assertTrue(event is GameEvent.PlayerFinishedEvent)
+        val finished = (event as GameEvent.PlayerFinishedEvent).finished
+        assertEquals(7L, finished.id)
+        assertEquals(2400, finished.playerScore)
+        assertEquals(3, finished.correctAnswersCount)
+        assertEquals("finished", finished.status)
+        assertEquals(1, finished.leaderboard.single().rank)
+        assertEquals("2026-09-27T12:05:00.000Z", event.serverTime)
+    }
+
+    @Test
     fun `game state restores answered question snapshot`() {
         val event = mapper.map(
             GameSocketEvents.GAME_STATE,

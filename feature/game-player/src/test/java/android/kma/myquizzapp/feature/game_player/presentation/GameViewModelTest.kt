@@ -15,7 +15,9 @@ import android.kma.myquizzapp.core.common.model.LeaderboardRow
 import android.kma.myquizzapp.core.common.model.Pacing
 import android.kma.myquizzapp.core.common.model.PlayerAnswer
 import android.kma.myquizzapp.core.common.model.PlayerAwaitingNext
+import android.kma.myquizzapp.core.common.model.PlayerFinished
 import android.kma.myquizzapp.core.common.model.PlayerQuestionStarted
+import android.kma.myquizzapp.core.common.model.PlayerQuestionTimeout
 import android.kma.myquizzapp.core.common.model.PlayerStateSnapshot
 import android.kma.myquizzapp.core.common.model.PublicAnswerOption
 import android.kma.myquizzapp.core.common.model.PublicQuestion
@@ -226,6 +228,139 @@ class GameViewModelTest {
         assertNull(state.scoreEarned)
         assertNull(state.totalScore)
         assertNull(state.streak)
+    }
+
+    @Test
+    fun `survival ack elimination enters eliminated phase`() = runTest(dispatcher) {
+        socket.submitResult = Result.Success(
+            AnswerAck(
+                accepted = true,
+                lives = 0,
+                eliminated = true,
+                isCorrect = false,
+                scoreEarned = 0,
+                totalScore = 500,
+                streak = 0,
+                correctAnswers = listOf("a")
+            )
+        )
+        startQuestion(pacing = Pacing.SELF)
+        viewModel.onIntent(GameIntent.SelectOption("b"))
+        viewModel.onIntent(GameIntent.Submit)
+        runCurrent()
+
+        val state = viewModel.uiState.value
+        assertEquals(GamePhaseUi.Eliminated, state.phase)
+        assertEquals(0, state.lives)
+        assertTrue(state.isInputLocked)
+        assertFalse(state.shouldShowNextAction)
+    }
+
+    @Test
+    fun `question timeout shows result and updates lives`() = runTest(dispatcher) {
+        startQuestion(pacing = Pacing.SELF)
+        socket.emit(
+            GameEvent.QuestionTimedOut(
+                PlayerQuestionTimeout(
+                    questionIndex = 0,
+                    questionId = 10,
+                    correctAnswers = listOf("a"),
+                    lives = 2
+                )
+            )
+        )
+        runCurrent()
+
+        val state = viewModel.uiState.value
+        assertTrue(state.phase is GamePhaseUi.Results)
+        assertEquals(QuestionOutcome.INCORRECT, state.outcome)
+        assertEquals(listOf("a"), state.results?.correctAnswers)
+        assertEquals(0, state.scoreEarned)
+        assertTrue(state.timedOut)
+        assertFalse(state.wasLate)
+        assertEquals(2, state.lives)
+    }
+
+    @Test
+    fun `question timeout cannot leak hidden answer`() = runTest(dispatcher) {
+        startQuestion(pacing = Pacing.SELF, showCorrectAnswer = false)
+        socket.emit(
+            GameEvent.QuestionTimedOut(
+                PlayerQuestionTimeout(
+                    questionIndex = 0,
+                    correctAnswers = listOf("a"),
+                    lives = 1
+                )
+            )
+        )
+        runCurrent()
+
+        val state = viewModel.uiState.value
+        assertEquals(QuestionOutcome.HIDDEN, state.outcome)
+        assertTrue(state.results?.correctAnswers.orEmpty().isEmpty())
+        assertNull(state.scoreEarned)
+        assertEquals(1, state.lives)
+    }
+
+    @Test
+    fun `question timeout elimination enters eliminated phase`() = runTest(dispatcher) {
+        startQuestion(pacing = Pacing.SELF)
+        socket.emit(
+            GameEvent.QuestionTimedOut(
+                PlayerQuestionTimeout(questionIndex = 0, lives = 0, eliminated = true)
+            )
+        )
+        runCurrent()
+
+        assertEquals(GamePhaseUi.Eliminated, viewModel.uiState.value.phase)
+        assertEquals(0, viewModel.uiState.value.lives)
+    }
+
+    @Test
+    fun `player finished waits for game ended and keeps personal leaderboard`() = runTest(dispatcher) {
+        startQuestion(pacing = Pacing.SELF, showLeaderboard = ShowLeaderboard.END_ONLY)
+        val rows = listOf(LeaderboardRow(1, PLAYER_ID, "Kiro", 2400))
+        socket.emit(
+            GameEvent.PlayerFinishedEvent(
+                PlayerFinished(
+                    id = PLAYER_ID,
+                    playerScore = 2400,
+                    correctAnswersCount = 3,
+                    status = "finished",
+                    leaderboard = rows
+                )
+            )
+        )
+        runCurrent()
+
+        val state = viewModel.uiState.value
+        assertEquals(GamePhaseUi.PlayerFinished, state.phase)
+        assertEquals(2400, state.totalScore)
+        assertEquals(rows, state.leaderboard)
+        assertTrue(state.canShowLiveLeaderboard)
+        assertEquals(0, socket.disconnectCalls)
+    }
+
+    @Test
+    fun `marathon deadline locks input while waiting for server finish`() = runTest(dispatcher) {
+        startQuestion(pacing = Pacing.SELF)
+        socket.emit(
+            GameEvent.QuestionStarted(
+                PlayerQuestionStarted(
+                    question = question(),
+                    matchEndsAt = "2026-09-27T12:05:00Z"
+                )
+            )
+        )
+        runCurrent()
+
+        viewModel.onIntent(GameIntent.MatchDeadlineReached)
+        runCurrent()
+
+        val state = viewModel.uiState.value
+        assertTrue(state.matchTimeExpired)
+        assertTrue(state.isInputLocked)
+        assertTrue(state.phase is GamePhaseUi.Question)
     }
 
     @Test

@@ -46,6 +46,24 @@ data class PlayerAwaitingNext(
     val lives: Int? = null
 )
 
+/** `question:timeout` — server đã chấm câu self-paced là sai do hết giờ. */
+data class PlayerQuestionTimeout(
+    val questionIndex: Int,
+    val questionId: Long? = null,
+    val correctAnswers: List<String> = emptyList(),
+    val lives: Int? = null,
+    val eliminated: Boolean = false
+)
+
+/** `player:finished` — người chơi đã hoàn tất phần chơi riêng trong phòng self-paced. */
+data class PlayerFinished(
+    val id: Long,
+    val playerScore: Int,
+    val correctAnswersCount: Int,
+    val status: String,
+    val leaderboard: List<LeaderboardRow> = emptyList()
+)
+
 /** Một câu đã được server ghi nhận trong `game:state.player.answered_questions`. */
 data class AnsweredQuestionSnapshot(
     val questionId: Long,

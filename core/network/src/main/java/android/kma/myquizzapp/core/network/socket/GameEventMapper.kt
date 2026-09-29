@@ -13,11 +13,13 @@ import android.kma.myquizzapp.core.network.socket.dto.HostLeaderboardDto
 import android.kma.myquizzapp.core.network.socket.dto.HostQuestionDto
 import android.kma.myquizzapp.core.network.socket.dto.LobbyUpdatedDto
 import android.kma.myquizzapp.core.network.socket.dto.PlayerEliminatedDto
+import android.kma.myquizzapp.core.network.socket.dto.PlayerFinishedDto
 import android.kma.myquizzapp.core.network.socket.dto.PlayerLeaderboardDto
 import android.kma.myquizzapp.core.network.socket.dto.QuestionAwaitingNextDto
 import android.kma.myquizzapp.core.network.socket.dto.QuestionLockedDto
 import android.kma.myquizzapp.core.network.socket.dto.QuestionStartedDto
 import android.kma.myquizzapp.core.network.socket.dto.QuestionResultsDto
+import android.kma.myquizzapp.core.network.socket.dto.QuestionTimeoutDto
 import android.kma.myquizzapp.core.network.socket.dto.SocketErrorDto
 import kotlinx.serialization.json.Json
 import timber.log.Timber
@@ -53,6 +55,7 @@ class GameEventMapper @Inject constructor(
         GameSocketEvents.HOST_QUESTION -> mapHostQuestion(payload)
         GameSocketEvents.QUESTION_STARTED -> mapQuestionStarted(payload)
         GameSocketEvents.QUESTION_AWAITING_NEXT -> mapQuestionAwaitingNext(payload)
+        GameSocketEvents.QUESTION_TIMEOUT -> mapQuestionTimeout(payload)
         GameSocketEvents.QUESTION_LOCKED -> mapQuestionLocked(payload)
         GameSocketEvents.QUESTION_RESULTS -> mapQuestionResults(payload)
         GameSocketEvents.ANSWER_RECEIVED -> mapAnswerProgress(payload)
@@ -60,6 +63,7 @@ class GameEventMapper @Inject constructor(
         GameSocketEvents.HOST_ANSWER_RECEIVED -> mapHostAnswerReceived(payload)
         GameSocketEvents.LEADERBOARD_HOST -> mapHostLeaderboard(payload)
         GameSocketEvents.PLAYER_ELIMINATED -> mapPlayerEliminated(payload)
+        GameSocketEvents.PLAYER_FINISHED -> mapPlayerFinished(payload)
         else -> GameEvent.Unhandled(event)
     }
 
@@ -139,6 +143,15 @@ class GameEventMapper @Inject constructor(
         } ?: GameEvent.Failed(GameSocketEvents.QUESTION_AWAITING_NEXT, CODE_CLIENT_PARSE_ERROR)
     }
 
+    private fun mapQuestionTimeout(payload: Any?): GameEvent {
+        val dto = decode(payload, GameSocketEvents.QUESTION_TIMEOUT) {
+            json.decodeFromString(QuestionTimeoutDto.serializer(), it)
+        }
+        return dto?.let {
+            GameEvent.QuestionTimedOut(timeout = it.toDomain(), serverTime = it.serverTime)
+        } ?: GameEvent.Failed(GameSocketEvents.QUESTION_TIMEOUT, CODE_CLIENT_PARSE_ERROR)
+    }
+
     private fun mapQuestionLocked(payload: Any?): GameEvent {
         val dto = decode(payload, GameSocketEvents.QUESTION_LOCKED) {
             json.decodeFromString(QuestionLockedDto.serializer(), it)
@@ -216,6 +229,15 @@ class GameEventMapper @Inject constructor(
         return dto?.let {
             GameEvent.PlayerEliminated(player = it.toDomain(), serverTime = it.serverTime)
         } ?: GameEvent.Failed(GameSocketEvents.PLAYER_ELIMINATED, CODE_CLIENT_PARSE_ERROR)
+    }
+
+    private fun mapPlayerFinished(payload: Any?): GameEvent {
+        val dto = decode(payload, GameSocketEvents.PLAYER_FINISHED) {
+            json.decodeFromString(PlayerFinishedDto.serializer(), it)
+        }
+        return dto?.let {
+            GameEvent.PlayerFinishedEvent(finished = it.toDomain(), serverTime = it.serverTime)
+        } ?: GameEvent.Failed(GameSocketEvents.PLAYER_FINISHED, CODE_CLIENT_PARSE_ERROR)
     }
 
     private fun mapError(payload: Any?): GameEvent {
