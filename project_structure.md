@@ -2,7 +2,7 @@
 
 > **Tài liệu cấu trúc dự án chi tiết**  
 > Mô tả vai trò, trách nhiệm và mối quan hệ giữa các module trong kiến trúc Multi-module Gradle  
-> **Version:** 2.11 | **Last Updated:** 2026-09-27
+> **Version:** 2.12 | **Last Updated:** 2026-09-27
 
 ---
 
@@ -41,7 +41,7 @@ MyQuizApp được xây dựng theo **Multi-module Gradle Architecture** với *
 - `:feature:home` - Quiz discovery, browse public quizzes
 - `:feature:lobby` - Waiting room (Host & Player)
 - `:feature:game-player` - **Gameplay Player host-paced + self-paced qua N22–N28**: Classic, Solo manual-next, Survival lives/elimination, Marathon timer tổng/timeout/finish; typed ACK/reconnect, Final Result và hardening N25
-- `:feature:game-host` - Host control console — **Classic hoàn thành ở N21; self-paced còn N28.5**. Hiện có `HostGameScreen` + `UiState`/`Intent`/`Effect`/`ViewModel` và điều khiển socket host room
+- `:feature:game-host` - Host control console — **Classic/host-paced và dashboard self-paced đã hoàn thành phía Android**. Có `HostGameScreen` + `UiState`/`Intent`/`Effect`/`ViewModel`, điều khiển socket host room và merge progress riêng từng Player
 - `:feature:leaderboard` - **Final Result thật từ N24**: nhận transient `game:ended`, highlight Player hiện tại, fallback khi leaderboard bị ẩn/process recreation
 - `:feature:quiz-manage` - CRUD quizzes (Host only)
 
@@ -846,7 +846,7 @@ dependencies {
 **📦 Module Type:** `com.android.library`
 
 #### Mục đích
-Màn hình điều khiển game phía Host. N21 đã hoàn thiện luồng Classic/host-paced. Dashboard theo dõi tiến độ riêng cho self-paced chưa hoàn chỉnh và được tách thành N28.5.
+Màn hình điều khiển game phía Host. Hỗ trợ cả Classic/host-paced và dashboard self-paced cho Solo/Survival/Marathon; phần realtime chỉ hiển thị dữ liệu server-authoritative thực sự nhận được.
 
 #### Trách nhiệm
 - ✅ HostGameScreen - dashboard theo dõi game
@@ -854,8 +854,8 @@ Màn hình điều khiển game phía Host. N21 đã hoàn thiện luồng Class
 - ✅ Emit host actions: `host:start`, `host:pause`, `host:resume`, `host:next`, `host:end`
 - ✅ Classic: nhận `host:question`, `host:answer-received`, `leaderboard:host`; hiển thị câu/đáp án, submissions và leaderboard realtime
 - ✅ Config update qua `lobby:config-update` (lobby phase only)
-- ⏳ N28.5 self-paced: xử lý `host:player-progress`, `player:finished`, `player:eliminated`; render tiến độ/điểm/lives/status theo từng Player; không giả định câu hỏi chung và không hiện `game:next`
-- ⚠️ Backend gate N28.5: progress hiện thiếu lives/streak, timeout không phát progress và late-join active không refresh `leaderboard:host`; Android không polling hoặc tự suy dữ liệu
+- ✅ Self-paced: xử lý `host:player-progress`, `player:finished`, `player:eliminated`; merge với baseline `leaderboard:host`; render tiến độ/điểm/lives/streak/status theo từng Player; không giả định câu hỏi/timer chung và không hiện `game:next`
+- ⚠️ Backend gate: `host:player-progress` còn thiếu lives/streak; timeout không phát progress/elimination; late-join/reconnect/disconnect active không refresh Host. Client giữ baseline cũ thay vì polling hoặc tự suy dữ liệu
 
 #### Cấu trúc thư mục
 ```
