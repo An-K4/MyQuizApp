@@ -213,6 +213,7 @@ class GameViewModel @Inject constructor(
             }
             is GameEvent.HostQuestionReceived,
             is GameEvent.HostAnswerReceivedEvent,
+            is GameEvent.HostPlayerProgressUpdated,
             is GameEvent.HostLeaderboardUpdated,
             is GameEvent.Unhandled -> Unit
         }
@@ -546,6 +547,7 @@ class GameViewModel @Inject constructor(
         is GameEvent.Unhandled -> null
         is GameEvent.HostQuestionReceived -> serverTime
         is GameEvent.HostAnswerReceivedEvent -> serverTime
+        is GameEvent.HostPlayerProgressUpdated -> serverTime
         is GameEvent.HostLeaderboardUpdated -> serverTime
     }
 

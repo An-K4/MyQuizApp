@@ -18,6 +18,7 @@ import android.kma.myquizzapp.core.common.model.GameSnapshot
 import android.kma.myquizzapp.core.common.model.HostAnswerReceived
 import android.kma.myquizzapp.core.common.model.HostLeaderboard
 import android.kma.myquizzapp.core.common.model.HostLeaderboardRow
+import android.kma.myquizzapp.core.common.model.HostPlayerProgress
 import android.kma.myquizzapp.core.common.model.HostQuestion
 import android.kma.myquizzapp.core.common.model.LeaderboardRow
 import android.kma.myquizzapp.core.common.model.PublicAnswerOption
@@ -319,6 +320,33 @@ data class HostAnswerReceivedDto(
 }
 
 @Serializable
+data class HostPlayerProgressRowDto(
+    val id: Long = 0L,
+    @SerialName("player_name") val playerName: String = "",
+    @SerialName("current_question_index") val currentQuestionIndex: Int = 0,
+    @SerialName("player_score") val playerScore: Int = 0,
+    @SerialName("correct_answers_count") val correctAnswersCount: Int = 0,
+    val status: String = "connected"
+)
+
+@Serializable
+data class HostPlayerProgressDto(
+    val player: HostPlayerProgressRowDto = HostPlayerProgressRowDto(),
+    @SerialName("total_questions") val totalQuestions: Int = 0,
+    val serverTime: String? = null
+) {
+    fun toDomain() = HostPlayerProgress(
+        id = player.id,
+        playerName = player.playerName,
+        currentQuestionIndex = player.currentQuestionIndex,
+        playerScore = player.playerScore,
+        correctAnswersCount = player.correctAnswersCount,
+        status = player.status,
+        totalQuestions = totalQuestions
+    )
+}
+
+@Serializable
 data class HostLeaderboardRowDto(
     val rank: Int = 0,
     val id: Long = 0L,
@@ -513,6 +541,7 @@ data class PlayerEliminatedDto(
 @Serializable
 data class FinishedPlayerDto(
     val id: Long = 0L,
+    @SerialName("player_name") val playerName: String? = null,
     @SerialName("player_score") val playerScore: Int = 0,
     @SerialName("correct_answers_count") val correctAnswersCount: Int = 0,
     val status: String = "finished"
@@ -526,6 +555,7 @@ data class PlayerFinishedDto(
 ) {
     fun toDomain() = PlayerFinished(
         id = player.id,
+        playerName = player.playerName,
         playerScore = player.playerScore,
         correctAnswersCount = player.correctAnswersCount,
         status = player.status,

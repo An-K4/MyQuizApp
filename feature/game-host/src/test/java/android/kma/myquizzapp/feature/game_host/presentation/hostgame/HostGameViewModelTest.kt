@@ -2,14 +2,21 @@ package android.kma.myquizzapp.feature.game_host.presentation.hostgame
 
 import android.kma.myquizzapp.core.common.model.ConfigUpdateAck
 import android.kma.myquizzapp.core.common.model.DisconnectReason
+import android.kma.myquizzapp.core.common.model.EliminatedPlayer
 import android.kma.myquizzapp.core.common.model.GameConfig
 import android.kma.myquizzapp.core.common.model.GameConfigKey
 import android.kma.myquizzapp.core.common.model.GameConfigValue
 import android.kma.myquizzapp.core.common.model.GameEvent
+import android.kma.myquizzapp.core.common.model.GameMode
 import android.kma.myquizzapp.core.common.model.GamePhase
 import android.kma.myquizzapp.core.common.model.GameSnapshot
 import android.kma.myquizzapp.core.common.model.HostAnswerReceived
+import android.kma.myquizzapp.core.common.model.HostLeaderboard
+import android.kma.myquizzapp.core.common.model.HostLeaderboardRow
+import android.kma.myquizzapp.core.common.model.HostPlayerProgress
 import android.kma.myquizzapp.core.common.model.HostQuestion
+import android.kma.myquizzapp.core.common.model.Pacing
+import android.kma.myquizzapp.core.common.model.PlayerFinished
 import android.kma.myquizzapp.core.common.model.PublicAnswerOption
 import android.kma.myquizzapp.core.common.model.PublicQuestion
 import android.kma.myquizzapp.core.common.model.SessionStatus
@@ -109,6 +116,105 @@ class HostGameViewModelTest {
         runCurrent()
         assertFalse(viewModel.uiState.value.hasAnswerKey)
         assertTrue(viewModel.uiState.value.correctAnswers.isEmpty())
+    }
+
+    @Test
+    fun `self paced snapshot ignores fake shared question and deadline`() = runTest(dispatcher) {
+        runCurrent()
+        socket.emit(GameEvent.StateSnapshot(GameSnapshot(
+            sessionStatus = SessionStatus.ACTIVE,
+            phase = GamePhase.QUESTION_ACTIVE,
+            mode = GameMode.SURVIVAL,
+            config = GameConfig(
+                timing = GameConfig.Timing(autoAdvance = false),
+                flow = GameConfig.Flow(pacing = Pacing.SELF, lives = 3)
+            ),
+            index = 4,
+            totalQuestions = 10,
+            question = question(1),
+            endsAt = "2026-09-10T14:02:00.000Z"
+        )))
+        runCurrent()
+
+        val state = viewModel.uiState.value
+        assertTrue(state.isSelfPaced)
+        assertEquals(GameMode.SURVIVAL, state.mode)
+        assertEquals(0, state.index)
+        assertEquals(null, state.question)
+        assertEquals(null, state.deadlineEpochMs)
+        assertFalse(state.isManualAdvanceVisible)
+        assertFalse(state.canRevealAnswer)
+    }
+
+    @Test
+    fun `self paced progress merges into baseline and preserves survival fields`() = runTest(dispatcher) {
+        runCurrent()
+        socket.emit(GameEvent.HostLeaderboardUpdated(HostLeaderboard(
+            rows = listOf(HostLeaderboardRow(
+                rank = 1,
+                id = 31,
+                playerName = "Kiro",
+                playerScore = 1000,
+                answeredCount = 2,
+                correctCount = 2,
+                wrongCount = 0,
+                unansweredCount = 8,
+                totalQuestions = 10,
+                currentQuestionIndex = 2,
+                streak = 2,
+                lives = 3
+            )),
+            totalQuestions = 10,
+            answeredTotal = 2
+        )))
+        socket.emit(GameEvent.HostPlayerProgressUpdated(HostPlayerProgress(
+            id = 31,
+            playerName = "Kiro",
+            currentQuestionIndex = 3,
+            playerScore = 1700,
+            correctAnswersCount = 2,
+            status = "connected",
+            totalQuestions = 10
+        )))
+        runCurrent()
+
+        val state = viewModel.uiState.value
+        val row = state.leaderboard.rows.single()
+        assertEquals(1700, row.playerScore)
+        assertEquals(3, row.answeredCount)
+        assertEquals(2, row.correctCount)
+        assertEquals(1, row.wrongCount)
+        assertEquals(7, row.unansweredCount)
+        assertEquals(2, row.streak)
+        assertEquals(3, row.lives)
+        assertEquals(3, state.leaderboard.answeredTotal)
+    }
+
+    @Test
+    fun `self paced terminal events update host rows`() = runTest(dispatcher) {
+        runCurrent()
+        socket.emit(GameEvent.HostLeaderboardUpdated(HostLeaderboard(
+            rows = listOf(
+                HostLeaderboardRow(1, 31, "Kiro", 1000, lives = 1),
+                HostLeaderboardRow(2, 32, "An", 900, lives = 2)
+            )
+        )))
+        socket.emit(GameEvent.PlayerEliminated(EliminatedPlayer(31, "Kiro")))
+        socket.emit(GameEvent.PlayerFinishedEvent(PlayerFinished(
+            id = 32,
+            playerScore = 2200,
+            correctAnswersCount = 4,
+            status = "finished",
+            playerName = "An"
+        )))
+        runCurrent()
+
+        val rows = viewModel.uiState.value.leaderboard.rows.associateBy { it.id }
+        assertEquals("eliminated", rows.getValue(31).status)
+        assertEquals(0, rows.getValue(31).lives)
+        assertEquals("finished", rows.getValue(32).status)
+        assertEquals(2200, rows.getValue(32).playerScore)
+        assertEquals(4, rows.getValue(32).correctCount)
     }
 
     @Test

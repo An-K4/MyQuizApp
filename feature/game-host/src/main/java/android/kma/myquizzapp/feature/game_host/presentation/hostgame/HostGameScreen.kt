@@ -1,5 +1,6 @@
 package android.kma.myquizzapp.feature.game_host.presentation.hostgame
 
+import android.kma.myquizzapp.core.common.model.GameMode
 import android.kma.myquizzapp.core.common.model.GamePhase
 import android.kma.myquizzapp.core.common.model.HostLeaderboardRow
 import android.kma.myquizzapp.core.common.model.PublicAnswerOption
@@ -41,7 +42,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.delay
 
 /**
- * Màn điều khiển trận của HOST (N21, chỉ mode host-paced).
+ * Màn điều khiển trận của HOST (N21 host-paced, N28.5 self-paced).
  *
  * Nguyên tắc bố cục: **câu hỏi luôn hiện, đáp án ẩn sau nút**. Màn này hay được
  * chiếu lên màn lớn hoặc đặt giữa bàn, nên hiện đáp án mặc định là hỏng trận;
@@ -123,6 +124,9 @@ fun HostGameScreenContent(
 
             if (state.isFinished) {
                 item { FinishedCard(state) }
+            } else if (state.isSelfPaced) {
+                item { SelfPacedOverviewCard(state) }
+                item { ControlRow(state = state, onIntent = onIntent) }
             } else {
                 item { TimerCard(state) }
                 item { QuestionCard(state = state, onIntent = onIntent) }
@@ -132,13 +136,17 @@ fun HostGameScreenContent(
             if (state.leaderboard.rows.isNotEmpty()) {
                 item {
                     Text(
-                        text = "Bảng theo dõi",
+                        text = if (state.isSelfPaced) "Tiến độ người chơi" else "Bảng theo dõi",
                         style = MaterialTheme.typography.titleMedium,
                         modifier = Modifier.padding(top = 8.dp)
                     )
                 }
                 items(state.leaderboard.rows, key = { it.id }) { row ->
-                    HostLeaderboardRowItem(row)
+                    if (state.isSelfPaced) {
+                        SelfPacedPlayerRow(row, state)
+                    } else {
+                        HostLeaderboardRowItem(row)
+                    }
                 }
             } else if (!state.hasSnapshot) {
                 item {
@@ -397,6 +405,74 @@ private fun ControlRow(
             Text("Kết thúc")
         }
     }
+}
+
+@Composable
+private fun SelfPacedOverviewCard(state: HostGameUiState) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Text(modeLabel(state), style = MaterialTheme.typography.titleLarge)
+            Text(
+                "Đang chơi ${state.playingPlayers} · Mất kết nối ${state.disconnectedPlayers} · " +
+                    "Hoàn thành ${state.finishedPlayers} · Bị loại ${state.eliminatedPlayers}"
+            )
+            if (state.isMarathon) {
+                Text(
+                    "Mỗi người có đồng hồ riêng; Host theo dõi số câu đã làm thay vì một timer chung.",
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+        }
+    }
+}
+
+private fun modeLabel(state: HostGameUiState): String = when (state.mode) {
+    GameMode.SOLO -> "Solo — tiến độ riêng"
+    GameMode.SURVIVAL -> "Survival — sinh tồn"
+    GameMode.MARATHON -> "Marathon — chạy đua thời gian"
+    GameMode.PRACTICE -> "Practice — luyện tập"
+    else -> "Self-paced — tiến độ riêng"
+}
+
+@Composable
+private fun SelfPacedPlayerRow(row: HostLeaderboardRow, state: HostGameUiState) {
+    val total = row.totalQuestions.takeIf { it > 0 } ?: state.totalQuestions
+    val progress = when {
+        state.isMarathon -> "Đã làm ${row.answeredCount} câu"
+        row.status == "finished" || row.status == "eliminated" -> {
+            if (total > 0) "Đã làm ${row.answeredCount}/$total câu" else "Đã làm ${row.answeredCount} câu"
+        }
+        total > 0 -> "Đang ở câu ${(row.currentQuestionIndex + 1).coerceAtMost(total)}/$total"
+        else -> "Đã làm ${row.answeredCount} câu"
+    }
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(row.playerName, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                Text("${row.playerScore} điểm", fontWeight = FontWeight.Bold)
+            }
+            Text("$progress · ${playerStatusLabel(row.status)}", style = MaterialTheme.typography.bodyMedium)
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("Đúng ${row.correctCount} · Sai ${row.wrongCount}", style = MaterialTheme.typography.bodySmall)
+                row.lives?.let { Text("Mạng $it", style = MaterialTheme.typography.bodySmall) }
+                if (row.streak > 0) Text("Chuỗi ${row.streak}", style = MaterialTheme.typography.bodySmall)
+            }
+        }
+    }
+}
+
+private fun playerStatusLabel(status: String): String = when (status) {
+    "connected" -> "Đang chơi"
+    "disconnected" -> "Mất kết nối"
+    "finished" -> "Đã hoàn thành"
+    "eliminated" -> "Đã bị loại"
+    else -> status
 }
 
 @Composable

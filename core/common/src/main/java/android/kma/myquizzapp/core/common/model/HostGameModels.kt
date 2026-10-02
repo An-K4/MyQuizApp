@@ -164,6 +164,17 @@ data class HostAnswerReceived(
     val isCorrect: Boolean
 )
 
+/** `host:player-progress` — cập nhật gia tăng của một Player self-paced. */
+data class HostPlayerProgress(
+    val id: Long,
+    val playerName: String,
+    val currentQuestionIndex: Int,
+    val playerScore: Int,
+    val correctAnswersCount: Int,
+    val status: String,
+    val totalQuestions: Int
+)
+
 /**
  * Một dòng trong bảng theo dõi của host (`HostLeaderboardRow`).
  *

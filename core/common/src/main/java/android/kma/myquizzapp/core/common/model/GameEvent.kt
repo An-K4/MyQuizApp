@@ -124,6 +124,12 @@ sealed interface GameEvent {
         val serverTime: String? = null
     ) : GameEvent
 
+    /** `host:player-progress` — tiến độ gia tăng của một Player self-paced. */
+    data class HostPlayerProgressUpdated(
+        val progress: HostPlayerProgress,
+        val serverTime: String? = null
+    ) : GameEvent
+
     /** `leaderboard:host` — bảng theo dõi đầy đủ, luôn được gửi cho host. */
     data class HostLeaderboardUpdated(
         val leaderboard: HostLeaderboard,

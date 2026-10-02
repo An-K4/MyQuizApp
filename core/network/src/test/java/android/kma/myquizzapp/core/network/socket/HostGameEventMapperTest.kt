@@ -187,6 +187,58 @@ class HostGameEventMapperTest {
     }
 
     @Test
+    fun `host player progress doc dung payload self paced`() {
+        val payload = """
+            {
+              "player": {
+                "id": 31,
+                "player_name": "Kiro",
+                "current_question_index": 4,
+                "player_score": 2400,
+                "correct_answers_count": 3,
+                "status": "connected"
+              },
+              "total_questions": 10,
+              "serverTime": "2026-09-10T14:00:30.000Z"
+            }
+        """.trimIndent()
+
+        val event = mapper.map(GameSocketEvents.HOST_PLAYER_PROGRESS, payload)
+            as GameEvent.HostPlayerProgressUpdated
+
+        assertEquals(31L, event.progress.id)
+        assertEquals("Kiro", event.progress.playerName)
+        assertEquals(4, event.progress.currentQuestionIndex)
+        assertEquals(2400, event.progress.playerScore)
+        assertEquals(3, event.progress.correctAnswersCount)
+        assertEquals(10, event.progress.totalQuestions)
+        assertEquals("2026-09-10T14:00:30.000Z", event.serverTime)
+    }
+
+    @Test
+    fun `player finished giu ten nguoi choi cho man host`() {
+        val payload = """
+            {
+              "player": {
+                "id": 31,
+                "player_name": "Kiro",
+                "player_score": 4200,
+                "correct_answers_count": 5,
+                "status": "finished"
+              }
+            }
+        """.trimIndent()
+
+        val finished = (mapper.map(GameSocketEvents.PLAYER_FINISHED, payload)
+            as GameEvent.PlayerFinishedEvent).finished
+
+        assertEquals(31L, finished.id)
+        assertEquals("Kiro", finished.playerName)
+        assertEquals(4200, finished.playerScore)
+        assertEquals("finished", finished.status)
+    }
+
+    @Test
     fun `leaderboard host doc du bo dem tung nguoi choi`() {
         val payload = """
             {

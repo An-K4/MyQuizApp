@@ -4,6 +4,7 @@ import android.kma.myquizzapp.core.common.model.GameEnded
 import android.kma.myquizzapp.core.common.model.GameMode
 import android.kma.myquizzapp.core.common.model.GamePhase
 import android.kma.myquizzapp.core.common.model.HostLeaderboard
+import android.kma.myquizzapp.core.common.model.Pacing
 import android.kma.myquizzapp.core.common.model.PublicQuestion
 import android.kma.myquizzapp.core.common.model.QuestionLockReason
 import android.kma.myquizzapp.core.common.model.QuestionResults
@@ -43,6 +44,7 @@ data class HostGameUiState(
     val sessionStatus: SessionStatus? = null,
     val phase: GamePhase = GamePhase.UNKNOWN,
     val mode: GameMode? = null,
+    val pacing: Pacing = Pacing.HOST,
 
     /** Lấy từ `config.timing.autoAdvance`. Mặc định true đúng như backend. */
     val autoAdvance: Boolean = true,
@@ -85,7 +87,15 @@ data class HostGameUiState(
 
     val isPaused: Boolean get() = sessionStatus == SessionStatus.PAUSED
 
-    val hasSnapshot: Boolean get() = question != null || ended != null
+    val isSelfPaced: Boolean get() = pacing == Pacing.SELF
+    val isMarathon: Boolean get() = mode == GameMode.MARATHON
+    val hasSnapshot: Boolean
+        get() = question != null || leaderboard.rows.isNotEmpty() || ended != null
+
+    val playingPlayers: Int get() = leaderboard.rows.count { it.status == STATUS_CONNECTED }
+    val disconnectedPlayers: Int get() = leaderboard.rows.count { it.status == STATUS_DISCONNECTED }
+    val finishedPlayers: Int get() = leaderboard.rows.count { it.status == STATUS_FINISHED }
+    val eliminatedPlayers: Int get() = leaderboard.rows.count { it.status == STATUS_ELIMINATED }
 
     private val isOnline: Boolean get() = connection == HostGameConnection.CONNECTED
 
@@ -94,7 +104,7 @@ data class HostGameUiState(
         get() = if (phase == GamePhase.QUESTION_ACTIVE) "Chốt câu" else "Câu tiếp"
 
     /** Chỉ render nút chuyển câu khi phòng KHÔNG tự chuyển — xem ghi chú (3). */
-    val isManualAdvanceVisible: Boolean get() = !autoAdvance && !isFinished
+    val isManualAdvanceVisible: Boolean get() = !isSelfPaced && !autoAdvance && !isFinished
 
     /**
      * `game:next` bị backend trả 409 khi đang đếm ngược, nên chặn sẵn ở client.
@@ -120,13 +130,21 @@ data class HostGameUiState(
             sessionStatus != null && sessionStatus != SessionStatus.LOBBY
 
     /** Để UI biết có nên cho bấm "Xem đáp án" hay hiện lời giải thích vì sao không có. */
-    val canRevealAnswer: Boolean get() = hasAnswerKey && question != null
+    val canRevealAnswer: Boolean get() = !isSelfPaced && hasAnswerKey && question != null
 
     val questionNumberLabel: String
         get() {
+            if (isSelfPaced) return "Theo dõi tiến độ"
             val total = if (totalQuestions > 0) totalQuestions else question?.total ?: 0
             return if (total > 0) "Câu ${index + 1}/$total" else "Câu ${index + 1}"
         }
 
     val answeredLabel: String get() = "Đã trả lời $answeredCount/$activePlayers"
+
+    private companion object {
+        const val STATUS_CONNECTED = "connected"
+        const val STATUS_DISCONNECTED = "disconnected"
+        const val STATUS_FINISHED = "finished"
+        const val STATUS_ELIMINATED = "eliminated"
+    }
 }

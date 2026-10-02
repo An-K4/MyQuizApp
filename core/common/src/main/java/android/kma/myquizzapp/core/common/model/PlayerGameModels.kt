@@ -61,7 +61,8 @@ data class PlayerFinished(
     val playerScore: Int,
     val correctAnswersCount: Int,
     val status: String,
-    val leaderboard: List<LeaderboardRow> = emptyList()
+    val leaderboard: List<LeaderboardRow> = emptyList(),
+    val playerName: String? = null
 )
 
 /** Một câu đã được server ghi nhận trong `game:state.player.answered_questions`. */

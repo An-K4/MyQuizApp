@@ -3,6 +3,8 @@ package android.kma.myquizzapp.feature.game_host.presentation.hostgame
 import android.kma.myquizzapp.core.common.model.DisconnectReason
 import android.kma.myquizzapp.core.common.model.GameEvent
 import android.kma.myquizzapp.core.common.model.GamePhase
+import android.kma.myquizzapp.core.common.model.HostLeaderboardRow
+import android.kma.myquizzapp.core.common.model.Pacing
 import android.kma.myquizzapp.core.common.model.SessionStatus
 import android.kma.myquizzapp.core.common.repository.HostGameSocketRepository
 import androidx.lifecycle.SavedStateHandle
@@ -25,7 +27,7 @@ import java.time.Instant
 import javax.inject.Inject
 
 /**
- * ViewModel của màn điều khiển trận (HOST). Phạm vi N21: mode host-paced.
+ * ViewModel của màn điều khiển trận (HOST): host-paced từ N21, self-paced từ N28.5.
  *
  * Về bản chất đây là một máy trạng thái bám theo `current_phase` của server. Nguyên
  * tắc xương sống: **server là nguồn sự thật duy nhất**. Client không bao giờ tự
@@ -129,6 +131,7 @@ class HostGameViewModel @Inject constructor(
             is GameEvent.LobbyUpdated -> _uiState.update {
                 it.copy(
                     sessionStatus = event.lobby.sessionStatus,
+                    pacing = event.lobby.config.flow.pacing,
                     autoAdvance = event.lobby.config.timing.autoAdvance,
                     serverOffsetMs = offsetOf(event.lobby.serverTime, it.serverOffsetMs)
                 )
@@ -137,6 +140,7 @@ class HostGameViewModel @Inject constructor(
             is GameEvent.GameStarted -> _uiState.update {
                 it.copy(
                     mode = event.mode,
+                    pacing = event.config.flow.pacing,
                     autoAdvance = event.config.timing.autoAdvance,
                     totalQuestions = event.totalQuestions,
                     sessionStatus = SessionStatus.ACTIVE,
@@ -149,10 +153,12 @@ class HostGameViewModel @Inject constructor(
             is GameEvent.QuestionLocked -> onQuestionLocked(event)
             is GameEvent.QuestionResultsReceived -> onQuestionResults(event)
             is GameEvent.HostAnswerReceivedEvent -> onAnswerReceived(event)
+            is GameEvent.HostPlayerProgressUpdated -> onPlayerProgress(event)
             is GameEvent.HostLeaderboardUpdated -> onLeaderboard(event)
             is GameEvent.StateSnapshot -> onSnapshot(event)
             is GameEvent.GameEndedEvent -> onGameEnded(event)
             is GameEvent.PlayerEliminated -> onPlayerEliminated(event)
+            is GameEvent.PlayerFinishedEvent -> onPlayerFinished(event)
             is GameEvent.Failed -> onFailure(event)
 
             // `question:started`, `answer:received`, `leaderboard:updated`... là bản dành
@@ -281,6 +287,44 @@ class HostGameViewModel @Inject constructor(
         }
     }
 
+    private fun onPlayerProgress(event: GameEvent.HostPlayerProgressUpdated) {
+        val progress = event.progress
+        _uiState.update { state ->
+            val total = progress.totalQuestions.takeIf { it > 0 } ?: state.totalQuestions
+            val existing = state.leaderboard.rows.firstOrNull { it.id == progress.id }
+            val answered = progress.currentQuestionIndex.coerceAtLeast(0)
+            val updated = (existing ?: HostLeaderboardRow(
+                rank = 0,
+                id = progress.id,
+                playerName = progress.playerName,
+                playerScore = progress.playerScore
+            )).copy(
+                playerName = progress.playerName.ifBlank { existing?.playerName.orEmpty() },
+                playerScore = progress.playerScore,
+                answeredCount = answered,
+                correctCount = progress.correctAnswersCount,
+                wrongCount = (answered - progress.correctAnswersCount).coerceAtLeast(0),
+                unansweredCount = (total - answered).coerceAtLeast(0),
+                totalQuestions = total,
+                currentQuestionIndex = progress.currentQuestionIndex,
+                status = progress.status
+            )
+            val rows = state.leaderboard.rows
+                .filterNot { it.id == progress.id }
+                .plus(updated)
+                .sortedByDescending { it.playerScore }
+            state.copy(
+                leaderboard = state.leaderboard.copy(
+                    rows = rows,
+                    totalQuestions = total,
+                    answeredTotal = rows.sumOf { it.answeredCount }
+                ),
+                totalQuestions = total,
+                serverOffsetMs = offsetOf(event.serverTime, state.serverOffsetMs)
+            )
+        }
+    }
+
     private fun onLeaderboard(event: GameEvent.HostLeaderboardUpdated) {
         _uiState.update {
             it.copy(
@@ -298,31 +342,34 @@ class HostGameViewModel @Inject constructor(
     /**
      * Dựng lại màn hình từ `game:state` sau reconnect.
      *
-     * Câu hỏi ở đây là bản công khai nên đáp án phải lấy từ cache; nếu cache không
-     * có (ví dụ host vừa mở lại app giữa trận) thì chịu, UI sẽ nói rõ là chưa có đáp
-     * án cho câu này chứ không giả vở.
+     * Với host-paced, câu hỏi ở đây là bản công khai nên đáp án phải lấy từ cache;
+     * nếu cache không có thì UI nói rõ là chưa có đáp án. Với self-paced, các field
+     * question/index/endsAt cấp session không đại diện cho từng player nên bị bỏ.
      */
     private fun onSnapshot(event: GameEvent.StateSnapshot) {
         val snapshot = event.snapshot
-        _uiState.update {
-            it.copy(
-                sessionStatus = snapshot.sessionStatus ?: it.sessionStatus,
-                phase = if (snapshot.phase == GamePhase.UNKNOWN) it.phase else snapshot.phase,
-                mode = snapshot.mode ?: it.mode,
-                autoAdvance = snapshot.config?.timing?.autoAdvance ?: it.autoAdvance,
-                index = snapshot.index,
+        _uiState.update { state ->
+            val pacing = snapshot.config?.flow?.pacing ?: state.pacing
+            val selfPaced = pacing == Pacing.SELF
+            state.copy(
+                sessionStatus = snapshot.sessionStatus ?: state.sessionStatus,
+                phase = if (snapshot.phase == GamePhase.UNKNOWN) state.phase else snapshot.phase,
+                mode = snapshot.mode ?: state.mode,
+                pacing = pacing,
+                autoAdvance = snapshot.config?.timing?.autoAdvance ?: state.autoAdvance,
+                index = if (selfPaced) 0 else snapshot.index,
                 totalQuestions = if (snapshot.totalQuestions > 0) {
                     snapshot.totalQuestions
                 } else {
-                    it.totalQuestions
+                    state.totalQuestions
                 },
-                question = snapshot.question ?: it.question,
-                correctAnswers = answerKeysByIndex[snapshot.index].orEmpty(),
-                hasAnswerKey = answerKeysByIndex.containsKey(snapshot.index),
+                question = if (selfPaced) null else snapshot.question ?: state.question,
+                correctAnswers = if (selfPaced) emptyList() else answerKeysByIndex[snapshot.index].orEmpty(),
+                hasAnswerKey = !selfPaced && answerKeysByIndex.containsKey(snapshot.index),
                 isAnswerRevealed = false,
-                deadlineEpochMs = snapshot.endsAt?.let(::epochMillisOrNull),
+                deadlineEpochMs = if (selfPaced) null else snapshot.endsAt?.let(::epochMillisOrNull),
                 countdownTargetEpochMs = snapshot.countdownStartsAt?.let(::epochMillisOrNull),
-                serverOffsetMs = offsetOf(event.serverTime, it.serverOffsetMs),
+                serverOffsetMs = offsetOf(event.serverTime, state.serverOffsetMs),
                 isSendingCommand = false
             )
         }
@@ -344,8 +391,41 @@ class HostGameViewModel @Inject constructor(
     }
 
     private fun onPlayerEliminated(event: GameEvent.PlayerEliminated) {
-        _uiState.update {
-            it.copy(notice = "${event.player.playerName} đã bị loại")
+        _uiState.update { state ->
+            val rows = state.leaderboard.rows.map { row ->
+                if (row.id == event.player.id) row.copy(status = STATUS_ELIMINATED, lives = 0) else row
+            }
+            state.copy(
+                leaderboard = state.leaderboard.copy(rows = rows),
+                notice = "${event.player.playerName} đã bị loại",
+                serverOffsetMs = offsetOf(event.serverTime, state.serverOffsetMs)
+            )
+        }
+    }
+
+    private fun onPlayerFinished(event: GameEvent.PlayerFinishedEvent) {
+        val finished = event.finished
+        _uiState.update { state ->
+            val existing = state.leaderboard.rows.firstOrNull { it.id == finished.id }
+            val updated = (existing ?: HostLeaderboardRow(
+                rank = 0,
+                id = finished.id,
+                playerName = finished.playerName.orEmpty(),
+                playerScore = finished.playerScore
+            )).copy(
+                playerName = finished.playerName ?: existing?.playerName.orEmpty(),
+                playerScore = finished.playerScore,
+                correctCount = finished.correctAnswersCount,
+                status = finished.status
+            )
+            val rows = state.leaderboard.rows
+                .filterNot { it.id == finished.id }
+                .plus(updated)
+                .sortedByDescending { it.playerScore }
+            state.copy(
+                leaderboard = state.leaderboard.copy(rows = rows),
+                serverOffsetMs = offsetOf(event.serverTime, state.serverOffsetMs)
+            )
         }
     }
 
@@ -452,6 +532,7 @@ class HostGameViewModel @Inject constructor(
     private companion object {
         const val KEY_SOCKET_TOKEN = "socketToken"
         const val CODE_RECONNECT_EXHAUSTED = "CLIENT_RECONNECT_EXHAUSTED"
+        const val STATUS_ELIMINATED = "eliminated"
 
         /**
          * Hạn mở lại nút sau khi gửi lệnh không ack. Đủ dài để chặn bấm đúp, đủ
