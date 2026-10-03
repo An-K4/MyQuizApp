@@ -781,12 +781,6 @@ class SocketGameDataSource @Inject constructor(
 <td>không</td>
 <td>yêu cầu server gửi lại state hiện tại (dùng khi resume app)</td>
 </tr>
-<tr>
-<td>`game:review`</td>
-<td>Player</td>
-<td>không</td>
-<td>xem lại đáp án đã làm (practice/solo có `reviewMode`)</td>
-</tr>
 </table>
 ### 5.3. Bảng event **server → client** (đầy đủ, tách theo room)
 <table header-row="true">
@@ -881,11 +875,6 @@ class SocketGameDataSource @Inject constructor(
 <td>player hoàn thành hết câu hỏi (self-paced)</td>
 </tr>
 <tr>
-<td>`game:review`</td>
-<td>Player</td>
-<td>trả lại danh sách câu đã làm + đáp án đúng (nếu `reviewMode`)</td>
-</tr>
-<tr>
 <td>`game:ended`</td>
 <td>cả room</td>
 <td>kết quả cuối cùng</td>
@@ -972,7 +961,7 @@ Lưu `socketToken` (KHÔNG lưu vào DataStore lâu dài — nó có TTL ngắn 
 <tr>
 <td>`practice`</td>
 <td>`self`</td>
-<td>`basePoints=0` (điểm luôn = 0, có ý đồ), luôn hiện đáp án đúng, dùng để luyện tập</td>
+<td>Nhiều Player có thể cùng chơi nhưng tiến độ độc lập; mặc định `basePoints=0`, không speed bonus/timer/countdown, auto-advance, luôn reveal, không leaderboard. Streak vẫn tăng theo chuỗi đúng. Sau khi game kết thúc, breakdown lấy qua REST review.</td>
 </tr>
 </table>
 Toàn bộ config này (`scoring`, `timing`, `lobby`, `flow`) đều có thể bị Host **patch một phần** qua `lobby:config-update` trước khi start — vì vậy **không hardcode logic theo mode ở Android**, mà đọc `GameConfig` nhận được từ `game:started`/`game:state` để quyết định UI (ẩn/hiện timer, ẩn/hiện nút "Next", có hiện leaderboard giữa câu hay không...).
@@ -1186,6 +1175,7 @@ interface GameSessionRepository { // REST phần tạo/join phòng
     suspend fun getHostToken(gameId: Long): Result<String, AppError>
     suspend fun getLeaderboard(gameId: Long): Result<List<PlayerScore>, AppError>
     suspend fun getResults(gameId: Long): Result<GameResults, AppError>
+    suspend fun getGameReview(gameId: Long, socketToken: String): Result<GameReview, AppError> // N29: GET /games/{id}/review
 }
 
 // 📁 feature:game-player/domain/repository/PlayerGameSocketRepository.kt (CỤC BỘ — không nâng lên core:common)
@@ -1195,8 +1185,8 @@ interface PlayerGameSocketRepository {
     fun disconnect()
     suspend fun submitAnswer(answer: AnswerPayload): AnswerAck
     fun requestNext()                     // question:next (self-paced)
-    fun requestReview()                   // game:review
     fun requestSync()                     // player:sync
+    // Review không đi qua Socket; dùng GameSessionRepository.getGameReview() sau game:ended.
 }
 
 // 📁 feature:game-host/domain/repository/HostGameSocketRepository.kt (CỤC BỘ — không nâng lên core:common)
@@ -1681,6 +1671,16 @@ Avatar và logo vẽ bằng `Image` chứ không `Icon`, vì `Icon` nhuộm nộ
 - `answer:received` chỉ cập nhật progress đã trả lời/tổng player active, không chứa đúng-sai. `question:results` là nguồn kết quả giữa câu; `leaderboard:updated` là snapshot thay thế, không cộng dồn.
 - Visibility phải bám config server: `between_questions` chỉ hiện bảng trong Results; `end_only`/`never` không hiện rank/score live. Khi `showCorrectAnswer=false`, reducer xóa answer key + distribution và dùng outcome trung tính trước khi state tới UI.
 - Pause/resume Player không có event riêng: đọc `sessionStatus` từ `game:state`, khóa input ở cả UI và ViewModel; resume chỉ mở nếu câu còn active và Player chưa submit.
+
+### 11.10. Cập nhật 3/10 (N29) — Practice + post-game review
+
+- Practice vẫn là self-paced nhiều Player: từng Player có `current_question_index` và shuffled order riêng; score luôn 0 theo `basePoints=0`, nhưng streak vẫn server-authoritative.
+- Review **không phải Socket event**. Sau `game:ended`, gọi `GET /games/{id}/review` với header `x-socket-token`; chỉ hợp lệ khi game đã kết thúc và `reviewMode=true`. Response `data.review` gồm thống kê Player và `items` cho toàn bộ câu (Marathon có thể có item lặp theo vòng), kèm lựa chọn, đáp án đúng, explanation, trạng thái late, time và score.
+- `StoredGameResult` truyền `mode` + `socketToken` giữa Gameplay và Final Result bằng in-memory repository. Không đưa socket token vào `Route.FinalResult`, Bundle, DataStore hoặc log.
+- Review dùng Retrofit preserve-case riêng, không CookieJar/`TokenAuthenticator`; nếu dùng authenticated client chung, `401 GAME_TOKEN_INVALID` có thể kích hoạt refresh cookie/logout sai ngữ cảnh. Logger phải redact `x-socket-token`, Cookie, Set-Cookie và Authorization.
+- `FinalResultViewModel` lazy-load review và expose loading/error/retry; UI sắp câu bỏ qua/sai lên trước, hiển thị ảnh, đáp án Player/đúng, explanation, thời gian và điểm; review lỗi không làm mất bảng kết quả cuối.
+- Unit test tối thiểu: DTO mixed naming/envelope; success/error/retry/no-token của ViewModel; regression handoff từ `game:ended`. Happy case đã pass ở commit `499297c`.
+- ⚠️ Backend blocker đã phát hiện khi E2E: Host pause/resume broadcast shared `game:state` theo `session.current_question_index` thay vì progress/order riêng của Player, khiến UI nhảy về câu 1 nhưng answer tiếp theo được server chấm theo index cũ. Không workaround phía Android; sau backend fix phải retest giữ đúng question id/index, option order, answer, auto-advance/manual-next, reconnect/sync và review.
 
 ## 12. Dependency Injection — Hilt Modules
 <table header-row="true">

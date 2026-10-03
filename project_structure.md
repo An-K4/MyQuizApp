@@ -138,6 +138,7 @@ Cung cấp hạ tầng networking dùng chung cho toàn app: Retrofit với Cook
 
 #### Trách nhiệm
 - ✅ Configure `OkHttpClient` với `CookieJar` + `Authenticator` (401 auto-refresh)
+- ✅ N29: HTTP client public preserve-case riêng cho `GET /games/{id}/review`, không cookie/Authenticator; redact `x-socket-token`, Cookie, Set-Cookie và Authorization khỏi log
 - ✅ Configure `Retrofit` với base URL theo build variant
 - ✅ Định nghĩa các `ApiService` interfaces (Auth, User, Quiz, Game, Storage)
 - ✅ **Implement** `AuthRepository`, `QuizRepository`, `GameSessionRepository` (interface ở `core:common`)
@@ -914,30 +915,34 @@ dependencies {
 **📦 Module Type:** `com.android.library`
 
 #### Mục đích
-Sở hữu màn kết quả cuối game. Leaderboard giữa câu vẫn nằm trong Gameplay Player; N24 truyền kết quả cuối từ `game:ended` qua repository boundary dùng chung.
+Sở hữu màn kết quả cuối game. Leaderboard giữa câu vẫn nằm trong Gameplay Player; N24 truyền kết quả cuối từ `game:ended` qua repository boundary dùng chung, N29 bổ sung breakdown post-game từ REST review.
 
 #### Trách nhiệm
 - ✅ N24: `FinalResultScreen` + `FinalResultViewModel` + contract riêng
 - ✅ Đọc `StoredGameResult` transient do Gameplay lưu từ payload `game:ended`
+- ✅ N29: `StoredGameResult` mang thêm `mode` + `socketToken` chỉ trong memory; token không đi qua route/Bundle/DataStore
 - ✅ Hiển thị bảng cuối, rank/score và highlight Player hiện tại
-- ✅ Fallback an toàn khi leaderboard rỗng hoặc process recreation làm mất transient result
-- ⏳ REST fallback, breakdown từng câu và share result chưa thuộc N24
+- ✅ N29: lazy-load `GET /games/{id}/review` sau khi kết thúc; loading/error/retry; ưu tiên câu bỏ qua/sai; render ảnh, đáp án Player/đúng, explanation, time và score
+- ✅ Fallback an toàn khi leaderboard rỗng, review lỗi hoặc process recreation làm mất transient result/token
+- ⏳ Share result chưa thuộc N29
 
 #### Cấu trúc thư mục
 ```
 feature/leaderboard/
 ├── src/main/java/.../feature/leaderboard/
+│   ├── domain/usecase/
+│   │   └── LoadGameReviewUseCase.kt      # N29 - post-game REST review
 │   └── presentation/
-│       ├── FinalResultScreen.kt          # N24 - stateful + stateless content
-│       ├── FinalResultViewModel.kt       # đọc GameResultRepository
-│       └── FinalResultContract.kt        # UiState
+│       ├── FinalResultScreen.kt          # N24 + N29 review breakdown
+│       ├── FinalResultViewModel.kt       # result transient + lazy review
+│       └── FinalResultContract.kt        # UiState + Intent retry
 └── build.gradle.kts
 ```
 
 #### Phụ thuộc
 ```kotlin
 dependencies {
-    implementation(project(":core:common"))    // GameSessionRepository
+    implementation(project(":core:common"))    // GameSessionRepository + GameReview models
     implementation(project(":core:ui"))
 }
 ```
