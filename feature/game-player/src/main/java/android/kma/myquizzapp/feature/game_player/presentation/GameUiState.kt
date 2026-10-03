@@ -1,5 +1,6 @@
 package android.kma.myquizzapp.feature.game_player.presentation
 
+import android.kma.myquizzapp.core.common.model.GameMode
 import android.kma.myquizzapp.core.common.model.LeaderboardRow
 import android.kma.myquizzapp.core.common.model.Pacing
 import android.kma.myquizzapp.core.common.model.PublicQuestion
@@ -27,6 +28,7 @@ data class GameUiState(
     val connection: GameConnection = GameConnection.CONNECTING,
     val playerId: Long? = null,
     val sessionStatus: SessionStatus? = null,
+    val mode: GameMode? = null,
     val pacing: Pacing = Pacing.HOST,
     val autoAdvance: Boolean = true,
     val showCorrectAnswer: Boolean? = null,

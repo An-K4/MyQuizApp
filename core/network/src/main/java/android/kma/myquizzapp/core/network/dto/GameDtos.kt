@@ -9,17 +9,21 @@ import android.kma.myquizzapp.core.common.model.GameConfigKey
 import android.kma.myquizzapp.core.common.model.GameConfigValue
 import android.kma.myquizzapp.core.common.model.GameMode
 import android.kma.myquizzapp.core.common.model.GameModeDescriptor
+import android.kma.myquizzapp.core.common.model.GameReview
+import android.kma.myquizzapp.core.common.model.GameReviewItem
 import android.kma.myquizzapp.core.common.model.GameSession
 import android.kma.myquizzapp.core.common.model.IgnoredGameConfigField
 import android.kma.myquizzapp.core.common.model.IgnoredGameConfigReason
 import android.kma.myquizzapp.core.common.model.JoinRoomResult
 import android.kma.myquizzapp.core.common.model.JoinedPlayer
 import android.kma.myquizzapp.core.common.model.Pacing
+import android.kma.myquizzapp.core.common.model.PublicAnswerOption
 import android.kma.myquizzapp.core.common.model.RoomLookup
 import android.kma.myquizzapp.core.common.model.SessionStatus
 import android.kma.myquizzapp.core.network.socket.dto.LobbyPlayerDto
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
@@ -291,6 +295,79 @@ data class JoinedPlayerDto(
         playerAvatar = playerAvatar,
         lives = lives
     )
+}
+
+@Serializable
+data class GameReviewResponseDto(val review: GameReviewDto)
+
+@Serializable
+data class GameReviewDto(
+    @SerialName("player_score") val playerScore: Int = 0,
+    @SerialName("correct_answers_count") val correctAnswersCount: Int = 0,
+    @SerialName("total_questions") val totalQuestions: Int = 0,
+    @SerialName("answered_count") val answeredCount: Int = 0,
+    val items: List<GameReviewItemDto> = emptyList(),
+    val serverTime: String? = null
+) {
+    fun toDomain() = GameReview(
+        playerScore = playerScore,
+        correctAnswersCount = correctAnswersCount,
+        totalQuestions = totalQuestions,
+        answeredCount = answeredCount,
+        items = items.map { it.toDomain() },
+        serverTime = serverTime
+    )
+}
+
+@Serializable
+data class GameReviewItemDto(
+    @SerialName("question_index") val questionIndex: Int = 0,
+    @SerialName("question_id") val questionId: Long? = null,
+    @SerialName("question_text") val questionText: String? = null,
+    @SerialName("question_image") val questionImage: String? = null,
+    @SerialName("answer_options") val answerOptions: List<JsonElement>? = null,
+    val explanation: String? = null,
+    val answered: Boolean = false,
+    @SerialName("your_answer") val yourAnswer: JsonElement? = null,
+    @SerialName("correct_answer") val correctAnswer: JsonElement? = null,
+    @SerialName("is_correct") val isCorrect: Boolean = false,
+    @SerialName("is_late") val isLate: Boolean = false,
+    @SerialName("score_earned") val scoreEarned: Int = 0,
+    @SerialName("time_taken") val timeTaken: Double? = null
+) {
+    fun toDomain() = GameReviewItem(
+        questionIndex = questionIndex,
+        questionId = questionId,
+        questionText = questionText,
+        questionImage = questionImage,
+        answerOptions = answerOptions.orEmpty().mapIndexed { index, raw -> raw.toReviewOption(index) },
+        explanation = explanation,
+        answered = answered,
+        yourAnswers = yourAnswer.toReviewKeys(),
+        correctAnswers = correctAnswer.toReviewKeys(),
+        isCorrect = isCorrect,
+        isLate = isLate,
+        scoreEarned = scoreEarned,
+        timeTakenSeconds = timeTaken
+    )
+}
+
+private fun JsonElement?.toReviewKeys(): List<String> = when (this) {
+    null, JsonNull -> emptyList()
+    is JsonArray -> mapNotNull { element -> element.toReviewKey().takeIf { it.isNotBlank() } }
+    else -> listOfNotNull(toReviewKey().takeIf { it.isNotBlank() })
+}
+
+private fun JsonElement.toReviewKey(): String =
+    if (this is JsonPrimitive) content else toString()
+
+private fun JsonElement.toReviewOption(index: Int): PublicAnswerOption {
+    if (this !is JsonObject) return PublicAnswerOption(index.toString(), toReviewKey())
+    val id = this["id"]?.toReviewKey()?.takeIf { it.isNotBlank() } ?: index.toString()
+    val text = (this["option_text"] ?: this["text"])
+        ?.let { value -> (value as? JsonPrimitive)?.content }
+        ?.takeIf { it.isNotBlank() }
+    return PublicAnswerOption(id = id, text = text)
 }
 
 internal fun String.toConfigKey(): GameConfigKey? = when (this) {

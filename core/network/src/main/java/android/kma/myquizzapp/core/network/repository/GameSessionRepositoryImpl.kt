@@ -3,18 +3,21 @@ package android.kma.myquizzapp.core.network.repository
 import android.kma.myquizzapp.core.common.model.CreateGameSessionParams
 import android.kma.myquizzapp.core.common.model.CreateGameSessionResult
 import android.kma.myquizzapp.core.common.model.GameModeDescriptor
+import android.kma.myquizzapp.core.common.model.GameReview
 import android.kma.myquizzapp.core.common.model.JoinRoomResult
 import android.kma.myquizzapp.core.common.model.RoomLookup
 import android.kma.myquizzapp.core.common.repository.GameSessionRepository
 import android.kma.myquizzapp.core.common.result.Result
 import android.kma.myquizzapp.core.common.result.map
 import android.kma.myquizzapp.core.network.api.GameApiService
+import android.kma.myquizzapp.core.network.di.PublicGameApiService
 import android.kma.myquizzapp.core.network.dto.JoinGameRequestDto
 import android.kma.myquizzapp.core.network.dto.toRequestDto
 import javax.inject.Inject
 
 class GameSessionRepositoryImpl @Inject constructor(
-    private val gameApi: GameApiService
+    private val gameApi: GameApiService,
+    @PublicGameApiService private val reviewApi: GameApiService
 ) : GameSessionRepository {
 
     override suspend fun getGameModes(): Result<List<GameModeDescriptor>> =
@@ -47,4 +50,7 @@ class GameSessionRepositoryImpl @Inject constructor(
                 playerGuestId = guestId
             )
         ).map { it.toDomain() }
+
+    override suspend fun getGameReview(gameId: Long, socketToken: String): Result<GameReview> =
+        reviewApi.getGameReview(gameId, socketToken).map { it.review.toDomain() }
 }

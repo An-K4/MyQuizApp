@@ -105,7 +105,7 @@ class GameViewModel @Inject constructor(
                 state.withServerConfig(
                     sessionStatus = SessionStatus.ACTIVE,
                     config = event.config
-                )
+                ).copy(mode = event.mode)
             }
             is GameEvent.Disconnected -> when (event.reason) {
                 DisconnectReason.TRANSPORT -> {
@@ -267,6 +267,7 @@ class GameViewModel @Inject constructor(
             old.copy(
                 connection = GameConnection.CONNECTED,
                 sessionStatus = status,
+                mode = snapshot.mode ?: old.mode,
                 pacing = pacing,
                 autoAdvance = autoAdvance,
                 showCorrectAnswer = showCorrect,
@@ -496,7 +497,7 @@ class GameViewModel @Inject constructor(
     }
 
     private suspend fun finish(event: GameEvent.GameEndedEvent) {
-        session.saveResult(gameId, playerId, event.ended)
+        session.saveResult(gameId, playerId, event.ended, _uiState.value.mode, socketToken)
         _uiState.update { it.copy(phase = GamePhaseUi.Finished, isInputLocked = true) }
         _effect.send(GameEffect.NavigateToFinalResult(gameId, playerId))
         nextTimeoutJob?.cancel()

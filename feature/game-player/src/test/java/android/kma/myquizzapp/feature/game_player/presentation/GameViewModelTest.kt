@@ -594,7 +594,7 @@ class GameViewModelTest {
             assertEquals(GameEffect.NavigateToFinalResult(GAME_ID, PLAYER_ID), awaitItem())
             cancelAndIgnoreRemainingEvents()
         }
-        assertEquals(StoredGameResult(GAME_ID, PLAYER_ID, ended), results.get(GAME_ID))
+        assertEquals(StoredGameResult(GAME_ID, PLAYER_ID, ended, null, TOKEN), results.get(GAME_ID))
         assertEquals(1, socket.disconnectCalls)
         assertTrue(viewModel.uiState.value.phase is GamePhaseUi.Finished)
     }

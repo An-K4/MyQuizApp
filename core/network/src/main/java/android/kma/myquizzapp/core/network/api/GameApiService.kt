@@ -4,12 +4,14 @@ import android.kma.myquizzapp.core.common.result.Result
 import android.kma.myquizzapp.core.network.dto.CreateGameRequestDto
 import android.kma.myquizzapp.core.network.dto.CreateGameResponseDto
 import android.kma.myquizzapp.core.network.dto.GameModesResponseDto
+import android.kma.myquizzapp.core.network.dto.GameReviewResponseDto
 import android.kma.myquizzapp.core.network.dto.HostTokenResponseDto
 import android.kma.myquizzapp.core.network.dto.JoinGameRequestDto
 import android.kma.myquizzapp.core.network.dto.JoinGameResponseDto
 import android.kma.myquizzapp.core.network.dto.RoomLookupResponseDto
 import retrofit2.http.Body
 import retrofit2.http.GET
+import retrofit2.http.Header
 import retrofit2.http.POST
 import retrofit2.http.Path
 
@@ -43,4 +45,11 @@ interface GameApiService {
         @Path("code") sessionCode: String,
         @Body body: JoinGameRequestDto
     ): Result<JoinGameResponseDto>
+
+    /** Answer sheet của chính Player; backend chỉ cho đọc sau khi trận kết thúc. */
+    @GET("games/{id}/review")
+    suspend fun getGameReview(
+        @Path("id") gameId: Long,
+        @Header("x-socket-token") socketToken: String
+    ): Result<GameReviewResponseDto>
 }

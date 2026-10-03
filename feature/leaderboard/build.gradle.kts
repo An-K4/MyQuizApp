@@ -12,6 +12,7 @@ android {
 dependencies {
     implementation(libs.androidx.core.ktx)
     testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     // 1. Nhúng các Core Modules cần thiết (Leaderboard lưu kết quả vào Database)
@@ -26,6 +27,7 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.kotlinx.serialization.json)
+    implementation(libs.coil.compose)
 
     // 3. Hilt DI
     implementation(libs.hilt.android)

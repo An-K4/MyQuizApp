@@ -1,6 +1,7 @@
 package android.kma.myquizzapp.feature.game_player.domain
 
 import android.kma.myquizzapp.core.common.model.GameEnded
+import android.kma.myquizzapp.core.common.model.GameMode
 import android.kma.myquizzapp.core.common.model.PlayerAnswer
 import android.kma.myquizzapp.core.common.repository.GameResultRepository
 import android.kma.myquizzapp.core.common.repository.PlayerGameSocketRepository
@@ -19,8 +20,14 @@ class PlayerGameSessionUseCase @Inject constructor(
     }
     suspend fun submit(answer: PlayerAnswer) = repository.submitAnswer(answer)
     suspend fun requestNext() = repository.requestNextQuestion()
-    fun saveResult(gameId: Long, playerId: Long, result: GameEnded) {
-        gameResults.save(StoredGameResult(gameId, playerId, result))
+    fun saveResult(
+        gameId: Long,
+        playerId: Long,
+        result: GameEnded,
+        mode: GameMode?,
+        socketToken: String
+    ) {
+        gameResults.save(StoredGameResult(gameId, playerId, result, mode, socketToken))
     }
     suspend fun sync() = repository.sync()
     suspend fun disconnect() = repository.disconnect()

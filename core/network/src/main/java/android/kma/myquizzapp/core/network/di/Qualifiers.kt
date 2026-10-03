@@ -48,3 +48,13 @@ annotation class PublicApiRetrofit
 @Qualifier
 @Retention(AnnotationRetention.RUNTIME)
 annotation class PublicQuizApiService
+
+/** Preserve-case Retrofit không cookie/authenticator cho review bằng socket token. */
+@Qualifier
+@Retention(AnnotationRetention.RUNTIME)
+annotation class PublicPreserveCaseRetrofit
+
+/** GameApiService public-only dùng riêng cho GET review. */
+@Qualifier
+@Retention(AnnotationRetention.RUNTIME)
+annotation class PublicGameApiService

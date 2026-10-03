@@ -56,6 +56,10 @@ object NetworkModule {
             .cookieJar(cookieJar)                    // ← thêm
             .authenticator(tokenAuthenticator)       // ← thêm
             .addInterceptor(HttpLoggingInterceptor().apply {
+                redactHeader("x-socket-token")
+                redactHeader("Cookie")
+                redactHeader("Set-Cookie")
+                redactHeader("Authorization")
                 level = if (BuildConfig.DEBUG) HttpLoggingInterceptor.Level.BODY
                 else HttpLoggingInterceptor.Level.NONE
             })
@@ -118,6 +122,30 @@ object NetworkModule {
     fun providePublicQuizApiService(
         @PublicApiRetrofit retrofit: Retrofit
     ): QuizApiService = retrofit.create()
+
+    /**
+     * Review dùng socket token, không dùng cookie. Client riêng tránh 401 token game
+     * bị TokenAuthenticator hiểu nhầm là cookie hết hạn rồi refresh/logout tài khoản.
+     */
+    @PublicPreserveCaseRetrofit
+    @Provides
+    @Singleton
+    fun providePublicPreserveCaseRetrofit(
+        @PreserveCaseJson json: Json,
+        @PublicApiOkHttpClient okHttpClient: OkHttpClient
+    ): Retrofit = Retrofit.Builder()
+        .baseUrl(BuildConfig.BASE_URL)
+        .client(okHttpClient)
+        .addCallAdapterFactory(ResultCallAdapterFactory(json))
+        .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
+        .build()
+
+    @PublicGameApiService
+    @Provides
+    @Singleton
+    fun providePublicGameApiService(
+        @PublicPreserveCaseRetrofit retrofit: Retrofit
+    ): GameApiService = retrofit.create()
 
     /**
      * Json/Retrofit dùng chung cho các backend endpoint cần giữ nguyên tên field
