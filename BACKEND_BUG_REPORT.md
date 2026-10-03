@@ -1,724 +1,574 @@
 # MyQuiz Backend — Bug Report
 
-> **Mục đích:** tập hợp các lỗi backend đã được tái hiện hoặc phát hiện khi audit source để team backend chọn lọc và xử lý.
+> Báo cáo này mô tả lỗi theo góc nhìn người dùng: **bấm gì, màn hình nào, mong đợi thấy gì và thực tế thấy gì**.
 >
-> **Thứ tự:** (1) lỗi đã có luồng test thật, ưu tiên theo mức độ nghiêm trọng; (2) lỗi xác nhận qua audit source, ưu tiên theo mức độ nghiêm trọng; (3) các phần thiếu tính năng/contract nằm cuối và không được gọi là bug.
+> File này là tài liệu độc lập: team backend không cần mở thêm file kế hoạch, source Android hoặc tài liệu khác. Các mục “đã tái hiện” ghi kết quả quan sát trên thiết bị; các mục “xác định qua audit” ghi đầy đủ kết quả mà backend hiện tại sẽ tạo ra và chuỗi thao tác để team backend tự xác nhận.
 >
-> **Mức độ:** `BLOCKER` = làm sai state/luật chơi hoặc không thể nghiệm thu; `HIGH` = ảnh hưởng trực tiếp gameplay/dữ liệu; `MEDIUM` = contract hoặc dữ liệu không nhất quán nhưng có thể phòng thủ ở client; `LOW` = tài liệu/schema chưa đồng nhất.
+> Thứ tự ưu tiên: lỗi đã tái hiện trên thiết bị thật → lỗi nghiêm trọng cần backend kiểm tra thêm → phần còn thiếu tính năng.
 
 ---
 
-# I. Lỗi đã có luồng test thật
+# I. Lỗi đã tái hiện trên thiết bị thật
 
-## TEST-01 — Pause/Resume từ Host làm Player Practice hiển thị sai câu và backend chấm một câu khác
+## BUG-01 — Practice: Host Pause/Resume làm Player quay về câu đầu nhưng câu trả lời lại được chấm cho câu đang chơi dở
 
 - **Severity:** `BLOCKER`
-- **Phạm vi:** self-paced, đã tái hiện ở Practice; cùng root cause có thể ảnh hưởng Solo/Survival/Marathon.
+- **Mode:** Practice
+
+### Điều kiện ban đầu
+
+- Quiz có ít nhất 5 câu.
+- Phòng đang chạy bình thường.
+- Player đã trả lời 3 câu và đang nhìn thấy câu 4.
 
 ### Performed actions — Chuỗi hành động thực hiện
 
-1. Tạo phòng Practice có nhiều câu hỏi.
-2. Cho Player trả lời một vài câu, ví dụ `player.current_question_index` đã lên `3`.
-3. Dùng Host bấm Pause.
-4. Dùng Host bấm Resume.
-5. Quan sát câu được hiển thị lại trên Player.
-6. Player trả lời câu đang hiển thị.
+1. Trên máy Host, bấm **Tạm dừng**.
+2. Chờ màn Player chuyển sang trạng thái tạm dừng.
+3. Trên máy Host, bấm **Tiếp tục**.
+4. Quan sát câu hỏi xuất hiện trên máy Player.
+5. Trên máy Player, chọn đáp án của câu đang hiển thị và bấm **Trả lời**.
 
 ### Expected output
 
-- Sau Resume, Player vẫn ở đúng câu trước khi Pause.
-- Nội dung câu, index và thứ tự shuffle phải khớp state riêng của Player.
-- Backend phải chấm đúng câu đang hiển thị cho Player.
+- Sau khi Host bấm **Tiếp tục**, Player vẫn nhìn thấy câu 4.
+- Nội dung câu hỏi và các lựa chọn phải giống hệt trước khi tạm dừng.
+- Câu trả lời phải được chấm cho câu 4.
+- Sau đó Player chuyển sang câu 5.
 
 ### Actual output
 
-- Player bị đưa về giao diện câu đầu, thường là index `0`.
-- `player.current_question_index` thật trên backend vẫn là `3`.
-- Khi Player trả lời giao diện “câu 1”, backend thực tế chấm câu tại index `3`, tăng index thật lên `4` rồi gửi câu kế tiếp.
-- Nếu bật shuffle, nội dung câu còn có thể sai dù index tình cờ đúng.
+- Sau khi Host bấm **Tiếp tục**, Player bị đưa về giao diện câu 1.
+- Player chọn đáp án cho câu 1 đang hiển thị, nhưng backend lại chấm đáp án đó cho câu 4.
+- Sau khi trả lời, Player nhảy thẳng sang câu 5.
+- Nếu phòng bật xáo trộn câu hỏi, nội dung câu hiện lại còn có thể không khớp thứ tự riêng của Player.
 
-### Root cause đã xác định
+### Ghi chú kỹ thuật cho backend
 
-Khi Host Pause/Resume, backend broadcast cùng một `game:state` cho toàn phòng bằng `snapshot(session)` không truyền Player. Với self-paced, snapshot này dùng `session.current_question_index` thay vì `player.current_question_index`, đồng thời không áp dụng lại `orderedQuestionsFor(..., sessionId + playerId)` của từng Player.
-
-### Suggested fix
-
-- Không broadcast một shared snapshot không có Player cho self-paced.
-- Build `game:state` riêng theo từng Player, dùng `player.current_question_index` và đúng ordered question list/seed của Player.
-- Host nhận Host snapshot riêng; Player nhận Player snapshot riêng.
-- Thêm regression test: Player ở index `3` → Pause → Resume → snapshot vẫn index `3`, cùng question id trước Pause.
+Trạng thái gửi sau Pause/Resume đang dùng vị trí câu chung của phòng thay vì vị trí câu riêng của từng Player. Với self-paced, mỗi Player cần nhận lại đúng câu và đúng thứ tự shuffle của chính mình.
 
 ---
 
-## TEST-02 — Reconnect presence race làm Player mới kết nối lại bị ghi thành disconnected
+## BUG-02 — Host không thấy bất kỳ thay đổi nào khi Player bị timeout
+
+- **Severity:** `HIGH`
+- **Mode:** Survival, Marathon và các mode self-paced có giới hạn thời gian câu.
+
+### Điều kiện ban đầu
+
+- Tạo phòng có thời gian trả lời ngắn, ví dụ 5–10 giây.
+- Host đang mở màn theo dõi tiến độ.
+- Player đang ở một câu chưa trả lời.
+
+### Performed actions — Chuỗi hành động thực hiện
+
+1. Không thao tác gì trên máy Player.
+2. Chờ đồng hồ câu hỏi về `0`.
+3. Chờ Player tự chuyển sang trạng thái timeout/câu tiếp theo.
+4. Quan sát dòng của Player trên màn Host.
+
+### Expected output
+
+Ngay sau timeout, Host phải thấy dữ liệu của Player thay đổi:
+
+- số câu đã làm tăng lên;
+- số câu sai tăng lên;
+- vị trí câu hiện tại thay đổi;
+- lives giảm nếu mode có lives;
+- trạng thái chuyển sang bị loại nếu lives về `0`.
+
+### Actual output
+
+- Máy Player hiển thị timeout và tiếp tục luồng chơi.
+- Màn Host không thay đổi.
+- Số câu đã làm, số câu sai, vị trí câu, lives và trạng thái đều giữ nguyên dữ liệu cũ.
+- Host chỉ có thể thấy dữ liệu mới sau một event khác hoặc khi game kết thúc.
+
+---
+
+## BUG-03 — Survival: Player mất mạng nhưng số mạng trên Host không thay đổi
+
+- **Severity:** `HIGH`
+- **Mode:** Survival
+
+### Điều kiện ban đầu
+
+- Tạo phòng Survival với 3 mạng.
+- Player và Host đều đang ở trong trận.
+- Host đang nhìn thấy Player có 3 mạng.
+
+### Performed actions — Chuỗi hành động thực hiện
+
+1. Trên máy Player, chọn một đáp án sai.
+2. Bấm **Trả lời**.
+3. Chờ máy Player hiện kết quả và số mạng mới.
+4. Quan sát số mạng của cùng Player trên màn Host.
+5. Lặp lại với một câu sai khác.
+
+### Expected output
+
+- Sau lần sai đầu tiên, Player và Host cùng hiển thị 2 mạng.
+- Sau lần sai tiếp theo, Player và Host cùng hiển thị 1 mạng.
+- Thay đổi phải xuất hiện trên Host ngay sau khi backend chấm câu.
+
+### Actual output
+
+- Player hiển thị đúng số mạng mới.
+- Host vẫn giữ số mạng cũ lấy từ lúc bắt đầu/reconnect.
+- Điểm và tiến độ có thể cập nhật, nhưng lives trên Host không cập nhật theo.
+
+---
+
+## BUG-04 — Reconnect có thể làm Host coi Player đang online thành mất kết nối và chuyển câu sớm
 
 - **Severity:** `BLOCKER`
-- **Phạm vi:** reconnect trong game đang active.
+- **Mode:** Classic/host-paced
+
+### Điều kiện ban đầu
+
+- Có 1 Host và ít nhất 2 Player trong trận.
+- Một câu hỏi đang mở và chưa phải tất cả Player đều trả lời.
 
 ### Performed actions — Chuỗi hành động thực hiện
 
-1. Chạy một phòng Classic với Host và nhiều Player.
-2. Cho một Player mất mạng trong lúc trận đang diễn ra.
-3. Bật mạng lại để Socket.IO tạo socket mới.
-4. Socket mới kết nối và gửi `lobby:join`/`player:sync`.
-5. Lặp lại reconnect nhiều lần và quan sát roster Host cùng thời điểm auto-advance.
+1. Tắt Wi-Fi/dữ liệu di động trên một máy Player.
+2. Chờ máy Player báo mất kết nối.
+3. Bật mạng lại và chờ Player tự kết nối lại vào đúng câu đang chơi.
+4. Không trả lời ngay trên Player vừa reconnect.
+5. Quan sát danh sách Player và thời điểm chuyển câu trên Host.
+6. Lặp lại chuỗi mất mạng/kết nối lại vài lần.
 
 ### Expected output
 
-- Socket mới join thành công phải giữ Player ở trạng thái `connected`.
-- `pendingAnswers()` phải tính Player vừa reconnect.
-- Host phải thấy đủ Player và không chuyển câu sớm.
+- Player reconnect phải trở lại trạng thái đang kết nối.
+- Host phải tiếp tục tính Player đó là người đang chơi.
+- Câu chỉ được đóng/chuyển khi Player đó đã trả lời hoặc hết thời gian.
 
 ### Actual output
 
-- `onLeave()` của socket cũ có thể hoàn tất sau `lobby:join` của socket mới.
-- Callback socket cũ ghi đè `player.status = disconnected`.
-- Socket mới vẫn nhận đúng `game:state`, nhưng `pendingAnswers()` bỏ Player vì status không còn là `connected`.
-- Host thấy thiếu người và có thể auto-advance sớm.
-
-### Root cause đã xác định
-
-Presence chỉ gắn với Player record, chưa gắn với socket identity/generation. Callback rời phòng của socket cũ không kiểm tra đã có socket thay thế hay chưa.
-
-### Suggested fix
-
-- Theo dõi active socket id/generation của từng Player.
-- Chỉ đánh dấu offline và gọi `maybeAdvanceAfterLeave()` khi Player không còn socket thay thế.
-- Thêm test race: socket B join trước khi `onLeave(socket A)` hoàn tất; kết quả cuối phải là `connected`.
+- Player reconnect và nhìn thấy đúng câu hiện tại.
+- Host vẫn có thể coi Player là mất kết nối.
+- Backend không chờ câu trả lời của Player vừa reconnect và có thể chuyển câu sớm.
 
 ---
 
-## TEST-03 — Auto-timeout không cập nhật tiến độ cho Host
-
-- **Severity:** `HIGH`
-- **Phạm vi:** Host dashboard self-paced.
-
-### Performed actions — Chuỗi hành động thực hiện
-
-1. Tạo phòng self-paced có câu hỏi giới hạn thời gian.
-2. Cho Player không trả lời cho đến khi câu timeout.
-3. Theo dõi màn Player và màn Host cùng lúc.
-4. So sánh progress/score/status của Player trên Host trước và sau timeout.
-
-### Expected output
-
-Sau timeout, Host phải nhận realtime update cho Player, tối thiểu gồm:
-
-- current question index hoặc answered count;
-- correct/wrong count;
-- score;
-- lives nếu mode có lives;
-- status mới nếu finished/eliminated.
-
-### Actual output
-
-- Backend chỉ emit `question:timeout` cho chính Player.
-- Không emit `host:player-progress`.
-- Không emit bản `leaderboard:host` mới.
-- Host giữ nguyên dữ liệu trước timeout cho đến một event khác hoặc cuối game.
-
-### Suggested fix
-
-Cho nhánh timeout đi qua cùng pipeline cập nhật Host như nhánh submit answer và emit một delta đầy đủ sau khi đã persist state mới.
-
----
-
-## TEST-04 — Lives của Player không cập nhật realtime trên Host
-
-- **Severity:** `HIGH`
-- **Phạm vi:** Survival/Host dashboard.
-
-### Performed actions — Chuỗi hành động thực hiện
-
-1. Tạo phòng Survival.
-2. Cho Player trả lời sai để bị trừ mạng.
-3. Quan sát lives trên Player và lives của cùng Player trên Host.
-4. Tiếp tục trả lời/timeout thêm để lives thay đổi nhiều lần.
-
-### Expected output
-
-Sau mỗi lần backend thay đổi lives, Host phải nhận số mạng mới ngay lập tức.
-
-### Actual output
-
-- Player nhận được lives mới.
-- `host:player-progress` không chứa `lives` và `streak`.
-- Host giữ số mạng từ baseline `leaderboard:host`; chỉ có thể về `0` nếu sau đó nhận được `player:eliminated`.
-
-### Suggested fix
-
-Bổ sung `lives` và `streak` vào `host:player-progress`, đồng thời emit event này sau answer và timeout:
-
-```ts
-{
-  player: {
-    id,
-    player_name,
-    current_question_index,
-    player_score,
-    correct_answers_count,
-    lives,
-    streak,
-    status
-  },
-  total_questions,
-  serverTime
-}
-```
-
----
-
-## TEST-05 — `GET /games/:code` trả payload lồng thành `data.session.session`
+## BUG-05 — Tra phòng từng trả payload lồng sai làm ứng dụng không mở được phòng
 
 - **Severity:** `MEDIUM`
-- **Phạm vi:** REST room lookup.
+- **Phạm vi:** màn nhập mã phòng
+
+### Điều kiện ban đầu
+
+- Có một phòng hợp lệ đang ở lobby.
+- Người chơi có mã phòng đúng.
 
 ### Performed actions — Chuỗi hành động thực hiện
 
-1. Gọi `GET /v1/games/{sessionCode}` với một mã phòng hợp lệ.
-2. Parse response theo contract một session object ở `data.session`.
-3. Kiểm tra payload thực tế khi ứng dụng tra phòng.
+1. Mở ứng dụng ở máy Player.
+2. Nhập mã phòng vào ô **Nhập mã phòng**.
+3. Bấm **Tham gia**.
 
 ### Expected output
 
-Một lobby payload nhất quán, ví dụ:
-
-```json
-{
-  "data": {
-    "session": {},
-    "players": [],
-    "config": {}
-  }
-}
-```
+- Ứng dụng hiển thị thông tin phòng.
+- Người chơi có thể tiếp tục nhập tên hoặc vào lobby.
 
 ### Actual output
 
-Payload thực tế bị lồng:
+- Response tra phòng có cấu trúc lồng thêm một cấp `session` ngoài dự kiến.
+- Client theo contract thông thường không đọc được dữ liệu phòng và từng crash khi tra mã hợp lệ.
+- Client hiện đã phải giữ mapping riêng cho response này.
 
-```text
-data.session.session
-data.session.players
-data.session.config
-```
+### Đề nghị
 
-Client từng crash `MissingFieldException` khi map theo contract phẳng.
-
-### Root cause đã xác định
-
-`getLobby()` trả `{session, players, config}`, nhưng controller gán cả cụm vào biến tên `session` rồi gọi `success(res, { session })`.
-
-### Suggested fix
-
-Trả trực tiếp lobby object, ví dụ `success(res, lobby)`. Cần phối hợp migration với các client đang map shape cũ.
+Chuẩn hóa response tra phòng thành một lobby object nhất quán. Nếu sửa shape, cần báo trước để các client bỏ mapping tương thích cũ.
 
 ---
 
-## TEST-06 — Socket documentation mô tả sai shape answer option
+## BUG-06 — Lựa chọn trả lời trong tài liệu socket không khớp dữ liệu thực tế
 
 - **Severity:** `LOW`
-- **Phạm vi:** socket contract/documentation.
+- **Phạm vi:** câu trắc nghiệm
+
+### Điều kiện ban đầu
+
+- Quiz có câu multiple choice với lựa chọn dạng chữ.
+- Host bắt đầu trận.
 
 ### Performed actions — Chuỗi hành động thực hiện
 
-1. Tạo quiz có câu multiple choice.
-2. Host bắt đầu game và nhận `host:question`.
-3. Parse option theo socket documentation: `{id, text, image}`.
-4. So sánh payload thực tế từ database/game socket.
+1. Trên Host, bấm **Bắt đầu**.
+2. Chờ câu trắc nghiệm xuất hiện.
+3. Quan sát nội dung các lựa chọn trên màn Host.
 
 ### Expected output
 
-Runtime payload phải khớp TypeScript type và socket documentation.
+- Mỗi lựa chọn hiển thị đúng nội dung chữ đã nhập khi tạo quiz.
+- Dữ liệu thực tế phải khớp schema được mô tả trong tài liệu socket.
 
 ### Actual output
 
-- Dữ liệu thực tế dùng `option_text`, không phải `text`.
-- Một số dữ liệu có thể ở dạng chuỗi thuần.
-- Client theo docs hiển thị sai hoặc có thể làm rơi toàn bộ `host:question` khi parse cứng.
+- Tài liệu mô tả một tên field, nhưng dữ liệu thực tế dùng tên khác và có trường hợp dùng chuỗi thuần.
+- Client triển khai đúng theo tài liệu từng hiển thị mọi lựa chọn thành “(ảnh)” hoặc không đọc được cả câu hỏi.
 
-### Suggested fix
+### Đề nghị
 
-Chọn một schema chuẩn duy nhất cho answer option; normalize trước khi emit và cập nhật đồng thời runtime type, docs và test contract.
+Chuẩn hóa một shape duy nhất cho lựa chọn và cập nhật đồng thời runtime payload, type và tài liệu socket.
 
 ---
 
-# II. Lỗi xác nhận qua audit source
+# II. Lỗi nghiêm trọng cần backend xác nhận bằng test
 
-## AUDIT-01 — Snapshot self-paced không dùng cùng ordered question list với gameplay
+## BUG-07 — Reconnect khi bật xáo trộn có thể trả sai câu của Player self-paced
 
 - **Severity:** `BLOCKER`
+- **Mode:** Practice, Solo, Survival, Marathon khi bật shuffle.
+
+### Điều kiện ban đầu
+
+- Tạo phòng self-paced và bật **Xáo trộn câu hỏi**.
+- Player đã trả lời vài câu.
 
 ### Performed actions — Chuỗi hành động thực hiện
 
-1. Tạo phòng self-paced có `shuffleQuestions=true`.
-2. Cho Player nhận câu qua `sendSelfQuestion()`.
-3. Gọi reconnect hoặc `player:sync` để backend tạo snapshot.
-4. So sánh question id từ snapshot với question id mà Player đang thực sự làm.
+1. Ghi lại nội dung câu Player đang nhìn thấy.
+2. Tắt mạng trên máy Player.
+3. Bật mạng lại và chờ Player reconnect.
+4. So sánh câu sau reconnect với câu trước khi mất mạng.
+5. Trả lời câu đang hiển thị và quan sát câu kế tiếp.
 
 ### Expected output
 
-Snapshot phải dùng cùng ordered list và cùng seed với `sendSelfQuestion()`/`onAnswer()`.
+- Player trở lại đúng câu trước khi mất mạng.
+- Nội dung và thứ tự câu không thay đổi sau reconnect.
+- Backend chấm đúng câu đang hiển thị.
 
-### Actual output
+### Actual output — kết quả backend hiện tại xác định qua audit
 
-`sendSelfQuestion()` và `onAnswer()` dùng `orderedQuestionsFor(..., sessionId + playerId)`, trong khi `snapshot()` đọc trực tiếp `questions[index]`. Snapshot có thể trả sai nội dung câu.
-
-### Suggested fix
-
-Tập trung logic resolve current question vào một hàm dùng chung cho send, answer, timeout và snapshot.
+- Trạng thái reconnect có thể lấy câu theo thứ tự gốc thay vì thứ tự shuffle riêng của Player.
+- Player có thể nhìn thấy một câu nhưng backend giữ vị trí/thứ tự khác.
 
 ---
 
-## AUDIT-02 — Snapshot Marathon không modulo question index
+## BUG-08 — Marathon có thể kết thúc sau một vòng câu hỏi dù đồng hồ tổng vẫn còn
 
 - **Severity:** `BLOCKER`
+- **Mode:** Marathon
+
+### Điều kiện ban đầu
+
+- Quiz có ít câu, ví dụ 3 câu.
+- Marathon có tổng thời gian đủ dài để chơi nhiều hơn 3 câu.
 
 ### Performed actions — Chuỗi hành động thực hiện
 
-1. Tạo Marathon với question bank hữu hạn.
-2. Cho `player.current_question_index` tăng đến hoặc vượt `questions.length`.
-3. Gọi reconnect hoặc `player:sync`.
-4. Kiểm tra question trong snapshot.
+1. Bắt đầu Marathon.
+2. Trả lời hoặc chờ timeout lần lượt hết 3 câu.
+3. Quan sát màn Player khi kết thúc câu cuối của question bank.
+4. Kiểm tra đồng hồ tổng còn thời gian hay không.
 
 ### Expected output
 
-Snapshot trả đúng câu Marathon theo `index % orderedQuestions.length`.
+- Nếu đồng hồ tổng vẫn còn, Player phải quay vòng lại question bank và tiếp tục chơi.
+- Chỉ kết thúc khi hết điều kiện thời gian/kết thúc của Marathon.
 
-### Actual output
+### Actual output — kết quả backend hiện tại xác định qua audit
 
-Snapshot truy cập trực tiếp `questions[index]`; khi index vượt bank có thể trả `question = null`.
-
-### Suggested fix
-
-Áp dụng modulo sau khi resolve ordered question list của Player.
+- Nhánh timeout có thể coi việc đi hết question bank là đã hoàn thành.
+- Player có thể kết thúc Marathon sớm dù đồng hồ tổng vẫn còn.
 
 ---
 
-## AUDIT-03 — Marathon timeout kết thúc game ở cuối question bank dù vẫn còn match time
-
-- **Severity:** `BLOCKER`
-
-### Performed actions — Chuỗi hành động thực hiện
-
-1. Tạo Marathon có `totalMatchSeconds` dài hơn thời gian cần để đi hết một vòng question bank.
-2. Cho Player đến câu cuối bank.
-3. Để callback timeout xử lý và tăng `current_question_index` lên bằng `questions.length`.
-4. Kiểm tra trạng thái Player/game.
-
-### Expected output
-
-Marathon quay vòng question bank và chỉ kết thúc theo điều kiện kết thúc riêng của Marathon, chủ yếu là match budget.
-
-### Actual output
-
-Callback timeout coi `current_question_index >= questions.length` là đã hoàn thành, kể cả Marathon, nên có thể kết thúc sớm.
-
-### Suggested fix
-
-Tách điều kiện terminal theo mode; Marathon modulo index thay vì dùng điều kiện hết bank của Solo/Survival.
-
----
-
-## AUDIT-04 — `player:sync` có thể ghi đè `question:awaiting_next`
+## BUG-09 — Reconnect ở màn kết quả manual-next có thể làm mất nút “Câu tiếp theo”
 
 - **Severity:** `HIGH`
+- **Mode:** self-paced với tự động chuyển câu tắt.
+
+### Điều kiện ban đầu
+
+- Tạo phòng self-paced với **Tự động chuyển câu** tắt.
+- Player vừa trả lời xong và đang nhìn thấy màn kết quả có nút **Câu tiếp theo**.
 
 ### Performed actions — Chuỗi hành động thực hiện
 
-1. Tạo self-paced với `autoAdvance=false`.
-2. Player trả lời một câu và nhận `question:awaiting_next`.
-3. Trước khi bấm Next, cho client reconnect hoặc gọi `player:sync`.
-4. Quan sát snapshot trả về và state cuối của Player.
+1. Không bấm **Câu tiếp theo**.
+2. Tắt mạng trên máy Player.
+3. Bật mạng lại và chờ reconnect.
+4. Quan sát màn Player sau khi đồng bộ xong.
 
 ### Expected output
 
-Player vẫn ở result/awaiting-next của câu vừa trả lời và vẫn có quyền yêu cầu câu tiếp theo.
+- Player vẫn ở màn kết quả của câu vừa trả lời.
+- Nút **Câu tiếp theo** vẫn xuất hiện và bấm được.
 
-### Actual output
+### Actual output — kết quả backend hiện tại xác định qua audit
 
-Snapshot có thể biểu diễn index/question kế tiếp hoặc một phase không tương đương, đến sau và ghi đè state `question:awaiting_next`.
-
-### Suggested fix
-
-Lưu/derive rõ `awaiting_next` trong Player snapshot và đảm bảo event cùng snapshot có cùng state semantics.
+- Trạng thái đồng bộ có thể ghi đè màn kết quả.
+- Player có thể mất nút **Câu tiếp theo** hoặc bị đưa sang trạng thái câu khác.
 
 ---
 
-## AUDIT-05 — Timeout làm lives về 0 nhưng không broadcast `player:eliminated`
+## BUG-10 — Survival: timeout làm hết mạng nhưng Host không nhận trạng thái bị loại
 
 - **Severity:** `HIGH`
+- **Mode:** Survival
+
+### Điều kiện ban đầu
+
+- Player chỉ còn 1 mạng.
+- Câu hiện tại có giới hạn thời gian.
 
 ### Performed actions — Chuỗi hành động thực hiện
 
-1. Tạo Survival với Player còn `1` mạng.
-2. Để câu hiện tại timeout.
-3. Backend giảm lives về `0`.
-4. Theo dõi event ở Player room và Host room.
+1. Không trả lời trên máy Player.
+2. Chờ đồng hồ về `0`.
+3. Quan sát màn bị loại trên Player.
+4. Quan sát status/lives của Player trên Host.
 
 ### Expected output
 
-Backend emit `player:eliminated` sau khi persist lives/status terminal.
+- Player hiển thị đã bị loại.
+- Host đồng thời hiển thị Player **Đã bị loại** và `0` mạng.
 
-### Actual output
+### Actual output — kết quả backend hiện tại xác định qua audit
 
-Nhánh timeout cập nhật state nhưng không broadcast `player:eliminated`.
-
-### Suggested fix
-
-Dùng chung hàm xử lý elimination cho answer sai và timeout; thêm contract test cho cả hai đường.
+- Backend có thể giảm lives về `0` nhưng không thông báo trạng thái bị loại cho Host.
+- Host tiếp tục giữ status/lives cũ.
 
 ---
 
-## AUDIT-06 — Host không được refresh khi Player late-join/reconnect/disconnect trong session active
+## BUG-11 — Player vào muộn hoặc reconnect không xuất hiện ngay trên Host
 
 - **Severity:** `HIGH`
+- **Mode:** self-paced
+
+### Điều kiện ban đầu
+
+- Phòng đang active và Host đang mở dashboard.
+- Phòng cho phép Player vào muộn, hoặc một Player cũ đang reconnect.
 
 ### Performed actions — Chuỗi hành động thực hiện
 
-1. Bắt đầu một phòng self-paced.
-2. Cho Player late-join hoặc reconnect/disconnect khi session đang active.
-3. Không cho Player trả lời thêm.
-4. Theo dõi `lobby:updated`, `host:player-progress` và `leaderboard:host` ở Host.
+1. Cho Player mới nhập mã và vào phòng đang chơi; hoặc cho Player cũ reconnect.
+2. Không trả lời câu nào trên Player đó.
+3. Quan sát danh sách Player trên Host.
+4. Với trường hợp disconnect, tắt mạng Player và quan sát status trên Host.
 
 ### Expected output
 
-Host nhận ngay roster/status mới sau mọi thay đổi presence.
+- Player mới/reconnect xuất hiện ngay trên Host.
+- Khi mất mạng, status chuyển sang **Mất kết nối**.
+- Khi kết nối lại, status chuyển về **Đang chơi**.
 
-### Actual output
+### Actual output — kết quả backend hiện tại xác định qua audit
 
-Backend không phát một snapshot/delta đầy đủ cho Host. Host thường chỉ thấy Player sau progress event tiếp theo; nếu Player không trả lời thêm, dashboard có thể stale vô thời hạn.
-
-### Suggested fix
-
-Emit Host delta hoặc `leaderboard:host` sau join, reconnect, disconnect, leave, finish và elimination.
+- Host không nhận bản cập nhật ngay khi presence thay đổi.
+- Player thường chỉ xuất hiện sau lần trả lời đầu tiên.
+- Nếu không có câu trả lời mới, dashboard Host có thể giữ dữ liệu cũ vô thời hạn.
 
 ---
 
-## AUDIT-07 — Host reconnect giữa câu bị mất answer key
+## BUG-12 — Host reconnect giữa câu không còn xem được đáp án đúng
 
 - **Severity:** `HIGH`
+- **Mode:** Classic/host-paced
+
+### Điều kiện ban đầu
+
+- Một câu đang mở.
+- Trước khi mất mạng, Host có thể bấm **Xem đáp án**.
 
 ### Performed actions — Chuỗi hành động thực hiện
 
-1. Chạy một câu host-paced đang active.
-2. Cho Host mất kết nối rồi reconnect.
-3. Host join lại room và nhận `game:state`.
-4. Kiểm tra khả năng xem đáp án đúng của câu hiện tại.
+1. Tắt mạng trên máy Host trong lúc câu đang mở.
+2. Bật mạng lại và chờ Host reconnect.
+3. Bấm **Xem đáp án** cho câu hiện tại.
 
 ### Expected output
 
-Host reconnect phải nhận đủ Host-only state, bao gồm answer key của câu đang mở.
+- Host vẫn xem được đáp án đúng của câu đang mở sau reconnect.
 
-### Actual output
+### Actual output — kết quả backend hiện tại xác định qua audit
 
-`game:state.question` là public question, không có `correct_answer`; backend không phát lại `host:question`. Host không thể khôi phục answer key cho đến câu tiếp theo.
-
-### Suggested fix
-
-Sau Host join/reconnect, emit lại `host:question` hoặc trả Host snapshot riêng chứa answer key.
+- Host khôi phục được câu hỏi nhưng không nhận lại đáp án đúng.
+- Chức năng xem đáp án chỉ hoạt động lại từ câu tiếp theo.
 
 ---
 
-## AUDIT-08 — Snapshot ở `showing_results` không đủ dữ liệu phục hồi màn kết quả
+## BUG-13 — Player reconnect ở màn kết quả không khôi phục được kết quả vừa trả lời
 
 - **Severity:** `HIGH`
+- **Mode:** Classic/host-paced
+
+### Điều kiện ban đầu
+
+- Player vừa trả lời xong.
+- Màn đang hiển thị kết quả đúng/sai trước khi sang câu mới.
 
 ### Performed actions — Chuỗi hành động thực hiện
 
-1. Cho game chuyển sang `showing_results`.
-2. Ngắt kết nối Player.
-3. Reconnect và gọi sync để nhận `game:state`.
-4. Dựng lại result screen chỉ từ snapshot.
+1. Tắt mạng trên máy Player khi màn kết quả đang hiển thị.
+2. Bật mạng lại trước khi câu tiếp theo bắt đầu.
+3. Chờ đồng bộ hoàn tất.
 
 ### Expected output
 
-Snapshot có đủ result state gần nhất: outcome, score earned, answer key theo visibility rule và stats cần thiết.
+- Player nhìn lại đúng kết quả của câu vừa trả lời.
+- Điểm câu, đúng/sai và đáp án được phép reveal phải giống trước khi mất mạng.
 
-### Actual output
+### Actual output — kết quả backend hiện tại xác định qua audit
 
-Snapshot thiếu dữ liệu để phục hồi đúng màn kết quả; client chỉ có thể chờ câu tiếp theo.
-
-### Suggested fix
-
-Bổ sung last-question result vào Player snapshot và áp dụng đúng `showCorrectAnswer`/`showLeaderboard`.
+- Dữ liệu khôi phục không đủ để dựng lại màn kết quả.
+- Player chỉ có thể thấy trạng thái chờ câu tiếp theo.
 
 ---
 
-## AUDIT-09 — Race condition tạo trùng `session_code`
-
-- **Severity:** `HIGH`
-
-### Performed actions — Chuỗi hành động thực hiện
-
-1. Gửi nhiều request tạo game đồng thời.
-2. Để các request chạy qua bước sinh mã và kiểm tra mã tồn tại.
-3. Cho hai request cùng chọn một mã trước khi request kia insert.
-4. Kiểm tra constraint/database result.
-
-### Expected output
-
-Database không bao giờ có hai phòng còn hiệu lực cùng `session_code`.
-
-### Actual output
-
-`session_code` không có unique constraint phù hợp; flow check-then-insert có cửa sổ race tạo mã trùng.
-
-### Suggested fix
-
-Dùng partial unique index cho session còn hiệu lực và `INSERT ... ON CONFLICT` retry mã khác.
-
----
-
-## AUDIT-10 — Redis failure có thể làm `timeTaken ≈ 0` và cấp speed bonus tối đa
-
-- **Severity:** `HIGH`
-
-### Performed actions — Chuỗi hành động thực hiện
-
-1. Tạo self-paced có speed bonus.
-2. Làm Redis/player clock unavailable trước khi submit answer.
-3. Submit một câu trả lời.
-4. Kiểm tra `timeTaken` và điểm speed bonus.
-
-### Expected output
-
-Thiếu authoritative clock phải làm request fail an toàn hoặc dùng fallback không thiên vị.
-
-### Actual output
-
-`timeTaken` có thể rơi về gần `0`, khiến Player nhận speed bonus tối đa.
-
-### Suggested fix
-
-Không default thời gian về `0`; fail-closed grading khi thiếu clock hoặc dùng một timestamp fallback đã được xác minh.
-
----
-
-## AUDIT-11 — `total_players` không phản ánh roster realtime
+## BUG-14 — Có thể tạo hoặc bắt đầu phòng từ quiz không có câu hỏi
 
 - **Severity:** `MEDIUM`
 
+### Điều kiện ban đầu
+
+- Có một quiz không chứa câu hỏi.
+
 ### Performed actions — Chuỗi hành động thực hiện
 
-1. Tạo lobby mới.
-2. Cho nhiều Player join/leave.
-3. Đọc session row và danh sách `players` trước khi game được flush/kết thúc.
-4. So sánh `total_players` với số phần tử roster thực tế.
+1. Mở quiz rỗng.
+2. Bấm **Tạo phòng chơi**.
+3. Hoàn tất màn cấu hình phòng.
+4. Trên Host Lobby, bấm **Bắt đầu**.
 
 ### Expected output
 
-`total_players` khớp roster hiện tại nếu field được public như dữ liệu realtime.
+- Backend từ chối tạo hoặc bắt đầu phòng.
+- Host nhận thông báo rõ ràng rằng quiz chưa có câu hỏi.
 
-### Actual output
+### Actual output — kết quả backend hiện tại xác định qua audit
 
-Field có thể stale vì không cập nhật theo mỗi join/leave và thường chỉ được flush ở giai đoạn sau.
-
-### Suggested fix
-
-Cập nhật counter atomically hoặc bỏ field khỏi contract realtime và quy định dùng roster length.
+- Backend chưa chặn chắc chắn quiz có `0` câu.
+- Game có thể đi vào trạng thái không có câu để hiển thị.
 
 ---
 
-## AUDIT-12 — Có thể tạo/bắt đầu game từ quiz không có câu hỏi
+# III. Thiếu tính năng/contract — không gọi là bug
 
-- **Severity:** `MEDIUM`
+## FEATURE-01 — Host chưa xem được thời gian còn lại riêng của từng Player Marathon
 
 ### Performed actions — Chuỗi hành động thực hiện
 
-1. Tạo hoặc lấy một quiz có `total_questions = 0`.
-2. Gọi API tạo game với quiz đó.
-3. Host gọi start game.
-4. Quan sát question/timer/terminal state.
+1. Tạo phòng Marathon cho phép vào muộn.
+2. Cho Player A vào từ đầu.
+3. Cho Player B vào muộn hơn.
+4. Quan sát dashboard Host.
 
-### Expected output
+### Expected output nếu sản phẩm cần tính năng này
 
-Backend reject create hoặc start bằng error code rõ ràng.
+Host thấy thời gian còn lại riêng của A và B.
 
 ### Actual output
 
-Thiếu validation chắc chắn cho quiz rỗng, khiến game có thể vào state không có câu để gửi.
-
-### Suggested fix
-
-Validate `total_questions > 0` ở service tạo/start game và thêm database/service test.
+Host chỉ thấy tiến độ/điểm; không có deadline riêng của từng Player nên không thể hiển thị countdown chính xác.
 
 ---
 
-## AUDIT-13 — Config descriptor có field đồng thời nằm trong `editable` và `locked`
-
-- **Severity:** `MEDIUM`
+## FEATURE-02 — Chưa có luồng “quay lại phòng đang chơi” sau khi mở lại ứng dụng
 
 ### Performed actions — Chuỗi hành động thực hiện
 
-1. Gọi endpoint lấy game-mode config descriptor.
-2. So sánh hai tập `editable` và `locked`.
-3. Kiểm tra các key như `flow.allowAnswerLate`.
+1. User đang ở trong một game chưa kết thúc.
+2. Đóng ứng dụng.
+3. Mở lại ứng dụng.
+4. Tìm phòng đang chơi trên Home/Hoạt động.
 
-### Expected output
+### Expected output nếu sản phẩm cần tính năng này
 
-Hai tập không giao nhau; mỗi field có một quyền chỉnh sửa rõ ràng.
+Có nút **Tiếp tục phòng đang chơi** và user quay lại đúng vai trò Host/Player.
 
 ### Actual output
 
-Một field có thể xuất hiện trong cả hai tập, khiến client phải tự chọn quy tắc ưu tiên.
-
-### Suggested fix
-
-Validate descriptor khi khởi tạo và fail test nếu `editable ∩ locked` khác rỗng.
+Không có đủ API để ứng dụng tìm active session và xin lại thông tin kết nối cần thiết.
 
 ---
 
-## AUDIT-14 — Enum `game_mode` có `team` nhưng engine chưa implement
-
-- **Severity:** `MEDIUM`
+## FEATURE-03 — Chưa có danh sách Hoạt động chung cho cả phòng đã host và đã chơi
 
 ### Performed actions — Chuỗi hành động thực hiện
 
-1. Kiểm tra enum/schema/database của `game_mode`.
-2. Kiểm tra mode registry và gameplay engine.
-3. So sánh khả năng tạo dữ liệu với khả năng chạy game.
+1. User từng host một số phòng và tham gia một số phòng khác.
+2. Mở tab **Hoạt động**.
+3. Thử xem một danh sách chung theo thời gian.
 
-### Expected output
+### Expected output nếu sản phẩm cần tính năng này
 
-Mọi mode được schema chấp nhận phải có engine hoàn chỉnh, hoặc không được public/insert.
+Một danh sách phân trang thống nhất gồm cả hai vai trò.
 
 ### Actual output
 
-`team` tồn tại trong enum nhưng không có gameplay behavior đầy đủ.
-
-### Suggested fix
-
-Xóa/khóa `team` khỏi schema public cho đến khi implement xong, hoặc bổ sung engine và test trước khi cho tạo phòng.
+Backend chỉ cung cấp các danh sách theo vai trò riêng; không có một cursor/order chung để tạo feed chính xác.
 
 ---
 
-# III. Thiếu tính năng hoặc contract — không phân loại là bug
-
-## FEATURE-01 — Host không nhận `matchEndsAt` riêng của từng Player Marathon
+## FEATURE-04 — Section Featured chưa có nút “Xem thêm” đúng dữ liệu
 
 ### Performed actions — Chuỗi hành động thực hiện
 
-1. Tạo Marathon cho phép late join.
-2. Cho hai Player nhận câu đầu ở hai thời điểm khác nhau.
-3. Theo dõi `leaderboard:host` và `host:player-progress`.
+1. Mở Home có section Featured.
+2. Tìm cách mở danh sách đầy đủ các quiz Featured.
 
-### Expected output
+### Expected output nếu sản phẩm cần tính năng này
 
-Nếu sản phẩm yêu cầu Host theo dõi thời gian, mỗi row cần có deadline/budget còn lại của Player.
+Bấm **Xem thêm** mở danh sách Featured có phân trang.
 
 ### Actual output
 
-`matchEndsAt` tồn tại theo từng Player nhưng không được gửi cho Host; Host không thể hiển thị countdown chính xác.
-
-### Request đề xuất
-
-Bổ sung `matchEndsAt` vào Host snapshot/progress. Việc Player late-join vẫn nhận đủ `totalMatchSeconds` riêng là contract hiện tại, không phải bug.
+Chưa có filter/endpoint public để tải đúng tập Featured với cursor ổn định.
 
 ---
 
-## FEATURE-02 — Chưa có endpoint lấy phiên game đang active để quay lại phòng
+## FEATURE-05 — Chưa có danh sách chủ đề quiz do backend quản lý
 
 ### Performed actions — Chuỗi hành động thực hiện
 
-1. User đang có một game chưa kết thúc.
-2. Đóng/mở lại ứng dụng hoặc rời màn game.
-3. Client tìm endpoint để lấy active session và socket token mới.
+1. Mở màn Khám phá.
+2. Mở bộ lọc chủ đề.
+3. So sánh các chủ đề hiển thị với dữ liệu quiz thực tế.
 
-### Expected output
+### Expected output nếu sản phẩm cần tính năng này
 
-Có endpoint như `GET /games/active` trả active session, role, session code và cách cấp lại socket token.
+Danh sách chủ đề lấy từ backend và luôn khớp dữ liệu production.
 
 ### Actual output
 
-Không có endpoint đủ dữ liệu để client tìm và quay lại game đang diễn ra.
+Client phải dùng danh sách chủ đề cố định và chỉ biết chủ đề mới khi tình cờ gặp trong dữ liệu.
 
 ---
 
-## FEATURE-03 — History chưa có `role=all` với cursor thống nhất
+## FEATURE-06 — Chưa thể xóa cover hoặc description của quiz về trạng thái trống
 
 ### Performed actions — Chuỗi hành động thực hiện
 
-1. User có cả session đã host và session đã chơi.
-2. Gọi history cho `role=hosted` và `role=played`.
-3. Thử dựng một feed hoạt động chung có phân trang ổn định.
+1. Mở một quiz đã có cover/description.
+2. Bấm **Chỉnh sửa**.
+3. Xóa cover hoặc xóa toàn bộ description.
+4. Bấm **Lưu** và mở lại quiz.
 
-### Expected output
+### Expected output nếu sản phẩm cần tính năng này
 
-Một query `role=all` hoặc endpoint thống nhất với một cursor/order duy nhất.
-
-### Actual output
-
-Chỉ có các luồng riêng; merge phía client làm hỏng semantics cursor và thứ tự toàn cục.
-
----
-
-## FEATURE-04 — Feed chưa có đường phân trang đầy đủ cho `featured`
-
-### Performed actions — Chuỗi hành động thực hiện
-
-1. Lấy Home section có type `featured`.
-2. Tìm endpoint/filter để tải thêm đúng tập featured.
-3. Thử phân trang bằng feed/search hiện có.
-
-### Expected output
-
-Có filter `section=featured` hoặc equivalent với cursor ổn định.
+Field đã xóa trở về trạng thái trống.
 
 ### Actual output
 
-Không có endpoint/filter public tương đương để “xem thêm” đúng tập featured.
-
----
-
-## FEATURE-05 — Chưa có taxonomy endpoint cho quiz topics
-
-### Performed actions — Chuỗi hành động thực hiện
-
-1. Client cần hiển thị danh sách topic/filter hiện hành.
-2. Tìm endpoint trả taxonomy/metadata topic.
-3. So sánh với topic đang xuất hiện trong quiz data.
-
-### Expected output
-
-Backend cung cấp danh sách topic canonical, label và trạng thái sử dụng.
-
-### Actual output
-
-Client phải dùng danh sách trình bày hard-code và chỉ append topic lạ khi tình cờ gặp trong dữ liệu.
-
----
-
-## FEATURE-06 — PATCH quiz chưa có semantics rõ để clear cover/description
-
-### Performed actions — Chuỗi hành động thực hiện
-
-1. Quiz đã có `quiz_image` hoặc `quiz_description`.
-2. Gửi PATCH với ý định xóa field về `null`.
-3. Đọc lại quiz.
-
-### Expected output
-
-API có một cách rõ ràng để phân biệt “giữ nguyên field” và “xóa field”.
-
-### Actual output
-
-Field vắng được hiểu là giữ nguyên; contract hiện tại không cung cấp clear semantics ổn định nên client không thể xóa cover/description thật.
-
-### Request đề xuất
-
-Cho phép explicit `null` để clear hoặc cung cấp operation/endpoint riêng.
+Contract hiện tại không phân biệt rõ “không sửa field” với “xóa field”, nên dữ liệu cũ có thể được giữ lại.
 
 ---
 
 # IV. Thứ tự xử lý đề xuất
 
-1. `TEST-01` — Pause/Resume làm Player self-paced hiển thị và trả lời sai câu.
-2. `TEST-02` — Presence race khi reconnect.
-3. `TEST-03` + `TEST-04` + `AUDIT-05` — Đồng bộ Host progress/lives/elimination cho answer và timeout.
-4. `AUDIT-01` + `AUDIT-02` + `AUDIT-03` — Thống nhất resolver câu self-paced/Marathon.
-5. `AUDIT-04` — Snapshot phải giữ `awaiting_next`.
-6. `AUDIT-06` — Refresh Host khi presence thay đổi.
-7. `AUDIT-07` + `AUDIT-08` — Hoàn thiện snapshot phục hồi Host/Player.
-8. `AUDIT-09` + `AUDIT-10` — Data integrity và scoring integrity.
-9. Các lỗi contract/data mức Medium và nhóm Feature Request.
+1. `BUG-01` — Pause/Resume làm Player self-paced hiển thị và trả lời sai câu.
+2. `BUG-04` — Reconnect presence race và chuyển câu sớm.
+3. `BUG-02`, `BUG-03`, `BUG-10` — Đồng bộ progress/lives/elimination cho timeout và answer.
+4. `BUG-07`, `BUG-08` — Câu hỏi self-paced/shuffle/Marathon không nhất quán.
+5. `BUG-09` — Reconnect làm mất trạng thái chờ Next.
+6. `BUG-11` — Dashboard Host không refresh theo presence.
+7. `BUG-12`, `BUG-13` — Reconnect không phục hồi đầy đủ Host/Player.
+8. Các lỗi mức Medium/Low và nhóm thiếu tính năng.
