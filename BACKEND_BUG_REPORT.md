@@ -219,7 +219,7 @@ Chuẩn hóa một shape duy nhất cho lựa chọn và cập nhật đồng th
 
 # II. Lỗi nghiêm trọng cần backend xác nhận bằng test
 
-## BUG-07 — Reconnect khi bật xáo trộn có thể trả sai câu của Player self-paced
+## BUG-07 — `player:sync`/Reconnect có thể trả sai câu hoặc không có câu cho Player self-paced
 
 - **Severity:** `BLOCKER`
 - **Mode:** Practice, Solo, Survival, Marathon khi bật shuffle.
@@ -245,8 +245,10 @@ Chuẩn hóa một shape duy nhất cho lựa chọn và cập nhật đồng th
 
 ### Actual output — kết quả backend hiện tại xác định qua audit
 
-- Trạng thái reconnect có thể lấy câu theo thứ tự gốc thay vì thứ tự shuffle riêng của Player.
-- Player có thể nhìn thấy một câu nhưng backend giữ vị trí/thứ tự khác.
+- `player:sync` đã lấy đúng `player.current_question_index`, nhưng `snapshot()` đọc `questions[index]` từ question bank gốc thay vì dùng cùng `orderedQuestionsFor()` như luồng gửi/chấm câu self-paced.
+- Khi bật shuffle, Player có thể nhận sai nội dung câu hoặc sai thứ tự lựa chọn dù index nhìn có vẻ đúng; câu đang hiển thị có thể không phải câu backend sẽ chấm.
+- Với Marathon đã đi qua hơn một vòng question bank, index tiến độ có thể lớn hơn tổng số câu. Snapshot chưa modulo index nên có thể trả `question=null` dù trận vẫn đang active.
+- Snapshot phải dùng đúng shuffled order/option seed của từng Player; Marathon chỉ modulo khi truy cập question bank nhưng vẫn giữ progress index thật để tính tiến độ.
 
 ---
 
@@ -450,6 +452,36 @@ Chuẩn hóa một shape duy nhất cho lựa chọn và cập nhật đồng th
 
 ---
 
+## BUG-15 — Player mất kết nối đúng lúc game kết thúc có thể không vào được Final Result
+
+- **Severity:** `HIGH`
+- **Mode:** tất cả mode
+
+### Điều kiện ban đầu
+
+- Player đang ở trong trận.
+- Kết nối Player bị mất ngay trước hoặc đúng lúc backend kết thúc game.
+
+### Performed actions — Chuỗi hành động thực hiện
+
+1. Tắt mạng Player ngay trước khi Host kết thúc game hoặc trước khi Player cuối cùng hoàn thành.
+2. Chờ backend chuyển session sang `finished`.
+3. Bật mạng và để Player reconnect.
+4. Quan sát điều hướng trên Player.
+
+### Expected output
+
+- Player nhận được trạng thái terminal hoặc có REST fallback để mở Final Result.
+- Nếu mode cho review, token hợp lệ vẫn cho phép tải answer sheet sau game.
+
+### Actual output — kết quả backend hiện tại xác định qua audit
+
+- Socket middleware từ chối handshake khi session đã `finished`/`cancelled` và trả `GAME_ROOM_NOT_FOUND`.
+- Player đã bỏ lỡ `game:ended` không còn đường socket để lấy lại terminal state; Android hiện phải thoát Gameplay thay vì điều hướng sang Final Result.
+- Cần chốt contract terminal recovery: cho phép một snapshot terminal có kiểm soát hoặc cung cấp REST endpoint lấy kết quả của chính Player sau reconnect.
+
+---
+
 # III. Thiếu tính năng/contract — không gọi là bug
 
 ## FEATURE-01 — Host chưa xem được thời gian còn lại riêng của từng Player Marathon
@@ -487,6 +519,41 @@ Có nút **Tiếp tục phòng đang chơi** và user quay lại đúng vai trò
 ### Actual output
 
 Không có đủ API để ứng dụng tìm active session và xin lại thông tin kết nối cần thiết.
+
+---
+
+## FEATURE-07 — Chưa có endpoint cấp lại socket token cho Player đang ở trong trận
+
+- **Mức độ ảnh hưởng:** `BLOCKER` cho N30 resume/token.
+- **Phạm vi:** Player đã join, token hết hạn hoặc bị mất sau reconnect/process recreation.
+
+### Performed actions — Chuỗi hành động thực hiện
+
+1. Player join phòng và nhận socket token.
+2. Để token hết TTL hoặc mô phỏng `GAME_TOKEN_INVALID` ở lần handshake tiếp theo.
+3. Khi game vẫn đang active, thử reconnect vào đúng PlayerSession.
+4. Thử dùng lại `POST /games/{code}/join` để xin token mới.
+
+### Expected output nếu sản phẩm cần resume an toàn
+
+- Có endpoint renewal riêng cho Player đã tồn tại.
+- Endpoint xác thực đúng user/guest và đúng PlayerSession rồi cấp token mới cho cùng session.
+- Renewal hoạt động khi game đang active, không bị chặn bởi `allowLateJoin` hoặc `maxPlayers` vì đây không phải Player mới.
+- Response phân biệt rõ session/player không còn tồn tại, game đã kết thúc và credential không hợp lệ.
+
+### Actual output — kết quả backend hiện tại xác định qua audit
+
+- Backend chỉ có `POST /games/{id}/host-token` cho Host; Player token chỉ được cấp từ `POST /games/{code}/join`.
+- `joinGame()` kiểm tra game đã bắt đầu/`allowLateJoin` và phòng đầy **trước khi** tìm PlayerSession cũ. Vì vậy Player hợp lệ vẫn có thể nhận `GAME_ALREADY_STARTED` hoặc `GAME_ROOM_FULL` khi chỉ muốn xin lại token.
+- Android hiện buộc coi `GAME_TOKEN_INVALID` là fatal và thoát khỏi phòng; không thể refresh đúng chỉ bằng thay đổi client.
+- `SOCKET_TOKEN_TTL` là cấu hình môi trường (`.env.example` hiện là `6h`), nên lỗi thường xuất hiện khi reconnect hoặc process recreation sau thời gian dài, không phải khi socket đang kết nối liên tục.
+
+### Contract backend cần chốt
+
+- Thêm endpoint player-token/renew-token hoặc điều chỉnh contract tương đương, tách hoàn toàn khỏi semantics late join.
+- Hỗ trợ cả user đăng nhập và guest theo cơ chế định danh an toàn đã thống nhất.
+- Quy định rõ có cho renew khi session `finished` để tải Final Result/Review hay không.
+- Không trả token trong URL/query và không yêu cầu client log hoặc lưu token lâu dài.
 
 ---
 
@@ -566,9 +633,10 @@ Contract hiện tại không phân biệt rõ “không sửa field” với “
 
 1. `BUG-01` — Pause/Resume làm Player self-paced hiển thị và trả lời sai câu.
 2. `BUG-04` — Reconnect presence race và chuyển câu sớm.
-3. `BUG-02`, `BUG-03`, `BUG-10` — Đồng bộ progress/lives/elimination cho timeout và answer.
-4. `BUG-07`, `BUG-08` — Câu hỏi self-paced/shuffle/Marathon không nhất quán.
-5. `BUG-09` — Reconnect làm mất trạng thái chờ Next.
-6. `BUG-11` — Dashboard Host không refresh theo presence.
-7. `BUG-12`, `BUG-13` — Reconnect không phục hồi đầy đủ Host/Player.
-8. Các lỗi mức Medium/Low và nhóm thiếu tính năng.
+3. `FEATURE-07` — Contract cấp lại Player socket token để N30 có thể triển khai an toàn.
+4. `BUG-07`, `BUG-08` — Snapshot self-paced/shuffle/Marathon không nhất quán.
+5. `BUG-02`, `BUG-03`, `BUG-10` — Đồng bộ progress/lives/elimination cho timeout và answer.
+6. `BUG-09` — Reconnect làm mất trạng thái chờ Next.
+7. `BUG-11` — Dashboard Host không refresh theo presence.
+8. `BUG-12`, `BUG-13`, `BUG-15` — Reconnect không phục hồi đầy đủ Host/Player/terminal state.
+9. Các lỗi mức Medium/Low và nhóm thiếu tính năng còn lại.
