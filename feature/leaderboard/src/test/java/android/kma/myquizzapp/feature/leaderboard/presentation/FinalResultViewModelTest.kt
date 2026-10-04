@@ -6,13 +6,18 @@ import android.kma.myquizzapp.core.common.model.CreateGameSessionResult
 import android.kma.myquizzapp.core.common.model.GameEnded
 import android.kma.myquizzapp.core.common.model.GameMode
 import android.kma.myquizzapp.core.common.model.GameModeDescriptor
+import android.kma.myquizzapp.core.common.model.GameResults
 import android.kma.myquizzapp.core.common.model.GameReview
 import android.kma.myquizzapp.core.common.model.JoinRoomResult
+import android.kma.myquizzapp.core.common.model.LeaderboardRow
+import android.kma.myquizzapp.core.common.model.QuestionStat
 import android.kma.myquizzapp.core.common.model.RoomLookup
+import android.kma.myquizzapp.core.common.model.ShowLeaderboard
 import android.kma.myquizzapp.core.common.repository.GameResultRepository
 import android.kma.myquizzapp.core.common.repository.GameSessionRepository
 import android.kma.myquizzapp.core.common.repository.StoredGameResult
 import android.kma.myquizzapp.core.common.result.Result
+import android.kma.myquizzapp.feature.leaderboard.domain.LoadGameResultsUseCase
 import android.kma.myquizzapp.feature.leaderboard.domain.LoadGameReviewUseCase
 import androidx.lifecycle.SavedStateHandle
 import kotlinx.coroutines.Dispatchers
@@ -51,10 +56,11 @@ class FinalResultViewModelTest {
             socketToken = "secret-token"
         )
         val results = FakeResultRepository(stored)
-        val games = FakeGameSessionRepository(Result.Success(review()))
+        val games = FakeGameSessionRepository(reviewResult = Result.Success(review()))
         val viewModel = viewModel(results, games)
 
         assertEquals(0, games.reviewCalls)
+        assertEquals(0, games.resultsCalls)
         assertTrue(viewModel.uiState.value.isPractice)
 
         viewModel.handleIntent(FinalResultIntent.ToggleReview)
@@ -74,7 +80,7 @@ class FinalResultViewModelTest {
     @Test
     fun `disabled review never calls endpoint`() = runTest(dispatcher) {
         val stored = StoredGameResult(7, 9, GameEnded(reviewEnabled = false), GameMode.SOLO, "token")
-        val games = FakeGameSessionRepository(Result.Success(review()))
+        val games = FakeGameSessionRepository(reviewResult = Result.Success(review()))
         val viewModel = viewModel(FakeResultRepository(stored), games)
 
         viewModel.handleIntent(FinalResultIntent.ToggleReview)
@@ -88,14 +94,14 @@ class FinalResultViewModelTest {
     @Test
     fun `review error is shown and retry succeeds`() = runTest(dispatcher) {
         val stored = StoredGameResult(7, 9, GameEnded(reviewEnabled = true), GameMode.SOLO, "token")
-        val games = FakeGameSessionRepository(Result.Error(AppError.Network))
+        val games = FakeGameSessionRepository(reviewResult = Result.Error(AppError.Network))
         val viewModel = viewModel(FakeResultRepository(stored), games)
 
         viewModel.handleIntent(FinalResultIntent.ToggleReview)
         runCurrent()
         assertEquals("Không có kết nối mạng", viewModel.uiState.value.reviewError)
 
-        games.result = Result.Success(review())
+        games.reviewResult = Result.Success(review())
         viewModel.handleIntent(FinalResultIntent.RetryReview)
         runCurrent()
         assertEquals(2, games.reviewCalls)
@@ -103,9 +109,63 @@ class FinalResultViewModelTest {
         assertNull(viewModel.uiState.value.reviewError)
     }
 
+    @Test
+    fun `missing transient result is restored from REST`() = runTest(dispatcher) {
+        val restored = GameResults(
+            mode = GameMode.SOLO,
+            reviewEnabled = true,
+            leaderboard = listOf(LeaderboardRow(rank = 1, id = 9, playerName = "Kiro", playerScore = 1200)),
+            perQuestion = listOf(QuestionStat(questionId = 3, questionIndex = 0, answerCount = 2, correctCount = 1))
+        )
+        val games = FakeGameSessionRepository(resultsResult = Result.Success(restored))
+        val viewModel = viewModel(FakeResultRepository(null), games)
+
+        runCurrent()
+
+        assertEquals(1, games.resultsCalls)
+        assertFalse(viewModel.uiState.value.isResultLoading)
+        assertEquals(GameMode.SOLO, viewModel.uiState.value.mode)
+        assertEquals(1, viewModel.uiState.value.leaderboard.size)
+        assertEquals(1, viewModel.uiState.value.questionStats.size)
+        assertTrue(viewModel.uiState.value.reviewEnabled)
+    }
+
+    @Test
+    fun `REST fallback never exposes leaderboard hidden by config`() = runTest(dispatcher) {
+        val restored = GameResults(
+            showLeaderboard = ShowLeaderboard.NEVER,
+            leaderboard = listOf(LeaderboardRow(rank = 1, id = 9, playerName = "Kiro", playerScore = 1200))
+        )
+        val games = FakeGameSessionRepository(resultsResult = Result.Success(restored))
+        val viewModel = viewModel(FakeResultRepository(null), games)
+
+        runCurrent()
+
+        assertTrue(viewModel.uiState.value.isLeaderboardHidden)
+        assertTrue(viewModel.uiState.value.leaderboard.isEmpty())
+    }
+
+    @Test
+    fun `result load error is shown and retry succeeds`() = runTest(dispatcher) {
+        val games = FakeGameSessionRepository(resultsResult = Result.Error(AppError.Network))
+        val viewModel = viewModel(FakeResultRepository(null), games)
+
+        runCurrent()
+        assertEquals("Không có kết nối mạng", viewModel.uiState.value.resultError)
+
+        games.resultsResult = Result.Success(GameResults(mode = GameMode.SOLO))
+        viewModel.handleIntent(FinalResultIntent.RetryResult)
+        runCurrent()
+
+        assertEquals(2, games.resultsCalls)
+        assertNull(viewModel.uiState.value.resultError)
+        assertNotNull(viewModel.uiState.value.result)
+    }
+
     private fun viewModel(results: GameResultRepository, games: GameSessionRepository) =
         FinalResultViewModel(
             results = results,
+            loadGameResults = LoadGameResultsUseCase(games),
             loadGameReview = LoadGameReviewUseCase(games),
             savedStateHandle = SavedStateHandle(mapOf("gameId" to 7L, "playerId" to 9L))
         )
@@ -126,13 +186,24 @@ private class FakeResultRepository(private val value: StoredGameResult?) : GameR
 }
 
 private class FakeGameSessionRepository(
-    var result: Result<GameReview>
+    var reviewResult: Result<GameReview> = Result.Success(
+        GameReview(0, 0, 0, 0, emptyList())
+    ),
+    var resultsResult: Result<GameResults> = Result.Success(GameResults())
 ) : GameSessionRepository {
     var reviewCalls = 0
+    var resultsCalls = 0
+
+    override suspend fun getGameResults(gameId: Long): Result<GameResults> {
+        resultsCalls += 1
+        return resultsResult
+    }
+
     override suspend fun getGameReview(gameId: Long, socketToken: String): Result<GameReview> {
         reviewCalls += 1
-        return result
+        return reviewResult
     }
+
     override suspend fun getGameModes(): Result<List<GameModeDescriptor>> = error("unused")
     override suspend fun createGameSession(params: CreateGameSessionParams): Result<CreateGameSessionResult> = error("unused")
     override suspend fun getHostToken(gameId: Long): Result<String> = error("unused")

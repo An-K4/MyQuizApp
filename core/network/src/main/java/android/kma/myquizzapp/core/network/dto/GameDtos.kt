@@ -11,6 +11,7 @@ import android.kma.myquizzapp.core.common.model.GameMode
 import android.kma.myquizzapp.core.common.model.GameModeDescriptor
 import android.kma.myquizzapp.core.common.model.GameReview
 import android.kma.myquizzapp.core.common.model.GameReviewItem
+import android.kma.myquizzapp.core.common.model.GameResults
 import android.kma.myquizzapp.core.common.model.GameSession
 import android.kma.myquizzapp.core.common.model.IgnoredGameConfigField
 import android.kma.myquizzapp.core.common.model.IgnoredGameConfigReason
@@ -20,7 +21,9 @@ import android.kma.myquizzapp.core.common.model.Pacing
 import android.kma.myquizzapp.core.common.model.PublicAnswerOption
 import android.kma.myquizzapp.core.common.model.RoomLookup
 import android.kma.myquizzapp.core.common.model.SessionStatus
+import android.kma.myquizzapp.core.network.socket.dto.LeaderboardRowDto
 import android.kma.myquizzapp.core.network.socket.dto.LobbyPlayerDto
+import android.kma.myquizzapp.core.network.socket.dto.QuestionStatDto
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonArray
@@ -296,6 +299,32 @@ data class JoinedPlayerDto(
         lives = lives
     )
 }
+
+@Serializable
+data class GameResultsResponseDto(val results: GameResultsDto)
+
+@Serializable
+data class GameResultsDto(
+    val session: GameResultsSessionDto,
+    val leaderboard: List<LeaderboardRowDto> = emptyList(),
+    val perQuestion: List<QuestionStatDto> = emptyList()
+) {
+    fun toDomain() = GameResults(
+        mode = session.gameMode,
+        sessionStatus = session.sessionStatus,
+        showLeaderboard = session.config.flow.showLeaderboard,
+        reviewEnabled = session.config.flow.reviewMode,
+        leaderboard = leaderboard.map { it.toDomain() },
+        perQuestion = perQuestion.map { it.toDomain() }
+    )
+}
+
+@Serializable
+data class GameResultsSessionDto(
+    @SerialName("game_mode") val gameMode: GameMode? = null,
+    @SerialName("session_status") val sessionStatus: SessionStatus? = null,
+    val config: GameConfig = GameConfig()
+)
 
 @Serializable
 data class GameReviewResponseDto(val review: GameReviewDto)

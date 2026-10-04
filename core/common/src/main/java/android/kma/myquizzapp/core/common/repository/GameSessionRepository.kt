@@ -4,6 +4,7 @@ import android.kma.myquizzapp.core.common.model.CreateGameSessionParams
 import android.kma.myquizzapp.core.common.model.CreateGameSessionResult
 import android.kma.myquizzapp.core.common.model.GameModeDescriptor
 import android.kma.myquizzapp.core.common.model.GameReview
+import android.kma.myquizzapp.core.common.model.GameResults
 import android.kma.myquizzapp.core.common.model.JoinRoomResult
 import android.kma.myquizzapp.core.common.model.RoomLookup
 import android.kma.myquizzapp.core.common.result.Result
@@ -37,6 +38,9 @@ interface GameSessionRepository {
         playerName: String? = null,
         guestId: String? = null
     ): Result<JoinRoomResult>
+
+    /** Kết quả công khai dùng để khôi phục màn tổng kết sau khi process bị hủy. */
+    suspend fun getGameResults(gameId: Long): Result<GameResults>
 
     /** Bảng xem lại của chính Player; token chỉ truyền bằng header, không nằm trong URL. */
     suspend fun getGameReview(gameId: Long, socketToken: String): Result<GameReview>

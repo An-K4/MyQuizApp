@@ -266,8 +266,8 @@ data class GameSnapshot(
 /**
  * `game:ended` — trận kết thúc, kèm sẵn toàn bộ số liệu tổng kết.
  *
- * Vì payload này đã mang [leaderboard] đầy đủ và [perQuestion], màn kết quả KHÔNG
- * cần gọi thêm REST `GET /games/:id/results`. Bản của host luôn có bảng đầy đủ.
+ * Vì payload này đã mang [leaderboard] đầy đủ và [perQuestion], luồng bình thường
+ * không gọi REST. `GET /games/:id/results` chỉ là fallback sau process death.
  *
  * @param reviewEnabled phản chiếu `flow.reviewMode` — quyết định có được gọi
  *   `GET /games/:id/review` để xem lại từng câu hay không.
@@ -276,6 +276,16 @@ data class GameEnded(
     val leaderboard: List<LeaderboardRow> = emptyList(),
     val perQuestion: List<QuestionStat> = emptyList(),
     val reviewEnabled: Boolean = false
+)
+
+/** REST fallback `GET /games/{id}/results` khi payload socket đã mất sau process death. */
+data class GameResults(
+    val mode: GameMode? = null,
+    val sessionStatus: SessionStatus? = null,
+    val showLeaderboard: ShowLeaderboard = ShowLeaderboard.BETWEEN_QUESTIONS,
+    val reviewEnabled: Boolean = false,
+    val leaderboard: List<LeaderboardRow> = emptyList(),
+    val perQuestion: List<QuestionStat> = emptyList()
 )
 
 /** `player:eliminated` — một người chơi hết mạng (chỉ mode sinh tồn). */

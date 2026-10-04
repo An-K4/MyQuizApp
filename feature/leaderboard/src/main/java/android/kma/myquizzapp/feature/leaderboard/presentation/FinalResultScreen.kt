@@ -2,6 +2,7 @@ package android.kma.myquizzapp.feature.leaderboard.presentation
 
 import android.kma.myquizzapp.core.common.model.GameReviewItem
 import android.kma.myquizzapp.core.common.model.PublicAnswerOption
+import android.kma.myquizzapp.core.common.model.QuestionStat
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -68,8 +69,27 @@ fun FinalResultScreenContent(
                 }
             }
             when {
+                state.isResultLoading -> item {
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        CircularProgressIndicator()
+                        Text("Đang tải lại kết quả…")
+                    }
+                }
+                state.resultError != null -> item {
+                    Card(Modifier.fillMaxWidth()) {
+                        Column(
+                            Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(state.resultError)
+                            OutlinedButton(onClick = { onIntent(FinalResultIntent.RetryResult) }) {
+                                Text("Thử tải lại kết quả")
+                            }
+                        }
+                    }
+                }
                 state.isMissing -> item {
-                    Text("Kết quả tạm thời không còn sau khi ứng dụng được khởi động lại.")
+                    Text("Không tìm thấy kết quả của trận này.")
                 }
                 state.isLeaderboardHidden -> item {
                     Text(if (state.isPractice) "Luyện tập không có bảng xếp hạng." else "Host đã ẩn bảng xếp hạng của trận này.")
@@ -96,6 +116,16 @@ fun FinalResultScreenContent(
                             )
                         }
                     }
+                }
+            }
+
+            if (state.result != null && state.questionStats.isNotEmpty()) {
+                item { Text("Thống kê từng câu", style = MaterialTheme.typography.titleLarge) }
+                items(
+                    items = state.questionStats,
+                    key = { "${it.questionIndex}-${it.questionId}" }
+                ) { stat ->
+                    QuestionStatCard(stat)
                 }
             }
 
@@ -144,6 +174,17 @@ fun FinalResultScreenContent(
                     Text("Về trang chủ")
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun QuestionStatCard(stat: QuestionStat) {
+    val percent = if (stat.answerCount == 0) 0 else stat.correctCount * 100 / stat.answerCount
+    Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text("Câu ${stat.questionIndex + 1}", style = MaterialTheme.typography.titleMedium)
+            Text("${stat.correctCount}/${stat.answerCount} lượt trả lời đúng • $percent%")
         }
     }
 }

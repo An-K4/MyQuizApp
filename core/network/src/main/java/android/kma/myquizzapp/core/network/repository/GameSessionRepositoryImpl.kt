@@ -4,6 +4,7 @@ import android.kma.myquizzapp.core.common.model.CreateGameSessionParams
 import android.kma.myquizzapp.core.common.model.CreateGameSessionResult
 import android.kma.myquizzapp.core.common.model.GameModeDescriptor
 import android.kma.myquizzapp.core.common.model.GameReview
+import android.kma.myquizzapp.core.common.model.GameResults
 import android.kma.myquizzapp.core.common.model.JoinRoomResult
 import android.kma.myquizzapp.core.common.model.RoomLookup
 import android.kma.myquizzapp.core.common.repository.GameSessionRepository
@@ -17,7 +18,7 @@ import javax.inject.Inject
 
 class GameSessionRepositoryImpl @Inject constructor(
     private val gameApi: GameApiService,
-    @PublicGameApiService private val reviewApi: GameApiService
+    @PublicGameApiService private val publicApi: GameApiService
 ) : GameSessionRepository {
 
     override suspend fun getGameModes(): Result<List<GameModeDescriptor>> =
@@ -51,6 +52,9 @@ class GameSessionRepositoryImpl @Inject constructor(
             )
         ).map { it.toDomain() }
 
+    override suspend fun getGameResults(gameId: Long): Result<GameResults> =
+        publicApi.getGameResults(gameId).map { it.results.toDomain() }
+
     override suspend fun getGameReview(gameId: Long, socketToken: String): Result<GameReview> =
-        reviewApi.getGameReview(gameId, socketToken).map { it.review.toDomain() }
+        publicApi.getGameReview(gameId, socketToken).map { it.review.toDomain() }
 }

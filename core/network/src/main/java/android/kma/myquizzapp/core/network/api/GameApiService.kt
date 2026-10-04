@@ -5,6 +5,7 @@ import android.kma.myquizzapp.core.network.dto.CreateGameRequestDto
 import android.kma.myquizzapp.core.network.dto.CreateGameResponseDto
 import android.kma.myquizzapp.core.network.dto.GameModesResponseDto
 import android.kma.myquizzapp.core.network.dto.GameReviewResponseDto
+import android.kma.myquizzapp.core.network.dto.GameResultsResponseDto
 import android.kma.myquizzapp.core.network.dto.HostTokenResponseDto
 import android.kma.myquizzapp.core.network.dto.JoinGameRequestDto
 import android.kma.myquizzapp.core.network.dto.JoinGameResponseDto
@@ -45,6 +46,10 @@ interface GameApiService {
         @Path("code") sessionCode: String,
         @Body body: JoinGameRequestDto
     ): Result<JoinGameResponseDto>
+
+    /** Kết quả công khai; chỉ dùng làm fallback khi payload `game:ended` không còn trong RAM. */
+    @GET("games/{id}/results")
+    suspend fun getGameResults(@Path("id") gameId: Long): Result<GameResultsResponseDto>
 
     /** Answer sheet của chính Player; backend chỉ cho đọc sau khi trận kết thúc. */
     @GET("games/{id}/review")
