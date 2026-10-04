@@ -27,6 +27,7 @@ fun CreateRoomScreen(
     onNavigateBack: () -> Unit,
     onNavigateToHostLobby: (gameId: Long, socketToken: String, sessionCode: String) -> Unit,
     onRequireAuthentication: () -> Unit,
+    onResourceMissing: (String) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: CreateRoomViewModel = hiltViewModel()
 ) {
@@ -38,6 +39,7 @@ fun CreateRoomScreen(
                 is CreateRoomEffect.NavigateToHostLobby ->
                     onNavigateToHostLobby(effect.gameId, effect.socketToken, effect.sessionCode)
                 CreateRoomEffect.RequireAuthentication -> onRequireAuthentication()
+                is CreateRoomEffect.ResourceMissing -> onResourceMissing(effect.message)
             }
         }
     }

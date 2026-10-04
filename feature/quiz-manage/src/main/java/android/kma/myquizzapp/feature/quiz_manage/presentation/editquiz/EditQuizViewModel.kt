@@ -1,5 +1,6 @@
 package android.kma.myquizzapp.feature.quiz_manage.presentation.editquiz
 
+import android.kma.myquizzapp.core.common.error.isMissingResource
 import android.kma.myquizzapp.core.common.error.toUserMessage
 import android.kma.myquizzapp.core.common.model.Question
 import android.kma.myquizzapp.core.common.model.QuestionType
@@ -149,8 +150,14 @@ class EditQuizViewModel @Inject constructor(
 
             when (val result = getQuizDetailUseCase(quizId)) {
                 is Result.Success -> _uiState.value = result.data.toEditUiState()
-                is Result.Error -> _uiState.update {
-                    it.copy(isLoading = false, loadError = result.error.toUserMessage())
+                is Result.Error -> {
+                    val message = result.error.toUserMessage()
+                    if (result.error.isMissingResource("QUIZ_NOT_FOUND")) {
+                        _uiState.update { it.copy(isLoading = false) }
+                        _effect.send(EditQuizEffect.ResourceMissing(message))
+                    } else {
+                        _uiState.update { it.copy(isLoading = false, loadError = message) }
+                    }
                 }
             }
         }

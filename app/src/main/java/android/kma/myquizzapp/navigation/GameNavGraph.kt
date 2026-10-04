@@ -98,8 +98,22 @@ fun NavGraphBuilder.gameGraph(navController: NavHostController) {
                     popUpTo<Route.Home> { inclusive = false }
                     launchSingleTop = true
                 }
-            }
+            },
+            onResourceMissing = { message -> navController.navigateHomeWithMessage(message) }
         )
+    }
+}
+
+/** Điều hướng về Home và chuyển kèm thông báo cho snackbar của Home. */
+internal fun NavHostController.navigateHomeWithMessage(message: String?) {
+    navigate(Route.Home) {
+        popUpTo<Route.Home> { inclusive = false }
+        launchSingleTop = true
+    }
+    // Ghi sau khi navigate để chắc chắn entry Home đang hiển thị là đúng entry
+    // nhận message, kể cả khi Navigation vừa restore một entry đã lưu.
+    if (message != null) {
+        currentBackStackEntry?.savedStateHandle?.set(KEY_LOBBY_EXIT_MESSAGE, message)
     }
 }
 

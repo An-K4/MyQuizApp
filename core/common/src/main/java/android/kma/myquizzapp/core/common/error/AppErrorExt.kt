@@ -6,13 +6,13 @@ package android.kma.myquizzapp.core.common.error
 // không trả message để client tự sở hữu wording (đa ngôn ngữ, tránh leak nội bộ).
 fun AppError.toUserMessage(): String = when (this) {
     AppError.Network -> "Không có kết nối mạng"
-    AppError.Unauthorized -> "Email hoặc mật khẩu không đúng"
-    AppError.Forbidden -> "Tài khoản đã bị vô hiệu hóa"
+    AppError.Unauthorized -> "Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại"
+    AppError.Forbidden -> "Bạn không có quyền thực hiện thao tác này"
     AppError.NotFound -> "Không tìm thấy"
     AppError.Gone -> "Tài nguyên không còn tồn tại"
-    is AppError.Server -> "Lỗi server (HTTP $httpCode)"
+    is AppError.Server -> "Dịch vụ tạm thời gián đoạn, vui lòng thử lại sau"
     is AppError.Api -> apiCodeToMessage(code)
-    is AppError.Unknown -> cause?.message ?: "Lỗi không xác định"
+    is AppError.Unknown -> "Đã có lỗi xảy ra, vui lòng thử lại"
 }
 
 /**
@@ -36,6 +36,7 @@ private fun apiCodeToMessage(code: String): String = when (code) {
     "USER_DEACTIVATED" -> "Tài khoản đã bị vô hiệu hóa"
     "USER_PASSWORD_INCORRECT" -> "Mật khẩu hiện tại không đúng"
     "USER_NO_FIELDS_TO_UPDATE" -> "Không có thông tin nào để cập nhật"
+    "ADMIN_CANNOT_BAN_SELF" -> "Quản trị viên không thể khóa chính tài khoản của mình"
 
     // --- Reset password (N16.5) ---
     "RESET_OTP_INVALID" -> "Mã OTP không đúng"

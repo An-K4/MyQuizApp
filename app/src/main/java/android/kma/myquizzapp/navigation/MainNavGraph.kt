@@ -47,6 +47,10 @@ fun NavGraphBuilder.mainGraph(
             onNavigateToDiscover = { sectionKey, sectionType, title, topic ->
                 navController.navigate(Route.Discover(sectionKey, sectionType, title, topic))
             },
+            noticeMessage = exitMessage,
+            onNoticeShown = {
+                entry.savedStateHandle[KEY_LOBBY_EXIT_MESSAGE] = null
+            },
             // Ô nhập mã phòng — trước N19.6 là cả một màn riêng (Route.JoinRoom).
             // Tầng navigation nối thế của feature:lobby vào Home để hai feature
             // không phải biết nhau.
@@ -64,10 +68,6 @@ fun NavGraphBuilder.mainGraph(
                         navController.navigate(Route.AuthGraph) {
                             popUpTo<Route.MainGraph> { inclusive = false }
                         }
-                    },
-                    exitMessage = exitMessage,
-                    onExitMessageShown = {
-                        entry.savedStateHandle[KEY_LOBBY_EXIT_MESSAGE] = null
                     }
                 )
             }

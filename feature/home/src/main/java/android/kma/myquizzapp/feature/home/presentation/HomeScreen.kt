@@ -13,6 +13,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
@@ -39,11 +40,21 @@ fun HomeScreen(
     onNavigateToAuth: () -> Unit,
     onNavigateToQuizDetail: (Long) -> Unit,
     onNavigateToDiscover: (sectionKey: String?, sectionType: String?, title: String?, topic: String?) -> Unit,
+    noticeMessage: String? = null,
+    onNoticeShown: () -> Unit = {},
     roomCodeCard: @Composable () -> Unit = {},
     modifier: Modifier = Modifier,
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(noticeMessage) {
+        noticeMessage?.let { message ->
+            snackbarHostState.showSnackbar(message)
+            onNoticeShown()
+        }
+    }
 
     LaunchedEffect(Unit) {
         viewModel.effect.collect { effect ->
@@ -64,6 +75,7 @@ fun HomeScreen(
         onNavigateToQuizDetail = onNavigateToQuizDetail,
         onNavigateToDiscover = onNavigateToDiscover,
         onRetry = { viewModel.onIntent(HomeIntent.Retry) },
+        snackbarHostState = snackbarHostState,
         roomCodeCard = roomCodeCard,
         modifier = modifier
     )
@@ -77,11 +89,13 @@ fun HomeScreenContent(
     onNavigateToAuth: () -> Unit,
     onNavigateToQuizDetail: (Long) -> Unit,
     onRetry: () -> Unit,
+    snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
     onNavigateToDiscover: (sectionKey: String?, sectionType: String?, title: String?, topic: String?) -> Unit = { _, _, _, _ -> },
     roomCodeCard: @Composable () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text("MyQuizz") },

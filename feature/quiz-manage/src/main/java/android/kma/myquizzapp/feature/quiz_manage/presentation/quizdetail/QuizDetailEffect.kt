@@ -6,4 +6,5 @@ sealed interface QuizDetailEffect {
      * điều hướng ra ngoài (popBackStack về danh sách, list tự refresh khi resume).
      */
     data object QuizDeleted : QuizDetailEffect
+    data class ResourceMissing(val message: String) : QuizDetailEffect
 }

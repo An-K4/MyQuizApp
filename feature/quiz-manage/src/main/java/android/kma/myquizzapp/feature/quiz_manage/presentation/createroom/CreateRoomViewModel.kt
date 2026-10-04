@@ -1,6 +1,8 @@
 package android.kma.myquizzapp.feature.quiz_manage.presentation.createroom
 
 import android.kma.myquizzapp.core.common.error.AppError
+import android.kma.myquizzapp.core.common.error.isAuthenticationRequired
+import android.kma.myquizzapp.core.common.error.isMissingResource
 import android.kma.myquizzapp.core.common.error.toUserMessage
 import android.kma.myquizzapp.core.common.model.CreateGameSessionParams
 import android.kma.myquizzapp.core.common.model.GameConfigKey
@@ -226,15 +228,20 @@ class CreateRoomViewModel @Inject constructor(
                     )
                 }
                 is Result.Error -> {
-                    _uiState.update {
-                        it.copy(
-                            isSubmitting = false,
-                            errorMessage = "Phòng ${session.sessionCode} đã được tạo, nhưng chưa lấy được quyền host. " +
-                                "Hãy thử lại; ứng dụng sẽ không tạo phòng thứ hai."
-                        )
-                    }
-                    if (result.error is AppError.Unauthorized) {
-                        _effect.send(CreateRoomEffect.RequireAuthentication)
+                    if (result.error.isMissingResource("GAME_ROOM_NOT_FOUND")) {
+                        _uiState.update { it.copy(isSubmitting = false) }
+                        _effect.send(CreateRoomEffect.ResourceMissing(result.error.toUserMessage()))
+                    } else {
+                        _uiState.update {
+                            it.copy(
+                                isSubmitting = false,
+                                errorMessage = "Phòng ${session.sessionCode} đã được tạo, nhưng chưa lấy được quyền host. " +
+                                    "Hãy thử lại; ứng dụng sẽ không tạo phòng thứ hai."
+                            )
+                        }
+                        if (result.error.isAuthenticationRequired) {
+                            _effect.send(CreateRoomEffect.RequireAuthentication)
+                        }
                     }
                 }
             }
@@ -242,8 +249,15 @@ class CreateRoomViewModel @Inject constructor(
     }
 
     private suspend fun handleError(error: AppError) {
-        _uiState.update { it.copy(isSubmitting = false, errorMessage = error.toUserMessage()) }
-        if (error is AppError.Unauthorized) {
+        val message = error.toUserMessage()
+        if (error.isMissingResource("QUIZ_NOT_FOUND")) {
+            _uiState.update { it.copy(isSubmitting = false) }
+            _effect.send(CreateRoomEffect.ResourceMissing(message))
+            return
+        }
+
+        _uiState.update { it.copy(isSubmitting = false, errorMessage = message) }
+        if (error.isAuthenticationRequired) {
             _effect.send(CreateRoomEffect.RequireAuthentication)
         }
     }

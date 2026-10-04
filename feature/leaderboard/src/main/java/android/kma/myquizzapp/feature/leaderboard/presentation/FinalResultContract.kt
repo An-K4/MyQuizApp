@@ -7,6 +7,10 @@ import android.kma.myquizzapp.core.common.model.GameReviewItem
 import android.kma.myquizzapp.core.common.model.LeaderboardRow
 import android.kma.myquizzapp.core.common.model.QuestionStat
 
+sealed interface FinalResultEffect {
+    data class ResourceMissing(val message: String) : FinalResultEffect
+}
+
 data class FinalResultUiState(
     val gameId: Long,
     val playerId: Long,

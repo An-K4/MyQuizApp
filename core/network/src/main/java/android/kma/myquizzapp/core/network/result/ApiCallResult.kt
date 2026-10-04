@@ -86,13 +86,20 @@ private class ResultCall<T>(
         }
     }
 
-    private fun mapHttpError(code: Int, rawBody: String?): AppError = when (code) {
-        401 -> AppError.Unauthorized
-        403 -> AppError.Forbidden
-        404 -> AppError.NotFound
-        410 -> AppError.Gone                       // phòng bị xóa → về Home (N37)
-        in 500..599 -> AppError.Server(code)
-        else -> AppError.Api(parseErrorCode(rawBody) ?: "SERVER_ERROR")
+    private fun mapHttpError(code: Int, rawBody: String?): AppError {
+        // Backend luôn trả error.code trong envelope. Giữ code trước để UI phân biệt
+        // đúng ngữ cảnh (VD cùng HTTP 410 có thể là USER_DEACTIVATED hoặc GONE).
+        parseErrorCode(rawBody)?.let { return AppError.Api(it) }
+
+        // Chỉ fallback theo HTTP status khi body không đọc được/không có code.
+        return when (code) {
+            401 -> AppError.Unauthorized
+            403 -> AppError.Forbidden
+            404 -> AppError.NotFound
+            410 -> AppError.Gone
+            in 500..599 -> AppError.Server(code)
+            else -> AppError.Api("SERVER_ERROR")
+        }
     }
 
     // N16.5: backend chỉ trả error.code — không còn message để parse.

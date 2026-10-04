@@ -1,11 +1,13 @@
 ﻿package android.kma.myquizzapp.core.network.di
 
+import android.kma.myquizzapp.core.common.network.NetworkMonitor
 import android.kma.myquizzapp.core.common.repository.AuthRepository
 import android.kma.myquizzapp.core.common.repository.GameResultRepository
 import android.kma.myquizzapp.core.common.repository.GameSessionRepository
 import android.kma.myquizzapp.core.common.repository.QuizRepository
 import android.kma.myquizzapp.core.common.repository.SessionRepository
 import android.kma.myquizzapp.core.common.repository.StorageRepository
+import android.kma.myquizzapp.core.network.ConnectivityNetworkMonitor
 import android.kma.myquizzapp.core.network.repository.AuthRepositoryImpl
 import android.kma.myquizzapp.core.network.repository.GameSessionRepositoryImpl
 import android.kma.myquizzapp.core.network.repository.InMemoryGameResultRepository
@@ -21,6 +23,10 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 abstract class NetworkBindingModule {
+
+    @Binds
+    @Singleton
+    abstract fun bindNetworkMonitor(impl: ConnectivityNetworkMonitor): NetworkMonitor
     
     @Binds
     @Singleton

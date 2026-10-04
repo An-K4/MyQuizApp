@@ -3,9 +3,9 @@
 sealed interface AppError {
     data object Network : AppError       // IOException / mất mạng
     data object Unauthorized : AppError  // 401 — cookie chết cả sau refresh, bắt login lại
-    data object Forbidden : AppError     // 403 — VD tài khoản bị deactivated
-    data object Gone : AppError          // phòng game bị xóa giữa chừng, điều hướng về Home
-    data object NotFound : AppError      // 404 — sai mã phòng, quiz không tồn tại
+    data object Forbidden : AppError     // 403 không có envelope hợp lệ
+    data object Gone : AppError          // 410 không có envelope hợp lệ
+    data object NotFound : AppError      // 404 không có envelope hợp lệ
     data class Server(val httpCode: Int) : AppError
     // N16.5: lỗi nghiệp vụ từ backend chỉ mang code (shared/errors/codes.ts) —
     // client tự map sang tiếng Việt, không còn message/details từ server.

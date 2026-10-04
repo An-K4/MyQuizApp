@@ -23,6 +23,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 fun EditQuizScreen(
     onNavigateBack: () -> Unit,
     onQuizUpdated: (Long) -> Unit,
+    onResourceMissing: (String) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: EditQuizViewModel = hiltViewModel()
 ) {
@@ -52,7 +53,10 @@ fun EditQuizScreen(
 
     LaunchedEffect(Unit) {
         viewModel.effect.collect { effect ->
-            if (effect is EditQuizEffect.QuizUpdated) onQuizUpdated(effect.quizId)
+            when (effect) {
+                is EditQuizEffect.QuizUpdated -> onQuizUpdated(effect.quizId)
+                is EditQuizEffect.ResourceMissing -> onResourceMissing(effect.message)
+            }
         }
     }
 

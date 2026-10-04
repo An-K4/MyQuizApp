@@ -61,7 +61,8 @@ fun NavGraphBuilder.quizManageGraph(
         // tự reload khi ON_RESUME để hiển thị bản mới).
         EditQuizScreen(
             onNavigateBack = { navController.popBackStack() },
-            onQuizUpdated = { navController.popBackStack() }
+            onQuizUpdated = { navController.popBackStack() },
+            onResourceMissing = { message -> navController.navigateHomeWithMessage(message) }
         )
     }
 
@@ -78,7 +79,8 @@ fun NavGraphBuilder.quizManageGraph(
             },
             onNavigateToEditQuiz = { quizId ->
                 navController.navigate(Route.EditQuiz(quizId))
-            }
+            },
+            onResourceMissing = { message -> navController.navigateHomeWithMessage(message) }
         )
     }
 
@@ -92,7 +94,8 @@ fun NavGraphBuilder.quizManageGraph(
             },
             onRequireAuthentication = {
                 navController.navigate(Route.AuthGraph)
-            }
+            },
+            onResourceMissing = { message -> navController.navigateHomeWithMessage(message) }
         )
     }
 }

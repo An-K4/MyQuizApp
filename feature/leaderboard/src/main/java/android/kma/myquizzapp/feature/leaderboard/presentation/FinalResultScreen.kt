@@ -21,6 +21,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
@@ -33,10 +34,21 @@ import java.util.Locale
 @Composable
 fun FinalResultScreen(
     onHome: () -> Unit,
+    onResourceMissing: (String) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: FinalResultViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    LaunchedEffect(Unit) {
+        viewModel.effect.collect { effect ->
+            when (effect) {
+                is FinalResultEffect.ResourceMissing -> {
+                    viewModel.consume()
+                    onResourceMissing(effect.message)
+                }
+            }
+        }
+    }
     FinalResultScreenContent(
         state = state,
         onIntent = viewModel::handleIntent,

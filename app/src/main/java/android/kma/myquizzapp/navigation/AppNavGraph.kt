@@ -6,8 +6,13 @@ import android.kma.myquizzapp.presentation.splash.SplashScreen
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -15,6 +20,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
@@ -49,12 +55,19 @@ fun AppNavGraph(
     val selectedTab = TopLevelTab.entries.firstOrNull { tab ->
         currentDestination?.hasRoute(tab.route::class) == true
     }
+    val socketScreenOwnsConnectionUi = currentDestination?.let { destination ->
+        destination.hasRoute(Route.HostLobby::class) ||
+            destination.hasRoute(Route.PlayerLobby::class) ||
+            destination.hasRoute(Route.HostGame::class) ||
+            destination.hasRoute(Route.GamePlay::class)
+    } == true
 
     // Avatar cho tab "Hồ sơ". ViewModel scope theo Activity (xem CurrentUserViewModel)
     // vì bottom bar nằm ngoài NavHost, không thuộc back stack entry nào.
     val currentUserViewModel: CurrentUserViewModel = hiltViewModel()
     val avatarUrl by currentUserViewModel.avatarUrl.collectAsStateWithLifecycle()
-    val session by currentUserViewModel.session.collectAsStateWithLifecycle()
+    val networkStatusViewModel: NetworkStatusViewModel = hiltViewModel()
+    val isOnline by networkStatusViewModel.isOnline.collectAsStateWithLifecycle()
 
     // ===== CHỐT GÁC ĐĂNG NHẬP (N19.6) =====
     // Lời nhắn đang hiện; null = không có hộp thoại nào.
@@ -74,7 +87,14 @@ fun AppNavGraph(
     // biết là lựa chọn có tính toán: backend vẫn là chốt chặn thật (401), UI chỉ
     // làm việc giải thích sớm cho người dùng.
     val requireAuth: (String, () -> Unit) -> Unit = { message, action ->
-        if (session.isConfirmedGuest) authPromptMessage = message else action()
+        // Đọc trực tiếp StateFlow thay vì snapshot Compose đã capture. Sau logout,
+        // onSignedOut() đổi state đồng bộ nhưng Compose có thể chưa kịp recompose;
+        // snapshot cũ sẽ cho lọt vào Thư viện đúng một lần.
+        if (currentUserViewModel.session.value.isConfirmedGuest) {
+            authPromptMessage = message
+        } else {
+            action()
+        }
     }
 
     // Nạp lần đầu, và nạp lại mỗi khi vừa RỜI luồng auth (đăng nhập/đăng ký xong).
@@ -95,8 +115,11 @@ fun AppNavGraph(
 
     Scaffold(
         // Inset hệ thống để từng màn con tự xử lý (chúng đều có Scaffold riêng);
-        // Scaffold ngoài này chỉ làm một việc: chừa chỗ cho bottom bar.
+        // Scaffold ngoài chỉ chừa chỗ cho banner mạng và bottom bar.
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
+        topBar = {
+            if (!isOnline && !socketScreenOwnsConnectionUi) OfflineBanner()
+        },
         bottomBar = {
             if (selectedTab != null) {
                 MainBottomBar(
@@ -162,6 +185,21 @@ fun AppNavGraph(
                 authPromptMessage = null
                 navigateToAuth()
             },
+        )
+    }
+}
+
+@Composable
+private fun OfflineBanner() {
+    Surface(color = MaterialTheme.colorScheme.errorContainer) {
+        Text(
+            text = "Không có kết nối Internet",
+            color = MaterialTheme.colorScheme.onErrorContainer,
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier
+                .fillMaxWidth()
+                .statusBarsPadding()
+                .padding(horizontal = 16.dp, vertical = 8.dp)
         )
     }
 }

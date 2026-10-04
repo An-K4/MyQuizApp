@@ -22,6 +22,7 @@ import android.kma.myquizzapp.feature.leaderboard.domain.LoadGameReviewUseCase
 import androidx.lifecycle.SavedStateHandle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runCurrent
@@ -143,6 +144,22 @@ class FinalResultViewModelTest {
 
         assertTrue(viewModel.uiState.value.isLeaderboardHidden)
         assertTrue(viewModel.uiState.value.leaderboard.isEmpty())
+    }
+
+    @Test
+    fun `missing game result emits terminal navigation effect`() = runTest(dispatcher) {
+        val games = FakeGameSessionRepository(
+            resultsResult = Result.Error(AppError.Api("GAME_ROOM_NOT_FOUND"))
+        )
+        val viewModel = viewModel(FakeResultRepository(null), games)
+
+        runCurrent()
+
+        assertEquals(
+            FinalResultEffect.ResourceMissing("Không tìm thấy phòng chơi"),
+            viewModel.effect.first()
+        )
+        assertNull(viewModel.uiState.value.resultError)
     }
 
     @Test

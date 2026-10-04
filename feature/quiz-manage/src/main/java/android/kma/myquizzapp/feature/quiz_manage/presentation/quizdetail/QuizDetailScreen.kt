@@ -32,6 +32,7 @@ fun QuizDetailScreen(
     onNavigateBack: () -> Unit,
     onNavigateToCreateRoom: (Long) -> Unit,
     onNavigateToEditQuiz: (Long) -> Unit,
+    onResourceMissing: (String) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: QuizDetailViewModel = hiltViewModel()
 ) {
@@ -40,7 +41,10 @@ fun QuizDetailScreen(
 
     LaunchedEffect(Unit) {
         viewModel.effect.collect { effect ->
-            if (effect is QuizDetailEffect.QuizDeleted) onNavigateBack()
+            when (effect) {
+                QuizDetailEffect.QuizDeleted -> onNavigateBack()
+                is QuizDetailEffect.ResourceMissing -> onResourceMissing(effect.message)
+            }
         }
     }
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {

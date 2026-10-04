@@ -1,6 +1,6 @@
 package android.kma.myquizzapp.core.network.repository
 
-import android.kma.myquizzapp.core.common.error.AppError
+import android.kma.myquizzapp.core.common.error.isSessionTerminal
 import android.kma.myquizzapp.core.common.model.SessionState
 import android.kma.myquizzapp.core.common.model.User
 import android.kma.myquizzapp.core.common.repository.AuthRepository
@@ -69,16 +69,13 @@ class SessionRepositoryImpl @Inject constructor(
     private suspend fun fetchAndApply() {
         when (val result = authRepository.getCurrentUser()) {
             is Result.Success -> _state.value = SessionState.LoggedIn(result.data)
-            is Result.Error -> when (result.error) {
-                // Chỉ 401 mới được kết luận "chưa đăng nhập".
-                is AppError.Unauthorized -> _state.value = SessionState.Guest
-
-                // ⚠️ MẤT MẠNG KHÔNG PHẢI LÀ ĐĂNG XUẤT. Nếu ở đây ghi
-                // [SessionState.Guest] thì chỉ cần rất ủ mạng một nhịp lúc mở app
-                // là người đã đăng nhập bị hạ xuống guest, mất avatar, và bị hộp
-                // thoại đăng nhập chặn ở Thư viện dù phiên vẫn còn sống. Giữ
-                // nguyên state cũ và để lần [refresh] sau phán quyết.
-                else -> Timber.w(
+            is Result.Error -> if (result.error.isSessionTerminal) {
+                // Chỉ code xác nhận phiên/tài khoản đã kết thúc mới được hạ về guest.
+                _state.value = SessionState.Guest
+            } else {
+                // ⚠️ MẤT MẠNG KHÔNG PHẢI LÀ ĐĂNG XUẤT. Lỗi mạng/server giữ
+                // nguyên state cũ và để lần refresh sau phán quyết.
+                Timber.w(
                     "Không xác định được phiên (${result.error}) — giữ nguyên ${_state.value}"
                 )
             }

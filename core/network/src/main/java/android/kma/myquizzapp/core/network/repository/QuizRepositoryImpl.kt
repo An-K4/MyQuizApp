@@ -1,6 +1,9 @@
 package android.kma.myquizzapp.core.network.repository
 
 import android.kma.myquizzapp.core.common.cache.QuizCacheStore
+import android.kma.myquizzapp.core.common.error.AppError
+import android.kma.myquizzapp.core.common.error.hasApiCode
+import android.kma.myquizzapp.core.common.error.isMissingResource
 import android.kma.myquizzapp.core.common.model.HomeSection
 import android.kma.myquizzapp.core.common.model.MyQuizzesParams
 import android.kma.myquizzapp.core.common.model.NewQuiz
@@ -38,6 +41,11 @@ class QuizRepositoryImpl @Inject constructor(
     
     override suspend fun getHomeContent(): Result<List<HomeSection>> =
         quizApi.getHomeContent().map { it.toDomain() }
+
+    private fun AppError.canUseQuizCache(): Boolean =
+        this is AppError.Network ||
+            this is AppError.Server ||
+            hasApiCode("SERVICE_UNAVAILABLE", "SERVER_ERROR")
     
     override suspend fun searchQuizzes(keyword: String, cursor: String?, limit: Int): Result<List<QuizCard>> =
         // Backend bọc response trong { quizzes: [...] } → unwrap QuizListDto.quizzes.
@@ -98,8 +106,21 @@ class QuizRepositoryImpl @Inject constructor(
                 networkResult
             }
             is Result.Error -> {
-                // Network lỗi (mất mạng, server down...) - fallback đọc cache offline
-                quizCacheStore.getCachedQuiz(quizId)?.let { Result.Success(it) } ?: networkResult
+                // Chỉ lỗi tạm thời mới được fallback cache. Lỗi nghiệp vụ như
+                // QUIZ_NOT_FOUND/401/403 phải đi thẳng lên UI; nếu không quiz đã
+                // bị xóa sẽ "hồi sinh" từ Room và dữ liệu riêng có thể bị lộ.
+                when {
+                    networkResult.error.isMissingResource("QUIZ_NOT_FOUND") -> {
+                        // Xóa luôn bản stale để lần offline sau không thể làm quiz
+                        // đã bị xóa xuất hiện lại.
+                        quizCacheStore.removeQuiz(quizId)
+                        networkResult
+                    }
+                    networkResult.error.canUseQuizCache() ->
+                        quizCacheStore.getCachedQuiz(quizId)?.let { Result.Success(it) }
+                            ?: networkResult
+                    else -> networkResult
+                }
             }
         }
     }

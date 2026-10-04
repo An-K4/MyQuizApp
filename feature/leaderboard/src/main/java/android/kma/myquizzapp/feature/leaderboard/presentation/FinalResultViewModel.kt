@@ -1,5 +1,6 @@
 package android.kma.myquizzapp.feature.leaderboard.presentation
 
+import android.kma.myquizzapp.core.common.error.isMissingResource
 import android.kma.myquizzapp.core.common.error.toUserMessage
 import android.kma.myquizzapp.core.common.model.GameEnded
 import android.kma.myquizzapp.core.common.model.ShowLeaderboard
@@ -12,8 +13,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -37,6 +40,8 @@ class FinalResultViewModel @Inject constructor(
         )
     )
     val uiState = _uiState.asStateFlow()
+    private val _effect = Channel<FinalResultEffect>(Channel.BUFFERED)
+    val effect = _effect.receiveAsFlow()
 
     init {
         if (stored == null) loadResults()
@@ -73,8 +78,14 @@ class FinalResultViewModel @Inject constructor(
                         )
                     }
                 }
-                is Result.Error -> _uiState.update {
-                    it.copy(isResultLoading = false, resultError = result.error.toUserMessage())
+                is Result.Error -> {
+                    val message = result.error.toUserMessage()
+                    if (result.error.isMissingResource("GAME_ROOM_NOT_FOUND")) {
+                        _uiState.update { it.copy(isResultLoading = false) }
+                        _effect.send(FinalResultEffect.ResourceMissing(message))
+                    } else {
+                        _uiState.update { it.copy(isResultLoading = false, resultError = message) }
+                    }
                 }
             }
             resultRequestInFlight = false

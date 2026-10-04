@@ -1,5 +1,6 @@
 package android.kma.myquizzapp.feature.quiz_manage.presentation.quizdetail
 
+import android.kma.myquizzapp.core.common.error.isMissingResource
 import android.kma.myquizzapp.core.common.error.toUserMessage
 import android.kma.myquizzapp.core.common.result.Result
 import android.kma.myquizzapp.feature.quiz_manage.domain.model.QuizWithOwnership
@@ -79,8 +80,12 @@ class QuizDetailViewModel @Inject constructor(
                     }
                 }
                 is Result.Error -> {
-                    _uiState.update {
-                        it.copy(isLoading = false, error = result.error.toUserMessage())
+                    val message = result.error.toUserMessage()
+                    if (result.error.isMissingResource("QUIZ_NOT_FOUND")) {
+                        _uiState.update { it.copy(isLoading = false) }
+                        _effect.send(QuizDetailEffect.ResourceMissing(message))
+                    } else {
+                        _uiState.update { it.copy(isLoading = false, error = message) }
                     }
                 }
             }
