@@ -50,8 +50,9 @@ import javax.inject.Inject
  *
  * 3. Token socket có TTL riêng, ngắn hơn phiên đăng nhập. Khi app bị treo lâu ở
  *    background rồi quay lại, token cũ có thể đã hết hạn — thứ nhận được sẽ là
- *    GAME_TOKEN_INVALID. Khi đó thử lấy token mới qua REST ĐÚNG MỘT LẦN
- *    ([tokenRefreshAttempted]); nếu vẫn fail thì thoát, tránh vòng lặp refresh.
+ *    GAME_TOKEN_INVALID. Khi đó thử lấy token mới qua REST đúng một lần trong
+ *    mỗi vòng kết nối ([tokenRefreshAttempted]); kết nối thành công sẽ mở lại
+ *    quyền refresh cho lần hết hạn sau, còn token mới vẫn fail thì thoát.
  *
  * Ba quyết định về việc sửa cấu hình phòng (N20):
  *
@@ -145,6 +146,7 @@ class HostLobbyViewModel @Inject constructor(
     private suspend fun onEvent(event: GameEvent) {
         when (event) {
             GameEvent.Connected -> {
+                tokenRefreshAttempted = false
                 _uiState.update { it.copy(connection = ConnectionStatus.CONNECTED) }
                 // Join lại sau mọi lần connect — xem ghi chú (1) ở đầu class.
                 socketRepository.joinLobby()
@@ -211,6 +213,14 @@ class HostLobbyViewModel @Inject constructor(
     private suspend fun onFailure(event: GameEvent.Failed) {
         val message = AppError.Api(event.code).toUserMessage()
         when {
+            event.code == CODE_RECONNECT_EXHAUSTED -> _uiState.update {
+                it.copy(
+                    connection = ConnectionStatus.RECONNECT_FAILED,
+                    isSavingConfig = false,
+                    isStarting = false
+                )
+            }
+
             event.code == CODE_TOKEN_INVALID && !tokenRefreshAttempted -> {
                 tokenRefreshAttempted = true
                 when (val result = refreshHostToken(gameId)) {
@@ -512,6 +522,7 @@ class HostLobbyViewModel @Inject constructor(
 
     private companion object {
         const val CODE_TOKEN_INVALID = "GAME_TOKEN_INVALID"
+        const val CODE_RECONNECT_EXHAUSTED = "CLIENT_RECONNECT_EXHAUSTED"
 
         /** Độ dài tối đa của ô số: max lớn nhất trong đặc tả là 7200 (4 chữ số). */
         const val MAX_NUMBER_LENGTH = 4

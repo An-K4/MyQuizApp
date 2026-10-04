@@ -104,8 +104,8 @@ const val WEB_ORIGIN = "https://myquizz.dpdns.org"
 /**
  * Trạng thái kết nối socket, hiển thị trực tiếp cho người dùng.
  *
- * Không dùng boolean isConnected vì ba trạng thái "chưa từng kết nối", "đang kết
- * nối lại" và "đã kết nối" cần ba cách hiển thị khác nhau.
+ * Không dùng boolean isConnected vì kết nối lần đầu, đang tự reconnect, đã cạn
+ * lượt retry và đã kết nối cần cách hiển thị cũng như hành động khác nhau.
  */
 enum class ConnectionStatus {
     /** Lần kết nối đầu tiên, chưa có dự liệu để hiển thị. */
@@ -114,6 +114,9 @@ enum class ConnectionStatus {
     /** Đã kết nối và đã join phòng. */
     CONNECTED,
 
-    /** Mất kết nối tạm thời, socket.io đang tự thử lại — vẫn giữ dự liệu cũ. */
-    RECONNECTING
+    /** Mất kết nối tạm thời, socket.io đang tự thử lại — vẫn giữ dữ liệu cũ. */
+    RECONNECTING,
+
+    /** Socket.io đã cạn lượt tự thử; chờ người dùng chủ động kết nối lại. */
+    RECONNECT_FAILED
 }

@@ -183,13 +183,19 @@ private fun ConnectionBanner(
             style = MaterialTheme.typography.bodyMedium
         )
 
-        HostGameConnection.RECONNECTING -> Row(
+        HostGameConnection.RECONNECTING -> Text(
+            text = "Mất kết nối — đang tự động thử lại",
+            style = MaterialTheme.typography.bodyMedium
+        )
+
+        HostGameConnection.RECONNECT_FAILED -> Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "Mất kết nối — đang thử lại",
+                text = "Không thể kết nối lại",
                 style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.error,
                 modifier = Modifier.weight(1f)
             )
             TextButton(onClick = { onIntent(HostGameIntent.Retry) }) { Text("Kết nối lại") }

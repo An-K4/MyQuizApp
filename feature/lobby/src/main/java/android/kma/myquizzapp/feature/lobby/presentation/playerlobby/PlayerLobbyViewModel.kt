@@ -127,8 +127,13 @@ class PlayerLobbyViewModel @Inject constructor(
 
     private suspend fun onFailure(event: GameEvent.Failed) {
         val message = AppError.Api(event.code).toUserMessage()
-        if (event.code in FATAL_CODES) exit(message)
-        else _uiState.update { it.copy(errorMessage = message) }
+        when {
+            event.code == CODE_RECONNECT_EXHAUSTED -> _uiState.update {
+                it.copy(connection = ConnectionStatus.RECONNECT_FAILED)
+            }
+            event.code in FATAL_CODES -> exit(message)
+            else -> _uiState.update { it.copy(errorMessage = message) }
+        }
     }
 
     private fun leaveRoom() {
@@ -149,6 +154,8 @@ class PlayerLobbyViewModel @Inject constructor(
     }
 
     private companion object {
+        const val CODE_RECONNECT_EXHAUSTED = "CLIENT_RECONNECT_EXHAUSTED"
+
         /**
          * Những code mà thử lại chắc chắn vô ích. Khác HostLobby, GAME_TOKEN_INVALID
          * nằm trong danh sách này vì người chơi không có endpoint làm mới token.

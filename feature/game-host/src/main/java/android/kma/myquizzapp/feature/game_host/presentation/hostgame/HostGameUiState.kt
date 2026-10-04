@@ -16,7 +16,7 @@ import android.kma.myquizzapp.core.common.model.SessionStatus
  * Khai báo lại ở đây thay vì dùng enum của feature:lobby: hai feature không được
  * phụ thuộc nhau (quy ước kiến trúc của dự án).
  */
-enum class HostGameConnection { CONNECTING, CONNECTED, RECONNECTING }
+enum class HostGameConnection { CONNECTING, CONNECTED, RECONNECTING, RECONNECT_FAILED }
 
 /**
  * State của màn điều khiển trận (HOST, chỉ mode host-paced ở N21).

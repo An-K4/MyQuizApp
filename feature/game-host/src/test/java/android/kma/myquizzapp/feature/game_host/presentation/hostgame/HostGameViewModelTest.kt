@@ -1,6 +1,8 @@
 package android.kma.myquizzapp.feature.game_host.presentation.hostgame
 
 import android.kma.myquizzapp.core.common.model.ConfigUpdateAck
+import android.kma.myquizzapp.core.common.model.CreateGameSessionParams
+import android.kma.myquizzapp.core.common.model.CreateGameSessionResult
 import android.kma.myquizzapp.core.common.model.DisconnectReason
 import android.kma.myquizzapp.core.common.model.EliminatedPlayer
 import android.kma.myquizzapp.core.common.model.GameConfig
@@ -8,18 +10,24 @@ import android.kma.myquizzapp.core.common.model.GameConfigKey
 import android.kma.myquizzapp.core.common.model.GameConfigValue
 import android.kma.myquizzapp.core.common.model.GameEvent
 import android.kma.myquizzapp.core.common.model.GameMode
+import android.kma.myquizzapp.core.common.model.GameModeDescriptor
 import android.kma.myquizzapp.core.common.model.GamePhase
+import android.kma.myquizzapp.core.common.model.GameReview
+import android.kma.myquizzapp.core.common.model.GameResults
 import android.kma.myquizzapp.core.common.model.GameSnapshot
 import android.kma.myquizzapp.core.common.model.HostAnswerReceived
 import android.kma.myquizzapp.core.common.model.HostLeaderboard
 import android.kma.myquizzapp.core.common.model.HostLeaderboardRow
 import android.kma.myquizzapp.core.common.model.HostPlayerProgress
 import android.kma.myquizzapp.core.common.model.HostQuestion
+import android.kma.myquizzapp.core.common.model.JoinRoomResult
 import android.kma.myquizzapp.core.common.model.Pacing
 import android.kma.myquizzapp.core.common.model.PlayerFinished
 import android.kma.myquizzapp.core.common.model.PublicAnswerOption
 import android.kma.myquizzapp.core.common.model.PublicQuestion
+import android.kma.myquizzapp.core.common.model.RoomLookup
 import android.kma.myquizzapp.core.common.model.SessionStatus
+import android.kma.myquizzapp.core.common.repository.GameSessionRepository
 import android.kma.myquizzapp.core.common.repository.HostGameSocketRepository
 import android.kma.myquizzapp.core.common.result.Result
 import androidx.lifecycle.SavedStateHandle
@@ -46,13 +54,19 @@ import org.junit.Test
 class HostGameViewModelTest {
     private val dispatcher: TestDispatcher = StandardTestDispatcher()
     private lateinit var socket: FakeHostGameSocketRepository
+    private lateinit var sessions: FakeGameSessionRepository
+    private lateinit var savedStateHandle: SavedStateHandle
     private lateinit var viewModel: HostGameViewModel
 
     @Before
     fun setUp() {
         Dispatchers.setMain(dispatcher)
         socket = FakeHostGameSocketRepository()
-        viewModel = HostGameViewModel(socket, SavedStateHandle(mapOf("socketToken" to "host-token")))
+        sessions = FakeGameSessionRepository()
+        savedStateHandle = SavedStateHandle(
+            mapOf("gameId" to 1L, "socketToken" to "host-token")
+        )
+        viewModel = HostGameViewModel(socket, sessions, savedStateHandle)
     }
 
     @After
@@ -67,6 +81,30 @@ class HostGameViewModelTest {
         runCurrent()
         assertEquals(2, socket.joinCalls)
         assertEquals(HostGameConnection.CONNECTED, viewModel.uiState.value.connection)
+    }
+
+    @Test
+    fun `reconnect exhaustion exposes retry and retry starts a fresh connection`() = runTest(dispatcher) {
+        runCurrent()
+        socket.emit(GameEvent.Failed("connect", "CLIENT_RECONNECT_EXHAUSTED"))
+        runCurrent()
+        assertEquals(HostGameConnection.RECONNECT_FAILED, viewModel.uiState.value.connection)
+
+        viewModel.onIntent(HostGameIntent.Retry)
+        runCurrent()
+        assertEquals(HostGameConnection.CONNECTING, viewModel.uiState.value.connection)
+        assertEquals(listOf("host-token", "host-token"), socket.tokens)
+    }
+
+    @Test
+    fun `invalid host token is refreshed before reconnecting`() = runTest(dispatcher) {
+        runCurrent()
+        socket.emit(GameEvent.Failed("connect", "GAME_TOKEN_INVALID"))
+        runCurrent()
+
+        assertEquals(1, sessions.hostTokenCalls)
+        assertEquals("new-host-token", savedStateHandle.get<String>("socketToken"))
+        assertEquals(listOf("host-token", "new-host-token"), socket.tokens)
     }
 
     @Test
@@ -256,9 +294,13 @@ class HostGameViewModelTest {
 
 private class FakeHostGameSocketRepository : HostGameSocketRepository {
     private val events = MutableSharedFlow<GameEvent>(extraBufferCapacity = 64)
+    val tokens = mutableListOf<String>()
     var joinCalls = 0
     var nextCalls = 0
-    override fun events(socketToken: String): Flow<GameEvent> = events
+    override fun events(socketToken: String): Flow<GameEvent> {
+        tokens += socketToken
+        return events
+    }
     suspend fun emit(event: GameEvent) { events.emit(event) }
     override suspend fun joinLobby() { joinCalls++ }
     override suspend fun disconnect() = Unit
@@ -269,4 +311,29 @@ private class FakeHostGameSocketRepository : HostGameSocketRepository {
     override suspend fun endGame() = Unit
     override suspend fun updateConfig(patch: Map<GameConfigKey, GameConfigValue>): Result<ConfigUpdateAck> =
         error("Not used by HostGameViewModel tests")
+}
+
+private class FakeGameSessionRepository : GameSessionRepository {
+    var hostTokenCalls = 0
+
+    override suspend fun getHostToken(gameId: Long): Result<String> {
+        hostTokenCalls++
+        return Result.Success("new-host-token")
+    }
+
+    override suspend fun getGameModes(): Result<List<GameModeDescriptor>> = error("Not used")
+    override suspend fun createGameSession(
+        params: CreateGameSessionParams
+    ): Result<CreateGameSessionResult> = error("Not used")
+    override suspend fun lookupRoom(sessionCode: String): Result<RoomLookup> = error("Not used")
+    override suspend fun joinRoom(
+        sessionCode: String,
+        playerName: String?,
+        guestId: String?
+    ): Result<JoinRoomResult> = error("Not used")
+    override suspend fun getGameResults(gameId: Long): Result<GameResults> = error("Not used")
+    override suspend fun getGameReview(
+        gameId: Long,
+        socketToken: String
+    ): Result<GameReview> = error("Not used")
 }

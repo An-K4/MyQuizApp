@@ -415,17 +415,23 @@ private fun ConnectionBanner(
             Text("Đang kết nối...", style = MaterialTheme.typography.bodyMedium)
         }
 
-        ConnectionStatus.RECONNECTING -> Row(
+        ConnectionStatus.RECONNECTING -> Text(
+            text = "Mất kết nối — đang tự động thử lại",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.error,
+            modifier = modifier.fillMaxWidth()
+        )
+
+        ConnectionStatus.RECONNECT_FAILED -> Row(
             modifier = modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Text(
-                text = "Mất kết nối — đang thử lại",
+                text = "Không thể kết nối lại",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.error
             )
-            // Sau khi socket.io cạn số lần tự retry thì chỉ còn cách này để vào lại.
             TextButton(onClick = onRetry) { Text("Kết nối lại") }
         }
     }

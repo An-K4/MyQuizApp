@@ -6,7 +6,9 @@ import android.kma.myquizzapp.core.common.model.GamePhase
 import android.kma.myquizzapp.core.common.model.HostLeaderboardRow
 import android.kma.myquizzapp.core.common.model.Pacing
 import android.kma.myquizzapp.core.common.model.SessionStatus
+import android.kma.myquizzapp.core.common.repository.GameSessionRepository
 import android.kma.myquizzapp.core.common.repository.HostGameSocketRepository
+import android.kma.myquizzapp.core.common.result.Result
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -54,10 +56,12 @@ import javax.inject.Inject
 @HiltViewModel
 class HostGameViewModel @Inject constructor(
     private val socketRepository: HostGameSocketRepository,
-    savedStateHandle: SavedStateHandle
+    private val gameSessionRepository: GameSessionRepository,
+    private val savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
-    private val socketToken: String = savedStateHandle.get<String>(KEY_SOCKET_TOKEN).orEmpty()
+    private val gameId: Long = checkNotNull(savedStateHandle[KEY_GAME_ID])
+    private var socketToken: String = savedStateHandle.get<String>(KEY_SOCKET_TOKEN).orEmpty()
 
     private val _uiState = MutableStateFlow(HostGameUiState())
     val uiState: StateFlow<HostGameUiState> = _uiState.asStateFlow()
@@ -79,6 +83,7 @@ class HostGameViewModel @Inject constructor(
 
     private var socketJob: Job? = null
     private var commandGuardJob: Job? = null
+    private var tokenRefreshAttempted = false
 
     init {
         if (socketToken.isBlank()) {
@@ -109,7 +114,14 @@ class HostGameViewModel @Inject constructor(
     private fun connect() {
         socketJob?.cancel()
         _uiState.update {
-            it.copy(connection = HostGameConnection.CONNECTING, errorMessage = null)
+            it.copy(
+                connection = if (it.hasSnapshot) {
+                    HostGameConnection.RECONNECTING
+                } else {
+                    HostGameConnection.CONNECTING
+                },
+                errorMessage = null
+            )
         }
         socketJob = viewModelScope.launch {
             socketRepository.events(socketToken).collect(::onEvent)
@@ -122,6 +134,7 @@ class HostGameViewModel @Inject constructor(
             // động: server không tự xếp socket mới vào room cũ. Đây cũng là đường duy
             // nhất lấy lại `game:state` để dựng lại màn hình.
             GameEvent.Connected -> {
+                tokenRefreshAttempted = false
                 _uiState.update { it.copy(connection = HostGameConnection.CONNECTED) }
                 socketRepository.joinLobby()
             }
@@ -430,14 +443,31 @@ class HostGameViewModel @Inject constructor(
     }
 
     /**
-     * Lỗi từ server. Bốn code fatal nghĩa là phiên này không cứu được bằng cách thử
-     * lại — thoát luôn. Các code còn lại chỉ là một lệnh bị từ chối, trận vẫn chạy.
+     * Lỗi từ server. Token hết hạn được làm mới đúng một lần cho mỗi vòng kết nối;
+     * các code fatal còn lại thì thoát luôn. Khi Socket.IO cạn lượt tự thử, giữ
+     * snapshot và chuyển sang trạng thái chờ người dùng bấm kết nối lại.
      */
     private suspend fun onFailure(event: GameEvent.Failed) {
         commandGuardJob?.cancel()
         if (event.code == CODE_RECONNECT_EXHAUSTED) {
-            // Màn Host đã có nút Kết nối lại trong trạng thái RECONNECTING.
-            // Không hiện thêm snackbar chung sau khi Socket.IO cạn lượt.
+            _uiState.update {
+                it.copy(
+                    connection = HostGameConnection.RECONNECT_FAILED,
+                    isSendingCommand = false
+                )
+            }
+            return
+        }
+        if (event.code == CODE_TOKEN_INVALID && !tokenRefreshAttempted) {
+            tokenRefreshAttempted = true
+            when (val result = gameSessionRepository.getHostToken(gameId)) {
+                is Result.Success -> {
+                    socketToken = result.data
+                    savedStateHandle[KEY_SOCKET_TOKEN] = result.data
+                    connect()
+                }
+                is Result.Error -> _effects.emit(HostGameEffect.ExitGame(MESSAGE_SESSION_LOST))
+            }
             return
         }
         if (event.code in FATAL_CODES) {
@@ -530,7 +560,9 @@ class HostGameViewModel @Inject constructor(
     }
 
     private companion object {
+        const val KEY_GAME_ID = "gameId"
         const val KEY_SOCKET_TOKEN = "socketToken"
+        const val CODE_TOKEN_INVALID = "GAME_TOKEN_INVALID"
         const val CODE_RECONNECT_EXHAUSTED = "CLIENT_RECONNECT_EXHAUSTED"
         const val STATUS_ELIMINATED = "eliminated"
 
