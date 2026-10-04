@@ -42,7 +42,7 @@ MyQuizApp được xây dựng theo **Multi-module Gradle Architecture** với *
 - `:feature:lobby` - Waiting room (Host & Player)
 - `:feature:game-player` - **Gameplay Player host-paced + self-paced qua N22–N28**: Classic, Solo manual-next, Survival lives/elimination, Marathon timer tổng/timeout/finish; typed ACK/reconnect, Final Result và hardening N25
 - `:feature:game-host` - Host control console — **Classic/host-paced và dashboard self-paced đã hoàn thành phía Android**. Có `HostGameScreen` + `UiState`/`Intent`/`Effect`/`ViewModel`, điều khiển socket host room và merge progress riêng từng Player
-- `:feature:leaderboard` - **Final Result thật từ N24**: nhận transient `game:ended`, highlight Player hiện tại, fallback khi leaderboard bị ẩn/process recreation
+- `:feature:leaderboard` - **Final Result hoàn chỉnh qua N35**: ưu tiên transient `game:ended`; process recreation mới gọi REST `/games/{id}/results`; highlight Player, thống kê từng câu, Review và visibility defense
 - `:feature:quiz-manage` - CRUD quizzes (Host only)
 
 ### Nguyên tắc thiết kế cốt lõi
@@ -915,7 +915,7 @@ dependencies {
 **📦 Module Type:** `com.android.library`
 
 #### Mục đích
-Sở hữu màn kết quả cuối game. Leaderboard giữa câu vẫn nằm trong Gameplay Player; N24 truyền kết quả cuối từ `game:ended` qua repository boundary dùng chung, N29 bổ sung breakdown post-game từ REST review.
+Sở hữu màn kết quả cuối game. Leaderboard giữa câu vẫn nằm trong Gameplay Player; N24 truyền kết quả cuối từ `game:ended` qua repository boundary dùng chung, N29 bổ sung breakdown post-game từ REST review, N35 bổ sung REST recovery sau process death và thống kê tổng hợp từng câu.
 
 #### Trách nhiệm
 - ✅ N24: `FinalResultScreen` + `FinalResultViewModel` + contract riêng
@@ -923,19 +923,24 @@ Sở hữu màn kết quả cuối game. Leaderboard giữa câu vẫn nằm tro
 - ✅ N29: `StoredGameResult` mang thêm `mode` + `socketToken` chỉ trong memory; token không đi qua route/Bundle/DataStore
 - ✅ Hiển thị bảng cuối, rank/score và highlight Player hiện tại
 - ✅ N29: lazy-load `GET /games/{id}/review` sau khi kết thúc; loading/error/retry; ưu tiên câu bỏ qua/sai; render ảnh, đáp án Player/đúng, explanation, time và score
-- ✅ Fallback an toàn khi leaderboard rỗng, review lỗi hoặc process recreation làm mất transient result/token
-- ⏳ Share result chưa thuộc N29
+- ✅ N35: nếu transient result còn thì không gọi REST; nếu mất sau process death thì `LoadGameResultsUseCase` gọi `GET /games/{id}/results` với loading/error/retry riêng
+- ✅ N35: render `perQuestion` đã sort, số lượt đúng/tổng và tỷ lệ đúng an toàn khi mẫu số bằng 0
+- ✅ N35: enforce `showLeaderboard=never` trước presentation state; endpoint backend public vẫn trả full table đã ghi `BUG-16`
+- ✅ Fallback an toàn khi leaderboard rỗng, Review lỗi hoặc process recreation làm mất transient result/token
+- ⏳ Share result và Final Result riêng cho Host ngoài phạm vi N35
 
 #### Cấu trúc thư mục
 ```
 feature/leaderboard/
 ├── src/main/java/.../feature/leaderboard/
-│   ├── domain/usecase/
-│   │   └── LoadGameReviewUseCase.kt      # N29 - post-game REST review
+│   ├── domain/
+│   │   ├── LoadGameReviewUseCase.kt      # N29 - post-game REST review
+│   │   └── LoadGameResultsUseCase.kt     # N35 - REST recovery khi mất transient result
 │   └── presentation/
-│       ├── FinalResultScreen.kt          # N24 + N29 review breakdown
-│       ├── FinalResultViewModel.kt       # result transient + lazy review
-│       └── FinalResultContract.kt        # UiState + Intent retry
+│       ├── FinalResultScreen.kt          # bảng cuối + perQuestion + review breakdown
+│       ├── FinalResultViewModel.kt       # socket-first, REST fallback, lazy review
+│       ├── FinalResultContract.kt        # UiState + derived visibility/stats
+│       └── FinalResultIntent.kt          # retry result/review + toggle review
 └── build.gradle.kts
 ```
 
@@ -1114,7 +1119,7 @@ abstract class DatabaseBindingModule {
 | `CookieStore` | `core:common/cookie` | `core:database` (RoomCookieStore) | `core:network` only |
 | `AuthRepository` | `core:common/repository` | `core:network` (AuthRepositoryImpl) | `feature:auth`, `core:datastore` (CheckAuthStateUseCase) |
 | `QuizRepository` | `core:common/repository` | `core:network` (QuizRepositoryImpl) | `feature:home`, `feature:quiz-manage` |
-| `GameSessionRepository` | `core:common/repository` | `core:network` (GameSessionRepositoryImpl) | `feature:lobby`, `feature:quiz-manage` |
+| `GameSessionRepository` | `core:common/repository` | `core:network` (GameSessionRepositoryImpl) | `feature:lobby`, `feature:quiz-manage`, `feature:leaderboard` (N29 review + N35 results recovery) |
 | `GameSocketRepository` (base) | `core:common/repository` | `core:network/socket` (GameSocketClient) | `feature:lobby` (host ở N18, player ở N19), `feature:game-*` (N21+) |
 | `PlayerGameSocketRepository` | `core:common/repository` | `core:network/socket` (PlayerGameSocketRepositoryImpl) | `feature:lobby` (player), `feature:game-player` |
 | `HostGameSocketRepository` | `core:common/repository` | `core:network/socket` (HostGameSocketRepositoryImpl) | `feature:lobby` (host), `feature:game-host` |
@@ -1522,9 +1527,9 @@ MyQuizApp được xây dựng với **13 modules** theo **Clean Architecture + 
 
 ---
 
-**Document Version:** 2.11  
-**Last Updated:** 2026-09-26  
-**Status:** Living document - Đã cập nhật N25 audit/hardening (26/9): Android reconnect theo mạng `VALIDATED`, terminal retry state, stale-snapshot/submitted-state protection, Host/Player regression tests; N25/M4 tạm gác vì backend presence race và các gate E2E chưa tái hiện đủ. Bước tiếp theo N26–N30 self-paced; N20.6 vẫn blocked bởi `GET /games/active`. Trước đó N24 (15/9): progress/kết quả Player, leaderboard theo config, pause gating, `game:ended` → Final Result, transient `GameResultRepository` và hotfix quan hệ `reviewMode`/`showCorrectAnswer`. Trước đó N22–N23 (13/9): Gameplay Player host-paced/classic, typed answer/ACK, timer offset và reconnect/resync. Trước đó N20 (10/9): `core:ui` có package mới `gameconfig` (6 file: `RoomConfigForm` state + `BooleanSettingRow`/`NumberSettingField`/`ChoiceSettingField` + `GameModeConfigEditor` dispatch theo mode + `GameConfigPatchBuilder`) — chuyển từ `feature:quiz-manage` lên vì cả màn tạo phòng và host lobby đều dùng, mà feature không được phụ thuộc feature; `core:common` thêm `GameEvent.GameStarted` + `ConfigUpdateAck`; `core:network` thêm `GameSocketClient.emitWithAck` (timeout 5s) + `SocketAckResult`/`SocketAckMapper`; `feature:lobby/hostlobby` thành màn thật đầy đủ (sửa config trong lobby qua `lobby:config-update`, 2 nút copy mã/link, nút Bắt đầu neo vào `game:started`) kèm 2 use case `GetGameModesUseCase`/`UpdateRoomConfigUseCase`; `:app/navigation/GameNavGraph.kt` có `HostGamePlaceholder` private chờ N21. Trước đó N19.6 (6/9): `core:common` có `SessionState` + `SessionRepository` (impl `@Singleton` ở `core:network`) làm nguồn sự thật duy nhất cho trạng thái đăng nhập, `core:ui` có `AuthRequiredDialog` và `HomeSectionRow` hỗ trợ nút "Xem thêm"; `:app` bỏ tab Tham gia (bottom nav còn 4 tab: Trang chủ/Thư viện/Hoạt động/Hồ sơ) và sở hữu `requireAuth` ở `AppNavGraph`; `feature:lobby/joinroom` đổi `JoinRoomScreen` → `JoinRoomCard` nhúng vào Home qua slot, 3 file UiState/Intent/Effect gộp thành `JoinRoomContract.kt`; đã xóa `AuthState`, `CheckAuthStateUseCase`, `GetCurrentUserUseCase`, `Route.JoinRoom`. Trước đó N19.5 (6/9): Bottom Navigation thật ở `:app` — `navigation/MainScaffold.kt` (`TopLevelTab` 5 tab + `MainBottomBar`) và `navigation/CurrentUserViewModel.kt` (avatar tab Hồ sơ, scope Activity), `Scaffold` bọc ngoài `NavHost` nên màn con/màn game tự ẩn bar; `Route.Library` bị xóa — tab Thư viện dùng `Route.MyQuizzes`; Profile rút về thông tin + cài đặt; thêm `presentation/activity/ActivityScreen.kt` placeholder. Trước đó N19 (5/9): `feature:lobby` có đủ joinroom/guestnickname/playerlobby, `GuestIdentityStore` ở `core:datastore`, `RoomLookup`/`JoinRoomResult` + `lookupRoom`/`joinRoom` ở `core:common`. Trước đó: socket layer thật của N18 (30/8): `GameEvent` + 3 interface socket ở `core:common`, `GameSocketClient`/`GameEventMapper`/2 impl ở `core:network`, HostLobby thật ở `feature:lobby`. Polish Architecture refactor N18.5 (31/8-2/9): 4 NavGraph modules, validation pattern unified (6 validators in :core:common), 3 orchestration UseCases in quiz-manage, naming conventions standardized.
+**Document Version:** 2.12  
+**Last Updated:** 2026-10-03  
+**Status:** Living document - Đã cập nhật N35 (3/10): Final Result socket-first, REST `/games/{id}/results` chỉ recovery sau process death, loading/error/retry, `perQuestion`, Review N29 giữ nguyên và visibility defense cho `showLeaderboard=never`; commit Android `37bc61a`. N30 tạm block bởi Player token renewal + `player:sync`; N34 đã absorbed; bước tiếp theo N36 audit reconnect. N25/M4 và N20.6 vẫn blocked bởi backend. Trước đó N24 (15/9): progress/kết quả Player, leaderboard theo config, pause gating, `game:ended` → Final Result, transient `GameResultRepository` và hotfix quan hệ `reviewMode`/`showCorrectAnswer`. Trước đó N22–N23 (13/9): Gameplay Player host-paced/classic, typed answer/ACK, timer offset và reconnect/resync. Trước đó N20 (10/9): `core:ui` có package mới `gameconfig` (6 file: `RoomConfigForm` state + `BooleanSettingRow`/`NumberSettingField`/`ChoiceSettingField` + `GameModeConfigEditor` dispatch theo mode + `GameConfigPatchBuilder`) — chuyển từ `feature:quiz-manage` lên vì cả màn tạo phòng và host lobby đều dùng, mà feature không được phụ thuộc feature; `core:common` thêm `GameEvent.GameStarted` + `ConfigUpdateAck`; `core:network` thêm `GameSocketClient.emitWithAck` (timeout 5s) + `SocketAckResult`/`SocketAckMapper`; `feature:lobby/hostlobby` thành màn thật đầy đủ (sửa config trong lobby qua `lobby:config-update`, 2 nút copy mã/link, nút Bắt đầu neo vào `game:started`) kèm 2 use case `GetGameModesUseCase`/`UpdateRoomConfigUseCase`; `:app/navigation/GameNavGraph.kt` có `HostGamePlaceholder` private chờ N21. Trước đó N19.6 (6/9): `core:common` có `SessionState` + `SessionRepository` (impl `@Singleton` ở `core:network`) làm nguồn sự thật duy nhất cho trạng thái đăng nhập, `core:ui` có `AuthRequiredDialog` và `HomeSectionRow` hỗ trợ nút "Xem thêm"; `:app` bỏ tab Tham gia (bottom nav còn 4 tab: Trang chủ/Thư viện/Hoạt động/Hồ sơ) và sở hữu `requireAuth` ở `AppNavGraph`; `feature:lobby/joinroom` đổi `JoinRoomScreen` → `JoinRoomCard` nhúng vào Home qua slot, 3 file UiState/Intent/Effect gộp thành `JoinRoomContract.kt`; đã xóa `AuthState`, `CheckAuthStateUseCase`, `GetCurrentUserUseCase`, `Route.JoinRoom`. Trước đó N19.5 (6/9): Bottom Navigation thật ở `:app` — `navigation/MainScaffold.kt` (`TopLevelTab` 5 tab + `MainBottomBar`) và `navigation/CurrentUserViewModel.kt` (avatar tab Hồ sơ, scope Activity), `Scaffold` bọc ngoài `NavHost` nên màn con/màn game tự ẩn bar; `Route.Library` bị xóa — tab Thư viện dùng `Route.MyQuizzes`; Profile rút về thông tin + cài đặt; thêm `presentation/activity/ActivityScreen.kt` placeholder. Trước đó N19 (5/9): `feature:lobby` có đủ joinroom/guestnickname/playerlobby, `GuestIdentityStore` ở `core:datastore`, `RoomLookup`/`JoinRoomResult` + `lookupRoom`/`joinRoom` ở `core:common`. Trước đó: socket layer thật của N18 (30/8): `GameEvent` + 3 interface socket ở `core:common`, `GameSocketClient`/`GameEventMapper`/2 impl ở `core:network`, HostLobby thật ở `feature:lobby`. Polish Architecture refactor N18.5 (31/8-2/9): 4 NavGraph modules, validation pattern unified (6 validators in :core:common), 3 orchestration UseCases in quiz-manage, naming conventions standardized.
 
 ---
 

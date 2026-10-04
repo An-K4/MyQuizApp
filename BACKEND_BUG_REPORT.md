@@ -482,6 +482,45 @@ Chuẩn hóa một shape duy nhất cho lựa chọn và cập nhật đồng th
 
 ---
 
+## BUG-16 — API kết quả public làm lộ leaderboard dù Host cấu hình không cho xem
+
+- **Severity:** `HIGH` — lộ dữ liệu bị cấu hình ẩn.
+- **Mode:** tất cả mode có `flow.showLeaderboard=never`.
+- **Phát hiện:** audit N35; Android đã phòng thủ UI nhưng không thể bảo vệ dữ liệu ở tầng API.
+
+### Điều kiện ban đầu
+
+- Tạo phòng với `config.flow.showLeaderboard = "never"`.
+- Chơi và kết thúc trận để database có bảng điểm cuối.
+- Không cần cookie, socket token hoặc quyền Host.
+
+### Performed actions — Chuỗi hành động thực hiện
+
+1. Gọi public endpoint `GET /v1/games/{id}/results` bằng `gameId` của trận.
+2. Quan sát `data.results.session.config.flow.showLeaderboard`.
+3. Quan sát `data.results.leaderboard`.
+
+### Expected output
+
+- Backend tự enforce visibility theo config và viewer/role.
+- Khi `showLeaderboard=never`, response Player/public không chứa full leaderboard; hoặc endpoint yêu cầu credential có quyền rõ ràng.
+- Không dựa vào client để bỏ dữ liệu nhạy cảm sau khi đã gửi xuống mạng.
+
+### Actual output — kết quả backend hiện tại xác định qua audit
+
+- Route `/games/:id/results` hiện public.
+- `getResults()` luôn gọi `repo.getLeaderboard(gameId)` và trả toàn bộ bảng điểm, không kiểm tra `showLeaderboard` hoặc danh tính người gọi.
+- Chỉ cần đoán/biết `gameId` là có thể đọc rank, tên và điểm dù Host đã chọn ẩn bảng.
+- Android N35 đã đọc `session.config.flow.showLeaderboard` và loại leaderboard trước khi state tới UI; đây chỉ là defense-in-depth, dữ liệu vẫn xuất hiện trong HTTP response.
+
+### Đề nghị
+
+- Ưu tiên enforce visibility tại backend trước khi serialize response.
+- Nếu Host vẫn cần full result, tách contract theo role/credential thay vì một endpoint public trả chung.
+- Bổ sung integration test: `showLeaderboard=never` + unauthenticated/Player request không nhận full leaderboard; Host có quyền nhận dữ liệu theo policy sản phẩm.
+
+---
+
 # III. Thiếu tính năng/contract — không gọi là bug
 
 ## FEATURE-01 — Host chưa xem được thời gian còn lại riêng của từng Player Marathon
@@ -633,10 +672,11 @@ Contract hiện tại không phân biệt rõ “không sửa field” với “
 
 1. `BUG-01` — Pause/Resume làm Player self-paced hiển thị và trả lời sai câu.
 2. `BUG-04` — Reconnect presence race và chuyển câu sớm.
-3. `FEATURE-07` — Contract cấp lại Player socket token để N30 có thể triển khai an toàn.
-4. `BUG-07`, `BUG-08` — Snapshot self-paced/shuffle/Marathon không nhất quán.
-5. `BUG-02`, `BUG-03`, `BUG-10` — Đồng bộ progress/lives/elimination cho timeout và answer.
-6. `BUG-09` — Reconnect làm mất trạng thái chờ Next.
-7. `BUG-11` — Dashboard Host không refresh theo presence.
-8. `BUG-12`, `BUG-13`, `BUG-15` — Reconnect không phục hồi đầy đủ Host/Player/terminal state.
-9. Các lỗi mức Medium/Low và nhóm thiếu tính năng còn lại.
+3. `BUG-16` — Endpoint kết quả public làm lộ leaderboard đã bị Host cấu hình ẩn.
+4. `FEATURE-07` — Contract cấp lại Player socket token để N30 có thể triển khai an toàn.
+5. `BUG-07`, `BUG-08` — Snapshot self-paced/shuffle/Marathon không nhất quán.
+6. `BUG-02`, `BUG-03`, `BUG-10` — Đồng bộ progress/lives/elimination cho timeout và answer.
+7. `BUG-09` — Reconnect làm mất trạng thái chờ Next.
+8. `BUG-11` — Dashboard Host không refresh theo presence.
+9. `BUG-12`, `BUG-13`, `BUG-15` — Reconnect không phục hồi đầy đủ Host/Player/terminal state.
+10. Các lỗi mức Medium/Low và nhóm thiếu tính năng còn lại.

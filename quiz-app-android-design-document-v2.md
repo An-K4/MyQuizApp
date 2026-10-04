@@ -630,7 +630,7 @@ Trạng thái đăng nhập được xác thực bằng cách gọi `GET /users/
 <tr>
 <td>GET</td>
 <td>`/games/:id/results`</td>
-<td>kết quả cuối</td>
+<td>N35: recovery kết quả cuối sau process death; happy path dùng `game:ended` và không gọi REST. Response `data.results` gồm `session`, `leaderboard`, `perQuestion`. ⚠️ Endpoint hiện public và backend chưa enforce `showLeaderboard=never` — xem `BUG-16`</td>
 </tr>
 <tr>
 <td>PATCH</td>
@@ -1666,7 +1666,7 @@ Avatar và logo vẽ bằng `Image` chứ không `Icon`, vì `Icon` nhuộm nộ
 - `connect_error` phải log an toàn class/message/cause chain để phân biệt DNS/TLS/transport với handshake nghiệp vụ; tuyệt đối không log `socketToken`, cookie hay toàn bộ auth payload. Case N25 thật là `UnknownHostException`/`EAI_NODATA`, không phải token.
 - Contract presence vẫn thuộc backend: socket mới nhận đúng snapshot không đồng nghĩa `player.status` đã là `connected`. Backend phải ngăn `onLeave` của socket cũ ghi đè connection mới và không được `maybeAdvanceAfterLeave()` khi cùng `playerSessionId` còn socket thay thế. Android không dùng delay/double-join để che race này.
 - Timer dùng deadline tuyệt đối + `serverTime` offset; `endsAt=null` thì ẩn; khi UI về 0 chỉ khóa input, server vẫn là nơi quyết định phase.
-- ✅ **N24 (15/9/2026)**: `game:ended` được lưu tạm qua `GameResultRepository`, phát `NavigateToFinalResult` và điều hướng sang `Route.FinalResult(gameId, playerId)`; Gameplay bị pop khỏi back stack. `FinalResultScreen` render bảng cuối từ socket, highlight Player hiện tại và có fallback an toàn khi process recreation làm mất transient result.
+- ✅ **N24 + N35 (15/9–3/10/2026)**: `game:ended` được lưu tạm qua `GameResultRepository`, phát `NavigateToFinalResult` và điều hướng sang `Route.FinalResult(gameId, playerId)`; Gameplay bị pop khỏi back stack. `FinalResultScreen` ưu tiên bảng cuối từ socket; chỉ khi process recreation làm mất transient result mới gọi REST `/games/{id}/results`, có loading/error/retry và thống kê từng câu.
 - ⚠️ **N25 (26/9/2026, tạm gác — FAIL)**: E2E Classic với 1 Host + 2 Player đã phủ đủ 4 loại câu, reveal/leaderboard, pause/resume, final result và reconnect. Android đã sửa Submitted bị mở lại sau pause/resume, snapshot cũ kéo phase lùi, Host transport/server disconnect và Player reconnect vô hạn. M4 chưa chốt vì ACK uncertainty/fatal disconnect chưa có đủ bằng chứng và backend còn presence race làm Player đã reconnect vẫn bị tính `disconnected`, khiến điều kiện all-answered có thể chuyển câu sớm. Checklist chuẩn nằm ở `N25_E2E_CLASSIC_CHECKLIST.md`; bài học chi tiết ở `knowledgement/n25_knowledgement.md`.
 - `answer:received` chỉ cập nhật progress đã trả lời/tổng player active, không chứa đúng-sai. `question:results` là nguồn kết quả giữa câu; `leaderboard:updated` là snapshot thay thế, không cộng dồn.
 - Visibility phải bám config server: `between_questions` chỉ hiện bảng trong Results; `end_only`/`never` không hiện rank/score live. Khi `showCorrectAnswer=false`, reducer xóa answer key + distribution và dùng outcome trung tính trước khi state tới UI.
@@ -1681,6 +1681,18 @@ Avatar và logo vẽ bằng `Image` chứ không `Icon`, vì `Icon` nhuộm nộ
 - `FinalResultViewModel` lazy-load review và expose loading/error/retry; UI sắp câu bỏ qua/sai lên trước, hiển thị ảnh, đáp án Player/đúng, explanation, thời gian và điểm; review lỗi không làm mất bảng kết quả cuối.
 - Unit test tối thiểu: DTO mixed naming/envelope; success/error/retry/no-token của ViewModel; regression handoff từ `game:ended`. Happy case đã pass ở commit `499297c`.
 - ⚠️ Backend blocker đã phát hiện khi E2E: Host pause/resume broadcast shared `game:state` theo `session.current_question_index` thay vì progress/order riêng của Player, khiến UI nhảy về câu 1 nhưng answer tiếp theo được server chấm theo index cũ. Không workaround phía Android; sau backend fix phải retest giữ đúng question id/index, option order, answer, auto-advance/manual-next, reconnect/sync và review.
+
+### 11.11. Cập nhật 3/10 (N35) — Final Result recovery + thống kê từng câu
+
+- **Nguồn chính vẫn là socket**: `game:ended` đã chứa `leaderboard`, `perQuestion`, `review_enabled`; nếu `StoredGameResult` còn trong RAM thì render ngay và không phát request `/results`.
+- **REST chỉ recovery**: khi process recreation làm mất transient result, `FinalResultViewModel` gọi `LoadGameResultsUseCase` → `GameSessionRepository.getGameResults()` → public preserve-case `GameApiService.getGameResults()`. Envelope thật là `data.results.session|leaderboard|perQuestion`.
+- Domain recovery chỉ giữ dữ liệu cần dùng: `mode`, `sessionStatus`, `showLeaderboard`, `reviewEnabled`, leaderboard và per-question stats; không đẩy toàn bộ session backend lên presentation.
+- State của Results (`isResultLoading`, `resultError`, `RetryResult`) độc lập với state Review. Chỉ cho một request results chạy; retry dùng lại `gameId`; REST không ghi đè transient socket result đang có.
+- `perQuestion` là aggregate của cả phòng, không phải answer sheet riêng: sort theo `questionIndex`, hiển thị correct/answer count và tỷ lệ; `answerCount=0` trả 0% để tránh chia cho 0; danh sách rỗng thì ẩn section.
+- Review N29 không đổi: socket token vẫn transient. Sau process death, tổng kết vẫn phục hồi được; nếu người dùng mở Review thì báo credential không còn, không tự logout và không dùng cookie authenticator.
+- **Visibility defense**: backend `/results` hiện public và luôn trả full leaderboard. Android đọc `session.config.flow.showLeaderboard`; nếu là `never` thì loại bảng trước khi state tới UI. Đây chỉ là defense-in-depth — API vẫn rò dữ liệu, đã ghi `BUG-16` để backend enforce policy trước serialization.
+- Test thêm: `GameResultsDtoTest` cho mixed snake/camel envelope; `FinalResultViewModelTest` cho socket happy path không gọi REST, recovery success/error/retry, `showLeaderboard=never`, `perQuestion` và regression Review. Commit Android: `37bc61a`.
+- Ngoài phạm vi N35: Final Result riêng cho Host, share result, lịch sử/Hoạt động, resume active game và Player token renewal của N30.
 
 ## 12. Dependency Injection — Hilt Modules
 <table header-row="true">
