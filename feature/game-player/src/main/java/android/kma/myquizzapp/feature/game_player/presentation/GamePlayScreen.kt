@@ -2,6 +2,7 @@ package android.kma.myquizzapp.feature.game_player.presentation
 
 import android.kma.myquizzapp.core.common.model.PublicAnswerOption
 import android.kma.myquizzapp.core.common.model.PublicQuestion
+import android.kma.myquizzapp.core.ui.components.QuestionImage
 import android.kma.myquizzapp.core.ui.theme.MyQuizAppTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -123,6 +124,11 @@ fun GamePlayScreenContent(
                 item {
                     Text("Câu ${question.index + 1}/${question.total}", style = MaterialTheme.typography.labelLarge)
                     Text(question.questionText, style = MaterialTheme.typography.headlineSmall)
+                    QuestionImage(
+                        imageUrl = question.questionImage,
+                        contentDescription = "Ảnh minh họa câu hỏi",
+                        modifier = Modifier.padding(top = 12.dp)
+                    )
                     question.questionHint?.takeIf(String::isNotBlank)?.let { Text("Gợi ý: $it") }
                 }
                 when (question.questionType) {
@@ -374,9 +380,17 @@ private fun PreviewGame() {
             state = GameUiState(
                 connection = GameConnection.CONNECTED,
                 phase = GamePhaseUi.Question,
-                question = PublicQuestion(0, 4, 1, "multiple_choice", "Thủ đô Việt Nam?", answerOptions = listOf(
-                    PublicAnswerOption("0", "Hà Nội"), PublicAnswerOption("1", "Huế")
-                )),
+                question = PublicQuestion(
+                    index = 0,
+                    total = 4,
+                    id = 1,
+                    questionType = "multiple_choice",
+                    questionText = "Thủ đô Việt Nam?",
+                    questionImage = "https://example.com/question.png",
+                    answerOptions = listOf(
+                        PublicAnswerOption("0", "Hà Nội"), PublicAnswerOption("1", "Huế")
+                    )
+                ),
                 isInputLocked = false
             ),
             onIntent = {}

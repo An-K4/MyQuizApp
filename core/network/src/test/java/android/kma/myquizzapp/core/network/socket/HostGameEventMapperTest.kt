@@ -34,7 +34,7 @@ class HostGameEventMapperTest {
                 "id": 77,
                 "question_type": "multiple_choice",
                 "question_text": "Thủ đô của Việt Nam?",
-                "question_image": null,
+                "question_image": "https://cdn.example.com/questions/77.png",
                 "question_hint": null,
                 "answer_options": [
                   { "id": 0, "text": "Hà Nội" },
@@ -62,6 +62,7 @@ class HostGameEventMapperTest {
         assertEquals(listOf("0"), hostQuestion.correctAnswers)
         assertEquals(listOf("0", "1", "2"), hostQuestion.question.answerOptions.map { it.id })
         assertEquals("Hà Nội", hostQuestion.question.answerOptions.first().text)
+        assertEquals("https://cdn.example.com/questions/77.png", hostQuestion.question.questionImage)
     }
 
     @Test
@@ -290,7 +291,8 @@ class HostGameEventMapperTest {
               "question": {
                 "index": 4, "total": 10, "id": 91,
                 "question_type": "multiple_choice",
-                "question_text": "Câu đang mở"
+                "question_text": "Câu đang mở",
+                "question_image": "https://cdn.example.com/questions/91.png"
               },
               "countdown": null,
               "endsAt": "2026-09-10T14:02:00.000Z",
@@ -310,6 +312,7 @@ class HostGameEventMapperTest {
         assertEquals(4, snapshot.index)
         assertEquals(12, snapshot.remainingSeconds)
         assertEquals("Câu đang mở", snapshot.question?.questionText)
+        assertEquals("https://cdn.example.com/questions/91.png", snapshot.question?.questionImage)
         assertEquals(false, snapshot.config?.timing?.autoAdvance)
         assertEquals(1, snapshot.leaderboard.size)
         assertNull(snapshot.countdownStartsAt)

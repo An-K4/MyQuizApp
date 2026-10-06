@@ -3,6 +3,7 @@ package android.kma.myquizzapp.feature.quiz_manage.presentation.quizdetail
 import android.content.res.Configuration
 import android.kma.myquizzapp.core.common.model.Question
 import android.kma.myquizzapp.core.common.model.Quiz
+import android.kma.myquizzapp.core.ui.components.QuestionImage
 import android.kma.myquizzapp.core.ui.theme.MyQuizAppTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -224,6 +225,11 @@ private fun QuestionItem(question: Question) {
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp)) {
             Text(question.questionText)
+            QuestionImage(
+                imageUrl = question.questionImage,
+                contentDescription = "Ảnh câu hỏi",
+                modifier = Modifier.padding(top = 12.dp)
+            )
             Spacer(Modifier.height(8.dp))
             question.answerOptions?.forEach { Text("• ${it.optionText}") }
         }

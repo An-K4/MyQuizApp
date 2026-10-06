@@ -28,8 +28,9 @@ fun RemoteImage(
         AsyncImage(
             model = imageUrl,
             contentDescription = contentDescription,
-            modifier = modifier,
+            modifier = modifier.background(MaterialTheme.colorScheme.surfaceVariant),
             contentScale = contentScale,
+            placeholder = painterResource(android.R.drawable.ic_menu_gallery),
             fallback = painterResource(android.R.drawable.ic_menu_gallery),
             error = painterResource(android.R.drawable.ic_menu_gallery)
         )

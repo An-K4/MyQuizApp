@@ -5,6 +5,7 @@ import android.kma.myquizzapp.core.common.model.GamePhase
 import android.kma.myquizzapp.core.common.model.HostLeaderboardRow
 import android.kma.myquizzapp.core.common.model.PublicAnswerOption
 import android.kma.myquizzapp.core.common.model.QuestionLockReason
+import android.kma.myquizzapp.core.ui.components.QuestionImage
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -279,6 +280,11 @@ private fun QuestionCard(
             Text(
                 text = question?.questionText ?: "Đang chờ câu hỏi từ server...",
                 style = MaterialTheme.typography.titleLarge
+            )
+            QuestionImage(
+                imageUrl = question?.questionImage,
+                contentDescription = "Ảnh minh họa câu hỏi",
+                modifier = Modifier.padding(top = 12.dp)
             )
 
             if (question != null && question.answerOptions.isNotEmpty()) {
