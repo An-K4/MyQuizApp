@@ -4,6 +4,7 @@ import android.kma.myquizzapp.core.common.result.Result
 import android.kma.myquizzapp.core.network.dto.CreateGameRequestDto
 import android.kma.myquizzapp.core.network.dto.CreateGameResponseDto
 import android.kma.myquizzapp.core.network.dto.GameHistoryResponseDto
+import android.kma.myquizzapp.core.network.dto.GameHistorySummaryResponseDto
 import android.kma.myquizzapp.core.network.dto.GameModesResponseDto
 import android.kma.myquizzapp.core.network.dto.GameReviewResponseDto
 import android.kma.myquizzapp.core.network.dto.GameResultsResponseDto
@@ -58,6 +59,20 @@ interface GameApiService {
         @Query("include_total") includeTotal: Boolean = false,
         @Header("x-guest-id") guestId: String? = null
     ): Result<GameHistoryResponseDto>
+
+    /** Tổng quan một trận cũ; cookie user thắng header guest nếu cả hai cùng có. */
+    @GET("games/{id}/summary")
+    suspend fun getGameHistorySummary(
+        @Path("id") gameId: Long,
+        @Header("x-guest-id") guestId: String? = null
+    ): Result<GameHistorySummaryResponseDto>
+
+    /** Answer sheet lịch sử dùng cookie/guest id thay cho socket token đã mất. */
+    @GET("games/{id}/my-answers")
+    suspend fun getGameHistoryAnswers(
+        @Path("id") gameId: Long,
+        @Header("x-guest-id") guestId: String? = null
+    ): Result<GameReviewResponseDto>
 
     /** Kết quả công khai; chỉ dùng làm fallback khi payload `game:ended` không còn trong RAM. */
     @GET("games/{id}/results")

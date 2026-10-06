@@ -218,6 +218,9 @@ private class FakeGameSessionRepository(
         guestId: String?
     ): Result<List<android.kma.myquizzapp.core.common.model.GameHistoryItem>> = error("unused")
 
+    override suspend fun getGameHistorySummary(gameId: Long, guestId: String?): Result<android.kma.myquizzapp.core.common.model.GameHistorySummary> = error("unused")
+    override suspend fun getGameHistoryAnswers(gameId: Long, guestId: String?): Result<GameReview> = error("unused")
+
     override suspend fun getGameResults(gameId: Long): Result<GameResults> {
         resultsCalls += 1
         return resultsResult

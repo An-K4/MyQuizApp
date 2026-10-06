@@ -10,6 +10,7 @@ import android.kma.myquizzapp.feature.home.presentation.HomeScreen
 import android.kma.myquizzapp.feature.home.presentation.search.SearchScreen
 import android.kma.myquizzapp.feature.home.presentation.discover.DiscoverScreen
 import android.kma.myquizzapp.feature.lobby.presentation.joinroom.JoinRoomCard
+import android.kma.myquizzapp.feature.leaderboard.presentation.historydetail.GameHistoryDetailScreen
 import android.kma.myquizzapp.presentation.activity.ActivityScreen
 import android.kma.myquizzapp.presentation.profile.ProfileScreen
 
@@ -101,7 +102,15 @@ fun NavGraphBuilder.mainGraph(
     // ----- TOP-LEVEL ACCOUNT/GUEST ROUTES -----
     composable<Route.Activity> {
         // N38: user có Đã chơi/Đã tổ chức; guest xem Đã chơi bằng UUID thiết bị.
-        ActivityScreen()
+        ActivityScreen(
+            onOpenHistory = { sessionId ->
+                navController.navigate(Route.GameHistoryDetail(sessionId))
+            }
+        )
+    }
+
+    composable<Route.GameHistoryDetail> {
+        GameHistoryDetailScreen(onBack = { navController.popBackStack() })
     }
 
     composable<Route.Profile> {

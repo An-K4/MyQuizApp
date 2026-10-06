@@ -191,7 +191,7 @@ fun FinalResultScreenContent(
 }
 
 @Composable
-private fun QuestionStatCard(stat: QuestionStat) {
+internal fun QuestionStatCard(stat: QuestionStat) {
     val percent = if (stat.answerCount == 0) 0 else stat.correctCount * 100 / stat.answerCount
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -202,7 +202,7 @@ private fun QuestionStatCard(stat: QuestionStat) {
 }
 
 @Composable
-private fun ReviewItemCard(item: GameReviewItem) {
+internal fun ReviewItemCard(item: GameReviewItem) {
     val status = when {
         !item.answered -> "Bỏ qua"
         item.isCorrect -> "Đúng"
@@ -253,7 +253,7 @@ private fun ReviewItemCard(item: GameReviewItem) {
 }
 
 @Composable
-private fun ReviewOptionRow(item: GameReviewItem, option: PublicAnswerOption) {
+internal fun ReviewOptionRow(item: GameReviewItem, option: PublicAnswerOption) {
     val key = option.id.normalized()
     val isMine = item.yourAnswers.any { it.normalized() == key }
     val isCorrect = item.correctAnswers.any { it.normalized() == key }

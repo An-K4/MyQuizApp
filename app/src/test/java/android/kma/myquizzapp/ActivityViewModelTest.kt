@@ -4,6 +4,7 @@ import android.kma.myquizzapp.core.common.model.CreateGameSessionParams
 import android.kma.myquizzapp.core.common.model.CreateGameSessionResult
 import android.kma.myquizzapp.core.common.model.GameHistoryItem
 import android.kma.myquizzapp.core.common.model.GameHistoryRole
+import android.kma.myquizzapp.core.common.model.GameHistorySummary
 import android.kma.myquizzapp.core.common.model.GameMode
 import android.kma.myquizzapp.core.common.model.GameModeDescriptor
 import android.kma.myquizzapp.core.common.model.GameResults
@@ -163,6 +164,8 @@ private class FakeGameSessionRepository : GameSessionRepository {
     override suspend fun getHostToken(gameId: Long): Result<String> = error("unused")
     override suspend fun lookupRoom(sessionCode: String): Result<RoomLookup> = error("unused")
     override suspend fun joinRoom(sessionCode: String, playerName: String?, guestId: String?): Result<JoinRoomResult> = error("unused")
+    override suspend fun getGameHistorySummary(gameId: Long, guestId: String?): Result<GameHistorySummary> = error("unused")
+    override suspend fun getGameHistoryAnswers(gameId: Long, guestId: String?): Result<GameReview> = error("unused")
     override suspend fun getGameResults(gameId: Long): Result<GameResults> = error("unused")
     override suspend fun getGameReview(gameId: Long, socketToken: String): Result<GameReview> = error("unused")
 }

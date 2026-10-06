@@ -4,6 +4,7 @@ import android.kma.myquizzapp.core.common.model.CreateGameSessionParams
 import android.kma.myquizzapp.core.common.model.CreateGameSessionResult
 import android.kma.myquizzapp.core.common.model.GameHistoryItem
 import android.kma.myquizzapp.core.common.model.GameHistoryRole
+import android.kma.myquizzapp.core.common.model.GameHistorySummary
 import android.kma.myquizzapp.core.common.model.GameModeDescriptor
 import android.kma.myquizzapp.core.common.model.GameReview
 import android.kma.myquizzapp.core.common.model.GameResults
@@ -48,6 +49,12 @@ interface GameSessionRepository {
         limit: Int = 20,
         guestId: String? = null
     ): Result<List<GameHistoryItem>>
+
+    /** Tổng quan một trận cũ; guestId chỉ truyền khi không có phiên đăng nhập. */
+    suspend fun getGameHistorySummary(gameId: Long, guestId: String? = null): Result<GameHistorySummary>
+
+    /** Answer sheet lịch sử của chính viewer, không phụ thuộc socket token. */
+    suspend fun getGameHistoryAnswers(gameId: Long, guestId: String? = null): Result<GameReview>
 
     /** Kết quả công khai dùng để khôi phục màn tổng kết sau khi process bị hủy. */
     suspend fun getGameResults(gameId: Long): Result<GameResults>

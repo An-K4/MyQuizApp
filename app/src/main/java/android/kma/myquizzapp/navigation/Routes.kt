@@ -31,9 +31,10 @@ sealed interface Route {
     // N19.6: KHÔNG có Route.JoinRoom nữa. Ô nhập mã phòng giờ là một thế nằm trên
     // Trang chủ (JoinRoomCard) — màn cũ chỉ có đúng ô đó rồi điều hướng đi ngay,
     // không đủ nội dung để làm một điểm đến.
-    // Tab "Hoạt động" (lịch sử chơi). N19.5 chỉ có placeholder — thay cho
-    // Route.Library cũ, vốn trùng lặp với MyQuizzes và chưa từng có màn thật.
+    // Tab "Hoạt động" dùng lịch sử server-backed từ N38; N39 mở chi tiết theo sessionId.
+    // Route.Library cũ đã bỏ vì trùng lặp với MyQuizzes.
     @Serializable data object Activity : Route
+    @Serializable data class GameHistoryDetail(val sessionId: Long) : Route
     @Serializable data object Profile : Route
     
     // Search (full-screen modal from Home)

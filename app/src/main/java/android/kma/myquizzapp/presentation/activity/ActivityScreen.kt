@@ -9,6 +9,7 @@ import android.kma.myquizzapp.core.common.model.SessionStatus
 import android.kma.myquizzapp.core.ui.components.Avatar
 import android.kma.myquizzapp.core.ui.components.RemoteImage
 import android.kma.myquizzapp.core.ui.theme.MyQuizAppTheme
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -58,6 +59,7 @@ import java.time.format.DateTimeFormatter
 
 @Composable
 fun ActivityScreen(
+    onOpenHistory: (Long) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: ActivityViewModel = hiltViewModel()
 ) {
@@ -73,6 +75,7 @@ fun ActivityScreen(
     ActivityScreenContent(
         uiState = uiState,
         onIntent = viewModel::onIntent,
+        onOpenHistory = onOpenHistory,
         modifier = modifier
     )
 }
@@ -82,6 +85,7 @@ fun ActivityScreen(
 fun ActivityScreenContent(
     uiState: ActivityUiState,
     onIntent: (ActivityIntent) -> Unit,
+    onOpenHistory: (Long) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Scaffold(
@@ -109,7 +113,8 @@ fun ActivityScreenContent(
                     page = uiState.currentList,
                     role = uiState.selectedRole,
                     onRetry = { onIntent(ActivityIntent.Retry) },
-                    onLoadMore = { onIntent(ActivityIntent.LoadMore) }
+                    onLoadMore = { onIntent(ActivityIntent.LoadMore) },
+                    onOpenHistory = onOpenHistory
                 )
             }
         }
@@ -121,7 +126,8 @@ private fun HistoryList(
     page: HistoryListState,
     role: GameHistoryRole,
     onRetry: () -> Unit,
-    onLoadMore: () -> Unit
+    onLoadMore: () -> Unit,
+    onOpenHistory: (Long) -> Unit
 ) {
     when {
         page.isInitialLoading && page.items.isEmpty() -> LoadingState()
@@ -146,7 +152,11 @@ private fun HistoryList(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 items(page.items, key = { it.sessionId }) { item ->
-                    HistoryCard(item = item, role = role)
+                    HistoryCard(
+                        item = item,
+                        role = role,
+                        onClick = { onOpenHistory(item.sessionId) }
+                    )
                 }
                 if (page.isLoadingMore) {
                     item { Box(Modifier.fillMaxWidth().padding(12.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() } }
@@ -168,9 +178,13 @@ private fun HistoryList(
 }
 
 @Composable
-private fun HistoryCard(item: GameHistoryItem, role: GameHistoryRole) {
+private fun HistoryCard(
+    item: GameHistoryItem,
+    role: GameHistoryRole,
+    onClick: () -> Unit
+) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Row(Modifier.fillMaxWidth().padding(12.dp)) {
@@ -307,7 +321,8 @@ private fun ActivityScreenPreview() {
                     )
                 )
             ),
-            onIntent = {}
+            onIntent = {},
+            onOpenHistory = {}
         )
     }
 }

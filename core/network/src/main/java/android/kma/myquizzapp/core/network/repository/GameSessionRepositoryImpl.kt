@@ -4,6 +4,7 @@ import android.kma.myquizzapp.core.common.model.CreateGameSessionParams
 import android.kma.myquizzapp.core.common.model.CreateGameSessionResult
 import android.kma.myquizzapp.core.common.model.GameHistoryItem
 import android.kma.myquizzapp.core.common.model.GameHistoryRole
+import android.kma.myquizzapp.core.common.model.GameHistorySummary
 import android.kma.myquizzapp.core.common.model.GameModeDescriptor
 import android.kma.myquizzapp.core.common.model.GameReview
 import android.kma.myquizzapp.core.common.model.GameResults
@@ -67,6 +68,18 @@ class GameSessionRepositoryImpl @Inject constructor(
             includeTotal = false,
             guestId = guestId
         ).map { response -> response.sessions.map { it.toDomain() } }
+
+    override suspend fun getGameHistorySummary(
+        gameId: Long,
+        guestId: String?
+    ): Result<GameHistorySummary> =
+        gameApi.getGameHistorySummary(gameId, guestId).map { it.summary.toDomain() }
+
+    override suspend fun getGameHistoryAnswers(
+        gameId: Long,
+        guestId: String?
+    ): Result<GameReview> =
+        gameApi.getGameHistoryAnswers(gameId, guestId).map { it.review.toDomain() }
 
     override suspend fun getGameResults(gameId: Long): Result<GameResults> =
         publicApi.getGameResults(gameId).map { it.results.toDomain() }

@@ -73,6 +73,31 @@ class GameHistoryApiTest {
         assertNull(request.getHeader("x-guest-id"))
     }
 
+    @Test
+    fun `history detail sends guest header to both endpoints`() = runTest {
+        val guestId = "6f1c1f8e-0b2a-4f1d-9a3e-0c7c9b2d5e11"
+        server.enqueue(
+            MockResponse().setHeader("Content-Type", "application/json").setBody(
+                """{"success":true,"data":{"summary":{"session":{"id":91,"session_name":"Room","game_mode":"classic","session_status":"finished","total_players":1,"total_questions":1,"config":{}},"quiz":null,"leaderboard":[],"perQuestion":null,"viewer":{"isHost":false,"playerId":5}}}}"""
+            )
+        )
+        server.enqueue(
+            MockResponse().setHeader("Content-Type", "application/json").setBody(
+                """{"success":true,"data":{"review":{"player_score":0,"correct_answers_count":0,"total_questions":1,"answered_count":0,"items":[]}}}"""
+            )
+        )
+
+        assertTrue(api.getGameHistorySummary(91, guestId) is Result.Success)
+        assertTrue(api.getGameHistoryAnswers(91, guestId) is Result.Success)
+
+        val summaryRequest = server.takeRequest()
+        val answersRequest = server.takeRequest()
+        assertEquals("/v1/games/91/summary", summaryRequest.path)
+        assertEquals("/v1/games/91/my-answers", answersRequest.path)
+        assertEquals(guestId, summaryRequest.getHeader("x-guest-id"))
+        assertEquals(guestId, answersRequest.getHeader("x-guest-id"))
+    }
+
     private fun successResponse() = MockResponse()
         .setHeader("Content-Type", "application/json")
         .setBody(

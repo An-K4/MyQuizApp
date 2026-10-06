@@ -8,6 +8,9 @@ import android.kma.myquizzapp.core.common.model.GameConfigFieldSpec
 import android.kma.myquizzapp.core.common.model.GameConfigKey
 import android.kma.myquizzapp.core.common.model.GameConfigValue
 import android.kma.myquizzapp.core.common.model.GameHistoryItem
+import android.kma.myquizzapp.core.common.model.GameHistoryQuiz
+import android.kma.myquizzapp.core.common.model.GameHistorySummary
+import android.kma.myquizzapp.core.common.model.GameHistoryViewer
 import android.kma.myquizzapp.core.common.model.GameMode
 import android.kma.myquizzapp.core.common.model.GameModeDescriptor
 import android.kma.myquizzapp.core.common.model.GameReview
@@ -22,6 +25,7 @@ import android.kma.myquizzapp.core.common.model.Pacing
 import android.kma.myquizzapp.core.common.model.PublicAnswerOption
 import android.kma.myquizzapp.core.common.model.RoomLookup
 import android.kma.myquizzapp.core.common.model.SessionStatus
+import android.kma.myquizzapp.core.common.model.ShowLeaderboard
 import android.kma.myquizzapp.core.network.socket.dto.LeaderboardRowDto
 import android.kma.myquizzapp.core.network.socket.dto.LobbyPlayerDto
 import android.kma.myquizzapp.core.network.socket.dto.QuestionStatDto
@@ -497,6 +501,78 @@ private fun Map<String, Any>.toJsonObject(): JsonObject = JsonObject(
         }
     }
 )
+
+@Serializable
+data class GameHistorySummaryResponseDto(val summary: GameHistorySummaryDto)
+
+@Serializable
+data class GameHistorySummaryDto(
+    val session: GameHistorySummarySessionDto,
+    val quiz: GameHistoryQuizDto? = null,
+    val leaderboard: List<LeaderboardRowDto> = emptyList(),
+    val perQuestion: List<QuestionStatDto>? = null,
+    val viewer: GameHistoryViewerDto
+) {
+    fun toDomain(): GameHistorySummary {
+        val rows = leaderboard.map { it.toDomain() }
+        val viewerDomain = viewer.toDomain()
+        val hidden = !viewerDomain.isHost &&
+            session.config.flow.showLeaderboard == ShowLeaderboard.NEVER
+        return GameHistorySummary(
+            sessionId = session.id,
+            sessionName = session.sessionName,
+            gameMode = session.gameMode,
+            sessionStatus = session.sessionStatus,
+            config = session.config,
+            totalPlayers = session.totalPlayers,
+            totalQuestions = session.totalQuestions,
+            finishedAt = session.finishedAt ?: session.createdAt,
+            hostName = session.hostName,
+            hostAvatar = session.hostAvatar,
+            quiz = quiz?.toDomain(),
+            leaderboard = if (hidden) emptyList() else rows,
+            perQuestion = if (viewerDomain.isHost) perQuestion.orEmpty().map { it.toDomain() } else emptyList(),
+            viewer = viewerDomain,
+            viewerResult = viewerDomain.playerId?.let { playerId -> rows.firstOrNull { it.id == playerId } },
+            leaderboardHiddenByConfig = hidden
+        )
+    }
+}
+
+@Serializable
+data class GameHistorySummarySessionDto(
+    val id: Long,
+    @SerialName("session_name") val sessionName: String,
+    @SerialName("game_mode") val gameMode: GameMode,
+    @SerialName("session_status") val sessionStatus: SessionStatus,
+    val config: GameConfig = GameConfig(),
+    @SerialName("total_players") val totalPlayers: Int = 0,
+    @SerialName("total_questions") val totalQuestions: Int = 0,
+    @SerialName("finished_at") val finishedAt: String? = null,
+    @SerialName("created_at") val createdAt: String? = null,
+    @SerialName("session_host_name") val hostName: String? = null,
+    @SerialName("session_host_avatar") val hostAvatar: String? = null
+)
+
+@Serializable
+data class GameHistoryQuizDto(
+    val id: Long? = null,
+    @SerialName("quiz_name") val name: String? = null,
+    @SerialName("quiz_description") val description: String? = null,
+    @SerialName("quiz_image") val image: String? = null,
+    @SerialName("quiz_category") val category: String? = null,
+    @SerialName("quiz_language") val language: String? = null
+) {
+    fun toDomain() = GameHistoryQuiz(id, name, description, image, category, language)
+}
+
+@Serializable
+data class GameHistoryViewerDto(
+    val isHost: Boolean = false,
+    val playerId: Long? = null
+) {
+    fun toDomain() = GameHistoryViewer(isHost = isHost, playerId = playerId)
+}
 
 @Serializable
 data class GameHistoryResponseDto(val sessions: List<GameHistoryItemDto> = emptyList())
