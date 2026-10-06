@@ -521,6 +521,47 @@ Chuẩn hóa một shape duy nhất cho lựa chọn và cập nhật đồng th
 
 ---
 
+## BUG-17 — Thống kê từng câu có thể hiển thị nhiều thẻ cùng nhãn khi Player được xáo trộn thứ tự riêng
+
+- **Severity:** `MEDIUM` — số đếm theo câu vẫn được gom, nhưng nhãn vị trí gây hiểu sai báo cáo Host.
+- **Mode:** self-paced có `shuffleQuestions=true` (Solo, Practice, Survival, Marathon tùy config).
+- **Phát hiện:** tái hiện trên màn chi tiết lịch sử N39 và xác nhận qua audit `getQuestionStats()`.
+
+### Điều kiện ban đầu
+
+- Quiz có ít nhất 2 câu.
+- Phòng self-paced bật xáo trộn câu hỏi.
+- Có từ 2 Player trở lên để mỗi Player có thể nhận thứ tự câu riêng.
+
+### Performed actions — Chuỗi hành động thực hiện
+
+1. Cho các Player chơi và trả lời cùng một trận.
+2. Kết thúc trận.
+3. Host mở **Hoạt động → Đã tổ chức → Chi tiết trận**.
+4. Quan sát phần **Thống kê từng câu**.
+
+### Expected output
+
+- Mỗi câu hỏi thật xuất hiện đúng một thẻ.
+- Nhãn “Câu N” phải dựa trên một thứ tự ổn định của quiz snapshot, không phụ thuộc Player nào nhìn thấy câu đó ở vị trí nào.
+- Số lượt trả lời và số lượt đúng được tổng hợp cho đúng `question_id`.
+
+### Actual output — đã tái hiện và xác nhận qua audit
+
+- Có thể xuất hiện nhiều thẻ cùng nhãn, ví dụ hai thẻ đều ghi **Câu 2**, dù chúng là hai `question_id` khác nhau.
+- `getQuestionStats()` đang `GROUP BY question_id` nên không nhân thẻ theo từng lượt trả lời; phần đếm vẫn được gom đúng theo câu hỏi thật.
+- Tuy nhiên query gắn nhãn bằng `min(question_index)`. Với self-paced, `questionsAsPlayed()` shuffle tiếp bằng seed riêng `gameId + playerId`, nên hai câu khác nhau có thể cùng nằm ở index 1 của hai Player khác nhau.
+- Android không thể gộp theo `question_index`: làm vậy sẽ trộn số liệu của hai câu hỏi khác nhau.
+
+### Đề nghị
+
+- Giữ aggregate theo `question_id`.
+- Map `question_id` về vị trí ổn định từ `quiz_snapshots.snapshot_data.questions` hoặc trả thêm một field nhãn/thứ tự canonical riêng.
+- Không suy ra vị trí canonical bằng `min(question_index)` từ answer rows của Player.
+- Bổ sung integration test với ít nhất hai Player self-paced có shuffled order khác nhau; response phải có `question_id` duy nhất và nhãn/order canonical không trùng.
+
+---
+
 # III. Thiếu tính năng/contract — không gọi là bug
 
 ## FEATURE-01 — Host chưa xem được thời gian còn lại riêng của từng Player Marathon
@@ -673,10 +714,11 @@ Contract hiện tại không phân biệt rõ “không sửa field” với “
 1. `BUG-01` — Pause/Resume làm Player self-paced hiển thị và trả lời sai câu.
 2. `BUG-04` — Reconnect presence race và chuyển câu sớm.
 3. `BUG-16` — Endpoint kết quả public làm lộ leaderboard đã bị Host cấu hình ẩn.
-4. `FEATURE-07` — Contract cấp lại Player socket token để N30 có thể triển khai an toàn.
-5. `BUG-07`, `BUG-08` — Snapshot self-paced/shuffle/Marathon không nhất quán.
-6. `BUG-02`, `BUG-03`, `BUG-10` — Đồng bộ progress/lives/elimination cho timeout và answer.
-7. `BUG-09` — Reconnect làm mất trạng thái chờ Next.
-8. `BUG-11` — Dashboard Host không refresh theo presence.
-9. `BUG-12`, `BUG-13`, `BUG-15` — Reconnect không phục hồi đầy đủ Host/Player/terminal state.
-10. Các lỗi mức Medium/Low và nhóm thiếu tính năng còn lại.
+4. `BUG-17` — Thống kê self-paced shuffle gắn nhãn câu hỏi không ổn định.
+5. `FEATURE-07` — Contract cấp lại Player socket token để N30 có thể triển khai an toàn.
+6. `BUG-07`, `BUG-08` — Snapshot self-paced/shuffle/Marathon không nhất quán.
+7. `BUG-02`, `BUG-03`, `BUG-10` — Đồng bộ progress/lives/elimination cho timeout và answer.
+8. `BUG-09` — Reconnect làm mất trạng thái chờ Next.
+9. `BUG-11` — Dashboard Host không refresh theo presence.
+10. `BUG-12`, `BUG-13`, `BUG-15` — Reconnect không phục hồi đầy đủ Host/Player/terminal state.
+11. Các lỗi mức Medium/Low và nhóm thiếu tính năng còn lại.

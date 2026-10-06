@@ -1,7 +1,7 @@
 > Đối chiếu với backend thực tế tại `github.com/Ntd1411/myquizz` (Express + TypeScript + [Socket.IO](http://Socket.IO) + PostgreSQL + Redis).
 > Đây là bản viết lại của design doc v1.0, sửa toàn bộ phần hợp đồng API/Socket cho khớp với code backend thật (không còn là template quiz-app chung chung).
 > Cập nhật 27/9/2026 sau N28.5: Player self-paced đã hỗ trợ Solo manual-next, Survival lives/elimination và Marathon timer tổng/timeout/finish; Host Console đã có dashboard riêng cho Classic lẫn self-paced. Phần Android N28.5 hoàn tất theo contract hiện có, nhưng lives/streak, timeout và presence của Host còn chờ backend bổ sung event/payload. M4 vẫn chưa chốt vì backend còn presence race và các lỗi snapshot/Marathon đã ghi trong kế hoạch.
-> Cập nhật 6/10/2026 sau N38: tab Hoạt động đã dùng lịch sử trận từ server cho cả user và guest, tách hai vai trò host/player cùng cursor độc lập, hỗ trợ load-more/error/empty và refresh khi tab được resume. Bước tiếp theo là N39; phải audit backend và Android source thực tế trước khi lập kế hoạch triển khai.
+> Cập nhật 6/10/2026 sau N39: tab Hoạt động đã mở được chi tiết snapshot trận và answer sheet cho host/player/guest qua danh tính cookie hoặc guest UUID, không phụ thuộc socket token cũ; host không gọi answers, player được defense `showLeaderboard=never`. Bước tiếp theo là N40; phải audit pipeline `questionImage` trong Host/Player gameplay trước khi lập kế hoạch.
 **Kotlin • Jetpack Compose • MVI + Clean Architecture • **[**Socket.IO**](http://Socket.IO)** • Retrofit + Cookie Auth**
 ---
 ## Mục lục
@@ -1703,7 +1703,18 @@ Avatar và logo vẽ bằng `Image` chứ không `Icon`, vì `Icon` nhuộm nộ
 - `ActivityViewModel` giữ danh sách, cursor, loading và lỗi độc lập cho hai vai trò host/player; nguồn sự thật là server, không dùng Room history cục bộ cho màn này.
 - UI có state loading/error/retry/empty/list/load-more, thumbnail qua `RemoteImage`, và refresh role hiện tại khi màn được `ON_RESUME`. Refresh này bắt buộc vì top-level tab dùng `saveState/restoreState`, nên ViewModel cũ có thể còn sống sau khi guest vừa kết thúc trận.
 - Đã bổ sung test mapping DTO/repository/use case/ViewModel và fake repository tương ứng. Manual test xác nhận lịch sử guest xuất hiện sau khi quay lại tab. Commit Android: `ba0ff49`.
-- Bước tiếp theo N39: audit contract thật của chi tiết trận (`/games/:id/summary`, `/games/:id/my-answers`), quyền truy cập, response shape và khoảng trống Android trước; chỉ lập kế hoạch sau khi audit xong.
+
+### 11.13. Cập nhật 6/10 (N39) — Chi tiết lịch sử + answer sheet
+
+- Audit trước khi lập kế hoạch xác nhận `GET /games/:id/summary` và `GET /games/:id/my-answers` dùng optional auth: cookie thắng `x-guest-id`; summary chỉ cho host hoặc participant, answers chỉ cho participant; session `finished|cancelled` đều hợp lệ.
+- Domain/data bổ sung `GameHistorySummary`, snapshot quiz, viewer, API/repository và hai use case. User không gửi guest header; guest dùng `GuestIdentityStore.getGuestIdOrNull()` nên đọc lịch sử không tự sinh danh tính mới.
+- `Route.GameHistoryDetail(sessionId)` nằm trong main graph và được mở từ card Hoạt động. `GameHistoryDetailViewModel` tải summary trước, chỉ tải answers khi backend trả `playerId`; vì vậy host không gọi endpoint player-only.
+- Summary và answers có loading/error/retry độc lập. `GAME_REVIEW_DISABLED` được chuyển thành trạng thái bình thường “Phòng này không cho xem lại đáp án”, không hiển thị như lỗi request.
+- UI hiển thị snapshot quiz, metadata phòng, thành tích riêng, leaderboard, thống kê từng câu cho host và answer sheet cho player/guest; dùng lại `QuestionStatCard` và `ReviewItemCard` từ Final Result.
+- Android giữ `viewerResult` nhưng loại full leaderboard khỏi presentation state khi player gặp `showLeaderboard=never`; host vẫn thấy đủ. Đây là defense-in-depth vì backend summary hiện vẫn serialize full table.
+- Manual smoke test đã pass guest, user played, user hosted và hidden leaderboard. Review-disabled có unit test; cancelled được contract/mapping hỗ trợ nhưng chưa gặp khi test tay. Commit Android: `ecce5cd`.
+- Audit sau test phát hiện `BUG-17`: `getQuestionStats()` group theo `question_id` nhưng gắn `min(question_index)`. Với self-paced + shuffle riêng theo Player, hai câu hỏi khác nhau có thể cùng được hiển thị thành “Câu N”. Không được group theo index ở Android vì sẽ trộn dữ liệu của các câu khác nhau; backend cần map mỗi `question_id` về thứ tự ổn định từ snapshot.
+- Bước tiếp theo N40: audit source Host/Player gameplay, mọi phase hiển thị câu hỏi, model/mapper `questionImage`, component ảnh hiện có và test trước; chỉ lập kế hoạch sau khi audit xong.
 
 ## 12. Dependency Injection — Hilt Modules
 <table header-row="true">
