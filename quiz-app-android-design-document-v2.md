@@ -1,6 +1,7 @@
 > Đối chiếu với backend thực tế tại `github.com/Ntd1411/myquizz` (Express + TypeScript + [Socket.IO](http://Socket.IO) + PostgreSQL + Redis).
 > Đây là bản viết lại của design doc v1.0, sửa toàn bộ phần hợp đồng API/Socket cho khớp với code backend thật (không còn là template quiz-app chung chung).
 > Cập nhật 27/9/2026 sau N28.5: Player self-paced đã hỗ trợ Solo manual-next, Survival lives/elimination và Marathon timer tổng/timeout/finish; Host Console đã có dashboard riêng cho Classic lẫn self-paced. Phần Android N28.5 hoàn tất theo contract hiện có, nhưng lives/streak, timeout và presence của Host còn chờ backend bổ sung event/payload. M4 vẫn chưa chốt vì backend còn presence race và các lỗi snapshot/Marathon đã ghi trong kế hoạch.
+> Cập nhật 6/10/2026 sau N38: tab Hoạt động đã dùng lịch sử trận từ server cho cả user và guest, tách hai vai trò host/player cùng cursor độc lập, hỗ trợ load-more/error/empty và refresh khi tab được resume. Bước tiếp theo là N39; phải audit backend và Android source thực tế trước khi lập kế hoạch triển khai.
 **Kotlin • Jetpack Compose • MVI + Clean Architecture • **[**Socket.IO**](http://Socket.IO)** • Retrofit + Cookie Auth**
 ---
 ## Mục lục
@@ -1693,6 +1694,16 @@ Avatar và logo vẽ bằng `Image` chứ không `Icon`, vì `Icon` nhuộm nộ
 - **Visibility defense**: backend `/results` hiện public và luôn trả full leaderboard. Android đọc `session.config.flow.showLeaderboard`; nếu là `never` thì loại bảng trước khi state tới UI. Đây chỉ là defense-in-depth — API vẫn rò dữ liệu, đã ghi `BUG-16` để backend enforce policy trước serialization.
 - Test thêm: `GameResultsDtoTest` cho mixed snake/camel envelope; `FinalResultViewModelTest` cho socket happy path không gọi REST, recovery success/error/retry, `showLeaderboard=never`, `perQuestion` và regression Review. Commit Android: `37bc61a`.
 - Ngoài phạm vi N35: Final Result riêng cho Host, share result, lịch sử/Hoạt động, resume active game và Player token renewal của N30.
+
+### 11.12. Cập nhật 6/10 (N38) — Hoạt động / lịch sử trận
+
+- Audit contract trước khi lập kế hoạch xác nhận backend đã có `GET /games/history`; endpoint yêu cầu `role=host|player`, dùng cursor pagination và không hỗ trợ `role=all`.
+- Luồng optional-auth dùng `GameApiService` có cookie: session đăng nhập được backend ưu tiên; guest gửi thêm `X-Guest-ID`. `GuestIdentityStore.getGuestIdOrNull()` chỉ đọc ID hiện có, không tự tạo danh tính mới khi người dùng chỉ mở tab Hoạt động.
+- Domain bổ sung `GameHistoryRole`, `GameHistoryItem` và contract repository. Data layer xử lý envelope mixed snake/camel rồi map về model tối thiểu cho UI.
+- `ActivityViewModel` giữ danh sách, cursor, loading và lỗi độc lập cho hai vai trò host/player; nguồn sự thật là server, không dùng Room history cục bộ cho màn này.
+- UI có state loading/error/retry/empty/list/load-more, thumbnail qua `RemoteImage`, và refresh role hiện tại khi màn được `ON_RESUME`. Refresh này bắt buộc vì top-level tab dùng `saveState/restoreState`, nên ViewModel cũ có thể còn sống sau khi guest vừa kết thúc trận.
+- Đã bổ sung test mapping DTO/repository/use case/ViewModel và fake repository tương ứng. Manual test xác nhận lịch sử guest xuất hiện sau khi quay lại tab. Commit Android: `ba0ff49`.
+- Bước tiếp theo N39: audit contract thật của chi tiết trận (`/games/:id/summary`, `/games/:id/my-answers`), quyền truy cập, response shape và khoảng trống Android trước; chỉ lập kế hoạch sau khi audit xong.
 
 ## 12. Dependency Injection — Hilt Modules
 <table header-row="true">
