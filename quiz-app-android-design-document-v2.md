@@ -1,7 +1,7 @@
 > Đối chiếu với backend thực tế tại `github.com/Ntd1411/myquizz` (Express + TypeScript + [Socket.IO](http://Socket.IO) + PostgreSQL + Redis).
 > Đây là bản viết lại của design doc v1.0, sửa toàn bộ phần hợp đồng API/Socket cho khớp với code backend thật (không còn là template quiz-app chung chung).
 > Cập nhật 27/9/2026 sau N28.5: Player self-paced đã hỗ trợ Solo manual-next, Survival lives/elimination và Marathon timer tổng/timeout/finish; Host Console đã có dashboard riêng cho Classic lẫn self-paced. Phần Android N28.5 hoàn tất theo contract hiện có, nhưng lives/streak, timeout và presence của Host còn chờ backend bổ sung event/payload. M4 vẫn chưa chốt vì backend còn presence race và các lỗi snapshot/Marathon đã ghi trong kế hoạch.
-> Cập nhật 6/10/2026 sau N39: tab Hoạt động đã mở được chi tiết snapshot trận và answer sheet cho host/player/guest qua danh tính cookie hoặc guest UUID, không phụ thuộc socket token cũ; host không gọi answers, player được defense `showLeaderboard=never`. Bước tiếp theo là N40; phải audit pipeline `questionImage` trong Host/Player gameplay trước khi lập kế hoạch.
+> Cập nhật 6/10/2026 sau N40: ảnh câu hỏi đã render xuyên suốt Host Game, Player Game và card preview Quiz Detail qua `QuestionImage` dùng chung; mapper test bảo vệ event realtime + snapshot, kiểm thử nhanh và build/test đã pass tại commit `9b3cdf0`. Bước tiếp theo là N41; phải audit source thật của Quiz Detail, answer key, navigation và component gameplay trước khi lập kế hoạch Solo Preview.
 **Kotlin • Jetpack Compose • MVI + Clean Architecture • **[**Socket.IO**](http://Socket.IO)** • Retrofit + Cookie Auth**
 ---
 ## Mục lục
@@ -1715,6 +1715,16 @@ Avatar và logo vẽ bằng `Image` chứ không `Icon`, vì `Icon` nhuộm nộ
 - Manual smoke test đã pass guest, user played, user hosted và hidden leaderboard. Review-disabled có unit test; cancelled được contract/mapping hỗ trợ nhưng chưa gặp khi test tay. Commit Android: `ecce5cd`.
 - Audit sau test phát hiện `BUG-17`: `getQuestionStats()` group theo `question_id` nhưng gắn `min(question_index)`. Với self-paced + shuffle riêng theo Player, hai câu hỏi khác nhau có thể cùng được hiển thị thành “Câu N”. Không được group theo index ở Android vì sẽ trộn dữ liệu của các câu khác nhau; backend cần map mỗi `question_id` về thứ tự ổn định từ snapshot.
 - Bước tiếp theo N40: audit source Host/Player gameplay, mọi phase hiển thị câu hỏi, model/mapper `questionImage`, component ảnh hiện có và test trước; chỉ lập kế hoạch sau khi audit xong.
+
+### 11.14. Cập nhật 6/10 (N40) — Render ảnh câu hỏi xuyên suốt
+
+- Audit xác nhận backend đã có `question_image` trong `publicQuestion()` và phát qua `host:question`, `question:started` lẫn `game:state`; Android DTO/domain/ViewModel cũng đã bảo toàn field. Lỗ hổng chỉ nằm ở presentation.
+- Thêm `QuestionImage` stateless tại `core:ui`, dùng `RemoteImage`, bỏ qua URL null/rỗng, giữ tỷ lệ 16:9 bằng `ContentScale.Fit` và có placeholder/error fallback.
+- `HostGameScreen` render ảnh cho câu hỏi chung của host-paced; self-paced Host chỉ có dashboard từng Player nên không dựng câu hỏi/ảnh giả. `GamePlayScreen` render ảnh cho Player ở cả host-paced và self-paced.
+- Sau kiểm thử máy thật, phạm vi được mở rộng sang card câu hỏi của `QuizDetailScreen`, vì đây là preview cùng pipeline create/edit → detail → play; không cần thay backend hay data layer.
+- Mapper test bảo vệ `question_image` cho `host:question`, `question:started` và snapshot `game:state`. Luồng kiểm thử nhanh, unit test và `assembleDebug` đã pass. Commit Android: `9b3cdf0`.
+- Bài học: field đã đi đủ backend → DTO → domain không có nghĩa feature đã hoàn chỉnh; audit presentation phải rà mọi bề mặt tiêu thụ liên quan, không chỉ màn được nêu trong tiêu đề milestone.
+- Bước tiếp theo N41: audit Quiz Detail, contract quiz/answer key, navigation và gameplay component hiện có trước; chỉ sau báo cáo audit mới chốt flow Solo Preview.
 
 ## 12. Dependency Injection — Hilt Modules
 <table header-row="true">
