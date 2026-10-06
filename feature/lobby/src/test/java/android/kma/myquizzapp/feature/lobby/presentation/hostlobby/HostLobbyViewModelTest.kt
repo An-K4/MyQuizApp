@@ -136,6 +136,12 @@ private class FakeLobbyGameSessionRepository : GameSessionRepository {
         playerName: String?,
         guestId: String?
     ): Result<JoinRoomResult> = error("Not used")
+    override suspend fun getGameHistory(
+        role: android.kma.myquizzapp.core.common.model.GameHistoryRole,
+        cursor: String?,
+        limit: Int,
+        guestId: String?
+    ): Result<List<android.kma.myquizzapp.core.common.model.GameHistoryItem>> = error("Not used")
     override suspend fun getGameResults(gameId: Long): Result<GameResults> = error("Not used")
     override suspend fun getGameReview(
         gameId: Long,

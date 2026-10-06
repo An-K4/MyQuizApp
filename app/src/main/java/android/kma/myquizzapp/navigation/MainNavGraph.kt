@@ -15,7 +15,7 @@ import android.kma.myquizzapp.presentation.profile.ProfileScreen
 
 /**
  * Main application navigation graph.
- * Contains public routes (Home, Search, Discover) and protected routes (Activity, Profile).
+ * Contains public routes for both account and guest; only Library is gated before navigation.
  *
  * @param onCurrentUserChanged gọi khi phiên đăng nhập vừa đổi (hiện tại: đăng xuất)
  *   để bottom nav nạp lại avatar. Bottom bar sống NGOÀI NavHost nên không tự biết
@@ -98,10 +98,9 @@ fun NavGraphBuilder.mainGraph(
         )
     }
 
-    // ----- PROTECTED ROUTES (require auth) -----
+    // ----- TOP-LEVEL ACCOUNT/GUEST ROUTES -----
     composable<Route.Activity> {
-        // Tab Hoạt động — N19.5 chỉ dựng placeholder. Hợp đồng backend đã audit
-        // được ghi trong KDoc của ActivityScreen.
+        // N38: user có Đã chơi/Đã tổ chức; guest xem Đã chơi bằng UUID thiết bị.
         ActivityScreen()
     }
 

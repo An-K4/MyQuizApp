@@ -7,6 +7,7 @@ import android.kma.myquizzapp.core.common.model.GameConfigConstraint
 import android.kma.myquizzapp.core.common.model.GameConfigFieldSpec
 import android.kma.myquizzapp.core.common.model.GameConfigKey
 import android.kma.myquizzapp.core.common.model.GameConfigValue
+import android.kma.myquizzapp.core.common.model.GameHistoryItem
 import android.kma.myquizzapp.core.common.model.GameMode
 import android.kma.myquizzapp.core.common.model.GameModeDescriptor
 import android.kma.myquizzapp.core.common.model.GameReview
@@ -496,3 +497,43 @@ private fun Map<String, Any>.toJsonObject(): JsonObject = JsonObject(
         }
     }
 )
+
+@Serializable
+data class GameHistoryResponseDto(val sessions: List<GameHistoryItemDto> = emptyList())
+
+@Serializable
+data class GameHistoryItemDto(
+    val id: Long,
+    @SerialName("session_name") val sessionName: String,
+    @SerialName("game_mode") val gameMode: GameMode,
+    @SerialName("session_status") val sessionStatus: SessionStatus,
+    @SerialName("total_players") val totalPlayers: Int = 0,
+    @SerialName("total_questions") val totalQuestions: Int = 0,
+    @SerialName("ended_at") val endedAt: String,
+    @SerialName("quiz_id") val quizId: Long? = null,
+    @SerialName("quiz_name") val quizName: String? = null,
+    @SerialName("quiz_image") val quizImage: String? = null,
+    @SerialName("host_name") val hostName: String? = null,
+    @SerialName("host_avatar") val hostAvatar: String? = null,
+    @SerialName("player_score") val playerScore: Int? = null,
+    @SerialName("correct_answers_count") val correctAnswersCount: Int? = null,
+    val rank: Int? = null
+) {
+    fun toDomain() = GameHistoryItem(
+        sessionId = id,
+        sessionName = sessionName,
+        gameMode = gameMode,
+        sessionStatus = sessionStatus,
+        totalPlayers = totalPlayers,
+        totalQuestions = totalQuestions,
+        endedAt = endedAt,
+        quizId = quizId,
+        quizName = quizName,
+        quizImage = quizImage,
+        hostName = hostName,
+        hostAvatar = hostAvatar,
+        playerScore = playerScore,
+        correctAnswersCount = correctAnswersCount,
+        rank = rank
+    )
+}

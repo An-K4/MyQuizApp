@@ -3,6 +3,7 @@ package android.kma.myquizzapp.core.network.api
 import android.kma.myquizzapp.core.common.result.Result
 import android.kma.myquizzapp.core.network.dto.CreateGameRequestDto
 import android.kma.myquizzapp.core.network.dto.CreateGameResponseDto
+import android.kma.myquizzapp.core.network.dto.GameHistoryResponseDto
 import android.kma.myquizzapp.core.network.dto.GameModesResponseDto
 import android.kma.myquizzapp.core.network.dto.GameReviewResponseDto
 import android.kma.myquizzapp.core.network.dto.GameResultsResponseDto
@@ -14,6 +15,7 @@ import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.Header
 import retrofit2.http.POST
+import retrofit2.http.Query
 import retrofit2.http.Path
 
 /** Games REST API dùng PreserveCaseRetrofit vì payload trộn snake_case và camelCase. */
@@ -46,6 +48,16 @@ interface GameApiService {
         @Path("code") sessionCode: String,
         @Body body: JoinGameRequestDto
     ): Result<JoinGameResponseDto>
+
+    /** Optional-auth history: client có cookie cho user, header UUID cho guest. */
+    @GET("games/history")
+    suspend fun getGameHistory(
+        @Query("role") role: String,
+        @Query("cursor") cursor: String? = null,
+        @Query("limit") limit: Int = 20,
+        @Query("include_total") includeTotal: Boolean = false,
+        @Header("x-guest-id") guestId: String? = null
+    ): Result<GameHistoryResponseDto>
 
     /** Kết quả công khai; chỉ dùng làm fallback khi payload `game:ended` không còn trong RAM. */
     @GET("games/{id}/results")

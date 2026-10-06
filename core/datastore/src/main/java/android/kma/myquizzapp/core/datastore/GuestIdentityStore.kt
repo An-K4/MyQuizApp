@@ -33,6 +33,10 @@ class GuestIdentityStore @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
 
+    /** Đọc UUID hiện có mà không tạo mới; dùng cho màn lịch sử của guest. */
+    suspend fun getGuestIdOrNull(): String? =
+        context.guestIdentityDataStore.data.first()[KEY_GUEST_ID]?.takeIf { it.isNotBlank() }
+
     /**
      * Lấy uuid đã lưu, hoặc sinh mới và lưu lại nếu chưa có.
      *
