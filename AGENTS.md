@@ -202,6 +202,7 @@ Bản đầu Create Room đưa `Map<String, JsonElement>` và dotted path xuyên
 
 ## 4. Quy tắc quy trình làm việc với user
 
+- **Audit trước, lập kế hoạch sau**: với feature/milestone cần đối chiếu source hoặc backend contract, thứ tự bắt buộc là (1) audit code/contract thật trên đúng nhánh, (2) báo cáo bằng chứng, khoảng trống và các quyết định cần chốt, rồi (3) mới đề xuất kế hoạch triển khai để user duyệt. Không vạch kế hoạch chi tiết chỉ từ design doc trước khi audit, vì kết quả audit có thể làm đổi phạm vi và khiến phải cập nhật kế hoạch lần hai. Trước khi audit xong, chỉ được nêu mục tiêu audit/phạm vi cần kiểm chứng, không coi đó là kế hoạch triển khai đã chốt.
 - User thường test trên **máy thật** sau khi agent báo "xong" — luồng có thể vẫn có bug trên máy thật dù build/compile sạch (ví dụ N15). Đừng coi "compile thành công" là bằng chứng đầy đủ feature hoạt động đúng — khi user gửi Logcat báo lỗi, đọc log thật (không suy đoán) để xác định đúng rõ lỗi backend hay client trước khi sửa.
 - Khi failure còn mơ hồ, **phân tích và thảo luận hướng fix với user trước**, không tự áp speculative fix. Thu thập timeline/event/log đủ để phân biệt Android, network và backend; chỉ triển khai sau khi giả thuyết được xác nhận hoặc user duyệt.
 - Với lỗi socket tổng quát như `CLIENT_CONNECT_FAILED`, log an toàn exception class/message và cause chain trước khi map sang mã generic. Không bao giờ log, paste hoặc giữ `socketToken`, cookie, Authorization header hay auth payload đầy đủ; nếu token vô tình xuất hiện thì không lặp lại trong docs/chat.
