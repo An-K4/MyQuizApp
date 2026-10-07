@@ -77,6 +77,9 @@ fun NavGraphBuilder.quizManageGraph(
                     navController.navigate(Route.CreateRoom(quizId))
                 }
             },
+            onNavigateToPreview = { quizId ->
+                navController.navigate(Route.QuizPreview(quizId))
+            },
             onNavigateToEditQuiz = { quizId ->
                 navController.navigate(Route.EditQuiz(quizId))
             },

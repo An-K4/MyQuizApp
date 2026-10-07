@@ -42,6 +42,7 @@ sealed interface Route {
     
     // Quiz routes
     @Serializable data class QuizDetail(val quizId: Long) : Route
+    @Serializable data class QuizPreview(val quizId: Long) : Route
     // Đồng thời là tab "Thư viện" ở bottom nav (N19.5).
     @Serializable data object MyQuizzes : Route
     @Serializable data object CreateQuiz : Route

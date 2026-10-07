@@ -169,6 +169,7 @@ fun AppNavGraph(
             navigation<Route.MainGraph>(startDestination = Route.Home) {
                 mainGraph(navController, onCurrentUserChanged = currentUserViewModel::refresh)
                 quizManageGraph(navController, requireAuth = requireAuth)
+                quizPreviewGraph(navController)
                 gameGraph(navController)
             }
         }

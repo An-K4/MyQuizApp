@@ -54,6 +54,7 @@ dependencies {
     implementation(project(":feature:game-host"))
     implementation(project(":feature:leaderboard"))
     implementation(project(":feature:quiz-manage"))
+    implementation(project(":feature:quiz-preview"))
 
     // 2. CHỈ GIỮ LẠI THƯ VIỆN CẦN THIẾT CHO MAINACTIVITY & NAVIGATION
     implementation(libs.androidx.core.ktx)

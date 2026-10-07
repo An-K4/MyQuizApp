@@ -32,6 +32,7 @@ import coil.compose.AsyncImage
 fun QuizDetailScreen(
     onNavigateBack: () -> Unit,
     onNavigateToCreateRoom: (Long) -> Unit,
+    onNavigateToPreview: (Long) -> Unit,
     onNavigateToEditQuiz: (Long) -> Unit,
     onResourceMissing: (String) -> Unit,
     modifier: Modifier = Modifier,
@@ -57,6 +58,7 @@ fun QuizDetailScreen(
         uiState = uiState,
         onNavigateBack = onNavigateBack,
         onNavigateToCreateRoom = onNavigateToCreateRoom,
+        onNavigateToPreview = onNavigateToPreview,
         onNavigateToEditQuiz = onNavigateToEditQuiz,
         onIntent = viewModel::onIntent,
         modifier = modifier
@@ -69,6 +71,7 @@ fun QuizDetailScreenContent(
     uiState: QuizDetailUiState,
     onNavigateBack: () -> Unit,
     onNavigateToCreateRoom: (Long) -> Unit,
+    onNavigateToPreview: (Long) -> Unit,
     onNavigateToEditQuiz: (Long) -> Unit,
     onIntent: (QuizDetailIntent) -> Unit,
     modifier: Modifier = Modifier
@@ -89,10 +92,20 @@ fun QuizDetailScreenContent(
         },
         bottomBar = {
             quiz?.let { currentQuiz ->
-                Button(
-                    onClick = { onNavigateToCreateRoom(currentQuiz.id) },
-                    modifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(16.dp)
-                ) { Text("Tạo phòng chơi") }
+                Row(
+                    modifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = { onNavigateToPreview(currentQuiz.id) },
+                        enabled = currentQuiz.questions.isNotEmpty(),
+                        modifier = Modifier.weight(1f)
+                    ) { Text("Tự chơi thử") }
+                    Button(
+                        onClick = { onNavigateToCreateRoom(currentQuiz.id) },
+                        modifier = Modifier.weight(1f)
+                    ) { Text("Tạo phòng") }
+                }
             }
         }
     ) { innerPadding ->
@@ -245,6 +258,7 @@ private fun QuizDetailScreenContentPreview() {
             uiState = QuizDetailUiState(isLoading = true),
             onNavigateBack = {},
             onNavigateToCreateRoom = {},
+            onNavigateToPreview = {},
             onNavigateToEditQuiz = {},
             onIntent = {}
         )
