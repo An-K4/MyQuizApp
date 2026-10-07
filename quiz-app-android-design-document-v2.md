@@ -1,7 +1,7 @@
 > Đối chiếu với backend thực tế tại `github.com/Ntd1411/myquizz` (Express + TypeScript + [Socket.IO](http://Socket.IO) + PostgreSQL + Redis).
 > Đây là bản viết lại của design doc v1.0, sửa toàn bộ phần hợp đồng API/Socket cho khớp với code backend thật (không còn là template quiz-app chung chung).
 > Cập nhật 27/9/2026 sau N28.5: Player self-paced đã hỗ trợ Solo manual-next, Survival lives/elimination và Marathon timer tổng/timeout/finish; Host Console đã có dashboard riêng cho Classic lẫn self-paced. Phần Android N28.5 hoàn tất theo contract hiện có, nhưng lives/streak, timeout và presence của Host còn chờ backend bổ sung event/payload. M4 vẫn chưa chốt vì backend còn presence race và các lỗi snapshot/Marathon đã ghi trong kế hoạch.
-> Cập nhật sau N41, commit Android `648bf37`: Solo Preview / “Tự chơi thử” đã hoàn thành, user xác nhận kiểm thử nhanh pass; module `:feature:quiz-preview` chơi local từ Quiz Detail, không room/socket/history. N40 ảnh câu hỏi giữ nguyên. Tiếp theo audit N42 hồ sơ + avatar trên source thật trước khi lập kế hoạch; N43 dành riêng cho bảo mật tài khoản.
+> N42 đã hoàn thành, commit Android `0da538f`: sửa fullname/phone/description bằng PATCH delta, avatar preview và lưu riêng, session SSOT có generation/revision guard, snackbar thật. User xác nhận kiểm thử nhanh pass; bổ sung 23 test case. Bước tiếp theo là audit N43 bảo mật tài khoản trên source thật trước khi lập kế hoạch; các backend blockers cũ giữ nguyên.
 **Kotlin • Jetpack Compose • MVI + Clean Architecture • **[**Socket.IO**](http://Socket.IO)** • Retrofit + Cookie Auth**
 ---
 ## Mục lục
@@ -1739,6 +1739,20 @@ Avatar và logo vẽ bằng `Image` chứ không `Icon`, vì `Icon` nhuộm nộ
 - Chơi lại reset lượt từ quiz đã tải; edit chỉ owner, `popUpTo<Route.QuizPreview> { inclusive = true }` trước khi mở Edit Quiz để save quay về Detail. Có thoát lượt chơi.
 - Unit test scoring và ViewModel đã được bổ sung; kiểm thử nhanh user xác nhận pass. Agent không tự chạy Gradle qua MCP. Các backend blockers hiện có giữ nguyên.
 - Tiếp theo N42: audit contract user/storage, Profile/navigation/session SSOT trên main; xác nhận field/validation, ownership avatar, request/response và cách publish user mới trước khi lập kế hoạch. Đổi mật khẩu/vô hiệu hóa tài khoản để N43.
+
+### 11.16. Cập nhật N42 — Hồ sơ + avatar
+
+- Commit Android `0da538f`; user xác nhận kiểm thử nhanh pass. Không thêm Gradle module; Profile vẫn là top-level route do app sở hữu.
+- Audit đối chiếu Android Profile/session/network, backend user/storage routes → schema → controller → service → repository và web Profile. `PATCH /users/me` chỉ nhận fullname/phone/description; email không sửa. Fullname 2–100, phone 7–15 chữ số với dấu `+` tùy chọn, description tối đa 200; chuỗi rỗng xóa phone/description.
+- `ProfileDraft` trim, validate field thay đổi và chỉ gửi PATCH delta. Giữ phone cũ khi sửa giới thiệu sẽ không gửi lại phone; tránh bug backend kiểm tra trùng phone chưa loại chính user, không có nghĩa bug server đã được sửa. Profile thành công trả `data.user` đầy đủ và publish trực tiếp vào SSOT, không GET dư.
+- Avatar là thao tác riêng: Photo Picker → preview thuần (không interactive crop) → chuẩn bị JPEG → presign folder `avatars` → PUT raw không cookie/auth → PATCH avatar. `AvatarImagePreparer` trong app chạy IO, đọc EXIF/orientation, resize và giảm chất lượng/kích thước đến tối đa 2 MiB; không phụ thuộc compressor của quiz-manage.
+- `UserRepository` / `UserProfilePatch` / `SessionUserToken` thuộc `core:common`; API/DTO/impl thuộc `core:network`; `ProfileDraft`, `SaveProfileUseCase`, `UpdateAvatarUseCase` thuộc `app/domain/profile`, UI và adapter ảnh thuộc `app/presentation/profile`. Không thêm module hay dependency feature → feature.
+- Mutation Retrofit dùng PreserveCase để giữ request/response camelCase, client `retryOnConnectionFailure(false)` để tránh tự phát lại mutation. `UserDto` bảo toàn role/authProvider và field snake_case tường minh; session token chỉ là userId + generation, không phải credential.
+- `SessionRepositoryImpl` dùng generation cho vòng đời đăng nhập và revision cho refresh/update/logout; response cũ không ghi đè mutation/logout hay phiên đăng nhập mới. Avatar merge vào user hiện tại để không làm mất field profile; guard cả picker result và các bước upload.
+- PATCH avatar lỗi không chắc chắn được đối soát bằng GET `/users/me`; nếu GET cũng thất bại, giữ trạng thái cần xác minh với nút “Kiểm tra lại” chỉ GET. Không tự replay PATCH cùng URL: backend chưa idempotent, có thể xóa ảnh đang dùng. Server còn thiếu URL ownership/object validation và đang xóa ảnh cũ trước DB update; các rủi ro này chưa được Android sửa ở backend.
+- Profile edit dùng modal, draft SavedStateHandle và xác nhận bỏ thay đổi; UI giữ loading/error/success, snackbar theo error mapping tập trung và khóa submit lặp. Avatar preview/lưu tách khỏi Lưu hồ sơ; Profile và avatar bottom nav cùng đọc session SSOT.
+- Bổ sung 23 test case trong `ProfileUseCasesTest` (8), `ProfileViewModelTest` (6), `UserProfileApiTest` (3), `SessionRepositoryTest` (6), phủ delta/validation, wire shape, avatar reconciliation và session race. User xác nhận kiểm thử nhanh pass; agent không tự chạy Gradle qua MCP và không coi test case bổ sung là bằng chứng đã quan sát build log.
+- Tiếp theo N43: audit đổi mật khẩu/vô hiệu hóa tài khoản, account Google/password, error contract và cookie/session/navigation thực tế trước khi lập kế hoạch; không suy diễn thay đổi mật khẩu tự revoke session. Snackbar Profile đã hoàn thiện ở N42, N43 tái sử dụng. Các blocker N20.6/N25/N28.5/N29/N30 giữ nguyên.
 
 ## 12. Dependency Injection — Hilt Modules
 <table header-row="true">
