@@ -8,6 +8,7 @@ import android.kma.myquizzapp.core.network.api.GameApiService
 import android.kma.myquizzapp.core.network.api.PasswordResetApiService
 import android.kma.myquizzapp.core.network.api.QuizApiService
 import android.kma.myquizzapp.core.network.api.StorageApiService
+import android.kma.myquizzapp.core.network.api.UserMutationApiService
 import android.kma.myquizzapp.core.network.api.UserApiService
 import android.kma.myquizzapp.core.network.cookie.PersistentCookieJar
 import android.kma.myquizzapp.core.network.cookie.TokenAuthenticator
@@ -88,7 +89,22 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideUserApiService(retrofit: Retrofit): UserApiService = retrofit.create()
-    
+
+    @Provides
+    @Singleton
+    fun provideUserMutationApiService(
+        @PreserveCaseJson json: Json,
+        okHttpClient: OkHttpClient
+    ): UserMutationApiService = Retrofit.Builder()
+        .baseUrl(BuildConfig.BASE_URL)
+        // A transport retry of avatar PATCH can delete the image just written.
+        // Cookie/authenticator stay inherited; a rejected 401 has not run the mutation.
+        .client(okHttpClient.newBuilder().retryOnConnectionFailure(false).build())
+        .addCallAdapterFactory(ResultCallAdapterFactory(json))
+        .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
+        .build()
+        .create()
+
     @Provides
     @Singleton
     fun provideQuizApiService(retrofit: Retrofit): QuizApiService = retrofit.create()

@@ -2,9 +2,13 @@ package android.kma.myquizzapp.presentation.profile
 
 import android.content.res.Configuration
 import android.kma.myquizzapp.core.common.model.SessionState
+import android.kma.myquizzapp.core.common.model.SessionUserToken
+import android.kma.myquizzapp.core.common.model.User
 import android.kma.myquizzapp.core.ui.components.Avatar
 import android.kma.myquizzapp.core.ui.theme.MyQuizAppTheme
-import androidx.compose.foundation.clickable
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,29 +18,41 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DividerDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.DialogProperties
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.flow.collect
 
 @Composable
 fun ProfileScreen(
@@ -46,128 +62,224 @@ fun ProfileScreen(
     viewModel: ProfileViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-
-    LaunchedEffect(Unit) {
+    val snackbar = remember { SnackbarHostState() }
+    var pickerOwner by remember { mutableStateOf<SessionUserToken?>(null) }
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        uri?.let { viewModel.onIntent(ProfileIntent.AvatarPicked(it.toString(), pickerOwner)) }
+        pickerOwner = null
+    }
+    LaunchedEffect(viewModel) {
         viewModel.effect.collect { effect ->
             when (effect) {
-                is ProfileEffect.NavigateBack -> onLoggedOut()
-                is ProfileEffect.ShowError -> {
-                    // TODO: Show toast/snackbar with effect.message
-                }
+                ProfileEffect.NavigateBack -> onLoggedOut()
+                is ProfileEffect.ShowError -> snackbar.showSnackbar(effect.message)
+                is ProfileEffect.ShowMessage -> snackbar.showSnackbar(effect.message)
             }
         }
     }
-
     ProfileScreenContent(
         uiState = uiState,
-        onLogout = viewModel::logout,
+        onIntent = viewModel::onIntent,
         onSignIn = onNavigateToAuth,
+        onPickAvatar = {
+            pickerOwner = uiState.sessionToken
+            picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+        },
+        snackbarHostState = snackbar,
         modifier = modifier
     )
 }
 
-/**
- * Màn Hồ sơ có BA trạng thái, không phải hai (N19.6).
- *
- * Trước đây màn này chỉ có "đang tải" và "có user", nên khi là khách thì nó
- * hiện một hồ sơ rỗng với tên "—" và một nút Đăng xuất vô nghĩa. Giờ trạng
- * thái "đã biết chắc là khách" có UI riêng.
- *
- * Vì sao Hồ sơ dùng empty state chứ không dùng hộp thoại gác như Thư viện: nó
- * là một tab của bottom nav. Chặn ngay khi bấm tab thì tab đó không bao giờ
- * mở được, thanh nav sẽ có một ô bấm vào là hiện hộp thoại — về sau tab này
- * còn chứa cài đặt và giới thiệu ứng dụng, là thứ khách xem được.
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileScreenContent(
     uiState: ProfileUiState,
-    onLogout: () -> Unit,
+    onIntent: (ProfileIntent) -> Unit,
     onSignIn: () -> Unit,
+    onPickAvatar: () -> Unit,
+    snackbarHostState: SnackbarHostState,
     modifier: Modifier = Modifier
 ) {
     Scaffold(
         modifier = modifier.fillMaxSize(),
-        topBar = {
-            // Là tab cấp cao nhất (N19.5) nên không có nút back.
-            TopAppBar(title = { Text("Hồ sơ") })
-        }
+        topBar = { TopAppBar(title = { Text("Hồ sơ") }) },
+        snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { innerPadding ->
-        Box(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
+        Box(Modifier.fillMaxSize().padding(innerPadding)) {
             when {
-                uiState.isLoading -> Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) { CircularProgressIndicator() }
-
-                uiState.isConfirmedGuest -> GuestProfileContent(onSignIn = onSignIn)
-
-                else -> SignedInProfileContent(uiState = uiState, onLogout = onLogout)
+                uiState.isLoading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
+                uiState.isConfirmedGuest -> GuestProfileContent(onSignIn)
+                else -> SignedInProfileContent(uiState, onIntent, onPickAvatar)
             }
+        }
+    }
+    if (uiState.draft != null) ProfileEditorDialog(uiState, onIntent)
+    if (uiState.showDiscardConfirmation) {
+        AlertDialog(
+            onDismissRequest = { onIntent(ProfileIntent.KeepEditing) },
+            title = { Text("Bỏ thay đổi?") },
+            text = { Text("Thông tin vừa chỉnh sửa chưa được lưu.") },
+            confirmButton = { TextButton(onClick = { onIntent(ProfileIntent.DiscardEdits) }) { Text("Bỏ thay đổi") } },
+            dismissButton = { TextButton(onClick = { onIntent(ProfileIntent.KeepEditing) }) { Text("Tiếp tục sửa") } }
+        )
+    }
+    if (uiState.selectedAvatarUri != null) AvatarPreviewDialog(uiState, onIntent)
+}
+
+@Composable
+private fun SignedInProfileContent(
+    state: ProfileUiState,
+    onIntent: (ProfileIntent) -> Unit,
+    onPickAvatar: () -> Unit
+) {
+    val user = state.user ?: return
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        item {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Avatar(user.avatar, contentDescription = "Ảnh đại diện", size = 72.dp)
+                Column(Modifier.weight(1f)) {
+                    Text(user.fullname, style = MaterialTheme.typography.titleLarge)
+                    Text(user.email, style = MaterialTheme.typography.bodyMedium)
+                }
+            }
+        }
+        item {
+            OutlinedButton(onClick = onPickAvatar, enabled = state.canEdit, modifier = Modifier.fillMaxWidth()) {
+                Text("Đổi ảnh đại diện")
+            }
+        }
+        item {
+            Card(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Số điện thoại", style = MaterialTheme.typography.labelLarge)
+                    Text(user.phone?.takeIf { it.isNotBlank() } ?: "Chưa thêm số điện thoại")
+                    Text("Giới thiệu", style = MaterialTheme.typography.labelLarge)
+                    Text(user.description?.takeIf { it.isNotBlank() } ?: "Chưa có giới thiệu")
+                    Text("Email không thể thay đổi.", style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        }
+        item {
+            Button(
+                onClick = { onIntent(ProfileIntent.EditProfile) }, enabled = state.canEdit,
+                modifier = Modifier.fillMaxWidth()
+            ) { Text("Chỉnh sửa hồ sơ") }
+        }
+        item {
+            TextButton(
+                onClick = { onIntent(ProfileIntent.Logout) }, enabled = !state.isBusy,
+                modifier = Modifier.fillMaxWidth()
+            ) { Text(if (state.isLoggingOut) "Đang đăng xuất…" else "Đăng xuất") }
         }
     }
 }
 
 @Composable
-private fun SignedInProfileContent(
-    uiState: ProfileUiState,
-    onLogout: () -> Unit
-) {
-    Column(modifier = Modifier.fillMaxSize()) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Avatar(
-                avatarUrl = uiState.user?.avatar,
-                contentDescription = null,
-                size = 64.dp
-            )
-            Spacer(modifier = Modifier.padding(horizontal = 6.dp))
-            Column {
-                Text(
-                    text = uiState.user?.fullname ?: "—",
-                    style = MaterialTheme.typography.titleMedium
+private fun ProfileEditorDialog(state: ProfileUiState, onIntent: (ProfileIntent) -> Unit) {
+    val draft = state.draft ?: return
+    val errors = draft.errors()
+    AlertDialog(
+        onDismissRequest = { onIntent(ProfileIntent.RequestCloseEdit) },
+        properties = DialogProperties(dismissOnClickOutside = false),
+        title = { Text("Chỉnh sửa hồ sơ") },
+        text = {
+            Column(
+                Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(state.user?.email.orEmpty(), style = MaterialTheme.typography.bodySmall)
+                OutlinedTextField(
+                    value = draft.fullname, onValueChange = { onIntent(ProfileIntent.ChangeFullname(it)) },
+                    enabled = !state.isBusy, label = { Text("Họ tên") }, singleLine = true,
+                    isError = errors.fullname != null,
+                    supportingText = { Text(errors.fullname ?: "${draft.fullname.trim().length}/100") },
+                    modifier = Modifier.fillMaxWidth()
                 )
-                Text(
-                    text = uiState.user?.email ?: "",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                val phoneError = errors.phone ?: state.phoneServerError
+                OutlinedTextField(
+                    value = draft.phone, onValueChange = { onIntent(ProfileIntent.ChangePhone(it)) },
+                    enabled = !state.isBusy, label = { Text("Số điện thoại") }, singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                    isError = phoneError != null,
+                    supportingText = { Text(phoneError ?: "Để trống để xóa số điện thoại") },
+                    modifier = Modifier.fillMaxWidth()
                 )
+                OutlinedTextField(
+                    value = draft.description, onValueChange = { onIntent(ProfileIntent.ChangeDescription(it)) },
+                    enabled = !state.isBusy, label = { Text("Giới thiệu") }, minLines = 3, maxLines = 5,
+                    isError = errors.description != null,
+                    supportingText = { Text(errors.description ?: "${draft.description.trim().length}/200") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                state.profileError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onIntent(ProfileIntent.SaveProfile) },
+                enabled = !state.isBusy && draft.isDirty && !errors.hasErrors && state.phoneServerError == null
+            ) {
+                if (state.isSavingProfile) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                else Text("Lưu thay đổi")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = { onIntent(ProfileIntent.RequestCloseEdit) }, enabled = !state.isBusy) { Text("Hủy") }
         }
+    )
+}
 
-        // "Quiz của tôi" đã chuyển thành tab Thư viện ở bottom nav (N19.5).
-        // Profile về sau chỉ hiển thị thông tin + cài đặt, không chứa navigation.
-        HorizontalDivider(Modifier, DividerDefaults.Thickness, DividerDefaults.color)
-        ListItem(
-            headlineContent = { Text("Đăng xuất") },
-            leadingContent = { Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = null) },
-            modifier = Modifier.fillMaxWidth().clickable(onClick = onLogout)
-        )
-    }
+@Composable
+private fun AvatarPreviewDialog(state: ProfileUiState, onIntent: (ProfileIntent) -> Unit) {
+    val pending = state.pendingAvatar != null
+    AlertDialog(
+        onDismissRequest = { onIntent(ProfileIntent.CancelAvatar) },
+        properties = DialogProperties(dismissOnClickOutside = false),
+        title = { Text("Ảnh đại diện mới") },
+        text = {
+            Column(
+                Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Avatar(state.selectedAvatarUri, contentDescription = "Xem trước ảnh đại diện", size = 160.dp)
+                Text("Ảnh sẽ được resize/nén trước khi tải lên. Chưa có thao tác crop ảnh.", style = MaterialTheme.typography.bodySmall)
+                state.avatarError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onIntent(if (pending) ProfileIntent.VerifyAvatar else ProfileIntent.ConfirmAvatar) },
+                enabled = !state.isBusy
+            ) {
+                if (state.isUpdatingAvatar) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                else Text(if (pending) "Kiểm tra lại" else "Cập nhật ảnh")
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = { onIntent(if (pending) ProfileIntent.Logout else ProfileIntent.CancelAvatar) },
+                enabled = !state.isBusy
+            ) { Text(if (pending) "Đăng xuất" else "Hủy") }
+        }
+    )
 }
 
 @Composable
 private fun GuestProfileContent(onSignIn: () -> Unit) {
     Column(
-        modifier = Modifier.fillMaxSize().padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
+        Modifier.fillMaxSize().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Text(
-            text = "Bạn đang chơi với tư cách khách",
-            style = MaterialTheme.typography.titleMedium,
-            textAlign = TextAlign.Center
-        )
+        Text("Bạn đang chơi với tư cách khách", style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center)
         Spacer(Modifier.height(8.dp))
-        Text(
-            text = "Đăng nhập để tạo quiz của riêng bạn, mở phòng chơi và lưu lại " +
-                "lịch sử những trận đã tham gia.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center
-        )
+        Text("Đăng nhập để tạo quiz, mở phòng chơi và lưu lịch sử những trận đã tham gia.", textAlign = TextAlign.Center)
         Spacer(Modifier.height(20.dp))
         Button(onClick = onSignIn) { Text("Đăng ký/Đăng nhập") }
     }
@@ -176,25 +288,21 @@ private fun GuestProfileContent(onSignIn: () -> Unit) {
 @Preview(showBackground = true)
 @Preview(showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
-private fun ProfileScreenContentPreview() {
+private fun ProfilePreview() {
     MyQuizAppTheme {
         ProfileScreenContent(
-            uiState = ProfileUiState(),
-            onLogout = {},
-            onSignIn = {}
+            ProfileUiState(session = SessionState.LoggedIn(User(
+                id = 1, fullname = "Người chơi", email = "player@example.com", phone = "+84901234567",
+                description = "Cùng học và chơi quiz", createdAt = "2026-10-06", updatedAt = "2026-10-06"
+            ))), {}, {}, {}, remember { SnackbarHostState() }
         )
     }
 }
 
 @Preview(showBackground = true, name = "Khách")
-@Preview(showBackground = true, name = "Khách (tối)", uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
-private fun ProfileScreenGuestPreview() {
+private fun GuestPreview() {
     MyQuizAppTheme {
-        ProfileScreenContent(
-            uiState = ProfileUiState(session = SessionState.Guest),
-            onLogout = {},
-            onSignIn = {}
-        )
+        ProfileScreenContent(ProfileUiState(session = SessionState.Guest), {}, {}, {}, remember { SnackbarHostState() })
     }
 }

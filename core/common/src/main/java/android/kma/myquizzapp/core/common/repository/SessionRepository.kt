@@ -1,6 +1,7 @@
 package android.kma.myquizzapp.core.common.repository
 
 import android.kma.myquizzapp.core.common.model.SessionState
+import android.kma.myquizzapp.core.common.model.SessionUserToken
 import android.kma.myquizzapp.core.common.model.User
 import kotlinx.coroutines.flow.StateFlow
 
@@ -50,4 +51,16 @@ interface SessionRepository {
      * thông tin của người vừa rời máy.
      */
     fun onSignedOut()
+
+    /** Fail-closed defaults keep read-only implementations from publishing account changes. */
+    fun captureUserSession(): SessionUserToken? = null
+
+    /** Publish server-confirmed fields only if the original authenticated lifetime still exists. */
+    fun applyUserUpdate(token: SessionUserToken, user: User): Boolean = false
+
+    /** Merge onto the current user, never onto a stale copy taken before upload. */
+    fun applyAvatarUpdate(token: SessionUserToken, avatarUrl: String): Boolean = false
+
+    /** A terminal mutation response must not sign out a different/newer session. */
+    fun invalidateSession(token: SessionUserToken): Boolean = false
 }

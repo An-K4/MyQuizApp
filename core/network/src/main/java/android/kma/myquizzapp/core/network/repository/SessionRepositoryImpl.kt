@@ -2,10 +2,14 @@ package android.kma.myquizzapp.core.network.repository
 
 import android.kma.myquizzapp.core.common.error.isSessionTerminal
 import android.kma.myquizzapp.core.common.model.SessionState
+import android.kma.myquizzapp.core.common.model.SessionUserToken
 import android.kma.myquizzapp.core.common.model.User
+import android.kma.myquizzapp.core.common.model.userOrNull
 import android.kma.myquizzapp.core.common.repository.AuthRepository
 import android.kma.myquizzapp.core.common.repository.SessionRepository
 import android.kma.myquizzapp.core.common.result.Result
+import javax.inject.Inject
+import javax.inject.Singleton
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
@@ -18,75 +22,101 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import timber.log.Timber
-import javax.inject.Inject
-import javax.inject.Singleton
 
-/**
- * Hiện thực [SessionRepository] — tầng trạng thái đứng trên [AuthRepository].
- *
- * Bắt buộc `@Singleton`: nếu Hilt dụng nhiều instance thì có nhiều [StateFlow],
- * và ta quay về đúng cái bệnh nhiều bản sao mà N19.6 đang đi sửa.
- */
 @Singleton
-class SessionRepositoryImpl @Inject constructor(
+class SessionRepositoryImpl internal constructor(
     private val authRepository: AuthRepository,
+    private val scope: CoroutineScope
 ) : SessionRepository {
+    @Inject constructor(authRepository: AuthRepository) : this(
+        authRepository, CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    )
 
     private val _state = MutableStateFlow<SessionState>(SessionState.Unknown)
     override val state: StateFlow<SessionState> = _state.asStateFlow()
-
-    /**
-     * Scope riêng của repository, KHÔNG dùng scope của người gọi.
-     *
-     * Lý do: request được chia sẻ cho nhiều người chờ. Nếu nó chạy trong
-     * `viewModelScope` của người gọi đầu tiên thì chỉ cần ViewModel đó bị hủy
-     * (đổi tab, xoay máy) là cả nhóm chờ chung bị hủy theo, rồi state mắc
-     * lại ở [SessionState.Unknown] vĩnh viễn. Singleton này sống bằng đời
-     * app nên scope không cần cancel.
-     */
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-
+    private val stateLock = Any()
+    private var generation = 0L
+    private var revision = 0L
     private val inFlightLock = Mutex()
-    private var inFlight: Deferred<Unit>? = null
+    private data class RefreshJob(val revision: Long, val job: Deferred<Unit>)
+    private var inFlight: RefreshJob? = null
 
     override suspend fun refresh() {
         val job = inFlightLock.withLock {
-            inFlight?.takeIf { it.isActive }
-                ?: scope.async { fetchAndApply() }.also { inFlight = it }
+            val expectedRevision = synchronized(stateLock) { revision }
+            inFlight?.takeIf { it.revision == expectedRevision && it.job.isActive }?.job
+                ?: scope.async { fetchAndApply(expectedRevision) }.also {
+                    inFlight = RefreshJob(expectedRevision, it)
+                }
         }
         try {
             job.await()
         } catch (e: CancellationException) {
             throw e
-        } catch (e: Throwable) {
-            // fetchAndApply() đã tự nuốt lỗi qua Result nên tới đây là chuyện
-            // bất thường thật. Không để nó nổ lên UI: biết "là ai" là việc phụ,
-            // không đáng làm sập màn hình người dùng đang xem.
-            Timber.e(e, "SessionRepository.refresh() thất bại ngoài dự kiến")
+        } catch (e: Exception) {
+            Timber.e(e, "Session refresh failed")
         }
     }
 
-    private suspend fun fetchAndApply() {
-        when (val result = authRepository.getCurrentUser()) {
-            is Result.Success -> _state.value = SessionState.LoggedIn(result.data)
-            is Result.Error -> if (result.error.isSessionTerminal) {
-                // Chỉ code xác nhận phiên/tài khoản đã kết thúc mới được hạ về guest.
-                _state.value = SessionState.Guest
-            } else {
-                // ⚠️ MẤT MẠNG KHÔNG PHẢI LÀ ĐĂNG XUẤT. Lỗi mạng/server giữ
-                // nguyên state cũ và để lần refresh sau phán quyết.
-                Timber.w(
-                    "Không xác định được phiên (${result.error}) — giữ nguyên ${_state.value}"
-                )
+    private suspend fun fetchAndApply(expectedRevision: Long) {
+        val result = authRepository.getCurrentUser()
+        synchronized(stateLock) {
+            // Logout/login or a confirmed mutation after this GET started wins.
+            if (revision != expectedRevision) return
+            when (result) {
+                is Result.Success -> {
+                    if (_state.value.userOrNull?.id != result.data.id) generation++
+                    revision++
+                    _state.value = SessionState.LoggedIn(result.data)
+                }
+                is Result.Error -> if (result.error.isSessionTerminal) {
+                    generation++
+                    revision++
+                    _state.value = SessionState.Guest
+                }
             }
         }
     }
 
-    override fun onAuthenticated(user: User) {
+    override fun onAuthenticated(user: User) = synchronized(stateLock) {
+        generation++ // A new login of the SAME account is a different lifetime.
+        revision++
         _state.value = SessionState.LoggedIn(user)
     }
 
-    override fun onSignedOut() {
+    override fun onSignedOut() = synchronized(stateLock) {
+        generation++
+        revision++
         _state.value = SessionState.Guest
+    }
+
+    override fun captureUserSession(): SessionUserToken? = synchronized(stateLock) {
+        _state.value.userOrNull?.let { SessionUserToken(it.id, generation) }
+    }
+
+    private fun matches(token: SessionUserToken): Boolean =
+        token.generation == generation && token.userId == _state.value.userOrNull?.id
+
+    override fun applyUserUpdate(token: SessionUserToken, user: User): Boolean = synchronized(stateLock) {
+        if (!matches(token) || user.id != token.userId) return@synchronized false
+        revision++
+        _state.value = SessionState.LoggedIn(user)
+        true
+    }
+
+    override fun applyAvatarUpdate(token: SessionUserToken, avatarUrl: String): Boolean = synchronized(stateLock) {
+        if (!matches(token)) return@synchronized false
+        val current = _state.value.userOrNull ?: return@synchronized false
+        revision++
+        _state.value = SessionState.LoggedIn(current.copy(avatar = avatarUrl))
+        true
+    }
+
+    override fun invalidateSession(token: SessionUserToken): Boolean = synchronized(stateLock) {
+        if (!matches(token)) return@synchronized false
+        generation++
+        revision++
+        _state.value = SessionState.Guest
+        true
     }
 }

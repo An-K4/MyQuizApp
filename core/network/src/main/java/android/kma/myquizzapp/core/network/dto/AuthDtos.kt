@@ -1,6 +1,9 @@
 ﻿package android.kma.myquizzapp.core.network.dto
 
+import android.kma.myquizzapp.core.common.model.AuthProvider
+import android.kma.myquizzapp.core.common.model.UserRole
 import android.kma.myquizzapp.core.common.model.User
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 // Request bodies — khớp auth.schema.ts (zod)
@@ -40,8 +43,10 @@ data class UserDto(
     val phone: String? = null,
     val avatar: String? = null,
     val description: String? = null,
-    val createdAt: String,
-    val updatedAt: String
+    val role: UserRole = UserRole.USER,
+    @SerialName("auth_provider") val authProvider: AuthProvider = AuthProvider.LOCAL,
+    @SerialName("created_at") val createdAt: String,
+    @SerialName("updated_at") val updatedAt: String
 ) {
     fun toDomain(): User = User(
         id = id,
@@ -50,6 +55,8 @@ data class UserDto(
         phone = phone,
         avatar = avatar,
         description = description,
+        role = role,
+        authProvider = authProvider,
         createdAt = createdAt,
         updatedAt = updatedAt
     )

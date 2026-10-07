@@ -89,6 +89,8 @@ private fun apiCodeToMessage(code: String): String = when (code) {
     "CLIENT_NOT_CONNECTED" -> "Mất kết nối tới phòng, đang thử kết nối lại"
 
     // --- Upload ---
+    "CLIENT_IMAGE_UNREADABLE" -> "Không đọc được ảnh đã chọn. Vui lòng chọn ảnh khác."
+    "CLIENT_AVATAR_NOT_APPLIED" -> "Máy chủ chưa lưu ảnh mới. Bạn có thể thử lại bằng một lượt tải ảnh mới."
     "FILE_TOO_LARGE" -> "File vượt quá dung lượng cho phép"
     "FILE_TYPE_UNSUPPORTED" -> "Định dạng file không được hỗ trợ"
     "FILE_FIELD_INVALID" -> "File tải lên không hợp lệ"

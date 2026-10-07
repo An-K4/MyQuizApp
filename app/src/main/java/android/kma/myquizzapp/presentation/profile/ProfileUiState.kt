@@ -1,29 +1,46 @@
 package android.kma.myquizzapp.presentation.profile
 
 import android.kma.myquizzapp.core.common.model.SessionState
+import android.kma.myquizzapp.core.common.model.SessionUserToken
 import android.kma.myquizzapp.core.common.model.User
 import android.kma.myquizzapp.core.common.model.userOrNull
+import android.kma.myquizzapp.domain.profile.AvatarUpdateResult
+import android.kma.myquizzapp.domain.profile.ProfileDraft
 
-/**
- * UI state cho màn Profile.
- *
- * N19.6 — state này không còn giữ bản sao [User] riêng nữa, chỉ mang
- * [SessionState] đọc từ nguồn chung. Đây chính là chỗ sửa bug "đăng xuất rồi
- * vào lại Hồ sơ vẫn thấy account cũ": trước đây `user` được ghi một lần trong
- * `init` của ViewModel, mà ViewModel không bị tạo lại khi đổi tab — nên bản sao
- * đó sống dừng dưng qua cả lần đăng xuất.
- *
- * [isLoading] là giá trị suy ra, không phải trường độc lập: "đang tải" và "chưa
- * biết là ai" là cùng một sự việc, giữ hai biến riêng thì sớm muộn cũng lệch
- * nhau.
- */
 data class ProfileUiState(
     val session: SessionState = SessionState.Unknown,
+    val sessionToken: SessionUserToken? = null,
+    val draft: ProfileDraft? = null,
+    val isSavingProfile: Boolean = false,
+    val profileError: String? = null,
+    val phoneServerError: String? = null,
+    val showDiscardConfirmation: Boolean = false,
+    val selectedAvatarUri: String? = null,
+    val isUpdatingAvatar: Boolean = false,
+    val avatarError: String? = null,
+    val pendingAvatar: AvatarUpdateResult.NeedsVerification? = null,
+    val isLoggingOut: Boolean = false
 ) {
     val user: User? get() = session.userOrNull
-
     val isLoading: Boolean get() = session is SessionState.Unknown
-
-    /** Đã xác định là khách — N19.6 lượt 2 sẽ dùng để hiện empty state đăng nhập. */
     val isConfirmedGuest: Boolean get() = session is SessionState.Guest
+    val isBusy: Boolean get() = isSavingProfile || isUpdatingAvatar || isLoggingOut
+    val canEdit: Boolean get() = user != null && !isBusy && pendingAvatar == null
+}
+
+sealed interface ProfileIntent {
+    data object EditProfile : ProfileIntent
+    data class ChangeFullname(val value: String) : ProfileIntent
+    data class ChangePhone(val value: String) : ProfileIntent
+    data class ChangeDescription(val value: String) : ProfileIntent
+    data object SaveProfile : ProfileIntent
+    data object RequestCloseEdit : ProfileIntent
+    data object KeepEditing : ProfileIntent
+    data object DiscardEdits : ProfileIntent
+    // This is a local lifetime marker, NOT an authentication credential.
+    data class AvatarPicked(val uri: String, val token: SessionUserToken?) : ProfileIntent
+    data object ConfirmAvatar : ProfileIntent
+    data object CancelAvatar : ProfileIntent
+    data object VerifyAvatar : ProfileIntent
+    data object Logout : ProfileIntent
 }
