@@ -10,6 +10,10 @@ import android.kma.myquizzapp.core.common.repository.SessionRepository
 import android.kma.myquizzapp.core.common.result.Result
 import javax.inject.Inject
 import javax.inject.Singleton
+import android.kma.myquizzapp.core.common.cookie.CookieStore
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
@@ -26,10 +30,11 @@ import timber.log.Timber
 @Singleton
 class SessionRepositoryImpl internal constructor(
     private val authRepository: AuthRepository,
-    private val scope: CoroutineScope
+    private val scope: CoroutineScope,
+    private val cookieStore: CookieStore? = null
 ) : SessionRepository {
-    @Inject constructor(authRepository: AuthRepository) : this(
-        authRepository, CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    @Inject constructor(authRepository: AuthRepository, cookieStore: CookieStore) : this(
+        authRepository, CoroutineScope(SupervisorJob() + Dispatchers.Default), cookieStore
     )
 
     private val _state = MutableStateFlow<SessionState>(SessionState.Unknown)
@@ -110,6 +115,19 @@ class SessionRepositoryImpl internal constructor(
         revision++
         _state.value = SessionState.LoggedIn(current.copy(avatar = avatarUrl))
         true
+    }
+
+    override suspend fun clearSession(token: SessionUserToken): Boolean = withContext(Dispatchers.IO + NonCancellable) {
+        synchronized(stateLock) {
+            if (!matches(token)) return@synchronized false
+            val store = cookieStore ?: return@synchronized false
+            // One critical section: no newer published login can be cleared by a stale response.
+            runBlocking { store.clear() }
+            generation++
+            revision++
+            _state.value = SessionState.Guest
+            true
+        }
     }
 
     override fun invalidateSession(token: SessionUserToken): Boolean = synchronized(stateLock) {

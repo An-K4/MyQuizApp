@@ -63,4 +63,7 @@ interface SessionRepository {
 
     /** A terminal mutation response must not sign out a different/newer session. */
     fun invalidateSession(token: SessionUserToken): Boolean = false
+
+    /** N43: clear local credentials and retire only the captured authenticated lifetime. */
+    suspend fun clearSession(token: SessionUserToken): Boolean = false
 }

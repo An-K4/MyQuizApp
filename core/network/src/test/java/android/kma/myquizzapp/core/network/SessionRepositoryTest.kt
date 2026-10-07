@@ -94,6 +94,31 @@ class SessionRepositoryTest {
         assertEquals(9L, session.state.value.userOrNull?.id)
     }
 
+
+    @Test fun `retiring current session clears cookies and prevents stale refresh resurrection`() = runTest {
+        val answer = CompletableDeferred<Result<User>>()
+        val cookies = RetirementCookies()
+        val session = SessionRepositoryImpl(RefreshAuth { answer.await() }, backgroundScope, cookies)
+        session.onAuthenticated(user())
+        val token = checkNotNull(session.captureUserSession())
+        val refresh = launch { session.refresh() }; runCurrent()
+        assertTrue(session.clearSession(token))
+        assertEquals(1, cookies.clears)
+        answer.complete(Result.Success(user())); refresh.join()
+        assertEquals(SessionState.Guest, session.state.value)
+    }
+
+    @Test fun `stale retirement never clears cookies of a newer login`() = runTest {
+        val cookies = RetirementCookies()
+        val session = SessionRepositoryImpl(RefreshAuth { Result.Success(user()) }, backgroundScope, cookies)
+        session.onAuthenticated(user())
+        val old = checkNotNull(session.captureUserSession())
+        session.onAuthenticated(user())
+        assertFalse(session.clearSession(old))
+        assertEquals(0, cookies.clears)
+        assertNotNull(session.captureUserSession())
+    }
+
     private fun user() = User(7, "User Name", "user@example.com", createdAt = "2026-10-01", updatedAt = "2026-10-06")
 }
 
@@ -112,3 +137,11 @@ private class RefreshAuth(private val fetch: suspend () -> Result<User>) : AuthR
     override suspend fun completeReset(ticket: String, newPassword: String): Result<Unit> = unused()
     private fun <T> unused(): Result<T> = error("Not used by session tests")
 }
+
+private class RetirementCookies : android.kma.myquizzapp.core.common.cookie.CookieStore {
+    @Volatile var clears = 0
+    override suspend fun loadForHost(host: String) = emptyList<android.kma.myquizzapp.core.common.cookie.StoredCookie>()
+    override suspend fun saveAll(host: String, cookies: List<android.kma.myquizzapp.core.common.cookie.StoredCookie>) = Unit
+    override suspend fun clear() { clears++ }
+}
+

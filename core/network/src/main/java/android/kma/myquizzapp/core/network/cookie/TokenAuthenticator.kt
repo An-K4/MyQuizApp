@@ -11,6 +11,9 @@ import okhttp3.Response
 import okhttp3.Route
 import javax.inject.Inject
 import javax.inject.Singleton
+import android.kma.myquizzapp.core.common.error.isSessionTerminal
+import android.kma.myquizzapp.core.common.error.hasApiCode
+import java.io.IOException
 
 @Singleton
 class TokenAuthenticator @Inject constructor(
@@ -30,8 +33,13 @@ class TokenAuthenticator @Inject constructor(
             return when (refreshResult) {
                 is Result.Success -> response.request  // cookie mới đã vào jar → retry, jar tự gắn
                 is Result.Error -> {
-                    runBlocking { cookieStore.clear() } // session chết hẳn → UI nhận 401 → về Login
-                    null
+                    if (refreshResult.error.isSessionTerminal || refreshResult.error.hasApiCode("USER_NOT_FOUND")) {
+                        runBlocking { cookieStore.clear() }
+                        null
+                    } else {
+                        // Propagate a transport failure, not the original 401; keep cookies/session.
+                        throw IOException("Session refresh temporarily unavailable")
+                    }
                 }
             }
         }

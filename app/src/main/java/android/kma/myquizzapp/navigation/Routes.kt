@@ -36,6 +36,7 @@ sealed interface Route {
     @Serializable data object Activity : Route
     @Serializable data class GameHistoryDetail(val sessionId: Long) : Route
     @Serializable data object Profile : Route
+    @Serializable data object AccountSecurity : Route
     
     // Search (full-screen modal from Home)
     @Serializable data object Search : Route

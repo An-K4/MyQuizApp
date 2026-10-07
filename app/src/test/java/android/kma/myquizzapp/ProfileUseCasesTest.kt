@@ -154,6 +154,7 @@ internal class ProfileTestSession : SessionRepository {
         val current = state.value.userOrNull ?: return false
         return applyUserUpdate(token, current.copy(avatar = avatarUrl))
     }
+    override suspend fun clearSession(token: SessionUserToken): Boolean = invalidateSession(token)
     override fun invalidateSession(token: SessionUserToken): Boolean {
         if (captureUserSession() != token) return false
         onSignedOut(); return true
@@ -173,6 +174,8 @@ internal class ProfileTestUsers(private val events: MutableList<String> = mutabl
     var currentResult: Result<User> = Result.Success(profileUser())
     var avatarCalls = 0
     var getCalls = 0
+    override suspend fun changePassword(oldPassword: String, newPassword: String): Result<Unit> = Result.Error(AppError.Api("VALIDATION_ERROR"))
+    override suspend fun deactivateAccount(password: String): Result<Unit> = Result.Error(AppError.Api("VALIDATION_ERROR"))
     override suspend fun updateProfile(patch: UserProfilePatch): Result<User> { patches += patch; return profileHandler(patch) }
     override suspend fun updateAvatar(fileUrl: String): Result<String> { events += "avatar"; avatarCalls++; return avatarResult }
     override suspend fun getCurrentUser(): Result<User> { getCalls++; return currentResult }

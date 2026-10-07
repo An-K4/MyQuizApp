@@ -13,6 +13,7 @@ import android.kma.myquizzapp.feature.lobby.presentation.joinroom.JoinRoomCard
 import android.kma.myquizzapp.feature.leaderboard.presentation.historydetail.GameHistoryDetailScreen
 import android.kma.myquizzapp.presentation.activity.ActivityScreen
 import android.kma.myquizzapp.presentation.profile.ProfileScreen
+import android.kma.myquizzapp.presentation.profile.AccountSecurityScreen
 
 /**
  * Main application navigation graph.
@@ -113,11 +114,31 @@ fun NavGraphBuilder.mainGraph(
         GameHistoryDetailScreen(onBack = { navController.popBackStack() })
     }
 
+    composable<Route.AccountSecurity> {
+        AccountSecurityScreen(
+            onBack = { navController.popBackStack() },
+            onSessionEnded = { message ->
+                // Destroy saved tab stacks/private ViewModels, not navigateToTab(saveState=true).
+                navController.clearBackStack<Route.Home>()
+                navController.clearBackStack<Route.MyQuizzes>()
+                navController.clearBackStack<Route.Activity>()
+                navController.clearBackStack<Route.Profile>()
+                navController.navigate(Route.MainGraph) {
+                    popUpTo<Route.MainGraph> { inclusive = true; saveState = false }
+                    launchSingleTop = true
+                    restoreState = false
+                }
+                navController.getBackStackEntry<Route.Home>().savedStateHandle[KEY_LOBBY_EXIT_MESSAGE] = message
+            }
+        )
+    }
+
     composable<Route.Profile> {
         // Tab Hồ sơ — từ N19.5 chỉ còn thông tin người dùng + Đăng xuất; lối vào
         // "Quiz của tôi" đã thành tab Thư viện. Là tab nên không có nút back.
         // Đăng xuất xong quay về tab Trang chủ (trước đây popBackStack sẽ thoát app).
         ProfileScreen(
+            onOpenSecurity = { navController.navigate(Route.AccountSecurity) },
             // Khách vẫn vào được tab này — không gác bằng hộp thoại, vì một tab của
             // bottom nav bị chặn ngay khi bấm thì không còn là tab nữa. Màn tự hiện
             // empty state có nút đăng nhập (N19.6).

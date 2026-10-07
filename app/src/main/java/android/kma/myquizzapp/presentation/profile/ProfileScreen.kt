@@ -58,6 +58,7 @@ import kotlinx.coroutines.flow.collect
 fun ProfileScreen(
     onNavigateToAuth: () -> Unit,
     onLoggedOut: () -> Unit,
+    onOpenSecurity: () -> Unit = {},
     modifier: Modifier = Modifier,
     viewModel: ProfileViewModel = hiltViewModel()
 ) {
@@ -86,7 +87,8 @@ fun ProfileScreen(
             picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
         },
         snackbarHostState = snackbar,
-        modifier = modifier
+        modifier = modifier,
+        onOpenSecurity = onOpenSecurity
     )
 }
 
@@ -98,7 +100,8 @@ fun ProfileScreenContent(
     onSignIn: () -> Unit,
     onPickAvatar: () -> Unit,
     snackbarHostState: SnackbarHostState,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onOpenSecurity: () -> Unit = {}
 ) {
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -111,7 +114,7 @@ fun ProfileScreenContent(
                     CircularProgressIndicator()
                 }
                 uiState.isConfirmedGuest -> GuestProfileContent(onSignIn)
-                else -> SignedInProfileContent(uiState, onIntent, onPickAvatar)
+                else -> SignedInProfileContent(uiState, onIntent, onPickAvatar, onOpenSecurity)
             }
         }
     }
@@ -132,7 +135,8 @@ fun ProfileScreenContent(
 private fun SignedInProfileContent(
     state: ProfileUiState,
     onIntent: (ProfileIntent) -> Unit,
-    onPickAvatar: () -> Unit
+    onPickAvatar: () -> Unit,
+    onOpenSecurity: () -> Unit
 ) {
     val user = state.user ?: return
     LazyColumn(
@@ -170,6 +174,11 @@ private fun SignedInProfileContent(
                 onClick = { onIntent(ProfileIntent.EditProfile) }, enabled = state.canEdit,
                 modifier = Modifier.fillMaxWidth()
             ) { Text("Chỉnh sửa hồ sơ") }
+        }
+        item {
+            OutlinedButton(onClick = onOpenSecurity, enabled = state.canEdit, modifier = Modifier.fillMaxWidth()) {
+                Text("Bảo mật tài khoản")
+            }
         }
         item {
             TextButton(

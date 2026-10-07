@@ -27,7 +27,7 @@ import okhttp3.Authenticator
 import okhttp3.CookieJar
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
-import okhttp3.logging.HttpLoggingInterceptor
+
 import retrofit2.Retrofit
 import retrofit2.create
 import java.util.concurrent.TimeUnit
@@ -56,14 +56,7 @@ object NetworkModule {
         OkHttpClient.Builder()
             .cookieJar(cookieJar)                    // ← thêm
             .authenticator(tokenAuthenticator)       // ← thêm
-            .addInterceptor(HttpLoggingInterceptor().apply {
-                redactHeader("x-socket-token")
-                redactHeader("Cookie")
-                redactHeader("Set-Cookie")
-                redactHeader("Authorization")
-                level = if (BuildConfig.DEBUG) HttpLoggingInterceptor.Level.BODY
-                else HttpLoggingInterceptor.Level.NONE
-            })
+            .addInterceptor(SafeHttpLogger())
             .connectTimeout(15, TimeUnit.SECONDS)
             .readTimeout(15, TimeUnit.SECONDS)
             .build()
