@@ -1,7 +1,7 @@
 > Đối chiếu với backend thực tế tại `github.com/Ntd1411/myquizz` (Express + TypeScript + [Socket.IO](http://Socket.IO) + PostgreSQL + Redis).
 > Đây là bản viết lại của design doc v1.0, sửa toàn bộ phần hợp đồng API/Socket cho khớp với code backend thật (không còn là template quiz-app chung chung).
 > Cập nhật 27/9/2026 sau N28.5: Player self-paced đã hỗ trợ Solo manual-next, Survival lives/elimination và Marathon timer tổng/timeout/finish; Host Console đã có dashboard riêng cho Classic lẫn self-paced. Phần Android N28.5 hoàn tất theo contract hiện có, nhưng lives/streak, timeout và presence của Host còn chờ backend bổ sung event/payload. M4 vẫn chưa chốt vì backend còn presence race và các lỗi snapshot/Marathon đã ghi trong kế hoạch.
-> Cập nhật 6/10/2026 sau N40: ảnh câu hỏi đã render xuyên suốt Host Game, Player Game và card preview Quiz Detail qua `QuestionImage` dùng chung; mapper test bảo vệ event realtime + snapshot, kiểm thử nhanh và build/test đã pass tại commit `9b3cdf0`. Bước tiếp theo là N41; phải audit source thật của Quiz Detail, answer key, navigation và component gameplay trước khi lập kế hoạch Solo Preview.
+> Cập nhật sau N41, commit Android `648bf37`: Solo Preview / “Tự chơi thử” đã hoàn thành, user xác nhận kiểm thử nhanh pass; module `:feature:quiz-preview` chơi local từ Quiz Detail, không room/socket/history. N40 ảnh câu hỏi giữ nguyên. Tiếp theo audit N42 hồ sơ + avatar trên source thật trước khi lập kế hoạch; N43 dành riêng cho bảo mật tài khoản.
 **Kotlin • Jetpack Compose • MVI + Clean Architecture • **[**Socket.IO**](http://Socket.IO)** • Retrofit + Cookie Auth**
 ---
 ## Mục lục
@@ -91,6 +91,7 @@ Bản v1.0 giả định một backend "chat-app-style" tổng quát: JWT trả 
 :feature:game-host       → Màn hình điều khiển của Host (monitor + control)
 :feature:leaderboard      → Bảng xếp hạng real-time + cuối game
 :feature:quiz-manage      → CRUD quiz (chỉ Host, có login)
+:feature:quiz-preview     → Solo Preview local từ Quiz Detail, không room/socket/history (N41)
 ```
 > 💡 So với v1.0: tách `:feature:game` thành `:feature:game-player` và `:feature:game-host` vì hai màn hình nhận payload Socket khác nhau hoàn toàn (host nhận `host:question`, `host:answer-received`, `host:player-progress`; player không bao giờ thấy các event này).
 ### 2.2. Dependency Flow
@@ -108,7 +109,7 @@ RepositoryImpl (Data Layer) ←── RemoteDataSource / SocketDataSource / Loca
 Retrofit API (cookie auth) / Socket.IO (JWT socketToken) / Room DAO
 ```
 ### 2.3. Cây thư mục chi tiết & vai trò từng folder
-Cây thư mục dưới đây triển khai cụ thể 12 module ở mục 2 thành cấu trúc Gradle thật. Nguyên tắc đặt tên: mỗi `feature` module có tối đa 3 tầng con `presentation / domain / data`, mirror đúng Dependency Flow ở trên — giúp khi mở bất kỳ module nào cũng biết ngay code nào thuộc layer nào mà không cần đọc hết file.
+Cây thư mục dưới đây là baseline lịch sử; sau N41 có 14 module (app + 5 core + 8 feature). Module `quiz-preview` và wiring mới được mô tả tại mục 11.15; luôn đối chiếu source thật trước khi triển khai. Nguyên tắc đặt tên: mỗi `feature` module có tối đa 3 tầng con `presentation / domain / data`, mirror đúng Dependency Flow ở trên — giúp khi mở bất kỳ module nào cũng biết ngay code nào thuộc layer nào mà không cần đọc hết file.
 > 🔑 **Ký hiệu dùng trong cây bên dưới**: `🟦 interface` = Repository **interface** (thuộc domain layer, thuần Kotlin, không import lib cụ thể) · `🟩 impl` = Repository **implementation** (thuộc data layer, được `@Binds` sang interface tương ứng qua Hilt).
 ```javascript
 myquizz-android/
@@ -1511,6 +1512,7 @@ fun RequireAuth(
     @Serializable data object Profile : Route
     
     @Serializable data class QuizDetail(val quizId: Long) : Route
+    @Serializable data class QuizPreview(val quizId: Long) : Route
     @Serializable data object CreateQuiz : Route
     @Serializable data class EditQuiz(val quizId: Long) : Route
     @Serializable data class CreateRoom(val quizId: Long) : Route
@@ -1725,6 +1727,18 @@ Avatar và logo vẽ bằng `Image` chứ không `Icon`, vì `Icon` nhuộm nộ
 - Mapper test bảo vệ `question_image` cho `host:question`, `question:started` và snapshot `game:state`. Luồng kiểm thử nhanh, unit test và `assembleDebug` đã pass. Commit Android: `9b3cdf0`.
 - Bài học: field đã đi đủ backend → DTO → domain không có nghĩa feature đã hoàn chỉnh; audit presentation phải rà mọi bề mặt tiêu thụ liên quan, không chỉ màn được nêu trong tiêu đề milestone.
 - Bước tiếp theo N41: audit Quiz Detail, contract quiz/answer key, navigation và gameplay component hiện có trước; chỉ sau báo cáo audit mới chốt flow Solo Preview.
+
+### 11.15. Cập nhật N41 — Solo Preview / “Tự chơi thử”
+
+- Commit Android `648bf37`; user xác nhận kiểm thử nhanh pass. `:feature:quiz-preview` chỉ phụ thuộc `core:common` + `core:ui`; app thêm dependency, `Route.QuizPreview(quizId)` và `quizPreviewGraph`. Quiz Detail giữ nút Tạo phòng và thêm Tự chơi thử (disabled nếu không có câu hỏi).
+- Backend quiz detail optional-auth trả full questions/answer key cho public hoặc private owner. Preview chỉ đọc quiz, không tạo room/session/socket, không ghi history/play-count; không đồng nhất với mode `solo` hay `practice` multiplayer.
+- `PreviewContract.kt`, `PreviewScoring.kt`, `QuizPreviewViewModel.kt`, `QuizPreviewScreen.kt` nằm trực tiếp trong package `android.kma.myquizzapp.feature.quiz_preview`. ViewModel inject `QuizRepository`, `SessionRepository`, `SavedStateHandle`; owner lấy từ session SSOT, timer dùng monotonic `System.nanoTime`.
+- Flow: countdown 3 giây → question → feedback → finished. Chọn một chấm ngay; chọn nhiều/short/long answer cần submit; hỗ trợ skip và late answer. Feedback tự chuyển 2 giây nếu đúng / 4 giây nếu không đúng, hoặc Next thủ công; không có quay lại câu trước.
+- Chấm multiple-select bằng exact set ID; text trim/case-insensitive; key thiếu cho trạng thái không thể chấm. Điểm local ước tính theo Classic mặc định: đúng = 1000 + speed bonus tối đa 500; đúng muộn = 900, không bonus. Backend `scoring.ts` là chuẩn cho nhánh late, không sao chép helper web đang lệch. Không áp điểm này thay cho kết quả game server.
+- Screen tách stateful/stateless, dùng `QuestionImage`; có loading/error/retry/empty, hint/timer/late warning, feedback/đáp án khi sai/explanation. Summary có điểm ước tính, đúng/đã trả lời/accuracy/thời gian và review ưu tiên sai/skip/không thể chấm/đúng.
+- Chơi lại reset lượt từ quiz đã tải; edit chỉ owner, `popUpTo<Route.QuizPreview> { inclusive = true }` trước khi mở Edit Quiz để save quay về Detail. Có thoát lượt chơi.
+- Unit test scoring và ViewModel đã được bổ sung; kiểm thử nhanh user xác nhận pass. Agent không tự chạy Gradle qua MCP. Các backend blockers hiện có giữ nguyên.
+- Tiếp theo N42: audit contract user/storage, Profile/navigation/session SSOT trên main; xác nhận field/validation, ownership avatar, request/response và cách publish user mới trước khi lập kế hoạch. Đổi mật khẩu/vô hiệu hóa tài khoản để N43.
 
 ## 12. Dependency Injection — Hilt Modules
 <table header-row="true">
