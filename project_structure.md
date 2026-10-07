@@ -2,7 +2,7 @@
 
 > **Tài liệu cấu trúc dự án chi tiết**  
 > Mô tả vai trò, trách nhiệm và mối quan hệ giữa các module trong kiến trúc Multi-module Gradle  
-> **Version:** 2.19 | **Last Updated:** Sau N42 (commit Android `0da538f`)
+> **Version:** 2.20 | **Last Updated:** Sau N43 (commit Android `ab6621b`)
 
 ---
 
@@ -153,6 +153,14 @@ dependencies {
 🔑 **`:app` không phụ thuộc domain của 1 feature cụ thể**: Trước đây `SplashViewModel` (trong `:app`) từng cần logic của `feature:auth` để kiểm tra trạng thái đăng nhập. Vì đây là logic cross-cutting (không chỉ Splash cần), `CheckAuthStateUseCase` được đưa xuống `core:datastore` thay vì đặt trong `:app` hay giữ phụ thuộc vào `feature:auth`. Xem mục 2.4 và mục 8.
 
 ---
+
+#### N43 — ranh giới Account Security (không thêm module)
+- `app/domain/security`: `ObserveSecurityAccountUseCase`, `ChangePasswordUseCase`, `DeactivateAccountUseCase`, `SecurityValidation` và `SecurityMutationResult`. Quan sát/guard session, validation và orchestration qua Repository interface, không data implementation.
+- `app/presentation/profile`: `AccountSecurityViewModel` chỉ inject 3 Use case; `AccountSecurityUiState`, `AccountSecurityIntent`, `AccountSecurityEffect`, `AccountSecurityScreen` tách riêng. Screen/Content stateful/stateless, preview Light/Dark + Google-only; password chỉ RAM.
+- `app/navigation`: `Route.AccountSecurity`, callback từ Profile và reset MainGraph/Home + dọn saved tab stacks khi session kết thúc. Không đặt mutation/cleanup nghiệp vụ trong NavGraph.
+- `core:common`: mở rộng `UserRepository` cho password/deactivation và `SessionRepository.clearSession(token)` cho cleanup guarded.
+- `core:network`: mở rộng `UserMutationApiService`/`UserProfileDtos`/`UserRepositoryImpl` (PreserveCase; DELETE có JSON body; mutation retry disabled); `SessionRepositoryImpl` dọn cookie và Guest dưới generation guard; `TokenAuthenticator` phân terminal/transient; `di/SafeHttpLogger` không ghi body/header/query/credential.
+- 25 regression test case mới, gồm app Use case/ViewModel và network contract/refresh/logger/session cleanup; test Profile fake được cập nhật theo interface. User kiểm thử nhanh ổn; chưa có log build/unit test/CI được agent xác minh.
 
 ### 2.2 `:core:network` - Network Infrastructure
 
@@ -1245,6 +1253,8 @@ Presentation → Domain → Data
 
 ### 6.3. MVI Pattern trong ViewModels
 
+**Bắt buộc:** ViewModel chỉ gọi Use case; không inject/gọi Repository trực tiếp, kể cả observe session/capture token. Use case phối hợp Repository interface, data implementation giữ API/DTO/Room. Mẫu N43: `AccountSecurityViewModel` → 3 Use case trong `app/domain/security`. Legacy debt được audit/report trước khi sửa, không dùng làm tiền lệ.
+
 ```kotlin
 // Intent - User actions
 sealed class GameIntent {
@@ -1584,9 +1594,9 @@ MyQuizApp được xây dựng với **14 modules** theo **Clean Architecture + 
 
 ---
 
-**Document Version:** 2.19  
-**Last Updated:** Sau N42 (commit Android `0da538f`)
-**Status:** Living document - N42 đã hoàn thành, commit Android `0da538f`: sửa fullname/phone/description bằng PATCH delta, avatar preview và lưu riêng, session SSOT có generation/revision guard, snackbar thật. User xác nhận kiểm thử nhanh pass; bổ sung 23 test case. Bước tiếp theo là audit N43 bảo mật tài khoản trên source thật trước khi lập kế hoạch; các backend blockers cũ giữ nguyên. Trước đó N41 hoàn thành tại commit Android `648bf37`: module `:feature:quiz-preview` local độc lập, Quiz Detail entry, countdown/timer/4 types/feedback/tổng kết/chơi lại/sửa owner-only; user xác nhận kiểm thử nhanh pass, thêm unit test scoring + ViewModel. Điểm ước tính Classic mặc định, đúng muộn = 900 không bonus; không room/socket/history/play-count. N42 hồ sơ/avatar đã hoàn thành; tiếp theo audit N43 bảo mật tài khoản. Trước đó N40 hoàn thành ngày 6/10 tại commit Android `9b3cdf0`: backend/event/domain vốn đã bảo toàn `question_image`; Android thêm `QuestionImage` dùng chung và render tại Host Game, Player Game cùng card câu hỏi Quiz Detail, có mapper test cho event realtime + snapshot. Kiểm thử nhanh, unit test và `assembleDebug` đã pass. N41–N42 đã hoàn thành; N43 cần audit password/deactivation/session thật trước khi lập kế hoạch; N44–N45 feature gate, N46 polish và N47–N50 test/release/ship. Trước đó N36 (3/10): reconnect hardening hoàn tất cho Host/Player Lobby và Host Game; thêm `RECONNECT_FAILED`, giữ snapshot + khóa control khi offline, tự phục hồi khi mạng `VALIDATED` trở lại, Host Game refresh host token qua REST; 3 case E2E chính pass; commit Android `f232a75`. Trước đó N35 (3/10): Final Result socket-first, REST `/games/{id}/results` chỉ recovery sau process death, loading/error/retry, `perQuestion`, Review N29 giữ nguyên và visibility defense cho `showLeaderboard=never`; commit Android `37bc61a`. N30 tạm block bởi Player token renewal + `player:sync`; N34 đã absorbed. N25/M4 và N20.6 vẫn blocked bởi backend. Trước đó N24 (15/9): progress/kết quả Player, leaderboard theo config, pause gating, `game:ended` → Final Result, transient `GameResultRepository` và hotfix quan hệ `reviewMode`/`showCorrectAnswer`. Trước đó N22–N23 (13/9): Gameplay Player host-paced/classic, typed answer/ACK, timer offset và reconnect/resync. Trước đó N20 (10/9): `core:ui` có package mới `gameconfig` (6 file: `RoomConfigForm` state + `BooleanSettingRow`/`NumberSettingField`/`ChoiceSettingField` + `GameModeConfigEditor` dispatch theo mode + `GameConfigPatchBuilder`) — chuyển từ `feature:quiz-manage` lên vì cả màn tạo phòng và host lobby đều dùng, mà feature không được phụ thuộc feature; `core:common` thêm `GameEvent.GameStarted` + `ConfigUpdateAck`; `core:network` thêm `GameSocketClient.emitWithAck` (timeout 5s) + `SocketAckResult`/`SocketAckMapper`; `feature:lobby/hostlobby` thành màn thật đầy đủ (sửa config trong lobby qua `lobby:config-update`, 2 nút copy mã/link, nút Bắt đầu neo vào `game:started`) kèm 2 use case `GetGameModesUseCase`/`UpdateRoomConfigUseCase`; `:app/navigation/GameNavGraph.kt` có `HostGamePlaceholder` private chờ N21. Trước đó N19.6 (6/9): `core:common` có `SessionState` + `SessionRepository` (impl `@Singleton` ở `core:network`) làm nguồn sự thật duy nhất cho trạng thái đăng nhập, `core:ui` có `AuthRequiredDialog` và `HomeSectionRow` hỗ trợ nút "Xem thêm"; `:app` bỏ tab Tham gia (bottom nav còn 4 tab: Trang chủ/Thư viện/Hoạt động/Hồ sơ) và sở hữu `requireAuth` ở `AppNavGraph`; `feature:lobby/joinroom` đổi `JoinRoomScreen` → `JoinRoomCard` nhúng vào Home qua slot, 3 file UiState/Intent/Effect gộp thành `JoinRoomContract.kt`; đã xóa `AuthState`, `CheckAuthStateUseCase`, `GetCurrentUserUseCase`, `Route.JoinRoom`. Trước đó N19.5 (6/9): Bottom Navigation thật ở `:app` — `navigation/MainScaffold.kt` (`TopLevelTab` 5 tab + `MainBottomBar`) và `navigation/CurrentUserViewModel.kt` (avatar tab Hồ sơ, scope Activity), `Scaffold` bọc ngoài `NavHost` nên màn con/màn game tự ẩn bar; `Route.Library` bị xóa — tab Thư viện dùng `Route.MyQuizzes`; Profile rút về thông tin + cài đặt; thêm `presentation/activity/ActivityScreen.kt` placeholder. Trước đó N19 (5/9): `feature:lobby` có đủ joinroom/guestnickname/playerlobby, `GuestIdentityStore` ở `core:datastore`, `RoomLookup`/`JoinRoomResult` + `lookupRoom`/`joinRoom` ở `core:common`. Trước đó: socket layer thật của N18 (30/8): `GameEvent` + 3 interface socket ở `core:common`, `GameSocketClient`/`GameEventMapper`/2 impl ở `core:network`, HostLobby thật ở `feature:lobby`. Polish Architecture refactor N18.5 (31/8-2/9): 4 NavGraph modules, validation pattern unified (6 validators in :core:common), 3 orchestration UseCases in quiz-manage, naming conventions standardized.
+**Document Version:** 2.20  
+**Last Updated:** Sau N43 (commit Android `ab6621b`)
+**Status:** Living document - N43 đã hoàn thành phần Android ở commit `ab6621b` (`feat: add account security and session hardening`); user xác nhận kiểm thử nhanh ổn. Đã bổ sung 25 test case, nhưng agent chưa có log build/unit test/CI để xác nhận xanh. Bước tiếp theo là N44 — audit integration, lập checklist E2E và xác minh lại backend blockers; chưa chốt M6/N45. N43 không thêm Gradle module, vẫn 14 module. Hồ sơ/avatar N42 giữ nguyên; gameplay/history/preview đã có. Android source baseline N43 và bằng chứng test cần đối chiếu ở N44. N20.6/N25/M4/N28.5/N29/N30 vẫn nằm trong hồ sơ blocker, chưa retest; N46 polish sau gate N45, N47–N50 test/release/ship. Lịch sử kỹ thuật chi tiết nằm trong các block milestone của kế hoạch chính.
 
 ---
 
