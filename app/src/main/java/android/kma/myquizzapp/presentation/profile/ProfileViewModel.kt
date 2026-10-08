@@ -5,7 +5,7 @@ import android.kma.myquizzapp.core.common.error.toUserMessage
 import android.kma.myquizzapp.core.common.model.SessionUserToken
 import android.kma.myquizzapp.core.common.model.User
 import android.kma.myquizzapp.core.common.model.userOrNull
-import android.kma.myquizzapp.core.common.repository.SessionRepository
+import android.kma.myquizzapp.domain.profile.ObserveProfileSessionUseCase
 import android.kma.myquizzapp.core.common.result.Result
 import android.kma.myquizzapp.domain.profile.AvatarUpdateResult
 import android.kma.myquizzapp.domain.profile.ProfileDraft
@@ -29,7 +29,7 @@ import kotlinx.coroutines.launch
 
 @HiltViewModel
 class ProfileViewModel @Inject constructor(
-    private val session: SessionRepository,
+    private val observeSession: ObserveProfileSessionUseCase,
     private val logoutUseCase: LogoutUseCase,
     private val saveProfile: SaveProfileUseCase,
     private val updateAvatar: UpdateAvatarUseCase,
@@ -46,13 +46,13 @@ class ProfileViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            session.state.collect { reconcileSession() }
+            observeSession().collect { reconcileSession() }
         }
     }
 
     private fun reconcileSession() {
-        val current = session.state.value
-        val token = session.captureUserSession()
+        val current = observeSession.current()
+        val token = observeSession.captureToken()
         if (token != ownerToken) {
             actionJob?.cancel()
             val draft = if (!restored && token != null) restoreDraft(current.userOrNull) else null
@@ -132,7 +132,7 @@ class ProfileViewModel @Inject constructor(
         _uiState.update { it.copy(isSavingProfile = true, profileError = null, phoneServerError = null) }
         actionJob = viewModelScope.launch {
             val result = saveProfile(draft, token)
-            if (session.captureUserSession() != token) return@launch
+            if (observeSession.captureToken() != token) return@launch
             when (result) {
                 is Result.Success -> {
                     discardDraft()
@@ -174,7 +174,7 @@ class ProfileViewModel @Inject constructor(
     }
 
     private suspend fun handleAvatarResult(result: AvatarUpdateResult, token: SessionUserToken) {
-        if (session.captureUserSession() != token) return
+        if (observeSession.captureToken() != token) return
         when (result) {
             AvatarUpdateResult.Saved -> {
                 _uiState.update { it.copy(selectedAvatarUri = null, pendingAvatar = null, isUpdatingAvatar = false, avatarError = null) }

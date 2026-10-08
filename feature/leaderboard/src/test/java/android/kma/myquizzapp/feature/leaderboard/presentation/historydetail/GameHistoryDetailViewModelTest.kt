@@ -15,6 +15,7 @@ import android.kma.myquizzapp.core.common.result.Result
 import android.kma.myquizzapp.core.datastore.GuestIdentityStore
 import android.kma.myquizzapp.feature.leaderboard.domain.LoadGameHistoryAnswersUseCase
 import android.kma.myquizzapp.feature.leaderboard.domain.LoadGameHistorySummaryUseCase
+import android.kma.myquizzapp.feature.leaderboard.domain.ObserveHistorySessionUseCase
 import androidx.lifecycle.SavedStateHandle
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -95,7 +96,7 @@ class GameHistoryDetailViewModelTest {
         return GameHistoryDetailViewModel(
             loadHistorySummary = LoadGameHistorySummaryUseCase(repository, guestStore),
             loadHistoryAnswers = LoadGameHistoryAnswersUseCase(repository, guestStore),
-            sessionRepository = FakeSessionRepository(SessionState.LoggedIn(user())),
+            observeSession = ObserveHistorySessionUseCase(FakeSessionRepository(SessionState.LoggedIn(user()))),
             savedStateHandle = SavedStateHandle(mapOf("sessionId" to 91L))
         )
     }

@@ -1,6 +1,6 @@
 # AGENTS.md — Hướng dẫn cho agent làm việc tiếp trên dự án MyQuizApp
 
-> **Cập nhật N43 (source trên main, chưa chốt):** đã triển khai bảo mật tài khoản; chờ build/unit test và kiểm thử máy thật. Xem `N43_IMPLEMENTATION.md`. Các ghi chú "tiếp theo audit N43" phía dưới là lịch sử trước phiên này, không phải trạng thái mới nhất. Backend blockers cũ giữ nguyên. Tài liệu kế hoạch/design/structure canonical vẫn ở nhánh docs.
+> **N44 WIP (source trên main, chưa commit/chốt):** đã triển khai history identity/generation guard và logout reset graph; Activity/Profile/History Detail đọc session qua Use case. Có 16 regression test bổ sung và 2 cookie-race diagnostic opt-in CHƯA chạy; chưa sửa transport/backend. Xem `N44_INTEGRATION.md` cho matrix, bug ledger và lệnh test. N43 đã tìm thấy XML local PASS cho 25 test bổ sung, không phải test vừa chạy lại. Các ghi chú “chờ N43” phía dưới là lịch sử; tài liệu canonical vẫn ở nhánh docs.
 
 ## Quy tắc Clean Architecture — user nhấn mạnh khi duyệt N43
 

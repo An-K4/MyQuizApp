@@ -119,6 +119,33 @@ class SessionRepositoryTest {
         assertNotNull(session.captureUserSession())
     }
 
+    @Test fun `snapshot changes lifetime for guest and repeated same account login`() = runTest {
+        val session = SessionRepositoryImpl(RefreshAuth { Result.Success(user()) }, backgroundScope)
+        val unknown = session.snapshot()
+        assertFalse(unknown.identity.resolved)
+        session.onAuthenticated(user())
+        val first = session.snapshot()
+        session.onAuthenticated(user())
+        val second = session.snapshot()
+        assertEquals(first.state, second.state)
+        assertNotEquals(first.identity, second.identity)
+        session.onSignedOut()
+        val guest = session.snapshot()
+        assertTrue(guest.identity.resolved)
+        assertNull(guest.identity.userId)
+        assertNotEquals(second.generation, guest.generation)
+    }
+
+    @Test fun `profile publication changes snapshot state but not identity`() = runTest {
+        val session = SessionRepositoryImpl(RefreshAuth { Result.Success(user()) }, backgroundScope)
+        session.onAuthenticated(user())
+        val before = session.snapshot()
+        assertTrue(session.applyUserUpdate(checkNotNull(session.captureUserSession()), user().copy(fullname = "Changed")))
+        val after = session.snapshot()
+        assertEquals(before.identity, after.identity)
+        assertEquals("Changed", after.state.userOrNull?.fullname)
+    }
+
     private fun user() = User(7, "User Name", "user@example.com", createdAt = "2026-10-01", updatedAt = "2026-10-06")
 }
 

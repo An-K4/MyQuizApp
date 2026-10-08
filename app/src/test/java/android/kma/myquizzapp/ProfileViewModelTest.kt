@@ -3,6 +3,7 @@ package android.kma.myquizzapp
 import android.kma.myquizzapp.core.common.error.AppError
 import android.kma.myquizzapp.core.common.model.SessionState
 import android.kma.myquizzapp.core.common.result.Result
+import android.kma.myquizzapp.domain.profile.ObserveProfileSessionUseCase
 import android.kma.myquizzapp.domain.profile.SaveProfileUseCase
 import android.kma.myquizzapp.domain.profile.UpdateAvatarUseCase
 import android.kma.myquizzapp.feature.auth.domain.usecase.LogoutUseCase
@@ -135,7 +136,7 @@ class ProfileViewModelTest {
         coEvery { preparer.prepare(any()) } returns Result.Success(byteArrayOf(1, 2))
         val logout = mockk<LogoutUseCase>()
         coEvery { logout.invoke() } coAnswers { session.onSignedOut(); Result.Success(Unit) }
-        return Fixture(ProfileViewModel(session, logout, SaveProfileUseCase(users, session),
+        return Fixture(ProfileViewModel(ObserveProfileSessionUseCase(session), logout, SaveProfileUseCase(users, session),
             UpdateAvatarUseCase(storage, users, session), preparer, handle), session, users, storage)
     }
 

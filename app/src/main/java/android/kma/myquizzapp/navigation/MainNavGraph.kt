@@ -118,17 +118,7 @@ fun NavGraphBuilder.mainGraph(
         AccountSecurityScreen(
             onBack = { navController.popBackStack() },
             onSessionEnded = { message ->
-                // Destroy saved tab stacks/private ViewModels, not navigateToTab(saveState=true).
-                navController.clearBackStack<Route.Home>()
-                navController.clearBackStack<Route.MyQuizzes>()
-                navController.clearBackStack<Route.Activity>()
-                navController.clearBackStack<Route.Profile>()
-                navController.navigate(Route.MainGraph) {
-                    popUpTo<Route.MainGraph> { inclusive = true; saveState = false }
-                    launchSingleTop = true
-                    restoreState = false
-                }
-                navController.getBackStackEntry<Route.Home>().savedStateHandle[KEY_LOBBY_EXIT_MESSAGE] = message
+                navController.resetMainGraphAfterSessionEnd(message)
             }
         )
     }
@@ -151,7 +141,7 @@ fun NavGraphBuilder.mainGraph(
                 // Xoá avatar khỏi bottom nav: LogoutUseCase đã clear cookie nên
                 // /users/me sẽ trả 401 → tab Hồ sơ về lại icon mặc định.
                 onCurrentUserChanged()
-                navController.navigateToTab(Route.Home)
+                navController.resetMainGraphAfterSessionEnd("Đã đăng xuất")
             }
         )
     }

@@ -55,6 +55,14 @@ interface SessionRepository {
     /** Fail-closed defaults keep read-only implementations from publishing account changes. */
     fun captureUserSession(): SessionUserToken? = null
 
+    /** N44: coherent read-only snapshot, including guest and same-account lifetimes.
+     * Implementations with a session lock must override this and read under that lock.
+     */
+    fun snapshot(): android.kma.myquizzapp.core.common.model.SessionSnapshot =
+        android.kma.myquizzapp.core.common.model.SessionSnapshot(
+            state.value, captureUserSession()?.generation ?: 0L
+        )
+
     /** Publish server-confirmed fields only if the original authenticated lifetime still exists. */
     fun applyUserUpdate(token: SessionUserToken, user: User): Boolean = false
 

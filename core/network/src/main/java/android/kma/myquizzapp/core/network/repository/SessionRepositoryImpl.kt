@@ -99,6 +99,10 @@ class SessionRepositoryImpl internal constructor(
         _state.value.userOrNull?.let { SessionUserToken(it.id, generation) }
     }
 
+    override fun snapshot(): android.kma.myquizzapp.core.common.model.SessionSnapshot = synchronized(stateLock) {
+        android.kma.myquizzapp.core.common.model.SessionSnapshot(_state.value, generation)
+    }
+
     private fun matches(token: SessionUserToken): Boolean =
         token.generation == generation && token.userId == _state.value.userOrNull?.id
 

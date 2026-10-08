@@ -19,6 +19,7 @@ import android.kma.myquizzapp.core.common.repository.SessionRepository
 import android.kma.myquizzapp.core.common.result.PageInfo
 import android.kma.myquizzapp.core.common.result.Result
 import android.kma.myquizzapp.core.datastore.GuestIdentityStore
+import android.kma.myquizzapp.domain.activity.ObserveActivitySessionUseCase
 import android.kma.myquizzapp.domain.activity.LoadGameHistoryUseCase
 import android.kma.myquizzapp.presentation.activity.ActivityIntent
 import android.kma.myquizzapp.presentation.activity.ActivityViewModel
@@ -57,7 +58,7 @@ class ActivityViewModelTest {
         val guestStore = mockk<GuestIdentityStore>()
         val viewModel = ActivityViewModel(
             LoadGameHistoryUseCase(repository, guestStore),
-            session
+            ObserveActivitySessionUseCase(session)
         )
 
         runCurrent()
@@ -89,7 +90,7 @@ class ActivityViewModelTest {
         val session = FakeSessionRepository(SessionState.LoggedIn(user()))
         val viewModel = ActivityViewModel(
             LoadGameHistoryUseCase(repository, mockk()),
-            session
+            ObserveActivitySessionUseCase(session)
         )
         runCurrent()
         assertEquals(1, repository.calls.size)
@@ -110,7 +111,7 @@ class ActivityViewModelTest {
         coEvery { guestStore.getGuestIdOrNull() } returns null
         val viewModel = ActivityViewModel(
             LoadGameHistoryUseCase(repository, guestStore),
-            session
+            ObserveActivitySessionUseCase(session)
         )
 
         runCurrent()
@@ -118,6 +119,108 @@ class ActivityViewModelTest {
         assertTrue(viewModel.uiState.value.played.hasLoaded)
         assertTrue(viewModel.uiState.value.played.items.isEmpty())
         assertTrue(repository.calls.isEmpty())
+    }
+
+    @Test fun `late played response cannot overwrite a different account`() = runTest(dispatcher) {
+        val repository = FakeGameSessionRepository()
+        val session = FakeSessionRepository(SessionState.LoggedIn(user()))
+        var pending: kotlin.coroutines.Continuation<Result<List<GameHistoryItem>>>? = null
+        repository.historyHandler = { _, _, _ ->
+            if (repository.calls.size == 1) kotlin.coroutines.suspendCoroutine<Result<List<GameHistoryItem>>> { pending = it }
+            else Result.Success(listOf(historyItem(99)), PageInfo(null, false))
+        }
+        val vm = ActivityViewModel(LoadGameHistoryUseCase(repository, mockk()), ObserveActivitySessionUseCase(session))
+        runCurrent()
+        session.onAuthenticated(user().copy(id = 9))
+        runCurrent()
+        assertEquals(listOf(99L), vm.uiState.value.played.items.map { it.sessionId })
+        checkNotNull(pending).resumeWith(kotlin.Result.success(Result.Success(listOf(historyItem(1)))))
+        runCurrent()
+        assertEquals(listOf(99L), vm.uiState.value.played.items.map { it.sessionId })
+        assertFalse(vm.uiState.value.played.isInitialLoading)
+    }
+
+    @Test fun `late hosted error cannot pollute guest state`() = runTest(dispatcher) {
+        val repository = FakeGameSessionRepository()
+        val session = FakeSessionRepository(SessionState.LoggedIn(user()))
+        val guestStore = mockk<GuestIdentityStore>()
+        coEvery { guestStore.getGuestIdOrNull() } returns null
+        var pending: kotlin.coroutines.Continuation<Result<List<GameHistoryItem>>>? = null
+        repository.historyHandler = { role, _, _ ->
+            if (role == GameHistoryRole.HOSTED) kotlin.coroutines.suspendCoroutine<Result<List<GameHistoryItem>>> { pending = it }
+            else Result.Success(listOf(historyItem(1)))
+        }
+        val vm = ActivityViewModel(LoadGameHistoryUseCase(repository, guestStore), ObserveActivitySessionUseCase(session))
+        runCurrent()
+        vm.onIntent(ActivityIntent.SelectRole(GameHistoryRole.HOSTED)); runCurrent()
+        session.onSignedOut(); runCurrent()
+        checkNotNull(pending).resumeWith(kotlin.Result.success(Result.Error(android.kma.myquizzapp.core.common.error.AppError.Network)))
+        runCurrent()
+        assertTrue(vm.uiState.value.hosted.items.isEmpty())
+        assertEquals(null, vm.uiState.value.hosted.errorMessage)
+        assertEquals(GameHistoryRole.PLAYED, vm.uiState.value.selectedRole)
+        assertTrue(vm.uiState.value.played.items.isEmpty())
+    }
+
+    @Test fun `same account new lifetime reloads on intent without a state emission`() = runTest(dispatcher) {
+        val repository = FakeGameSessionRepository()
+        val session = FakeSessionRepository(SessionState.LoggedIn(user()))
+        var pending: kotlin.coroutines.Continuation<Result<List<GameHistoryItem>>>? = null
+        repository.historyHandler = { _, _, _ ->
+            if (repository.calls.size == 1) kotlin.coroutines.suspendCoroutine<Result<List<GameHistoryItem>>> { pending = it }
+            else Result.Success(listOf(historyItem(99)))
+        }
+        val vm = ActivityViewModel(LoadGameHistoryUseCase(repository, mockk()), ObserveActivitySessionUseCase(session))
+        runCurrent()
+        session.onAuthenticated(user()) // identical User: StateFlow conflates, generation still changes
+        vm.onIntent(ActivityIntent.Refresh); runCurrent()
+        checkNotNull(pending).resumeWith(kotlin.Result.success(Result.Success(listOf(historyItem(1)))))
+        runCurrent()
+        assertEquals(2, repository.calls.size)
+        assertEquals(listOf(99L), vm.uiState.value.played.items.map { it.sessionId })
+    }
+
+    @Test fun `refresh supersedes a late page within the same lifetime`() = runTest(dispatcher) {
+        val repository = FakeGameSessionRepository()
+        val session = FakeSessionRepository(SessionState.LoggedIn(user()))
+        var pending: kotlin.coroutines.Continuation<Result<List<GameHistoryItem>>>? = null
+        repository.historyHandler = { _, cursor, _ ->
+            when {
+                cursor != null -> kotlin.coroutines.suspendCoroutine<Result<List<GameHistoryItem>>> { pending = it }
+                repository.calls.size == 1 -> Result.Success(listOf(historyItem(1)), PageInfo("next", true))
+                else -> Result.Success(listOf(historyItem(99)), PageInfo(null, false))
+            }
+        }
+        val vm = ActivityViewModel(LoadGameHistoryUseCase(repository, mockk()), ObserveActivitySessionUseCase(session))
+        runCurrent(); vm.onIntent(ActivityIntent.LoadMore); runCurrent()
+        vm.onIntent(ActivityIntent.Refresh); runCurrent()
+        checkNotNull(pending).resumeWith(kotlin.Result.success(Result.Success(listOf(historyItem(2)), PageInfo(null, false))))
+        runCurrent()
+        assertEquals(listOf(99L), vm.uiState.value.played.items.map { it.sessionId })
+        assertFalse(vm.uiState.value.played.isLoadingMore)
+    }
+
+    @Test fun `failed refresh also retires loading more and ignores the late append`() = runTest(dispatcher) {
+        val repository = FakeGameSessionRepository()
+        val session = FakeSessionRepository(SessionState.LoggedIn(user()))
+        var pending: kotlin.coroutines.Continuation<Result<List<GameHistoryItem>>>? = null
+        repository.historyHandler = { _, cursor, _ ->
+            when {
+                cursor != null -> kotlin.coroutines.suspendCoroutine<Result<List<GameHistoryItem>>> { pending = it }
+                repository.calls.size == 1 -> Result.Success(listOf(historyItem(1)), PageInfo("next", true))
+                else -> Result.Error(android.kma.myquizzapp.core.common.error.AppError.Network)
+            }
+        }
+        val vm = ActivityViewModel(LoadGameHistoryUseCase(repository, mockk()), ObserveActivitySessionUseCase(session))
+        runCurrent(); vm.onIntent(ActivityIntent.LoadMore); runCurrent()
+        vm.onIntent(ActivityIntent.Refresh); runCurrent()
+        assertFalse(vm.uiState.value.played.isLoadingMore)
+        assertTrue(vm.uiState.value.played.errorMessage != null)
+        checkNotNull(pending).resumeWith(kotlin.Result.success(Result.Success(listOf(historyItem(2)))))
+        runCurrent()
+        assertEquals(listOf(1L), vm.uiState.value.played.items.map { it.sessionId })
+        assertFalse(vm.uiState.value.played.isLoadingMore)
+        assertTrue(vm.uiState.value.played.errorMessage != null)
     }
 
     private fun user() = User(
@@ -137,6 +240,7 @@ private data class HistoryCall(
 
 private class FakeGameSessionRepository : GameSessionRepository {
     val calls = mutableListOf<HistoryCall>()
+    var historyHandler: (suspend (GameHistoryRole, String?, String?) -> Result<List<GameHistoryItem>>)? = null
 
     override suspend fun getGameHistory(
         role: GameHistoryRole,
@@ -145,6 +249,7 @@ private class FakeGameSessionRepository : GameSessionRepository {
         guestId: String?
     ): Result<List<GameHistoryItem>> {
         calls += HistoryCall(role, cursor, guestId)
+        historyHandler?.let { return it(role, cursor, guestId) }
         return when (role to cursor) {
             GameHistoryRole.PLAYED to null -> Result.Success(
                 listOf(historyItem(1)), PageInfo("played-2", hasMore = true)
@@ -174,8 +279,10 @@ private class FakeSessionRepository(initial: SessionState) : SessionRepository {
     private val mutable = MutableStateFlow(initial)
     override val state: StateFlow<SessionState> = mutable
     override suspend fun refresh() = Unit
-    override fun onAuthenticated(user: User) { mutable.value = SessionState.LoggedIn(user) }
-    override fun onSignedOut() { mutable.value = SessionState.Guest }
+    private var generation = 1L
+    override fun snapshot() = android.kma.myquizzapp.core.common.model.SessionSnapshot(mutable.value, generation)
+    override fun onAuthenticated(user: User) { generation++; mutable.value = SessionState.LoggedIn(user) }
+    override fun onSignedOut() { generation++; mutable.value = SessionState.Guest }
 }
 
 private fun historyItem(id: Long) = GameHistoryItem(

@@ -3,19 +3,20 @@ package android.kma.myquizzapp.presentation.activity
 import android.kma.myquizzapp.core.common.error.toUserMessage
 import android.kma.myquizzapp.core.common.model.GameHistoryRole
 import android.kma.myquizzapp.core.common.model.SessionState
-import android.kma.myquizzapp.core.common.repository.SessionRepository
+import android.kma.myquizzapp.core.common.model.SessionIdentity
+import android.kma.myquizzapp.core.common.model.SessionSnapshot
+import android.kma.myquizzapp.domain.activity.ObserveActivitySessionUseCase
 import android.kma.myquizzapp.core.common.result.Result
 import android.kma.myquizzapp.domain.activity.LoadGameHistoryUseCase
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -23,23 +24,22 @@ import javax.inject.Inject
 @HiltViewModel
 class ActivityViewModel @Inject constructor(
     private val loadGameHistory: LoadGameHistoryUseCase,
-    private val sessionRepository: SessionRepository
+    private val observeSession: ObserveActivitySessionUseCase
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(ActivityUiState())
     val uiState: StateFlow<ActivityUiState> = _uiState.asStateFlow()
 
     private val jobs = mutableMapOf<GameHistoryRole, Job>()
+    private val requestIds = mutableMapOf<GameHistoryRole, Long>()
+    private var identity: SessionIdentity? = null
+    private var epoch = 0L
 
     init {
-        viewModelScope.launch {
-            sessionRepository.state
-                .map(::identityKey)
-                .distinctUntilChanged()
-                .collect { onIdentityChanged(sessionRepository.state.value) }
-        }
+        viewModelScope.launch { observeSession().collect { reconcileSession(it) } }
     }
 
     fun onIntent(intent: ActivityIntent) {
+        reconcileSession(observeSession.current())
         when (intent) {
             is ActivityIntent.SelectRole -> selectRole(intent.role)
             ActivityIntent.Refresh -> refresh()
@@ -48,11 +48,17 @@ class ActivityViewModel @Inject constructor(
         }
     }
 
-    private fun onIdentityChanged(session: SessionState) {
+    private fun reconcileSession(snapshot: SessionSnapshot) {
+        if (identity == snapshot.identity) {
+            _uiState.update { it.copy(session = snapshot.state) }
+            return
+        }
+        epoch++ // Retire requests even when a repository ignores cancellation.
+        identity = snapshot.identity
         jobs.values.forEach { it.cancel() }
         jobs.clear()
-        _uiState.value = ActivityUiState(session = session)
-        if (session !is SessionState.Unknown) load(GameHistoryRole.PLAYED, reset = true)
+        _uiState.value = ActivityUiState(session = snapshot.state)
+        if (snapshot.identity.resolved) load(GameHistoryRole.PLAYED, reset = true)
     }
 
     private fun selectRole(role: GameHistoryRole) {
@@ -83,7 +89,12 @@ class ActivityViewModel @Inject constructor(
     }
 
     private fun load(role: GameHistoryRole, reset: Boolean) {
-        val session = _uiState.value.session
+        val snapshot = observeSession.current()
+        if (snapshot.identity != identity) {
+            reconcileSession(snapshot)
+            return
+        }
+        val session = snapshot.state
         if (session is SessionState.Unknown) return
         val before = listState(role)
         if (reset && before.isInitialLoading) return
@@ -93,6 +104,7 @@ class ActivityViewModel @Inject constructor(
             if (reset) {
                 it.copy(
                     isInitialLoading = true,
+                    isLoadingMore = false, // A reset retires any append request, including on failure.
                     errorMessage = null,
                     appendErrorMessage = null
                 )
@@ -102,9 +114,18 @@ class ActivityViewModel @Inject constructor(
         }
 
         jobs[role]?.cancel()
+        val requestId = (requestIds[role] ?: 0L) + 1
+        requestIds[role] = requestId
+        val requestEpoch = epoch
         jobs[role] = viewModelScope.launch {
             val cursor = if (reset) null else before.nextCursor
-            when (val result = loadGameHistory(role, cursor, session)) {
+            val result = loadGameHistory(role, cursor, session)
+            if (!isActive || requestEpoch != epoch || requestIds[role] != requestId) return@launch
+            if (!observeSession.isCurrent(snapshot.identity)) {
+                reconcileSession(observeSession.current())
+                return@launch
+            }
+            when (result) {
                 is Result.Success -> updateList(role) { current ->
                     val merged = if (reset) result.data else current.items + result.data
                     current.copy(
@@ -144,9 +165,4 @@ class ActivityViewModel @Inject constructor(
         }
     }
 
-    private fun identityKey(session: SessionState): String = when (session) {
-        SessionState.Unknown -> "unknown"
-        SessionState.Guest -> "guest"
-        is SessionState.LoggedIn -> "user:${session.user.id}"
-    }
 }
