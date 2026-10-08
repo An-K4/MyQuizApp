@@ -150,6 +150,8 @@ Backend gate được xác nhận từ source main, chưa xác nhận trên depl
 
 ## Chặng kế tiếp — N44 chặng 4: E2E/matrix và evidence
 
+**Checklist người test điền:** `N44_E2E_INTEGRATION_CHECKLIST.md` trên docs. Kế thừa kịch bản Classic N25 nhưng mọi kết quả lượt mới để trống; tách UI test một máy, Classic nhiều client, case cần hỗ trợ và backend/deferred gates. Không copy dấu tick lịch sử từ N25.
+
 1. Ghi source SHA/build/CI run id, thiết bị/OS, loại account và backend deployment revision. Đối chiếu full assemble/lint/regression, không suy ra CI từ unit XML chọn lọc.
 2. Máy thật: account A → logout/guest → B, Back/tab restore/process recreation; history played/hosted/cursor → detail/own answers/visibility; ảnh câu hỏi → Solo Preview → replay/owner edit, không tạo room/history/play count.
 3. Profile/avatar → password/deactivate/cleanup retry bằng account disposable. Không gọi mutation hoặc xóa account thật nếu chưa duyệt rõ; không tự replay request uncertain.
