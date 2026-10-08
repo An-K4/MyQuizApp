@@ -1,6 +1,6 @@
 # N44 — Checklist kiểm thử tích hợp để người test tự đánh dấu
 
-> Đây là checklist cho **một lượt test mới**, không phải kết quả đã chạy. Tất cả checkbox để trống. N44 còn WIP; không tự chốt N25/M4 hoặc N45/M6 từ vài happy path xanh.
+> Đã có kết quả user ghi ngày 08/10/2026 22:00 và báo cáo `N44_E2E_REPORT.md`. Giữ nguyên ghi chú/tick gốc để truy vết; kết luận PARTIAL, không phải mọi case đều PASS. N44/N45/M6 và release gates chưa được chốt.
 > Tài liệu thuộc nhánh `docs`. Chạy app từ bản build của `main`, không build nhánh docs. Không bật lại instrumentation N44Session đã gỡ. Google guest/cookie-race investigation đang tạm hoãn theo user, không nằm trong lượt stress test bắt buộc này.
 
 ## 1. N25 dùng lại được phần nào?
@@ -39,114 +39,116 @@ Ví dụ: `Kết quả: FAIL — A login B nhưng Profile còn avatar A.` Chỉ 
 
 | Trường | Người test điền |
 | --- | --- |
-| Run ID / ngày / giờ / timezone | |
-| Người test | |
-| Android source SHA + APK/build version thực tế | |
-| Debug/release; cài mới hay nâng cấp | |
-| Build/unit/lint/CI run id hoặc log đã có | |
-| Backend môi trường + deployment revision | Không biết thì ghi UNKNOWN, không dùng source SHA audit thay deployment |
-| Máy H (Host) / OS | |
-| Máy P1 (Player user) / OS | |
-| Máy P2 (Player guest) / OS; real device hay emulator | |
-| Mạng; battery restriction có can thiệp không | |
-| Alias account A/B/H/P1, không ghi email/password/token | |
+| Run ID / ngày / giờ / timezone | 8/10/2026 10:00PM |
+| Người test | USER AN |
+| Android source SHA + APK/build version thực tế | BẢN MỚI NHẤT SAU KHI VỪA COMMIT DOCS |
+| Debug/release; cài mới hay nâng cấp | DEBUG |
+| Build/unit/lint/CI run id hoặc log đã có | BUILD XANH KHÔNG LỖI |
+| Backend môi trường + deployment revision | UNKNOWN + AI XEM LẠI MÔI TRƯỜNG |
+| Máy H (Host) / OS | SAMSUNG GALAXY A21S |
+| Máy P1 (Player user) / OS | VSMART LIVE 4 |
+| Máy P2 (Player guest) / OS; real device hay emulator | EMULATOR HỎNG, DÙNG FRONTEND THAY THẾ DO KHÔNG KIẾM ĐỦ 3 MÁY |
+| Mạng; battery restriction có can thiệp không | UNKNOWN |
+| Alias account A/B/H/P1, không ghi email/password/token | CHƯA HIỂU TRƯỜNG NÀY |
 | Quiz ID hoặc alias + fixture đủ/thiếu gì | |
 
-- [ ] Các client nhiều máy dùng cùng APK/source SHA; có ít nhất H + P1 + P2 cho nhóm B. Nếu có emulator thì ghi rõ, không gọi lượt đó là retest toàn bộ gate “máy Android thật” N25.
-- [ ] Account A và B có dữ liệu riêng dễ phân biệt; có account **disposable local/password** riêng nếu chạy vô hiệu hóa. Không dùng account chính.
-- [ ] Guest giữ nguyên dữ liệu app/UUID trong lượt test; không clear data hoặc reinstall giữa hai lần kiểm lịch sử guest.
-- [ ] Fixture quiz: 4 loại câu (`multiple_choice`, `multiple_select`, `short_answer`, `long_answer`); câu có ảnh + không ảnh; thời gian đủ thao tác và có câu để hết hạn. Không yêu cầu sửa ID đáp án bằng API; ID 0 nếu fixture sẵn có thì kiểm thêm.
-- [ ] History user có played và hosted dễ phân biệt; pagination cần **hơn một trang**. Thiếu fixture nào chỉ BLOCKED case đó, vẫn chạy các case độc lập.
-- [ ] Trước B02 reveal-off, kiểm tra config cuối mà server đã nhận: tắt Review cùng reveal nếu normalize đòi vậy. Không test chỉ từ toggle chưa lưu. Marathon không dùng làm fixture reveal-off vì mode có rule riêng.
+- [x] Các client nhiều máy dùng cùng APK/source SHA; có ít nhất H + P1 + P2 cho nhóm B. Nếu có emulator thì ghi rõ, không gọi lượt đó là retest toàn bộ gate “máy Android thật” N25. CHỈ CÓ 2 MÁY THẬT, 1 FRONTEND WEB
+- [x] Account A và B có dữ liệu riêng dễ phân biệt; có account **disposable local/password** riêng nếu chạy vô hiệu hóa. Không dùng account chính.
+- [x] Guest giữ nguyên dữ liệu app/UUID trong lượt test; không clear data hoặc reinstall giữa hai lần kiểm lịch sử guest.
+- [x] Fixture quiz: 4 loại câu (`multiple_choice`, `multiple_select`, `short_answer`, `long_answer`); câu có ảnh + không ảnh; thời gian đủ thao tác và có câu để hết hạn. Không yêu cầu sửa ID đáp án bằng API; ID 0 nếu fixture sẵn có thì kiểm thêm.
+- [x] History user có played và hosted dễ phân biệt; pagination cần **hơn một trang**. Thiếu fixture nào chỉ BLOCKED case đó, vẫn chạy các case độc lập.
+- [x] Trước B02 reveal-off, kiểm tra config cuối mà server đã nhận: tắt Review cùng reveal nếu normalize đòi vậy. Không test chỉ từ toggle chưa lưu. Marathon không dùng làm fixture reveal-off vì mode có rule riêng. KHÔNG THỂ KIỂM TRA TRỰC TIẾP BÊN SERVER VÌ THUỘC THẨM QUYỀN TEAM BACKEND
 
 **Chia lượt cho dễ làm:** A = một máy (session/history/feature); B = ba client (Classic + luồng sau trận); C = case có điều kiện/hỗ trợ; D = smoke mode còn lại. Có thể nghỉ giữa các nhóm; nhóm chạy lại sau thay build/backend phải có Run ID mới.
 
 ## 4. Nhóm A — một máy, integration N38–N43
 
-- [ ] **A01 — Logout không mở lại màn riêng tư qua Back/tab restore.**
+- [x] **A01 — Logout không mở lại màn riêng tư qua Back/tab restore.**
   - Làm: login A → mở Thư viện, Hoạt động, Profile; tại Profile logout → bấm Back và lần lượt mở các tab.
   - Đạt: thông tin A/draft riêng tư không trở lại; gate yêu cầu login ở thao tác user-only. Home và hành vi guest vẫn dùng được, không buộc mọi tab guest đều bị khóa.
-  - Kết quả: NOT RUN — ghi chú:
+  - Kết quả: PASS — ghi chú: tab hoạt động sau khi đăng xuất fallback về hoạt động của guest đã từng hoạt động trên máy
 
-- [ ] **A02 — Đổi A → guest → B, dữ liệu theo B.**
+- [x] **A02 — Đổi A → guest → B, dữ liệu theo B.**
   - Làm: sau A01 login B; mở Profile, Thư viện, Hoạt động và thử Back. B có fixture riêng ở mục 3.
   - Đạt: Profile là B; dữ liệu riêng của A không hiện như dữ liệu B. Public quiz chung giữa A/B không được tính nhầm là rò dữ liệu riêng. Không cần restart/relogin để đổi phiên.
-  - Kết quả: NOT RUN — ghi chú:
+  - Kết quả: PASS — ghi chú: 
 
-- [ ] **A03 — Offline không tự biến user thành guest.**
+- [x] **A03 — Offline không tự biến user thành guest.**
   - Làm: đã login B và load màn → tắt mạng → thử tải/refresh tài nguyên → bật mạng có Internet dùng được rồi thử lại.
   - Đạt: lỗi mạng/loading/retry rõ; không tự hiện account guest hoặc nút login thay Profile chỉ do offline. Không yêu cầu mọi nội dung từ server hoạt động offline; dữ liệu hiển thị phải đúng policy cache.
-  - Kết quả: NOT RUN — ghi chú:
+  - Kết quả: PASS — ghi chú: 
 
-- [ ] **A04 — Played/hosted và refresh không trộn danh sách.**
+- [x] **A04 — Played/hosted và refresh không trộn danh sách.**
   - Làm: account có cả hai role; mở Hoạt động played → hosted → refresh từng role rồi đổi qua lại.
   - Đạt: items đúng vai trò, không đưa played vào hosted/copy lỗi của role này sang role khác; loading/error kết thúc và có retry nếu cần.
-  - Kết quả: NOT RUN — ghi chú:
+  - Kết quả: PASS — ghi chú:
 
-- [ ] **A05 — Pagination riêng từng role.**
+- [x] **A05 — Pagination riêng từng role.**
   - Điều kiện: mỗi role cần hơn một trang; thiếu role nào ghi BLOCKED role đó.
   - Làm: load more played → đổi hosted/load more → quay played → refresh played.
   - Đạt: không lặp/trộn items; hosted không mất cursor vì load played; refresh không để spinner load-more treo, lỗi không khóa retry mãi.
-  - Kết quả: NOT RUN — ghi chú:
+  - Kết quả: PASS — ghi chú: không thấy quay loading, khả năng tốc độ load rất nhanh
 
-- [ ] **A06 — Guest history giữ identity cũ, không có hosted.**
+- [x] **A06 — Guest history giữ identity cũ, không có hosted.**
   - Làm: guest P2 đã kết thúc một game thật ở nhóm B; mở Hoạt động → đóng/mở lại app, vẫn guest và không clear data.
   - Đạt: played history của guest còn theo cùng identity; không tự sinh guest mới chỉ vì mở tab; không cung cấp hosted history cho guest. Chưa có game guest thì BLOCKED fixture, không PASS danh sách rỗng.
-  - Kết quả: NOT RUN — ghi chú:
+  - Kết quả: PASS — ghi chú: nhìn thấy dữ liệu cũ khi thực hiện case A01
 
-- [ ] **A07 — History detail đúng game và đúng người xem.**
+- [x] **A07 — History detail đúng game và đúng người xem.**
   - Làm: mở detail một item played rồi một item hosted; nếu có answers được phép xem thì mở answer sheet.
   - Đạt: game/role đúng; Player chỉ thấy answer sheet của chính mình, không thấy bài Player khác; không crash ở item thiếu dữ liệu và không hiện kết quả bịa.
-  - Kết quả: NOT RUN — ghi chú:
+  - Kết quả: PASS — ghi chú:
 
 - [ ] **A08 — Review disabled không lộ đáp án qua history.**
   - Điều kiện: game đã kết thúc có **effective config** review/reveal disabled, theo B02.
   - Làm: mở history detail/answers bằng user và guest tương ứng.
   - Đạt: chặn/ẩn answer review không được phép; không giữ đáp án từ game trước. PASS này chỉ là UI/luồng history, không xác nhận API privacy đã sửa.
-  - Kết quả: NOT RUN — ghi chú:
+  - Kết quả: NOT RUN — ghi chú: cơ chế ẩn bảng xếp hạng đã hoạt động, chưa test luồng chơi chặn/ẩn answer review
 
 - [ ] **A09 — History đang tải rồi đổi phiên.**
   - Điều kiện: mạng chậm ổn định hoặc fixture khiến summary/answers còn loading đủ để thao tác; không thêm delay vào code.
   - Làm: mở detail/answers A đang loading → Back/tab Profile → logout → login B; mở Hoạt động/detail B. Lặp cho summary và answers nếu tạo được cả hai tình huống.
   - Đạt: response/error cũ không xuất hiện dưới B, không treo loading vì request của A; nếu chưa tạo được loading in-flight, NOT RUN nhánh đó. Unit tests đã có không thay thế kết quả E2E này.
-  - Kết quả: NOT RUN — summary: / answers:
+  - Kết quả: NOT RUN — summary: / answers: không tạo được điều kiện mạng
 
-- [ ] **A10 — Ảnh câu hỏi và lỗi ảnh an toàn.**
+- [x] **A10 — Ảnh câu hỏi và lỗi ảnh an toàn.**
   - Làm: xem quiz có ảnh/không ảnh ở Quiz Detail và Solo Preview; ở nhóm B kiểm lại câu ảnh trên Host/P1/P2. Với fixture ảnh hỏng có sẵn, kiểm thêm lỗi tải ảnh.
   - Đạt: nội dung/ảnh đúng câu, không giữ ảnh câu trước, không crash/che nút trả lời; ảnh hỏng có placeholder an toàn. Không có fixture ảnh hỏng thì ghi NOT RUN phần đó, không bịa URL/đáp án để test. Ảnh lựa chọn không thuộc scope v1 này.
-  - Kết quả: NOT RUN — Detail/Preview: / Host/Player: / ảnh hỏng:
+  - Kết quả: PASS — Detail/Preview: / Host/Player: / ảnh hỏng:
 
-- [ ] **A11 — Solo Preview 4 types, skip, hết giờ, chơi lại.**
+- [x] **A11 — Solo Preview 4 types, skip, hết giờ, chơi lại.**
   - Làm: ghi nhận history/play count hiện có nếu UI cung cấp → “Tự chơi thử” quiz 4 types; trả lời, skip một câu, để một câu hết giờ → tổng kết → chơi lại.
   - Đạt: state chuyển đúng, không submit hai lần, chơi lại reset lượt; điểm ghi là ước tính local, không coi là điểm trận server. Không tạo room hay thêm game history. Play count chỉ PASS nếu có số liệu before/after quan sát được; không nhìn được thì NOT RUN phần counter, không bịa kiểm chứng.
-  - Kết quả: NOT RUN — chức năng: / history: / play count:
+  - Kết quả: PASS — chức năng: PASS / history: PASS / play count: NOT RUN
 
-- [ ] **A12 — Preview owner edit và Back.**
+- [x] **A12 — Preview owner edit và Back.**
   - Làm: preview quiz mình sở hữu → vào sửa quiz; preview quiz public của người khác → thử các lối vào tương tự; Back khỏi preview.
   - Đạt: edit chỉ cho owner; không có đường editor giả cho non-owner; Back không vào lobby/gameplay và không tạo game thật.
-  - Kết quả: NOT RUN — ghi chú:
+  - Kết quả: PASS — ghi chú:
 
-- [ ] **A13 — Profile delta/save/cancel và avatar.**
+- [x] **A13 — Profile delta/save/cancel và avatar.**
   - Làm: sửa một field (ví dụ giới thiệu), giữ phone cũ → Save; sửa tiếp rồi Cancel; chọn ảnh khác → preview → Cancel, rồi chọn/confirm ảnh test.
   - Đạt: save field thay đổi được, Cancel không lưu; avatar preview chưa confirm không thay avatar chính; sau confirm thành công Profile và bottom nav nhất quán, không mất field vừa lưu. Không suy ra API delta đúng chỉ từ UI; contract test là bằng chứng riêng.
-  - Kết quả: NOT RUN — field save/cancel: / avatar preview/save:
+  - Kết quả: PASS — field save/cancel: PASS / avatar preview/save: PASS
 
-- [ ] **A14 — Đổi password local: validation, sai cũ, thành công giữ phiên.**
+- [x] **A14 — Đổi password local: validation, sai cũ, thành công giữ phiên.**
   - Điều kiện: account local disposable, biết password cũ; không ghi password vào file.
   - Làm: thử new dưới 8 ký tự/confirm sai/new trùng old → thử password cũ sai → đổi đúng → logout → login bằng password mới. Nếu kiểm password cũ không dùng được, chỉ thử một lần để tránh rate limit.
   - Đạt: invalid không submit thành công; sai cũ báo dễ hiểu và còn phiên; đổi đúng xóa input, giữ login; password mới dùng được. Rời màn/recreate không phục hồi ô password. Không tuyên bố logout mọi thiết bị vì contract không làm vậy.
-  - Kết quả: NOT RUN — ghi chú:
+  - Kết quả: PASS — ghi chú:
 
-- [ ] **A15 — Google-only và local liên kết Google không bị nhầm provider.**
+- [x] **A15 — Google-only và local liên kết Google không bị nhầm provider.**
   - Làm: mở Account Security với Google-only; nếu có fixture local đã link Google thì mở lại bằng account đó.
   - Đạt: Google-only giải thích không hỗ trợ mutation cần password; local-linked vẫn có chức năng local. Không có fixture linked thì BLOCKED nhánh đó. Đây là provider UI test, không mở lại stress race Google relogin đang DEFERRED.
-  - Kết quả: NOT RUN — Google-only: / local-linked:
+  - Kết quả: PASS — Google-only: PASS / local-linked: NOT RUN - CHƯA HIỂU RÕ LUỒNG TEST, LOCAL-LINKED LÀ GÌ?
 
 - [ ] **A16 — Deactivate: hủy/sai password, rồi success cleanup.**
   - Điều kiện bắt buộc: account **disposable**, user đồng ý thật sự vô hiệu hóa; nếu không, BLOCKED, không dùng account chính.
   - Làm: mở confirmation rồi hủy; thử sai password; cuối cùng xác nhận đúng trên account disposable → Back/tab/mở lại app → thử login account đã deactivate.
   - Đạt: hủy không vô hiệu hóa, sai password không logout; sau success về guest/Home, không restore dữ liệu account cũ; backend chặn account đã deactivate. Đây là soft deactivate, không kiểm việc xóa toàn bộ DB.
-  - Kết quả: NOT RUN — ghi chú:
+  - Kết quả: NOT RUN — ghi chú: BỎ KHÔNG TEST, KHÔNG MUỐN VÔ HIỆU HÓA TÀI KHOẢN
+
+NOTE: PHÁT HIỆN CASE BIÊN CỦA A03, NẾU VÀO APP KHI KHÔNG CÓ MẠNG NGAY TỪ ĐẦU, CHỈ 2 TAB HOME VÀ THƯ VIỆN CÓ CƠ CHẾ RETRY, TAB HOẠT ĐỘNG VÀ HỒ SƠ SẼ TREO LOADING VĨNH VIỄN CHO ĐẾN LẦN KHỞI ĐỘNG APP CÓ KHI CÓ MẠNG TIẾP THEO
 
 ## 5. Nhóm B — một ván Classic với H + P1 user + P2 guest
 
@@ -155,38 +157,38 @@ Dùng fixture 4 types. Để dễ quan sát: ở câu 1 P1 trả lời trước,
 - [ ] **B01 — Join → lobby → 4 types → final.**
   - Làm: H tạo Classic; P1 user join; P2 guest nhập nickname/join; kiểm roster rồi Start. Chơi đủ bốn câu; bấm gửi nhanh hai lần ở một câu.
   - Đạt: mỗi Player một entry, không nhân đôi; cả hai vào game; H progress phản ánh Player trả lời/đang active, ghi riêng số đếm bất thường như 0/0 khi đủ hai Player (không tự coi là đúng); P1/P2 gửi được 4 types và input khóa sau submit; chỉ hiện đúng/sai khi Results, không lộ ngay từ ACK host-paced; final đúng một lần, Back không trở lại gameplay đã kết thúc. Guest/user đều có history sau trận, dùng A06/A07 kiểm tiếp.
-  - Kết quả: NOT RUN — lobby: / 4 types: / submit: / final & Back:
+  - Kết quả: ? — lobby: PASS / 4 types: PASS / submit: ? - PLAYER RIÊNG LẺ TRẢ LỜI KHÔNG CẬP NHẬT RANK TRONG HOST, CHỈ CẬP NHẬT KHI TẤT CẢ ĐÃ TRẢ LỜI / final & Back: PASS
 
-- [ ] **B02 — Reveal OFF + Review OFF (effective config).**
+- [x] **B02 — Reveal OFF + Review OFF (effective config).**
   - Làm: tạo phòng ngắn khác, tắt review và reveal → lưu/đọc lại config cuối; chơi câu, xem Results, Final và history/review.
   - Đạt: Player không thấy answer key/distribution làm lộ đáp án hoặc stale reveal từ game trước; review bị chặn đúng. Nếu config cuối vẫn reveal ON thì chưa đủ điều kiện test này; ghi actual config và NOT RUN phần reveal-off, không tick “hoạt động ổn” mơ hồ.
-  - Kết quả: NOT RUN — effective config: / thực tế:
+  - Kết quả: PASS — effective config: / thực tế: chưa rõ lắm reveal, tôi hiểu là tiết lộ đáp án hoặc xem lại câu hỏi với đáp án đúng
 
-- [ ] **B03 — Leaderboard between_questions / end_only / never.**
+- [x] **B03 — Leaderboard between_questions / end_only / never.**
   - Làm: ba phòng ngắn, mỗi phòng một config đã lưu; lần lượt quan sát khi trả lời, Results, câu mới và Final. Nếu thiếu thời gian, ghi kết quả từng cấu hình riêng.
   - Đạt: between_questions chỉ hiện live board trong Results; end_only không hiện rank/score/board live nhưng Final theo config; never không hiện leaderboard Player qua cả live/Final, không giữ bảng phòng trước. Host board phục vụ điều phối là quyền khác, không dùng Host thấy bảng để kết luận Player leak.
-  - Kết quả: NOT RUN — between_questions: / end_only: / never:
+  - Kết quả: PASS — between_questions: PASS / end_only: PASS / never: PASS
   - Ghi nhớ: UI PASS không đóng POLICY-RESULT/BUG-16; API public vẫn là backend gate theo audit đã ghi.
 
-- [ ] **B04 — Pause/resume: một Player đã submit, một Player chưa.**
+- [x] **B04 — Pause/resume: một Player đã submit, một Player chưa.**
   - Làm: P1 submit xong, P2 chưa submit → H pause → P2 thử chọn/gửi → H resume khi câu còn active → P2 trả lời.
   - Đạt: pause khóa cả hai; resume P1 vẫn khóa, không gửi lại; P2 chỉ mở input nếu phase còn cho phép. Deadline theo server sau resume. “Câu còn active” không đủ để mở lại P1 đã submit.
-  - Kết quả: NOT RUN — ghi chú:
+  - Kết quả: PASS — ghi chú:
 
-- [ ] **B05 — Timer và manual-next: không suy diễn từ một nhịp hiển thị.**
+- [x] **B05 — Timer và manual-next: không suy diễn từ một nhịp hiển thị.**
   - Làm: quan sát một câu tới hết giờ; ở phòng ngắn riêng thử autoAdvance=true rồi false; thao tác next chỉ khi nút được phép.
   - Đạt: hết giờ input khóa; phase chuyển theo server; autoAdvance=true không có thao tác next thủ công trái config; manual-next không double-transition. Có countdown sau chốt/next có thể là phase server hợp lệ, không mặc định là bug. Chênh 1 giây nhìn rời rạc chưa đủ FAIL; nếu lệch kéo dài/cho gửi sau khóa, ghi thời điểm và video nếu tiện để diagnose offset.
-  - Kết quả: NOT RUN — timer: / auto: / manual:
+  - Kết quả: PASS — timer: PASS / auto: PASS / manual: PASS
 
-- [ ] **B06 — Final Result nhất quán và xem Review khi được phép.**
+- [x] **B06 — Final Result nhất quán và xem Review khi được phép.**
   - Làm: sau B01, so P1/P2 theo alias/điểm/rank với bảng tổng kết mà H thực sự có; dấu “Bạn” chấp nhận thay highlight màu. Mở Review của P1 và P2 ở game review enabled.
   - Đạt: dữ liệu cùng game, không trộn Player; bài làm là của chính viewer; đáp án đúng theo effective config. Không đòi Host có màn Final riêng nếu UI chỉ có board/tổng kết hiện hữu. Không tự tính điểm local thay kết quả server.
-  - Kết quả: NOT RUN — final: / Review:
+  - Kết quả: PASS — final: PASS / Review: PASS
 
-- [ ] **B07 — Background/foreground không mất phiên gameplay.**
+- [x] **B07 — Background/foreground không mất phiên gameplay.**
   - Làm: khi câu active, đưa P1 xuống nền rồi mở lại; P2 ở foreground. Quan sát P1 trước, sau đó H.
   - Đạt: P1 không reset về lobby hoặc treo Connecting; timer theo deadline hiện tại; nếu đã submit thì input vẫn khóa. Roster/presence và chuyển câu sau reconnect còn kiểm riêng C01, không suy ra tất cả đúng chỉ vì màn P1 hiện câu.
-  - Kết quả: NOT RUN — ghi chú:
+  - Kết quả: PASS — ghi chú:
 
 ## 6. Nhóm C — chỉ chạy khi có điều kiện; chưa trigger thì KHÔNG tick
 
@@ -196,7 +198,7 @@ Không cần chặn cả lượt A/B chỉ vì nhóm này chưa chạy. Nhưng c
   - Điều kiện: có xác nhận backend presence fix/deployment revision để chốt retest. Chưa có thì BLOCKED theo hồ sơ; nếu chỉ smoke hiện trạng, ghi rõ không phải retest đóng gate.
   - Làm: trong câu còn đủ thời gian, P1 chưa trả lời → tắt/bật mạng → đợi đồng bộ; H phải thấy P1 trở lại active. Cho P2 submit khi P1 vẫn chưa submit; quan sát không chuyển câu sớm chỉ do thiếu P1. Chạy lại với P1 đã submit trước mất mạng; lặp 5–10 lần nếu đủ điều kiện retest.
   - Đạt: câu/snapshot phục hồi; H roster/progress không thiếu P1 đang online; không auto-advance sớm; input đã submit không mở lại; kết quả không cộng điểm lần hai. Ghi số vòng đã chạy, không gọi một vòng xanh là pass race.
-  - Kết quả: NOT RUN — backend revision: / số vòng: / trước submit: / sau submit:
+  - Kết quả: BLOCKED — backend revision: / số vòng: / trước submit: / sau submit:
 
 - [ ] **C02 — ACK uncertainty, tách hai nhánh server đã ghi/chưa ghi.**
   - Điều kiện: cần nhìn thấy trạng thái đang xác nhận hoặc có fixture/hỗ trợ kỹ thuật thật sự tạo ACK mất/timeout. “Bấm gửi rồi tắt mạng” chỉ là thử trigger, không chứng minh ACK đã mất; máy yếu thao tác không kịp thì NOT RUN.
@@ -208,12 +210,12 @@ Không cần chặn cả lượt A/B chỉ vì nhóm này chưa chạy. Nhưng c
   - Điều kiện: phải thật sự thấy UI hết retry/có nút Kết nối lại; chỉ tắt mạng vài giây chưa đủ kiểm exhaustion. Giữ phòng live, không dùng token hết hạn/room đã end làm fixture mạng.
   - Làm: đưa một màn H/P1 lobby hoặc H gameplay vào mất kết nối; khi có terminal retry UI, bật lại mạng có Internet usable. Nếu đã tự kết nối thì ghi nhánh auto; thử manual Retry trong vòng riêng khi tự hồi phục không xảy ra và backend/mạng đã sẵn sàng.
   - Đạt: không spinner vô hạn; giữ snapshot phù hợp; có khả năng phục hồi, không nhân đôi roster/listener/answer. Không FAIL auto chỉ vì user bấm Retry quá sớm; không PASS manual nếu chưa bấm được trong trạng thái hợp lệ.
-  - Kết quả: NOT RUN — màn đã kiểm: / exhaustion: / auto: / manual:
+  - Kết quả: PASS — màn đã kiểm: H/P1 / exhaustion: PASS / auto: PASS / manual: PASS
 
-- [ ] **C04 — Host reconnect: answer key khác answer progress.**
+- [x] **C04 — Host reconnect: answer key khác answer progress.**
   - Làm: H đã mở “Xem đáp án”, mất/bật mạng trong câu; sau đồng bộ kiểm key/progress, sang câu mới.
   - Đạt: không bịa answer key khi cache bị mất và snapshot không cung cấp key; có thể dùng key hợp lệ vẫn còn cache. Key = đáp án chuẩn của quiz, KHÔNG phải replay event Player đã trả lời; không đánh FAIL vì hai thứ bị nhầm. Sang câu mới mặc định ẩn key; presence/progress stale phụ thuộc backend được ghi riêng C01.
-  - Kết quả: NOT RUN — ghi chú:
+  - Kết quả: PASS — ghi chú:
 
 - [ ] **C05 — Fatal/server disconnect, không dùng End game giả trigger.**
   - Điều kiện: backend/test harness có thể phát server disconnect/fatal xác định được trên môi trường test, hoặc lỗi tự xuất hiện và có bằng chứng an toàn. Không sửa token/DB của user, không gây lỗi production để săn case.
@@ -221,11 +223,12 @@ Không cần chặn cả lượt A/B chỉ vì nhóm này chưa chạy. Nhưng c
   - Đạt: xử lý đúng loại lỗi, không reconnect vô hạn; Host renewal nếu áp dụng phải bounded. Không có trigger thì NOT RUN/BLOCKED, không tick chỉ vì End game chạy được. Case Host token hết hạn cần fixture riêng, không yêu cầu tự săn thủ công.
   - Kết quả: NOT RUN — trigger/code đã xác nhận: / vai trò: / thực tế:
 
-- [ ] **C06 — Process death tại Final Result (N35), không phải xoay màn.**
+- [x] **C06 — Process death tại Final Result (N35), không phải xoay màn.**
   - Điều kiện: đã kết thúc game, còn task Final Result trong Recents và backend result fixture đọc được. Có thể cần adb hỗ trợ; không force-stop/clear data.
   - Làm: đưa app nền → nếu dùng adb, `adb shell am kill android.kma.myquizzapp` → mở lại task từ Recents. Xác nhận process đã tạo lại; không lấy rotate/Don't keep activities thay cho bước này. Chưa xác nhận process death thì NOT RUN.
   - Đạt: mất transient result thì REST recovery load kết quả, có loading/error/retry rõ, không bịa rank/score. Có result sẵn qua socket thì không đòi GET thừa. Review socket token transient đã mất có thể báo credential không còn; đó không phải lỗi recovery tổng kết hay lý do logout tài khoản.
-  - Kết quả: NOT RUN — process death được xác nhận bằng: / result recovery: / Review:
+  - Kết quả: PASS — process death được xác nhận bằng: ADB / result recovery: PASS / Review: NOT RUN
+  NOTE: CASE NÀY ĐÃ TEST TRƯỚC NÊN TICK PASS, KHÔNG PHẢI TEST TẠI THỜI ĐIỂM ĐÁNH PASS
 
 - [ ] **C07 — Mutation kết quả không chắc chắn/cleanup retry.**
   - Điều kiện: môi trường test + fixture timeout sau server write hoặc lỗi cleanup được kiểm soát; không chỉ tắt mạng trước request rồi gọi đó là unknown outcome. Account disposable nếu liên quan deactivate.
@@ -239,13 +242,13 @@ Dùng config thật của từng mode, có thể chạy từng phòng ngắn; th
 
 - [ ] **D01 — Practice:** create/join → chơi → pause/resume nếu control được mode cho phép → end/result/review. Không đòi tất cả Player có cùng index.
   - Đạt: luồng bình thường không crash/lối vào chết; pause/resume riêng Player chỉ PASS nếu snapshot backend đúng. Theo hồ sơ N29, phần này vẫn backend-blocked nếu chưa có fix/deployment xác minh.
-  - Kết quả: NOT RUN — happy path: / pause-resume:
-- [ ] **D02 — Solo:** feedback riêng từng Player, manual next nếu effective config autoAdvance=false; double tap không nhảy hai câu.
+  - Kết quả: BLOCKED - CHƯA FIX, TEST LẠI VỚI PAUSE/RESUME GẶP LỖI CŨ BỊ NHẢY VỀ CÂU ĐẦU — happy path: / pause-resume:
+- [x] **D02 — Solo:** feedback riêng từng Player, manual next nếu effective config autoAdvance=false; double tap không nhảy hai câu.
   - Đạt: tiến độ theo Player, người xong trước không ép người còn lại xong; final/history đúng sau game end. Không nhầm mode Solo có room với Solo Preview local ở A11.
-  - Kết quả: NOT RUN — ghi chú:
-- [ ] **D03 — Survival:** trả lời để mất life/hết life; quan sát Player elimination và Host dashboard riêng.
+  - Kết quả: PASS — ghi chú:
+- [x] **D03 — Survival:** trả lời để mất life/hết life; quan sát Player elimination và Host dashboard riêng.
   - Đạt: Player terminal/input đúng; Host live lives/streak/elimination chỉ chốt khi backend event đủ. Happy path Player PASS không đổi Host delta/presence blocker N28.5 thành PASS.
-  - Kết quả: NOT RUN — Player: / Host delta:
+  - Kết quả: PASS - BLOCKER VẪN CÒN, HAPPY PATH CHẠY ỔN TRÊN LUỒNG TỔNG THỂ KHÔNG TÍNH LIVE/STREAK — Player: PASS / Host delta: BLOCKED
 - [ ] **D04 — Marathon:** timer trận + timer câu, timeout/finish và kết thúc; nếu có fixture nhiều vòng question bank thì kiểm thêm rollover.
   - Đạt: timer không bị nhầm; Player/Host terminal đúng dữ liệu server. Sync/shuffle/order/rollover chưa có fix thì ghi BLOCKED nhánh tương ứng, không giảm kỳ vọng để pass. Thiếu fixture rollover thì NOT RUN phần đó.
   - Kết quả: NOT RUN — happy path: / timeout/Host: / rollover:
@@ -271,17 +274,33 @@ Dùng config thật của từng mode, có thể chạy từng phòng ngắn; th
 Không cần đếm mọi case nếu chưa xong; chỉ liệt kê ID. Không lấy kết quả N25 cũ hay unit XML làm tick của lượt này.
 
 - Run ID / source SHA:
-- Nhóm đã chạy A/B/C/D:
-- PASS IDs:
-- FAIL IDs + mô tả ngắn:
-- BLOCKED IDs + thiếu điều kiện gì:
-- NOT RUN IDs + chưa chạy hay chưa tái hiện trigger:
-- DEFERRED: N44-GOOGLE-SESSION / N44-COOKIE (trừ khi user đổi quyết định):
-- Ảnh/video/log đã redact nếu có:
-- Việc cần agent/backend hỗ trợ:
-- Kết luận lượt này: PARTIAL / có FAIL / BLOCKED / đã chạy hết phạm vi được duyệt:
+- Nhóm đã chạy A/B/C/D: ĐÃ QUÉT QUA HẾT CÁC CASE
+- PASS IDs: AI TỰ TỔNG HỢP
+- FAIL IDs + mô tả ngắn: AI TỰ TỔNG HỢP
+- BLOCKED IDs + thiếu điều kiện gì: AI TỰ TỔNG HỢP
+- NOT RUN IDs + chưa chạy hay chưa tái hiện trigger: AI TỰ TỔNG HỢP
+- DEFERRED: N44-GOOGLE-SESSION / N44-COOKIE (trừ khi user đổi quyết định): DEFFERRED
+- Ảnh/video/log đã redact nếu có: KHÔNG CÓ
+- Việc cần agent/backend hỗ trợ: TỔNG HỢP LẠI VÀ BÁO CÁO
+- Kết luận lượt này: PARTIAL / có FAIL / BLOCKED / đã chạy hết phạm vi được duyệt: ĐÃ QUÉT HẾT CẢ FILE TEST, KẾT QUẢ AI TỰ TỔNG HỢP
 
 **Gate N45/M6:** cần kết quả luồng chính N38–N43, build/lint/regression, matrix đủ evidence và xử lý/quyết định release rõ cho mọi blocker/rủi ro. “Không tái hiện”, “không có crash trong một ván” hoặc chỉ UI hide không phải bằng chứng đóng race/privacy gate. Checklist không tự quyết định Go/No-Go.
+
+## Agent review sau lượt user test
+
+Xem `N44_E2E_REPORT.md` cho matrix phân loại và backlog. Giữ nguyên toàn bộ tick/ghi chú gốc ở trên; PASS một nhánh không được hiểu là PASS toàn case.
+
+- Run user ghi: 08/10/2026 22:00; Android APK SHA chưa rõ, backend deployment UNKNOWN; 2 Android máy thật + guest web.
+- PASS theo nội dung user ghi: A01–A05, A07, A12–A14, B03–B07, C03–C04, D02. A03 chỉ warm-session offline; A05 có giới hạn evidence pagination.
+- PARTIAL: A06 (chưa ghi restart), A10 (chưa rõ nhánh ảnh/bề mặt), A11 (counter chưa chạy), A15 (linked chưa chạy), D03 (Player PASS, Host BLOCKED).
+- Cần làm rõ/evidence: B01 progress khác rank; B02 effective config/reveal/review, không thay A08.
+- BLOCKED: C01; D01 pause/resume còn quan sát lỗi nhảy về câu đầu (gate N29).
+- NOT RUN: A08, A09, C02, C05, C07, D04.
+- Chủ động không chạy: A16 deactivate theo lựa chọn user (DEFERRED); không yêu cầu vô hiệu hóa account chính.
+- Evidence lịch sử: C06 result recovery đã test trước bằng ADB, Review chưa chạy; không tính là retest lượt mới.
+- Lỗi mới ngoài case warm-session: N44-OFFLINE-BOOT — mở app offline từ đầu, Hoạt động/Hồ sơ treo loading, theo user chỉ hồi phục khi khởi động lại có mạng.
+- Google/cookie race vẫn DEFERRED; privacy/session/realtime/backend gates chưa đóng.
+- Quyết định user: lưu báo cáo N44 và chuyển nghiên cứu UI N46; chưa chốt N45/M6 hoặc release.
 
 ## 10. Nguồn và kinh nghiệm đã dùng để viết
 

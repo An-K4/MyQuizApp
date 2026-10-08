@@ -2,7 +2,7 @@
 
 ## Trạng thái
 
-**WIP — chưa chốt N44, chưa feature freeze N45.** Source chặng 1–2 đã commit `3ea792a`; 16 regression test bổ sung đã đối chiếu XML PASS. Hai cookie-race diagnostic đã FAIL đúng assertion, chưa sửa production. User yêu cầu gác tạm bug Google/session và transport race sau vòng runtime không tái hiện. Đã gỡ instrumentation DEBUG, giữ reproducibility tests opt-in; không coi lỗi là đã sửa hoặc gate đã PASS.
+**PARTIAL — đã có báo cáo manual E2E, backlog/gates chưa đóng.** N44 đã có báo cáo manual E2E PARTIAL cho lượt user ghi 08/10/2026 22:00; xem `N44_E2E_REPORT.md`. Lỗi mới N44-OFFLINE-BOOT: cold-start offline làm Hoạt động/Hồ sơ treo loading; Practice pause/resume vẫn nhảy về câu đầu. Một số case PARTIAL/NOT RUN/BLOCKED hoặc dùng evidence lịch sử; APK SHA/backend deployment/full CI chưa xác nhận. Theo quyết định user, lưu backlog và chuyển sang nghiên cứu giao diện N46; đây là ngoại lệ thứ tự research, không chốt N45/M6, không miễn trừ release blockers. Google/cookie race vẫn DEFERRED, chưa fix; 16 regression N44 và 25 test N43 XML PASS là evidence trước đó.
 
 - Android source đã commit: `3ea792acda25d5ebf4a7ec2ea23aceb60e7326a9` trên main (`fix: isolate history by session and reset navigation on logout`). Baseline N43: `ab6621bccdd4c6f452cdadacf30ba2ecf1e837a2`. Ghi chú audit/diagnostic cập nhật sau commit; chưa có transport fix.
 - Backend source audit: `7c103c87b4c78d817e8a7acf50fd0424edd16c79`; chưa xác nhận deployment revision.
@@ -148,7 +148,9 @@ Backend gate được xác nhận từ source main, chưa xác nhận trên depl
 - Theo user: gác tạm điều tra/fix. Đã gỡ toàn bộ N44Session log, marker/request tag, network logger và 3 test riêng của logger; giữ SafeHttpLogger có sẵn, history isolation/navigation fix và 2 race test opt-in. Source app/core đã trở lại nội dung commit source 3ea792a theo git diff trước khi checkout docs; chưa chạy lại Gradle trong lượt merge.
 - Quy ước nhánh: main chỉ source/config/test; toàn bộ tài liệu dự án ở docs. Handoff đã được merge vào docs bằng cập nhật targeted; không tạo Markdown trên main và không overwrite AGENTS canonical bằng snapshot cũ.
 
-## Chặng kế tiếp — N44 chặng 4: E2E/matrix và evidence
+## Kế hoạch chặng 4 trước lượt manual — giữ tham chiếu, trạng thái mới ở báo cáo
+
+Lượt manual đã được tổng hợp trong `N44_E2E_REPORT.md`; kế hoạch dưới đây không có nghĩa mọi bước đã thực hiện. Theo user, chuyển sang research UI N46, giữ thiếu evidence/blocker mở.
 
 **Checklist người test điền:** `N44_E2E_INTEGRATION_CHECKLIST.md` trên docs. Kế thừa kịch bản Classic N25 nhưng mọi kết quả lượt mới để trống; tách UI test một máy, Classic nhiều client, case cần hỗ trợ và backend/deferred gates. Không copy dấu tick lịch sử từ N25.
 
@@ -158,7 +160,7 @@ Backend gate được xác nhận từ source main, chưa xác nhận trên depl
 4. Host + Player user + guest chạy create/join/lobby/Classic/end/result/review/history. Self-paced/reconnect/pause/resume ghi rõ case Android chạy được vs backend-blocked; retest blocker chỉ khi có fix/deployment revision xác minh.
 5. Cập nhật matrix PASS/FAIL/BLOCKED/NOT RUN + bằng chứng và bug ledger theo severity. N44-GOOGLE-SESSION/N44-COOKIE vẫn DEFERRED/chưa fix; tạm hoãn không miễn trừ release gate. N45 feature freeze/M6 chỉ sau đánh giá blocker/quyết định release rõ ràng.
 
-Không thêm feature phase 2, không workaround backend và không chuyển sang polish N46 trước feature gate. Luôn giữ ViewModel → Use case → Repository.
+Không thêm feature phase 2 hoặc workaround backend. Quyết định mới của user cho phép nghiên cứu UI N46 trước khi gate đóng; không coi research là release approval hoặc duyệt code toàn bộ polish. Luôn giữ ViewModel → Use case → Repository.
 
 ## Test nhanh ưu tiên
 
@@ -168,4 +170,4 @@ Không thêm feature phase 2, không workaround backend và không chuyển sang
 4. Profile edit/save và avatar preview/confirm/verify chạy như N42; security change password giữ phiên; chỉ dùng account disposable để test deactivate.
 5. Host + Player user + guest chạy Classic xuyên suốt. Các mode/reconnect có blocker phải ghi timeline, không tự kết luận PASS từ happy path.
 
-**N44 chỉ được chốt khi có test evidence mới và quyết định rõ cho các blocker; không tự chuyển sang N45/N46.**
+**N44 chỉ được chốt khi evidence/blocker có quyết định rõ. User đã yêu cầu chuyển sang research N46; N45/M6 và release vẫn chưa chốt. Xem `N44_E2E_REPORT.md`.**
