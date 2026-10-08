@@ -1,7 +1,7 @@
 > Đối chiếu với backend thực tế tại `github.com/Ntd1411/myquizz` (Express + TypeScript + [Socket.IO](http://Socket.IO) + PostgreSQL + Redis).
 > Đây là bản viết lại của design doc v1.0, sửa toàn bộ phần hợp đồng API/Socket cho khớp với code backend thật (không còn là template quiz-app chung chung).
 > Cập nhật 27/9/2026 sau N28.5: Player self-paced đã hỗ trợ Solo manual-next, Survival lives/elimination và Marathon timer tổng/timeout/finish; Host Console đã có dashboard riêng cho Classic lẫn self-paced. Phần Android N28.5 hoàn tất theo contract hiện có, nhưng lives/streak, timeout và presence của Host còn chờ backend bổ sung event/payload. M4 vẫn chưa chốt vì backend còn presence race và các lỗi snapshot/Marathon đã ghi trong kế hoạch.
-> N43 đã hoàn thành phần Android ở commit `ab6621b` (`feat: add account security and session hardening`); user xác nhận kiểm thử nhanh ổn. Đã bổ sung 25 test case, nhưng agent chưa có log build/unit test/CI để xác nhận xanh. Bước tiếp theo là N44 — audit integration, lập checklist E2E và xác minh lại backend blockers; chưa chốt M6/N45.
+> N44 đang WIP ở source commit `3ea792a`: history/session isolation và logout reset graph đã triển khai, 16 regression test bổ sung có XML local PASS; N43 có XML PASS cho 25 test bổ sung. Google relogin guest chưa tái hiện trong capture mới (5/5 login success); user yêu cầu tạm hoãn điều tra/fix Google và hai cookie race đã tái hiện bằng diagnostic. Đã gỡ N44Session instrumentation; không gọi đây là fixed. Chặng tiếp theo là N44 chặng 4 — E2E/matrix + bằng chứng build/CI/backend, chưa chốt N45/M6.
 **Kotlin • Jetpack Compose • MVI + Clean Architecture • **[**Socket.IO**](http://Socket.IO)** • Retrofit + Cookie Auth**
 ---
 ## Mục lục
@@ -1757,7 +1757,7 @@ Avatar và logo vẽ bằng `Image` chứ không `Icon`, vì `Icon` nhuộm nộ
 
 ### 11.17. Cập nhật N43 — Bảo mật tài khoản
 
-- Commit Android `ab6621bccdd4c6f452cdadacf30ba2ecf1e837a2` — `feat: add account security and session hardening`. User xác nhận kiểm thử nhanh ổn; 25 test case đã được bổ sung. Không ghi "build/unit test/CI pass" khi agent chưa đọc log; đây là gate bằng chứng đầu tiên của N44.
+- Commit Android `ab6621bccdd4c6f452cdadacf30ba2ecf1e837a2` — `feat: add account security and session hardening`. User kiểm thử nhanh ổn; 25 test bổ sung N43 đã đối chiếu XML local PASS. Chưa thay thế full build/lint/CI/E2E evidence.
 - Đã audit backend user routes → schema → controller → service/repository và auth middleware/session, cùng Android Profile/session/cookie/navigation trước khi lập kế hoạch. Backend audit baseline `7c103c87b4c78d817e8a7acf50fd0424edd16c79`; cần audit lại revision đang dùng khi retest N44, không coi đây là bằng chứng deployment hiện tại.
 - `PATCH /v1/users/me/password` nhận camelCase `oldPassword/newPassword`, tối thiểu 8 ký tự, new khác old; không trim password. Đổi thành công xóa input, snackbar và giữ phiên hiện tại; backend không revoke mọi session/clear cookie cho thao tác này. Không nhầm với luồng quên mật khẩu.
 - `DELETE /v1/users/me` gửi JSON body `{password}` qua Retrofit `@HTTP(hasBody=true)`; đây là vô hiệu hóa/soft delete, không phải xóa toàn bộ dữ liệu hoặc có cơ chế tự khôi phục. Cần password + dialog xác nhận; sau server-confirmed success dọn cookie/session có guard và reset MainGraph/Home, gồm saved back stacks các tab.
@@ -1765,10 +1765,17 @@ Avatar và logo vẽ bằng `Image` chứ không `Icon`, vì `Icon` nhuộm nộ
 - `AccountSecurityViewModel` chỉ inject `ObserveSecurityAccountUseCase`, `ChangePasswordUseCase`, `DeactivateAccountUseCase`; không gọi Repository trực tiếp. Use case/validation ở `app/domain/security`, interface ở `core:common`, API/DTO/impl ở `core:network`; Screen/Content, UiState/Intent/Effect tách riêng. Không thêm Gradle module hay dependency feature → feature.
 - Mutation tái sử dụng PreserveCase + retry disabled; kết quả mạng/5xx không chắc chắn không tự replay. Cleanup retry chỉ dọn local, không DELETE lại. Password chỉ giữ RAM, không SavedStateHandle/route/Room/DataStore; DTO/state/intent `toString()` redact.
 - `SafeHttpLogger` chỉ log method/path/status ở debug, không body/header/query/credential; refresh lỗi tạm thời giữ cookie và trả lỗi transport, terminal mới clear cookie. Generation/revision guard chống response cũ ảnh hưởng phiên login đã publish; vẫn cần E2E/concurrency, không coi static review chứng minh mọi transport race đã hết.
-- 25 test case: Use case (10), ViewModel (5), contract API (4), refresh (3), safe logging (1), session cleanup (2). Agent không chạy được Gradle qua MCP; chưa xác minh log của các test này. Báo cáo `N43_IMPLEMENTATION.md` trên main là snapshot trước lần user xác nhận, tài liệu roadmap/docs hiện tại ghi nhận trạng thái mới hơn.
+- 25 test case: Use case (10), ViewModel (5), contract API (4), refresh (3), safe logging (1), session cleanup (2). Đã đối chiếu XML local PASS cho 25 test bổ sung N43 (23 test trong các suite security và 2 retirement cases trong SessionRepository suite); đây là kết quả user chạy, không phải agent tự chạy. Chưa có full assemble/lint/CI/E2E evidence. `N43_IMPLEMENTATION.md` hiện thuộc nhánh docs, không giữ bản handoff trên main.
 - Bài học N43: user nhấn mạnh ViewModel → Use case → Repository không có đường tắt, kể cả quan sát session/capture token. Không mở rộng refactor các ViewModel lịch sử nếu chưa audit/report scope. Giữ nguyên hồ sơ backend blockers và chưa chốt M4/M5/M6.
 
-**Tiếp theo N44:** audit source Android/backend và bằng chứng build/test trước khi chốt checklist integration. Kiểm thử liên thông N38–N43, navigation/session/visibility và retest blocker có backend fix thật; báo PASS/FAIL/BLOCKED/NOT RUN. N44 không phải thêm feature/polish và không tự chốt M6/N45.
+### 11.18. Cập nhật N44 — Integration/session isolation (WIP)
+
+- Source Android `3ea792acda25d5ebf4a7ec2ea23aceb60e7326a9`: snapshot state + generation nhất quán; Activity/History Detail reset/cancel theo identity, response cũ không publish; Profile observe/capture qua Use case. Relogin cùng user là lifetime mới, profile delta không tự đổi identity.
+- Logout thường và Account Security session-end dùng chung reset MainGraph, xóa saved stacks Home/MyQuizzes/Activity/Profile, không restore UI account cũ. Navigation không gọi Repository/API.
+- 16 regression bổ sung đã có XML local PASS: Activity +5, GameHistoryIdentity 9, SessionRepository +2. Các suite cũ đã đọc cũng PASS; chưa đủ chứng minh full assemble/lint/CI hoặc E2E.
+- Hai cookie-race invariants đã tái hiện FAIL: terminal refresh cũ xóa cookie mới; Set-Cookie muộn phục hồi store sau logout. State revision guard không bảo vệ side effect cookie. Google guest user từng gặp nhưng capture mới 5/5 login thành công, chưa tái hiện; user tạm hoãn điều tra/fix, chưa có production transport fix.
+- N44Session instrumentation đã gỡ; giữ logger hiện hữu và hai reproducer opt-in. Không workaround bằng delay/forced state/UI từng tab. Backend baseline audit `7c103c87b4c78d817e8a7acf50fd0424edd16c79`, chưa xác nhận deployment/fix mới trong lượt merge.
+- **Tiếp theo: N44 chặng 4**, E2E/matrix + build/CI evidence và retest blocker nếu backend đã sửa/deploy. Giữ các gate N20.6/N25/N28.5/N29/N30, privacy POLICY-RESULT và rủi ro session; N45/M6 chưa chốt. Chi tiết trong `N44_INTEGRATION.md` trên docs, không thêm feature/polish N46 lúc này.
 
 ## 12. Dependency Injection — Hilt Modules
 <table header-row="true">

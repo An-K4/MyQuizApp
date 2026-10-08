@@ -2,7 +2,7 @@
 
 > **Tài liệu cấu trúc dự án chi tiết**  
 > Mô tả vai trò, trách nhiệm và mối quan hệ giữa các module trong kiến trúc Multi-module Gradle  
-> **Version:** 2.20 | **Last Updated:** Sau N43 (commit Android `ab6621b`)
+> **Version:** 2.21 | **Last Updated:** N44 WIP (source Android `3ea792a`)
 
 ---
 
@@ -160,7 +160,16 @@ dependencies {
 - `app/navigation`: `Route.AccountSecurity`, callback từ Profile và reset MainGraph/Home + dọn saved tab stacks khi session kết thúc. Không đặt mutation/cleanup nghiệp vụ trong NavGraph.
 - `core:common`: mở rộng `UserRepository` cho password/deactivation và `SessionRepository.clearSession(token)` cho cleanup guarded.
 - `core:network`: mở rộng `UserMutationApiService`/`UserProfileDtos`/`UserRepositoryImpl` (PreserveCase; DELETE có JSON body; mutation retry disabled); `SessionRepositoryImpl` dọn cookie và Guest dưới generation guard; `TokenAuthenticator` phân terminal/transient; `di/SafeHttpLogger` không ghi body/header/query/credential.
-- 25 regression test case mới, gồm app Use case/ViewModel và network contract/refresh/logger/session cleanup; test Profile fake được cập nhật theo interface. User kiểm thử nhanh ổn; chưa có log build/unit test/CI được agent xác minh.
+- 25 regression test bổ sung N43 đã đối chiếu XML local PASS; user kiểm thử nhanh ổn. Không suy ra full build/lint/CI từ unit XML.
+
+#### N44 — session isolation và navigation cleanup (không thêm module)
+- `core:common/model/SessionSnapshot.kt`: `SessionSnapshot`/`SessionIdentity`; `SessionRepository.snapshot()` đọc state + lifetime generation, implementation production đọc atomically dưới state lock ở core:network.
+- `app/domain/activity/ObserveActivitySessionUseCase`, `app/domain/profile/ObserveProfileSessionUseCase` và `feature:leaderboard` domain `ObserveHistorySessionUseCase`: quan sát/current snapshot/guard theo phạm vi; ViewModel không inject/gọi Repository trực tiếp.
+- Activity/History Detail: job cancellation, identity/epoch và request-id guards; reset ngay khi đổi lifetime, không để in-flight request cũ chặn phiên mới. Profile giữ mutation use cases hiện hữu.
+- `app/navigation/SessionNavigation.kt`: helper reset MainGraph + clear saved tab stacks, dùng cho logout thường và Account Security session-end; chỉ navigation, không business cleanup/API.
+- 16 regression bổ sung có XML local PASS. Hai race tests opt-in trong core:network đã tái hiện FAIL trên transport chưa sửa; không thêm production credential epoch/adapter trong scope đã hoàn thành.
+- N44Session logger/network interceptor/request marker và test riêng logger đã gỡ khỏi source; không liệt kê chúng trong cấu trúc production. Google/session + transport fix tạm hoãn theo user; chặng 4 E2E/matrix còn mở.
+- Tài liệu và AGENTS thuộc nhánh docs, main chỉ source/config/tests. Không thêm Gradle module; vẫn 14 module.
 
 ### 2.2 `:core:network` - Network Infrastructure
 
@@ -1594,9 +1603,9 @@ MyQuizApp được xây dựng với **14 modules** theo **Clean Architecture + 
 
 ---
 
-**Document Version:** 2.20  
-**Last Updated:** Sau N43 (commit Android `ab6621b`)
-**Status:** Living document - N43 đã hoàn thành phần Android ở commit `ab6621b` (`feat: add account security and session hardening`); user xác nhận kiểm thử nhanh ổn. Đã bổ sung 25 test case, nhưng agent chưa có log build/unit test/CI để xác nhận xanh. Bước tiếp theo là N44 — audit integration, lập checklist E2E và xác minh lại backend blockers; chưa chốt M6/N45. N43 không thêm Gradle module, vẫn 14 module. Hồ sơ/avatar N42 giữ nguyên; gameplay/history/preview đã có. Android source baseline N43 và bằng chứng test cần đối chiếu ở N44. N20.6/N25/M4/N28.5/N29/N30 vẫn nằm trong hồ sơ blocker, chưa retest; N46 polish sau gate N45, N47–N50 test/release/ship. Lịch sử kỹ thuật chi tiết nằm trong các block milestone của kế hoạch chính.
+**Document Version:** 2.21  
+**Last Updated:** N44 WIP (source Android `3ea792a`)
+**Status:** Living document - N44 đang WIP ở source commit `3ea792a`: history/session isolation và logout reset graph đã triển khai, 16 regression test bổ sung có XML local PASS; N43 có XML PASS cho 25 test bổ sung. Google relogin guest chưa tái hiện trong capture mới (5/5 login success); user yêu cầu tạm hoãn điều tra/fix Google và hai cookie race đã tái hiện bằng diagnostic. Đã gỡ N44Session instrumentation; không gọi đây là fixed. Chặng tiếp theo là N44 chặng 4 — E2E/matrix + bằng chứng build/CI/backend, chưa chốt N45/M6. Vẫn 14 module; backend/deployment và gate N45/M6 chưa chốt. Tài liệu chỉ ở docs; chi tiết history/session/navigation trong N44_INTEGRATION.md.
 
 ---
 
