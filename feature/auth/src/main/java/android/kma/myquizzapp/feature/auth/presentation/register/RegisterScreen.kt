@@ -1,11 +1,8 @@
 package android.kma.myquizzapp.feature.auth.presentation.register
 
 import android.content.res.Configuration
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -16,10 +13,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
-import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -45,8 +38,32 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import android.kma.myquizzapp.core.ui.style.AppTextStyles
 import android.kma.myquizzapp.core.ui.theme.MyQuizAppTheme
+
+import android.kma.myquizzapp.core.ui.components.CustomClickableText
+import android.kma.myquizzapp.core.ui.components.QuizPrimaryButton
+import android.kma.myquizzapp.core.ui.theme.FrontendColors
+import androidx.compose.foundation.ScrollState
+import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.material.icons.outlined.Email
+import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.Phone
+import androidx.compose.material.icons.outlined.Visibility
+import androidx.compose.material.icons.outlined.VisibilityOff
+import androidx.compose.material3.TextFieldColors
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.sp
 
 /**
  * Stateful wrapper for Register screen
@@ -77,14 +94,12 @@ fun RegisterScreen(
         onPasswordVisibilityChange = { passwordVisible = it },
         onIntent = viewModel::onIntent,
         onBackToLogin = onBackToLogin,
-        snackbarHostState = snackbarHostState
+        snackbarHostState = snackbarHostState,
+        scrollState = rememberScrollState(),
     )
 }
 
-/**
- * Stateless composable for Register screen UI
- * Pure UI component without ViewModel - Preview-friendly
- */
+/** Stateless register UI; values, visibility and scroll state are supplied by the caller. */
 @Composable
 fun RegisterScreenContent(
     uiState: RegisterUiState,
@@ -93,193 +108,228 @@ fun RegisterScreenContent(
     onIntent: (RegisterIntent) -> Unit,
     onBackToLogin: () -> Unit,
     snackbarHostState: SnackbarHostState,
+    scrollState: ScrollState,
 ) {
+    val scheme = MaterialTheme.colorScheme
+    val isDark = scheme.background.luminance() < 0.5f
+    val foreground = if (isDark) scheme.onBackground else FrontendColors.Foreground
+    val muted = if (isDark) scheme.onSurfaceVariant else FrontendColors.MutedForeground
+    val border = if (isDark) scheme.outlineVariant else FrontendColors.Border
+    val inputStyle = MaterialTheme.typography.bodyMedium.copy(
+        fontSize = 14.sp, lineHeight = 20.3.sp, letterSpacing = 0.sp,
+    )
+    val fieldColors = OutlinedTextFieldDefaults.colors(
+        focusedTextColor = foreground,
+        unfocusedTextColor = foreground,
+        focusedBorderColor = scheme.primary,
+        unfocusedBorderColor = border,
+        focusedLeadingIconColor = muted,
+        unfocusedLeadingIconColor = muted,
+        focusedTrailingIconColor = muted,
+        unfocusedTrailingIconColor = muted,
+        focusedPlaceholderColor = muted,
+        unfocusedPlaceholderColor = muted,
+        cursorColor = scheme.primary,
+    )
+
     Scaffold(
+        containerColor = scheme.background,
         snackbarHost = {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.TopCenter
-            ) {
-                SnackbarHost(
-                    hostState = snackbarHostState,
-                    modifier = Modifier.padding(top = 8.dp)
-                )
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+                SnackbarHost(snackbarHostState, Modifier.padding(top = 8.dp))
             }
-        }
+        },
     ) { padding ->
         Column(
-            modifier = Modifier
-                .fillMaxSize()
+            modifier = Modifier.fillMaxSize()
                 .padding(padding)
-                .padding(24.dp)
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.Center,
+                .imePadding()
+                .verticalScroll(scrollState)
+                .padding(horizontal = 20.dp)
+                .padding(top = 48.dp, bottom = 32.dp),
         ) {
-            // Title
             Text(
-                text = "Đăng ký tài khoản",
-                style = AppTextStyles.titleLarge,
-                fontWeight = FontWeight.Bold
+                "Bắt đầu hành trình 🚀",
+                style = MaterialTheme.typography.headlineMedium.copy(
+                    fontSize = 26.sp, lineHeight = 36.sp,
+                    letterSpacing = 0.sp, fontWeight = FontWeight.Bold,
+                ),
+                color = foreground,
             )
             Spacer(Modifier.height(8.dp))
+            Text("Tạo tài khoản để thi đấu và chia sẻ bộ câu hỏi", style = inputStyle, color = muted)
+            Spacer(Modifier.height(20.dp))
 
-            // Subtitle
-            Text(
-                text = "Tạo tài khoản mới để bắt đầu",
-                style = AppTextStyles.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(Modifier.height(24.dp))
-
-            // Email field
-            OutlinedTextField(
-                value = uiState.email,
-                onValueChange = { onIntent(RegisterIntent.EmailChanged(it)) },
-                label = { Text("Email") },
-                isError = uiState.emailError != null,
-                supportingText = { uiState.emailError?.let { Text(it) } },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedTextColor = MaterialTheme.colorScheme.onBackground,
-                    unfocusedTextColor = MaterialTheme.colorScheme.onBackground,
-                    focusedBorderColor = MaterialTheme.colorScheme.primary,
-                    cursorColor = MaterialTheme.colorScheme.primary
-                )
-            )
-            Spacer(Modifier.height(8.dp))
-
-            // Password field
-            OutlinedTextField(
-                value = uiState.password,
-                onValueChange = { onIntent(RegisterIntent.PasswordChanged(it)) },
-                label = { Text("Mật khẩu") },
-                isError = uiState.passwordError != null,
-                supportingText = { uiState.passwordError?.let { Text(it) } },
-                visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                singleLine = true,
-                trailingIcon = {
-                    IconButton(onClick = { onPasswordVisibilityChange(!passwordVisible) }) {
-                        Icon(
-                            imageVector = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
-                            contentDescription = if (passwordVisible) "Ẩn mật khẩu" else "Hiện mật khẩu"
-                        )
-                    }
-                },
-                modifier = Modifier.fillMaxWidth(),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedTextColor = MaterialTheme.colorScheme.onBackground,
-                    unfocusedTextColor = MaterialTheme.colorScheme.onBackground,
-                    focusedBorderColor = MaterialTheme.colorScheme.primary,
-                    cursorColor = MaterialTheme.colorScheme.primary
-                )
-            )
-            Spacer(Modifier.height(8.dp))
-
-            // Fullname field
-            OutlinedTextField(
+            RegisterFormField(
+                label = "Họ và tên",
                 value = uiState.fullname,
+                placeholder = "Nguyễn Văn A",
                 onValueChange = { onIntent(RegisterIntent.FullnameChanged(it)) },
-                label = { Text("Họ và tên") },
-                isError = uiState.fullnameError != null,
-                supportingText = { uiState.fullnameError?.let { Text(it) } },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedTextColor = MaterialTheme.colorScheme.onBackground,
-                    unfocusedTextColor = MaterialTheme.colorScheme.onBackground,
-                    focusedBorderColor = MaterialTheme.colorScheme.primary,
-                    cursorColor = MaterialTheme.colorScheme.primary
-                )
-            )
-            Spacer(Modifier.height(8.dp))
-
-            // Phone field
-            OutlinedTextField(
-                value = uiState.phone,
-                onValueChange = { onIntent(RegisterIntent.PhoneChanged(it)) },
-                label = { Text("Số điện thoại (tuỳ chọn)") },
-                isError = uiState.phoneError != null,
-                supportingText = { uiState.phoneError?.let { Text(it) } },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedTextColor = MaterialTheme.colorScheme.onBackground,
-                    unfocusedTextColor = MaterialTheme.colorScheme.onBackground,
-                    focusedBorderColor = MaterialTheme.colorScheme.primary,
-                    cursorColor = MaterialTheme.colorScheme.primary
-                )
-            )
-            Spacer(Modifier.height(24.dp))
-
-            // Register button
-            Button(
-                onClick = { onIntent(RegisterIntent.Submit) },
+                error = uiState.fullnameError,
+                icon = Icons.Outlined.Person,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text, imeAction = ImeAction.Next),
                 enabled = !uiState.isLoading,
+                foreground = foreground, inputStyle = inputStyle, colors = fieldColors,
+            )
+            Spacer(Modifier.height(12.dp))
+            RegisterFormField(
+                label = "Email",
+                value = uiState.email,
+                placeholder = "example@email.com",
+                onValueChange = { onIntent(RegisterIntent.EmailChanged(it)) },
+                error = uiState.emailError,
+                icon = Icons.Outlined.Email,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next),
+                enabled = !uiState.isLoading,
+                foreground = foreground, inputStyle = inputStyle, colors = fieldColors,
+            )
+            Spacer(Modifier.height(12.dp))
+            RegisterFormField(
+                label = "Mật khẩu",
+                value = uiState.password,
+                placeholder = "Tối thiểu 8 ký tự",
+                onValueChange = { onIntent(RegisterIntent.PasswordChanged(it)) },
+                error = uiState.passwordError,
+                icon = Icons.Outlined.Lock,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Next),
+                enabled = !uiState.isLoading,
+                passwordVisible = passwordVisible,
+                onPasswordVisibilityChange = onPasswordVisibilityChange,
+                foreground = foreground, inputStyle = inputStyle, colors = fieldColors,
+            )
+            Spacer(Modifier.height(12.dp))
+            RegisterFormField(
+                label = "Số điện thoại (tùy chọn)",
+                value = uiState.phone,
+                placeholder = "Số điện thoại",
+                onValueChange = { onIntent(RegisterIntent.PhoneChanged(it)) },
+                error = uiState.phoneError,
+                icon = Icons.Outlined.Phone,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone, imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = {
+                    if (!uiState.isLoading) onIntent(RegisterIntent.Submit)
+                }),
+                enabled = !uiState.isLoading,
+                foreground = foreground, inputStyle = inputStyle, colors = fieldColors,
+            )
+            Spacer(Modifier.height(20.dp))
+            QuizPrimaryButton(
+                text = "Đăng ký",
+                onClick = { onIntent(RegisterIntent.Submit) },
+                loading = uiState.isLoading,
                 modifier = Modifier.fillMaxWidth(),
-            ) {
-                if (uiState.isLoading) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(20.dp),
-                        color = MaterialTheme.colorScheme.onPrimary
-                    )
-                } else {
-                    Text("Đăng ký", style = AppTextStyles.buttonText)
-                }
-            }
-            Spacer(Modifier.height(16.dp))
-
-            // Back to login link
-            Row(
-                modifier = Modifier.align(Alignment.CenterHorizontally),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Đã có tài khoản? ",
-                    style = AppTextStyles.bodyMedium
-                )
-                Text(
-                    text = "Đăng nhập",
-                    style = AppTextStyles.linkText,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.clickable { onBackToLogin() }
-                )
-            }
+            )
+            Spacer(Modifier.height(20.dp))
+            CustomClickableText(
+                startText = "Đã có tài khoản?",
+                clickableText = "Đăng nhập",
+                clickableTextTag = "login",
+                onTextClicked = onBackToLogin,
+                textSize = 12.sp,
+                enabled = !uiState.isLoading,
+                color = muted,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
+            )
         }
     }
 }
 
-@Preview(showBackground = true)
+/** Private stateless field with an external label, matching the register design. */
 @Composable
-fun RegisterScreenPreviewLight() {
-    MyQuizAppTheme {
-        RegisterScreenContent(
-            uiState = RegisterUiState(),
-            passwordVisible = false,
-            onPasswordVisibilityChange = {},
-            onIntent = {},
-            onBackToLogin = {},
-            snackbarHostState = remember { SnackbarHostState() }
+private fun RegisterFormField(
+    label: String,
+    value: String,
+    placeholder: String,
+    onValueChange: (String) -> Unit,
+    error: String?,
+    icon: ImageVector,
+    keyboardOptions: KeyboardOptions,
+    enabled: Boolean,
+    foreground: Color,
+    inputStyle: TextStyle,
+    colors: TextFieldColors,
+    keyboardActions: KeyboardActions = KeyboardActions.Default,
+    passwordVisible: Boolean? = null,
+    onPasswordVisibilityChange: (Boolean) -> Unit = {},
+) {
+    Column {
+        Text(label, color = foreground, style = inputStyle.copy(fontWeight = FontWeight.SemiBold))
+        Spacer(Modifier.height(8.dp))
+        OutlinedTextField(
+            value = value,
+            onValueChange = onValueChange,
+            placeholder = { Text(placeholder, style = inputStyle) },
+            leadingIcon = { Icon(icon, null, Modifier.size(20.dp)) },
+            trailingIcon = if (passwordVisible != null) {
+                {
+                    IconButton(onClick = { onPasswordVisibilityChange(!passwordVisible) }, enabled = enabled) {
+                        Icon(
+                            if (passwordVisible) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility,
+                            if (passwordVisible) "Ẩn mật khẩu" else "Hiện mật khẩu",
+                            Modifier.size(20.dp),
+                        )
+                    }
+                }
+            } else null,
+            visualTransformation = if (passwordVisible == false) PasswordVisualTransformation() else VisualTransformation.None,
+            isError = error != null,
+            supportingText = if (error != null) { { Text(error) } } else null,
+            enabled = enabled,
+            keyboardOptions = keyboardOptions,
+            keyboardActions = keyboardActions,
+            singleLine = true,
+            textStyle = inputStyle,
+            shape = RoundedCornerShape(16.dp),
+            modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 52.dp)
+                .semantics { contentDescription = label },
+            colors = colors,
         )
     }
 }
 
-@Preview(showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(name = "Register Light", showBackground = true, showSystemUi = true, widthDp = 390, heightDp = 844)
 @Composable
-fun RegisterScreenPreviewDark() {
+fun RegisterScreenPreviewLight() = RegisterContentPreview(RegisterUiState())
+
+@Preview(name = "Register Dark", showBackground = true, showSystemUi = true, widthDp = 390, heightDp = 844,
+    uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+fun RegisterScreenPreviewDark() = RegisterContentPreview(RegisterUiState())
+
+@Preview(name = "Register Loading", showBackground = true, widthDp = 390, heightDp = 844)
+@Composable
+private fun RegisterLoadingPreview() = RegisterContentPreview(
+    RegisterUiState(fullname = "Nguyễn Văn A", email = "preview@example.com", password = "preview-only", isLoading = true),
+)
+
+@Preview(name = "Register Validation Errors", showBackground = true, widthDp = 390, heightDp = 844)
+@Composable
+private fun RegisterErrorsPreview() = RegisterContentPreview(
+    RegisterUiState(
+        fullnameError = "Vui lòng nhập họ và tên",
+        email = "email", emailError = "Email không hợp lệ",
+        passwordError = "Mật khẩu phải có ít nhất 8 ký tự",
+        phone = "123", phoneError = "Số điện thoại không hợp lệ",
+    ),
+)
+
+@Preview(name = "Register Narrow Large Text", showBackground = true, widthDp = 320, heightDp = 740, fontScale = 1.5f)
+@Composable
+private fun RegisterLargeTextPreview() = RegisterContentPreview(RegisterUiState())
+
+@Composable
+private fun RegisterContentPreview(uiState: RegisterUiState) {
     MyQuizAppTheme {
         RegisterScreenContent(
-            uiState = RegisterUiState(),
+            uiState = uiState,
             passwordVisible = false,
             onPasswordVisibilityChange = {},
             onIntent = {},
             onBackToLogin = {},
-            snackbarHostState = remember { SnackbarHostState() }
+            snackbarHostState = remember { SnackbarHostState() },
+            scrollState = rememberScrollState(),
         )
     }
 }
+
