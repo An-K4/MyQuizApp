@@ -1,27 +1,29 @@
 package android.kma.myquizzapp.feature.auth.presentation.reset
 
 import android.content.res.Configuration
+import android.kma.myquizzapp.core.ui.components.QuizPrimaryButton
 import android.kma.myquizzapp.core.ui.theme.MyQuizAppTheme
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import android.kma.myquizzapp.feature.auth.presentation.PasswordResetFormField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 
 @Composable
 fun ResetPasswordScreen(
@@ -31,6 +33,7 @@ fun ResetPasswordScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+    val scrollState = rememberScrollState()
     var passwordVisible by remember { mutableStateOf(false) }
     var confirmPasswordVisible by remember { mutableStateOf(false) }
 
@@ -50,6 +53,7 @@ fun ResetPasswordScreen(
         confirmPasswordVisible = confirmPasswordVisible,
         onPasswordVisibilityChange = { passwordVisible = it },
         onConfirmPasswordVisibilityChange = { confirmPasswordVisible = it },
+        scrollState = scrollState,
         onIntent = viewModel::onIntent
     )
 }
@@ -63,7 +67,8 @@ fun ResetPasswordScreenContent(
     confirmPasswordVisible: Boolean,
     onPasswordVisibilityChange: (Boolean) -> Unit,
     onConfirmPasswordVisibilityChange: (Boolean) -> Unit,
-    onIntent: (ResetPasswordIntent) -> Unit
+    scrollState: ScrollState,
+    onIntent: (ResetPasswordIntent) -> Unit,
 ) {
     Scaffold(
         snackbarHost = {
@@ -78,39 +83,29 @@ fun ResetPasswordScreenContent(
                     IconButton(onClick = { onIntent(ResetPasswordIntent.NavigateBack) }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "Quay lại")
                     }
-                }
+                },
             )
-        }
-    ) { paddingValues ->
+        },
+    ) { padding ->
         Column(
-            modifier = Modifier.fillMaxSize().padding(paddingValues).padding(24.dp)
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+            Modifier.fillMaxSize().padding(padding).imePadding().verticalScroll(scrollState)
+                .padding(horizontal = 20.dp).padding(top = 32.dp, bottom = 32.dp),
+            horizontalAlignment = Alignment.Start,
         ) {
             when {
                 uiState.isCheckingTicket -> {
-                    Spacer(Modifier.height(48.dp))
                     CircularProgressIndicator()
-                    Text(
-                        "Đang kiểm tra phiên đặt lại mật khẩu...",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center
-                    )
+                    Spacer(Modifier.height(16.dp))
+                    Text("Đang kiểm tra phiên đặt lại mật khẩu...", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 uiState.ticketError != null -> {
-                    Spacer(Modifier.height(48.dp))
-                    Text(uiState.ticketError, color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center)
-                    Text("Vui lòng quay lại và yêu cầu mã mới.", textAlign = TextAlign.Center)
+                    Text(uiState.ticketError, color = MaterialTheme.colorScheme.error)
+                    Spacer(Modifier.height(16.dp))
+                    Text("Vui lòng quay lại và yêu cầu mã mới.")
                 }
                 else -> ResetPasswordForm(
-                    uiState = uiState,
-                    passwordVisible = passwordVisible,
-                    confirmPasswordVisible = confirmPasswordVisible,
-                    onPasswordVisibilityChange = onPasswordVisibilityChange,
-                    onConfirmPasswordVisibilityChange = onConfirmPasswordVisibilityChange,
-                    onIntent = onIntent
+                    uiState, passwordVisible, confirmPasswordVisible,
+                    onPasswordVisibilityChange, onConfirmPasswordVisibilityChange, onIntent,
                 )
             }
         }
@@ -124,71 +119,69 @@ private fun ResetPasswordForm(
     confirmPasswordVisible: Boolean,
     onPasswordVisibilityChange: (Boolean) -> Unit,
     onConfirmPasswordVisibilityChange: (Boolean) -> Unit,
-    onIntent: (ResetPasswordIntent) -> Unit
+    onIntent: (ResetPasswordIntent) -> Unit,
 ) {
-    if (uiState.email.isNotBlank()) {
-        Text("Đặt mật khẩu mới cho", color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(uiState.email)
-    }
-    OutlinedTextField(
-        value = uiState.newPassword,
-        onValueChange = { onIntent(ResetPasswordIntent.PasswordChanged(it)) },
-        label = { Text("Mật khẩu mới") },
-        isError = uiState.passwordError != null,
-        supportingText = { uiState.passwordError?.let { Text(it) } },
-        visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-        singleLine = true,
-        enabled = !uiState.isLoading,
-        trailingIcon = {
-            IconButton(onClick = { onPasswordVisibilityChange(!passwordVisible) }) {
-                Icon(if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff, null)
-            }
-        },
-        modifier = Modifier.fillMaxWidth()
-    )
-    OutlinedTextField(
-        value = uiState.confirmPassword,
-        onValueChange = { onIntent(ResetPasswordIntent.ConfirmPasswordChanged(it)) },
-        label = { Text("Xác nhận mật khẩu") },
-        isError = uiState.confirmPasswordError != null,
-        supportingText = { uiState.confirmPasswordError?.let { Text(it) } },
-        visualTransformation = if (confirmPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-        singleLine = true,
-        enabled = !uiState.isLoading,
-        trailingIcon = {
-            IconButton(onClick = { onConfirmPasswordVisibilityChange(!confirmPasswordVisible) }) {
-                Icon(if (confirmPasswordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff, null)
-            }
-        },
-        modifier = Modifier.fillMaxWidth()
-    )
-    Button(
-        onClick = { onIntent(ResetPasswordIntent.Submit) },
-        enabled = !uiState.isLoading,
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        if (uiState.isLoading) CircularProgressIndicator(
-            modifier = Modifier.size(20.dp),
-            color = MaterialTheme.colorScheme.onPrimary
-        ) else Text("Đặt lại mật khẩu")
+    Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.Start) {
+        if (uiState.email.isNotBlank()) {
+            Text(
+                "Đặt lại mật khẩu cho ${uiState.email}",
+                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp, lineHeight = 20.3.sp, letterSpacing = 0.sp),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(24.dp))
+        }
+        PasswordResetFormField(
+            label = "Mật khẩu", value = uiState.newPassword, placeholder = "Tối thiểu 8 ký tự",
+            onValueChange = { onIntent(ResetPasswordIntent.PasswordChanged(it)) }, icon = Icons.Outlined.Lock,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Next),
+            enabled = !uiState.isLoading, error = uiState.passwordError,
+            passwordVisible = passwordVisible, onPasswordVisibilityChange = onPasswordVisibilityChange,
+        )
+        Spacer(Modifier.height(16.dp))
+        PasswordResetFormField(
+            label = "Xác nhận mật khẩu", value = uiState.confirmPassword, placeholder = "Nhập lại mật khẩu",
+            onValueChange = { onIntent(ResetPasswordIntent.ConfirmPasswordChanged(it)) }, icon = Icons.Outlined.Lock,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(onDone = { onIntent(ResetPasswordIntent.Submit) }),
+            enabled = !uiState.isLoading, error = uiState.confirmPasswordError,
+            passwordVisible = confirmPasswordVisible, onPasswordVisibilityChange = onConfirmPasswordVisibilityChange,
+        )
+        Spacer(Modifier.height(24.dp))
+        QuizPrimaryButton(
+            text = "Đặt lại mật khẩu", onClick = { onIntent(ResetPasswordIntent.Submit) },
+            modifier = Modifier.fillMaxWidth(), enabled = !uiState.isLoading, loading = uiState.isLoading,
+        )
     }
 }
 
-@Preview(showBackground = true)
-@Preview(showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(name = "Reset Light", showBackground = true, showSystemUi = true, widthDp = 390, heightDp = 844)
+@Preview(name = "Reset Dark", showBackground = true, showSystemUi = true, widthDp = 390, heightDp = 844, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
-private fun ResetPasswordScreenContentPreview() {
+private fun ResetPasswordScreenContentPreview() = ResetContentPreview(ResetPasswordUiState(email = "user@domain.com"))
+
+@Preview(name = "Reset Validation Errors", showBackground = true, widthDp = 390, heightDp = 844)
+@Composable
+private fun ResetErrorsPreview() = ResetContentPreview(ResetPasswordUiState(email = "user@domain.com", newPassword = "short", confirmPassword = "different", passwordError = "Mật khẩu tối thiểu 8 ký tự", confirmPasswordError = "Mật khẩu xác nhận không khớp"))
+
+@Preview(name = "Reset Loading", showBackground = true, widthDp = 390, heightDp = 844)
+@Composable
+private fun ResetLoadingPreview() = ResetContentPreview(ResetPasswordUiState(email = "user@domain.com", newPassword = "preview-only", confirmPassword = "preview-only", isLoading = true))
+
+@Preview(name = "Reset Checking Ticket", showBackground = true, widthDp = 390, heightDp = 844)
+@Composable
+private fun ResetCheckingPreview() = ResetContentPreview(ResetPasswordUiState(isCheckingTicket = true))
+
+@Preview(name = "Reset Expired Ticket", showBackground = true, widthDp = 390, heightDp = 844)
+@Composable
+private fun ResetExpiredPreview() = ResetContentPreview(ResetPasswordUiState(ticketError = "Phiên đặt lại mật khẩu đã hết hạn."))
+
+@Preview(name = "Reset Narrow Large Text", showBackground = true, widthDp = 320, heightDp = 640, fontScale = 1.3f)
+@Composable
+private fun ResetNarrowPreview() = ResetContentPreview(ResetPasswordUiState(email = "long.email.address@domain.com"))
+
+@Composable
+private fun ResetContentPreview(state: ResetPasswordUiState) {
     MyQuizAppTheme {
-        ResetPasswordScreenContent(
-            uiState = ResetPasswordUiState(email = "user@example.com"),
-            snackbarHostState = remember { SnackbarHostState() },
-            passwordVisible = false,
-            confirmPasswordVisible = false,
-            onPasswordVisibilityChange = {},
-            onConfirmPasswordVisibilityChange = {},
-            onIntent = {}
-        )
+        ResetPasswordScreenContent(state, remember { SnackbarHostState() }, false, false, {}, {}, rememberScrollState(), {})
     }
 }

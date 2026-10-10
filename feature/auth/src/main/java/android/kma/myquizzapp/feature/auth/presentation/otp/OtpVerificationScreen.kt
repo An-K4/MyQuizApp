@@ -1,26 +1,31 @@
 package android.kma.myquizzapp.feature.auth.presentation.otp
 
 import android.content.res.Configuration
+import android.kma.myquizzapp.core.ui.components.QuizPrimaryButton
 import android.kma.myquizzapp.core.ui.theme.MyQuizAppTheme
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import android.kma.myquizzapp.core.ui.components.CustomClickableText
+import android.kma.myquizzapp.core.ui.components.SixCharacterCodeFieldContent
+import android.kma.myquizzapp.core.ui.components.SixCharacterCodeKind
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.style.TextAlign
 
 @Composable
 fun OtpVerificationScreen(
@@ -30,6 +35,15 @@ fun OtpVerificationScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+    val scrollState = rememberScrollState()
+
+    // Text belongs to the ViewModel; only selection/focus are local display state.
+    var otpSelection by remember { mutableStateOf(TextRange.Zero) }
+    var otpFocused by remember { mutableStateOf(false) }
+    val otpValue = TextFieldValue(
+        uiState.otp,
+        TextRange(otpSelection.start.coerceIn(0, uiState.otp.length), otpSelection.end.coerceIn(0, uiState.otp.length)),
+    )
 
     LaunchedEffect(Unit) {
         viewModel.effect.collect { effect ->
@@ -45,6 +59,14 @@ fun OtpVerificationScreen(
     OtpVerificationScreenContent(
         uiState = uiState,
         snackbarHostState = snackbarHostState,
+        scrollState = scrollState,
+        otpValue = otpValue,
+        onOtpValueChange = {
+            otpSelection = it.selection
+            viewModel.onIntent(OtpVerificationIntent.OtpChanged(it.text))
+        },
+        otpFocused = otpFocused,
+        onOtpFocusChange = { otpFocused = it },
         onIntent = viewModel::onIntent
     )
 }
@@ -54,7 +76,12 @@ fun OtpVerificationScreen(
 fun OtpVerificationScreenContent(
     uiState: OtpVerificationUiState,
     snackbarHostState: SnackbarHostState,
-    onIntent: (OtpVerificationIntent) -> Unit
+    scrollState: ScrollState,
+    otpValue: TextFieldValue,
+    onOtpValueChange: (TextFieldValue) -> Unit,
+    otpFocused: Boolean,
+    onOtpFocusChange: (Boolean) -> Unit,
+    onIntent: (OtpVerificationIntent) -> Unit,
 ) {
     Scaffold(
         snackbarHost = {
@@ -69,78 +96,71 @@ fun OtpVerificationScreenContent(
                     IconButton(onClick = { onIntent(OtpVerificationIntent.NavigateBack) }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "Quay lại")
                     }
-                }
+                },
             )
-        }
-    ) { paddingValues ->
+        },
+    ) { padding ->
         Column(
-            modifier = Modifier.fillMaxSize().padding(paddingValues).padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+            Modifier.fillMaxSize().padding(padding).imePadding().verticalScroll(scrollState)
+                .padding(horizontal = 20.dp).padding(top = 32.dp, bottom = 32.dp),
+            horizontalAlignment = Alignment.Start,
         ) {
-            Spacer(Modifier.height(32.dp))
             Text(
-                "Nhập mã OTP đã gửi đến",
-                style = MaterialTheme.typography.bodyLarge,
+                "Mã 6 chữ số đã được gửi tới email ${uiState.email}",
+                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp, lineHeight = 20.3.sp, letterSpacing = 0.sp),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center
             )
-            Text(uiState.email, style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center)
-            Spacer(Modifier.height(16.dp))
-            OtpInputField(
-                otp = uiState.otp,
-                onOtpChanged = { onIntent(OtpVerificationIntent.OtpChanged(it)) },
-                enabled = !uiState.isLoading
+            Spacer(Modifier.height(32.dp))
+            SixCharacterCodeFieldContent(
+                value = otpValue, onValueChange = onOtpValueChange, kind = SixCharacterCodeKind.Otp,
+                focused = otpFocused, onFocusChange = onOtpFocusChange,
+                modifier = Modifier.fillMaxWidth(), enabled = !uiState.isLoading,
+                keyboardActions = KeyboardActions(onDone = { onIntent(OtpVerificationIntent.Verify) }),
             )
-            Spacer(Modifier.height(8.dp))
-            Button(
-                onClick = { onIntent(OtpVerificationIntent.Verify) },
+            Spacer(Modifier.height(24.dp))
+            val seconds = uiState.resendSecondsLeft.coerceAtLeast(0)
+            val countdown = "${(seconds / 60).toString().padStart(2, '0')}:${(seconds % 60).toString().padStart(2, '0')}"
+            QuizPrimaryButton(
+                text = "Xác nhận mã", onClick = { onIntent(OtpVerificationIntent.Verify) },
                 modifier = Modifier.fillMaxWidth(),
-                enabled = !uiState.isLoading && uiState.otp.length == 6
-            ) {
-                if (uiState.isLoading) CircularProgressIndicator(
-                    modifier = Modifier.size(20.dp),
-                    color = MaterialTheme.colorScheme.onPrimary
-                ) else Text("Xác nhận")
-            }
-            TextButton(
-                onClick = { onIntent(OtpVerificationIntent.ResendCode) },
-                enabled = !uiState.isLoading && uiState.resendSecondsLeft == 0
-            ) {
-                Text(if (uiState.resendSecondsLeft > 0) "Gửi lại mã (${uiState.resendSecondsLeft}s)" else "Gửi lại mã")
-            }
-            Spacer(Modifier.weight(1f))
-            Text(
-                "Mã OTP có hiệu lực trong 2 phút.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                enabled = !uiState.isLoading && uiState.otp.length == 6, loading = uiState.isLoading,
+            )
+            Spacer(Modifier.height(20.dp))
+            CustomClickableText(
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = TextAlign.Center,
+                startText = "Gửi lại mã sau $countdown.",
+                clickableText = "Gửi lại mã OTP", onTextClicked = { onIntent(OtpVerificationIntent.ResendCode) },
+                textSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                enabled = !uiState.isLoading && seconds == 0,
             )
         }
     }
 }
 
+@Preview(name = "OTP Light", showBackground = true, showSystemUi = true, widthDp = 390, heightDp = 844)
+@Preview(name = "OTP Dark", showBackground = true, showSystemUi = true, widthDp = 390, heightDp = 844, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
-private fun OtpInputField(otp: String, onOtpChanged: (String) -> Unit, enabled: Boolean) {
-    OutlinedTextField(
-        value = otp,
-        onValueChange = onOtpChanged,
-        enabled = enabled,
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword, imeAction = ImeAction.Done),
-        singleLine = true,
-        textStyle = MaterialTheme.typography.headlineMedium.copy(textAlign = TextAlign.Center, letterSpacing = 8.sp),
-        modifier = Modifier.fillMaxWidth()
-    )
-}
+private fun OtpVerificationScreenContentPreview() = OtpContentPreview(OtpVerificationUiState(email = "user@domain.com", otp = "482", resendSecondsLeft = 54), focused = true)
 
-@Preview(showBackground = true)
-@Preview(showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(name = "OTP Resend Ready", showBackground = true, widthDp = 390, heightDp = 844)
 @Composable
-private fun OtpVerificationScreenContentPreview() {
+private fun OtpReadyPreview() = OtpContentPreview(OtpVerificationUiState(email = "user@domain.com", otp = "123456", resendSecondsLeft = 0))
+
+@Preview(name = "OTP Loading", showBackground = true, widthDp = 390, heightDp = 844)
+@Composable
+private fun OtpLoadingPreview() = OtpContentPreview(OtpVerificationUiState(email = "user@domain.com", otp = "123456", isLoading = true))
+
+@Preview(name = "OTP Narrow Large Text", showBackground = true, widthDp = 320, heightDp = 640, fontScale = 1.3f)
+@Composable
+private fun OtpNarrowPreview() = OtpContentPreview(OtpVerificationUiState(email = "long.email.address@domain.com"))
+
+@Composable
+private fun OtpContentPreview(state: OtpVerificationUiState, focused: Boolean = false) {
     MyQuizAppTheme {
         OtpVerificationScreenContent(
-            uiState = OtpVerificationUiState(email = "user@example.com", otp = "123456"),
-            snackbarHostState = remember { SnackbarHostState() },
-            onIntent = {}
+            state, remember { SnackbarHostState() }, rememberScrollState(),
+            TextFieldValue(state.otp, TextRange(state.otp.length)), {}, focused, {}, {},
         )
     }
 }

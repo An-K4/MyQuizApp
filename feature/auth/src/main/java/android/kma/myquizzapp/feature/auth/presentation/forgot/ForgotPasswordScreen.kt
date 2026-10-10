@@ -1,20 +1,29 @@
 package android.kma.myquizzapp.feature.auth.presentation.forgot
 
 import android.content.res.Configuration
+import android.kma.myquizzapp.core.ui.components.QuizPrimaryButton
+import android.kma.myquizzapp.core.ui.theme.MyQuizAppTheme
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.ui.Alignment
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import android.kma.myquizzapp.core.ui.theme.MyQuizAppTheme
+import android.kma.myquizzapp.feature.auth.presentation.PasswordResetFormField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.outlined.Email
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 
 @Composable
 fun ForgotPasswordScreen(
@@ -24,6 +33,7 @@ fun ForgotPasswordScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+    val scrollState = rememberScrollState()
 
     LaunchedEffect(Unit) {
         viewModel.effect.collect { effect ->
@@ -42,6 +52,7 @@ fun ForgotPasswordScreen(
     ForgotPasswordScreenContent(
         uiState = uiState,
         snackbarHostState = snackbarHostState,
+        scrollState = scrollState,
         onIntent = viewModel::onIntent
     )
 }
@@ -51,18 +62,13 @@ fun ForgotPasswordScreen(
 fun ForgotPasswordScreenContent(
     uiState: ForgotPasswordUiState,
     snackbarHostState: SnackbarHostState,
-    onIntent: (ForgotPasswordIntent) -> Unit
+    scrollState: ScrollState,
+    onIntent: (ForgotPasswordIntent) -> Unit,
 ) {
     Scaffold(
         snackbarHost = {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.TopCenter
-            ) {
-                SnackbarHost(
-                    hostState = snackbarHostState,
-                    modifier = Modifier.padding(top = 8.dp)
-                )
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+                SnackbarHost(snackbarHostState, Modifier.padding(top = 8.dp))
             }
         },
         topBar = {
@@ -72,83 +78,54 @@ fun ForgotPasswordScreenContent(
                     IconButton(onClick = { onIntent(ForgotPasswordIntent.NavigateBack) }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "Quay lại")
                     }
-                }
+                },
             )
-        }
-    ) { paddingValues ->
+        },
+    ) { padding ->
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+            Modifier.fillMaxSize().padding(padding).imePadding().verticalScroll(scrollState)
+                .padding(horizontal = 20.dp).padding(top = 32.dp, bottom = 32.dp),
+            horizontalAlignment = Alignment.Start,
         ) {
-            Spacer(modifier = Modifier.height(32.dp))
-
             Text(
-                text = "Nhập email để nhận mã đặt lại mật khẩu",
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                "Nhập địa chỉ email liên kết với tài khoản của bạn. Chúng tôi sẽ gửi mã xác thực OTP 6 số để đặt lại mật khẩu.",
+                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp, lineHeight = 20.3.sp, letterSpacing = 0.sp),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            OutlinedTextField(
-                value = uiState.email,
+            Spacer(Modifier.height(24.dp))
+            PasswordResetFormField(
+                label = "Email đã đăng ký", value = uiState.email, placeholder = "email@domain.com",
                 onValueChange = { onIntent(ForgotPasswordIntent.EmailChanged(it)) },
-                label = { Text("Email") },
-                isError = uiState.emailError != null,
-                supportingText = { uiState.emailError?.let { Text(it) } },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                singleLine = true,
-                enabled = !uiState.isLoading,
-                modifier = Modifier.fillMaxWidth(),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedTextColor = MaterialTheme.colorScheme.onBackground,
-                    unfocusedTextColor = MaterialTheme.colorScheme.onBackground,
-                    focusedBorderColor = MaterialTheme.colorScheme.primary,
-                    cursorColor = MaterialTheme.colorScheme.primary
-                )
+                icon = Icons.Outlined.Email,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = { onIntent(ForgotPasswordIntent.Submit) }),
+                enabled = !uiState.isLoading, error = uiState.emailError,
             )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Button(
-                onClick = { onIntent(ForgotPasswordIntent.Submit) },
-                modifier = Modifier.fillMaxWidth(),
-                enabled = !uiState.isLoading
-            ) {
-                if (uiState.isLoading) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(20.dp),
-                        color = MaterialTheme.colorScheme.onPrimary
-                    )
-                } else {
-                    Text("Gửi mã")
-                }
-            }
-
-            Spacer(modifier = Modifier.weight(1f))
-
-            Text(
-                text = "Bạn sẽ nhận được email có mã OTP và link đặt lại mật khẩu. Mã có hiệu lực trong 5 phút.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+            Spacer(Modifier.height(20.dp))
+            QuizPrimaryButton(
+                text = "Gửi mã OTP", onClick = { onIntent(ForgotPasswordIntent.Submit) },
+                modifier = Modifier.fillMaxWidth(), enabled = !uiState.isLoading, loading = uiState.isLoading,
             )
         }
     }
 }
 
-@Preview(showBackground = true)
-@Preview(showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(name = "Forgot Light", showBackground = true, showSystemUi = true, widthDp = 390, heightDp = 844)
+@Preview(name = "Forgot Dark", showBackground = true, showSystemUi = true, widthDp = 390, heightDp = 844, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
-fun ForgotPasswordScreenPreview() {
+private fun ForgotPasswordScreenPreview() = ForgotContentPreview(ForgotPasswordUiState())
+
+@Preview(name = "Forgot Loading", showBackground = true, widthDp = 390, heightDp = 844)
+@Composable
+private fun ForgotLoadingPreview() = ForgotContentPreview(ForgotPasswordUiState(email = "user@domain.com", isLoading = true))
+
+@Preview(name = "Forgot Error Large Text", showBackground = true, widthDp = 320, heightDp = 640, fontScale = 1.3f)
+@Composable
+private fun ForgotErrorPreview() = ForgotContentPreview(ForgotPasswordUiState(email = "invalid", emailError = "Email không hợp lệ"))
+
+@Composable
+private fun ForgotContentPreview(state: ForgotPasswordUiState) {
     MyQuizAppTheme {
-        ForgotPasswordScreenContent(
-            uiState = ForgotPasswordUiState(),
-            snackbarHostState = remember { SnackbarHostState() },
-            onIntent = {}
-        )
+        ForgotPasswordScreenContent(state, remember { SnackbarHostState() }, rememberScrollState(), {})
     }
 }
