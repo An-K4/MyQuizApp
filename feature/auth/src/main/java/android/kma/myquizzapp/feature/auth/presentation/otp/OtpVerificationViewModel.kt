@@ -34,7 +34,7 @@ class OtpVerificationViewModel @Inject constructor(
 ) : ViewModel() {
 
     // Email passed from ForgotPasswordScreen
-    private val email: String = savedStateHandle.get<String>("email") ?: ""
+    private val email: String = savedStateHandle.get<String>("email")?.trim().orEmpty()
 
     private val _uiState = MutableStateFlow(OtpVerificationUiState(email = email))
     val uiState = _uiState.asStateFlow()
@@ -54,7 +54,7 @@ class OtpVerificationViewModel @Inject constructor(
         when (intent) {
             is OtpVerificationIntent.OtpChanged -> {
                 // Only allow 6 digits
-                if (intent.value.length <= 6 && intent.value.all { it.isDigit() }) {
+                if (intent.value.length <= 6 && intent.value.all { it in '0'..'9' }) {
                     _uiState.update { it.copy(otp = intent.value) }
                 }
             }
@@ -67,18 +67,19 @@ class OtpVerificationViewModel @Inject constructor(
     }
 
     private fun verify() {
+        if (_uiState.value.isLoading) return
         val otp = _uiState.value.otp
 
-        if (otp.length != 6) {
+        if (otp.length != 6 || otp.any { it !in '0'..'9' }) {
             viewModelScope.launch {
                 _effect.send(OtpVerificationEffect.ShowMessage("Vui lòng nhập đủ 6 chữ số"))
             }
             return
         }
 
+        _uiState.update { it.copy(isLoading = true) }
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true) }
-            Timber.d("OTP Verify: verifying OTP for $email")
+            Timber.d("OTP Verify: verifying OTP")
 
             when (val result = verifyResetOtpUseCase(email, otp)) {
                 is Result.Success -> {
@@ -87,7 +88,8 @@ class OtpVerificationViewModel @Inject constructor(
                     _effect.send(
                         OtpVerificationEffect.NavigateToResetPassword(
                             ticket = result.data.ticket,
-                            email = result.data.email
+                            // Display the address entered at Forgot; only the ticket authorizes reset.
+                            email = email
                         )
                     )
                 }
@@ -105,11 +107,11 @@ class OtpVerificationViewModel @Inject constructor(
 
     private fun resendCode() {
         // Nút đã disable lúc đang đếm ngược — chặn thêm ở đây cho chắc.
-        if (_uiState.value.resendSecondsLeft > 0) return
+        if (_uiState.value.isLoading || _uiState.value.resendSecondsLeft > 0) return
 
+        _uiState.update { it.copy(isLoading = true) }
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true) }
-            Timber.d("OTP Verify: Resending code to $email")
+            Timber.d("OTP Verify: Resending code")
 
             when (val result = forgotPasswordUseCase(email)) {
                 is Result.Success -> {

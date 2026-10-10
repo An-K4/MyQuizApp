@@ -25,6 +25,16 @@ object AuthValidator {
         else -> null
     }
 
+    /** RESET: dùng cùng rule min(8) hiện tại của REGISTER, không thêm độ phức tạp. */
+    fun resetPasswordError(password: String): String? = registerPasswordError(password)
+
+    /** Không trim mật khẩu: xác nhận phải khớp chính xác giá trị người dùng nhập. */
+    fun confirmPasswordError(password: String, confirmation: String): String? = when {
+        confirmation.isEmpty() -> "Vui lòng xác nhận mật khẩu"
+        password != confirmation -> "Mật khẩu xác nhận không khớp"
+        else -> null
+    }
+
     fun fullnameError(name: String): String? = when {
         name.isBlank() -> "Họ tên không được để trởng"
         name.trim().length < 2 -> "Họ tên tối thiểu 2 ký tự"

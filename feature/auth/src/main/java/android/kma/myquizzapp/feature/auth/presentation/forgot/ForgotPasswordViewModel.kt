@@ -47,8 +47,9 @@ class ForgotPasswordViewModel @Inject constructor(
     }
 
     private fun submit() {
-        val email = _uiState.value.email
-        Timber.d("Forgot Pass: submit() called with email: $email")
+        if (_uiState.value.isLoading) return
+        val email = _uiState.value.email.trim()
+        Timber.d("Forgot Pass: submit() called")
 
         // Validation
         val emailError = AuthValidator.emailError(email)
@@ -58,8 +59,8 @@ class ForgotPasswordViewModel @Inject constructor(
             return
         }
 
+        _uiState.update { it.copy(email = email, emailError = null, isLoading = true) }
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true) }
             Timber.d("Forgot Pass: Starting API call to forgotPasswordUseCase")
 
             when (val result = forgotPasswordUseCase(email)) {

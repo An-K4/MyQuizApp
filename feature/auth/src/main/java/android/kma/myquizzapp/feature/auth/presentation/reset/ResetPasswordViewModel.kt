@@ -62,7 +62,7 @@ class ResetPasswordViewModel @Inject constructor(
     fun onIntent(intent: ResetPasswordIntent) {
         when (intent) {
             is ResetPasswordIntent.PasswordChanged -> _uiState.update {
-                it.copy(newPassword = intent.value, passwordError = null)
+                it.copy(newPassword = intent.value, passwordError = null, confirmPasswordError = null)
             }
             is ResetPasswordIntent.ConfirmPasswordChanged -> _uiState.update {
                 it.copy(confirmPassword = intent.value, confirmPasswordError = null)
@@ -82,7 +82,8 @@ class ResetPasswordViewModel @Inject constructor(
             _uiState.update { it.copy(isCheckingTicket = true) }
             when (val result = getResetTicketUseCase(ticket)) {
                 is Result.Success -> _uiState.update {
-                    it.copy(email = result.data.email, ticketExpiresAt = result.data.expiresAt)
+                    // Keep the email passed from OTP for display; deep links use the server address.
+                    it.copy(email = emailArg ?: result.data.email, ticketExpiresAt = result.data.expiresAt)
                 }
                 is Result.Error -> if (result.error != AppError.Network) {
                     _uiState.update { it.copy(ticketError = result.error.toUserMessage()) }
@@ -115,24 +116,16 @@ class ResetPasswordViewModel @Inject constructor(
 
     private fun submit() {
         val state = _uiState.value
-        if (state.ticket.isBlank()) return  // ticketError đang hiện — form đã bị chặn
+        if (state.isLoading || state.isCheckingTicket || state.ticketError != null || state.ticket.isBlank()) return
 
-        // Validate password
-        val passwordError = AuthValidator.registerPasswordError(state.newPassword)
-        if (passwordError != null) {
-            _uiState.update { it.copy(passwordError = passwordError) }
-            return
-        }
+        // Pure validation rules live in AuthValidator; this ViewModel owns UI state and submission.
+        val passwordError = AuthValidator.resetPasswordError(state.newPassword)
+        val confirmPasswordError = AuthValidator.confirmPasswordError(state.newPassword, state.confirmPassword)
+        _uiState.update { it.copy(passwordError = passwordError, confirmPasswordError = confirmPasswordError) }
+        if (passwordError != null || confirmPasswordError != null) return
 
-        // Validate confirm password
-        if (state.newPassword != state.confirmPassword) {
-            _uiState.update { it.copy(confirmPasswordError = "Mật khẩu xác nhận không khớp") }
-            return
-        }
-
+        _uiState.update { it.copy(isLoading = true) }
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true) }
-
             when (val result = completeResetUseCase(state.ticket, state.newPassword)) {
                 is Result.Success -> {
                     _effect.send(ResetPasswordEffect.ShowMessage("Đặt lại mật khẩu thành công! Vui lòng đăng nhập."))
