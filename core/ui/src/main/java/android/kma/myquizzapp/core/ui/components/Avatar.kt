@@ -1,5 +1,13 @@
 package android.kma.myquizzapp.core.ui.components
 
+import android.content.res.Configuration
+import android.kma.myquizzapp.core.ui.theme.MyQuizAppTheme
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.platform.LocalInspectionMode
+
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -30,7 +38,7 @@ fun Avatar(
     size: Dp = 40.dp,
     modifier: Modifier = Modifier
 ) {
-    if (avatarUrl.isNullOrBlank()) {
+    if (avatarUrl.isNullOrBlank() || LocalInspectionMode.current) {
         Icon(
             imageVector = Icons.Default.AccountCircle,
             contentDescription = contentDescription,
@@ -47,3 +55,19 @@ fun Avatar(
         )
     }
 }
+
+@Preview(name = "Avatar States Light", showBackground = true, widthDp = 390)
+@Preview(name = "Avatar States Dark", showBackground = true, widthDp = 390, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun AvatarPreview() {
+    MyQuizAppTheme {
+        Surface(color = MaterialTheme.colorScheme.background) {
+            Row(Modifier.padding(20.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                Avatar(null, "Avatar mặc định", size = 34.dp)
+                Avatar("", "Avatar mặc định", size = 40.dp)
+                Avatar(null, "Avatar lớn", size = 64.dp)
+            }
+        }
+    }
+}
+

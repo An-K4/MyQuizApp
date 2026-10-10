@@ -43,8 +43,8 @@ fun AuthRequiredDialog(
     )
 }
 
-@Preview
-@Preview(uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(name = "Auth Required Light", showBackground = true, widthDp = 390)
+@Preview(name = "Auth Required Dark", showBackground = true, widthDp = 390, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun AuthRequiredDialogPreview() {
     MyQuizAppTheme {

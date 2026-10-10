@@ -1,5 +1,11 @@
 package android.kma.myquizzapp.core.ui.components
 
+import android.content.res.Configuration
+import android.kma.myquizzapp.core.ui.theme.MyQuizAppTheme
+import androidx.compose.material3.Surface
+import androidx.compose.ui.tooling.preview.Preview
+import android.kma.myquizzapp.core.common.model.QuizCard
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -69,3 +75,30 @@ fun HomeSectionRow(
         }
     }
 }
+
+@Preview(name = "Home Section States Light", showBackground = true, widthDp = 390)
+@Preview(name = "Home Section States Dark", showBackground = true, widthDp = 390, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun HomeSectionRowPreview() {
+    MyQuizAppTheme {
+        Surface(color = MaterialTheme.colorScheme.background) {
+            Column(Modifier.padding(vertical = 20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                val quiz = QuizCard(
+                    id = 1L,
+                    quizName = "100 Câu Tiếng Anh Giao Tiếp Thông Dụng",
+                    quizLanguage = "vi",
+                    quizOwnerId = 1L,
+                    owner = android.kma.myquizzapp.core.common.model.QuizOwner(1L, "Anh Thư"),
+                    questionCount = 20,
+                    playCount = 500,
+                    completionRate = 0.85,
+                    createdAt = "2026-10-10T00:00:00Z",
+                )
+                val section = HomeSection("preview", "Quiz nổi bật", "featured", listOf(quiz))
+                HomeSectionRow(section, {}, onSeeMore = {})
+                HomeSectionRow(section.copy(title = "Section không có nút Xem thêm", items = emptyList()), {})
+            }
+        }
+    }
+}
+

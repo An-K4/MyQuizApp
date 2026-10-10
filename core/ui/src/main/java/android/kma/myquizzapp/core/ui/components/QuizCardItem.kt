@@ -1,5 +1,11 @@
 package android.kma.myquizzapp.core.ui.components
 
+import android.content.res.Configuration
+import android.kma.myquizzapp.core.ui.theme.MyQuizAppTheme
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.ui.tooling.preview.Preview
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -108,3 +114,29 @@ fun QuizCardItem(
         }
     }
 }
+
+@Preview(name = "Quiz Card States Light", showBackground = true, widthDp = 390)
+@Preview(name = "Quiz Card States Dark", showBackground = true, widthDp = 390, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun QuizCardItemPreview() {
+    MyQuizAppTheme {
+        Surface(color = MaterialTheme.colorScheme.background) {
+            Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                val quiz = QuizCard(
+                    id = 1L,
+                    quizName = "100 Câu Tiếng Anh Giao Tiếp Thông Dụng",
+                    quizLanguage = "vi",
+                    quizOwnerId = 1L,
+                    owner = android.kma.myquizzapp.core.common.model.QuizOwner(1L, "Anh Thư"),
+                    questionCount = 20,
+                    playCount = 500,
+                    completionRate = 0.85,
+                    createdAt = "2026-10-10T00:00:00Z",
+                )
+                QuizCardItem(quiz, {})
+                QuizCardItem(quiz.copy(id = 2L, owner = null, quizName = "Quiz không có thông tin tác giả"), {})
+            }
+        }
+    }
+}
+
