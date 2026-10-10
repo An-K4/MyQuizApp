@@ -2,7 +2,7 @@
 
 > File này không thay thế `myquizz-review-backend-ke-hoach-50-ngay.md` (kế hoạch + trạng thái chi tiết từng ngày) — đây là tập hợp **quy tắc làm việc + kinh nghiệm + lưu ý** rút ra sau nhiều phiên, giúp agent mới khởi đầu nhanh hơn và không lặp lại sai lầm cũ. Đọc file này **trước**, rồi đọc file kế hoạch để biết đang ở đâu.
 >
-> N44 đang WIP ở source commit `3ea792a`: history/session isolation và logout reset graph đã triển khai, 16 regression test bổ sung có XML local PASS; N43 có XML PASS cho 25 test bổ sung. Google relogin guest chưa tái hiện trong capture mới (5/5 login success); user yêu cầu tạm hoãn điều tra/fix Google và hai cookie race đã tái hiện bằng diagnostic. Đã gỡ N44Session instrumentation; không gọi đây là fixed. Chặng tiếp theo là N44 chặng 4 — E2E/matrix + bằng chứng build/CI/backend, chưa chốt N45/M6.
+> N44 vẫn PARTIAL (source `3ea792a`, báo cáo `N44_E2E_REPORT.md`); N46 đã triển khai từng mốc user duyệt đến Register, source main `ee8701c`. Font/component, Preview cũ, Splash, Login và Register đã commit; xem `N46_UI_PROGRESS.md`. Login được user xác nhận UI ổn, Register oke và đã commit; agent chưa xác minh build/lint/CI/regression mới. N46 WIP, không chốt N45/M6/release; Google/cookie DEFERRED và các blocker N44/backend giữ nguyên.
 
 ---
 
@@ -79,6 +79,17 @@ Khi tạo hoặc review screen/component mới, nếu không có lý do kỹ thu
 Chi tiết audit, inventory và checklist ở `knowledgement/ui_stateful_stateless_refactor.md`.
 
 ---
+
+### 2.2. N46 — quy trình polish theo màn, không làm một mạch
+
+- User giám sát từng màn. Đọc đúng ảnh trong `design/screens/` hoặc `design/components/`, đối chiếu source mới nhất, implement một mốc rồi dừng để user xem Preview/hiệu chỉnh. Không coi một lần duyệt component là duyệt toàn bộ UI.
+- `AnswerOptionItem.kt` là mẫu component đã được user chọn: stateless mặc định; value/state đi xuống, callback đi lên; Preview private ngay trong file, bọc `MyQuizAppTheme`, có Light/Dark và state đại diện. Nếu cần wrapper giữ UI state như focus thì phải có Content stateless lõi; không thêm wrapper dư thừa.
+- Tái sử dụng `QuizPrimaryButton`/`QuizSecondaryButton`/`QuizDangerButton` và `CustomClickableText`. Login: Khách ngay dưới Đăng nhập; Google là Secondary với icon trái sẵn có; chỉ span Đăng ký ngay là link, không dùng TextButton cho cả dòng.
+- Register: nhãn nằm trên field, thứ tự fullname/email/password/phone; phone dùng icon ống nghe theo user, không giữ icon khóa sai trong ảnh. Giữ validation/Intent/Effect/Use case/backend khi phạm vi chỉ UI.
+- Không biến selected thành correct; rank/score/reveal do caller/server quyết định. OTP 6 ASCII digits khác room 6 ASCII alphanumeric uppercase. Card rating optional, không bịa dữ liệu thật từ fixture Preview.
+- `@Preview` không chứng minh render/build/test PASS. User duyệt hình thức khác evidence regression. Dark hiện fallback và contrast/touch target/font scale cần kiểm tra riêng trước khi đóng N46.
+- Ảnh `design/` chỉ local: main ignore `/design/`; docs không có `.gitignore`, `.git/info/exclude` đã thêm `/design/` áp dụng mọi nhánh, không commit. `.design/` là tên thư mục khác và không ignore `design/`; `??` là untracked nên không cần `git rm --cached`.
+- Sau source commit, user checkout docs rồi cập nhật targeted các tài liệu và `N46_UI_PROGRESS.md`; không copy đè snapshot cũ hoặc merge toàn bộ main vào docs. Không tự commit/push/chuyển branch. N44 PARTIAL/backend/privacy/session gates không bị waived.
 
 ## 3. Bẫy (traps) đã gặp thật — đừng lặp lại
 
@@ -270,7 +281,9 @@ Bản đầu Create Room đưa `Map<String, JsonElement>` và dotted path xuyên
 - **CI đã có sẵn**: `.github/workflows/android-ci.yml` (chỉ tồn tại trên nhánh `main`) chạy `./gradlew lint --continue` → `./gradlew testDebugUnitTest` → `./gradlew assembleDebug` cho mọi push/PR vào `main`, và upload `**/build/reports/` khi fail. → Unit test **tự chạy trên GitHub Actions** sau khi push lên `main`; nhánh `docs` KHÔNG kích hoạt workflow. Agent có thể xem kết quả run qua GitHub MCP thay vì nhờ user chạy Gradle local.
 - Nếu MCP filesystem "mù" toàn bộ source (`ENOENT` trên thư mục chắc chắn tồn tại, `list_directory` chỉ thấy `build/`), rất có thể user chưa checkout nhánh làm việc — hỏi trước khi kết luận cấu trúc dự án.
 
-## 6. Trạng thái hiện tại (N44 PARTIAL → research N46 theo user)
+## 6. Trạng thái hiện tại (N44 PARTIAL / N46 WIP theo từng mốc)
+
+- **N46 đã triển khai đến Register trên main `ee8701c`**, gồm 6 commit UI và 1 commit ignore sau `cd018bb`. Sổ mốc/source/evidence ở `N46_UI_PROGRESS.md`; cập nhật từng màn sau user duyệt, không tick hoàn tất N46. Login đã được user xác nhận UI ổn; Register oke và đã commit, chưa có build/regression evidence mới được agent xác minh.
 
 - **N44 đã có báo cáo manual E2E PARTIAL cho lượt user ghi 08/10/2026 22:00; xem `N44_E2E_REPORT.md`. Lỗi mới N44-OFFLINE-BOOT: cold-start offline làm Hoạt động/Hồ sơ treo loading; Practice pause/resume vẫn nhảy về câu đầu. Một số case PARTIAL/NOT RUN/BLOCKED hoặc dùng evidence lịch sử; APK SHA/backend deployment/full CI chưa xác nhận. Theo quyết định user, lưu backlog và chuyển sang nghiên cứu giao diện N46; đây là ngoại lệ thứ tự research, không chốt N45/M6, không miễn trừ release blockers. Google/cookie race vẫn DEFERRED, chưa fix; 16 regression N44 và 25 test N43 XML PASS là evidence trước đó.**
 - N43: Account Security đã triển khai `ab6621b`, user kiểm thử nhanh ổn và XML local xác nhận 25 test bổ sung PASS. N44 source `3ea792a` có 16 regression bổ sung PASS; full build/lint/CI và E2E theo matrix vẫn cần bằng chứng. Xem `N43_IMPLEMENTATION.md` và `N44_INTEGRATION.md` trên docs; không coi hai cookie-race diagnostic FAIL là regression PASS.

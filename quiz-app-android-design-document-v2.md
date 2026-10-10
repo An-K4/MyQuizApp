@@ -1,7 +1,7 @@
 > Đối chiếu với backend thực tế tại `github.com/Ntd1411/myquizz` (Express + TypeScript + [Socket.IO](http://Socket.IO) + PostgreSQL + Redis).
 > Đây là bản viết lại của design doc v1.0, sửa toàn bộ phần hợp đồng API/Socket cho khớp với code backend thật (không còn là template quiz-app chung chung).
 > Cập nhật 27/9/2026 sau N28.5: Player self-paced đã hỗ trợ Solo manual-next, Survival lives/elimination và Marathon timer tổng/timeout/finish; Host Console đã có dashboard riêng cho Classic lẫn self-paced. Phần Android N28.5 hoàn tất theo contract hiện có, nhưng lives/streak, timeout và presence của Host còn chờ backend bổ sung event/payload. M4 vẫn chưa chốt vì backend còn presence race và các lỗi snapshot/Marathon đã ghi trong kế hoạch.
-> N44 đang WIP ở source commit `3ea792a`: history/session isolation và logout reset graph đã triển khai, 16 regression test bổ sung có XML local PASS; N43 có XML PASS cho 25 test bổ sung. Google relogin guest chưa tái hiện trong capture mới (5/5 login success); user yêu cầu tạm hoãn điều tra/fix Google và hai cookie race đã tái hiện bằng diagnostic. Đã gỡ N44Session instrumentation; không gọi đây là fixed. Chặng tiếp theo là N44 chặng 4 — E2E/matrix + bằng chứng build/CI/backend, chưa chốt N45/M6.
+> N44 vẫn PARTIAL (source `3ea792a`, báo cáo `N44_E2E_REPORT.md`); N46 đã triển khai từng mốc user duyệt đến Register, source main `ee8701c`. Font/component, Preview cũ, Splash, Login và Register đã commit; xem `N46_UI_PROGRESS.md`. Login được user xác nhận UI ổn, Register oke và đã commit; agent chưa xác minh build/lint/CI/regression mới. N46 WIP, không chốt N45/M6/release; Google/cookie DEFERRED và các blocker N44/backend giữ nguyên.
 **Kotlin • Jetpack Compose • MVI + Clean Architecture • **[**Socket.IO**](http://Socket.IO)** • Retrofit + Cookie Auth**
 ---
 ## Mục lục
@@ -1775,7 +1775,18 @@ Avatar và logo vẽ bằng `Image` chứ không `Icon`, vì `Icon` nhuộm nộ
 - 16 regression bổ sung đã có XML local PASS: Activity +5, GameHistoryIdentity 9, SessionRepository +2. Các suite cũ đã đọc cũng PASS; chưa đủ chứng minh full assemble/lint/CI hoặc E2E.
 - Hai cookie-race invariants đã tái hiện FAIL: terminal refresh cũ xóa cookie mới; Set-Cookie muộn phục hồi store sau logout. State revision guard không bảo vệ side effect cookie. Google guest user từng gặp nhưng capture mới 5/5 login thành công, chưa tái hiện; user tạm hoãn điều tra/fix, chưa có production transport fix.
 - N44Session instrumentation đã gỡ; giữ logger hiện hữu và hai reproducer opt-in. Không workaround bằng delay/forced state/UI từng tab. Backend baseline audit `7c103c87b4c78d817e8a7acf50fd0424edd16c79`, chưa xác nhận deployment/fix mới trong lượt merge.
-- **Tiếp theo: N44 chặng 4**, E2E/matrix + build/CI evidence và retest blocker nếu backend đã sửa/deploy. Giữ các gate N20.6/N25/N28.5/N29/N30, privacy POLICY-RESULT và rủi ro session; N45/M6 chưa chốt. Chi tiết trong `N44_INTEGRATION.md` trên docs, không thêm feature/polish N46 lúc này.
+- **Cập nhật sau báo cáo N44:** manual E2E vẫn PARTIAL theo `N44_E2E_REPORT.md`; user đã cho triển khai UI N46 từng màn, đến Register ở main `ee8701c` (mục 11.19). Các gate N20.6/N25/N28.5/N29/N30, N44-OFFLINE-BOOT, privacy POLICY-RESULT và session vẫn mở; Google/cookie DEFERRED, N45/M6 chưa chốt. Không coi UI polish là fix backend hoặc waiver release.
+
+### 11.19. Cập nhật N46 — UI polish WIP theo từng mốc
+
+- Baseline main `ee8701c`; đối chiếu 7 commit sau `cd018bb`: `4b354b6` font/palette/root theme, `c0fedf3` shared component/inline link, `f94d8f5` Preview component cũ, `1585073` Splash, `0ba1244` Login, `423bb4d` ignore design, `ee8701c` Register. Sổ checkpoint và evidence: `N46_UI_PROGRESS.md`.
+- Inter local 400/500/600/700 + license, đủ 15 typography role, root `MyQuizAppTheme`. `FrontendColors` là palette light/gradient từ Figma/CSS; `ComponentColors` dark fallback không phải mẫu dark đã duyệt.
+- Component stateless theo `AnswerOptionItem.kt`; code field wrapper chỉ giữ focus, Content nhận text/selection. OTP 6 ASCII digits khác room alphanumeric uppercase. Selection/reveal/rank/score do caller/server quản lý; top 3 chỉ đổi presentation thành huy chương, không sắp xếp/tính điểm.
+- Splash giữ UI/logic gốc, thêm tên app Bold. Login theo ảnh 02: Primary Đăng nhập, Secondary Khách ngay dưới, Secondary Google với icon trái sẵn có, inline Đăng ký ngay; user xác nhận UI ổn. Register theo ảnh 03: fullname/email/password/phone với nhãn ngoài field, phone icon ống nghe theo user, Primary Đăng ký và inline Đăng nhập; user xác nhận oke và commit.
+- Login/Register giữ Credential Manager/ViewModel/validation/Use case/Intent/Effect/API/navigation; ScrollState hoist vào wrapper, Content stateless; 5 Preview mỗi màn cho Light/Dark/loading/errors/narrow-large-text. Không gọi Hilt/VM/navigation trong Preview.
+- Đã viết 10 case normalization trong `SixCharacterCodeTest`; chưa có log build/lint/test/CI hoặc render Compose mới được agent xác minh. User duyệt UI/commit khác E2E PASS. Các màn khác, tích hợp shared component toàn app, dark/animation/accessibility và sheet dark mode còn mở.
+- `design/` chỉ local, không cần có trong clone: main `.gitignore` và local `.git/info/exclude` dùng `/design/`; docs không có `.gitignore`. Mỗi màn phải được user giám sát/duyệt riêng, source commit trên main rồi targeted-update docs, không merge toàn bộ main vào docs.
+- N44 vẫn PARTIAL; N45/M6/release không được chốt bởi các mốc UI này. Backend/privacy/session/Google-cookie backlog giữ nguyên, xem báo cáo N44 và checklist trong sổ N46.
 
 ## 12. Dependency Injection — Hilt Modules
 <table header-row="true">

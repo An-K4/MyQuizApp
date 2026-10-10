@@ -2,7 +2,7 @@
 
 > **Tài liệu cấu trúc dự án chi tiết**  
 > Mô tả vai trò, trách nhiệm và mối quan hệ giữa các module trong kiến trúc Multi-module Gradle  
-> **Version:** 2.21 | **Last Updated:** N44 WIP (source Android `3ea792a`)
+> **Version:** 2.22 | **Last Updated:** N46 WIP đến Register (source main `ee8701c`; N44 vẫn PARTIAL)
 
 ---
 
@@ -79,9 +79,9 @@ app/
 ├── src/main/
 │   ├── java/.../
 │   │   ├── QuizApp.kt              # Application class - @HiltAndroidApp
-│   │   ├── MainActivity.kt         # Single Activity, Compose host
+│   │   ├── MainActivity.kt         # N46.0 - root MyQuizAppTheme bọc AppNavGraph
 │   │   ├── presentation/splash/
-│   │   │   ├── SplashScreen.kt
+│   │   │   ├── SplashScreen.kt     # N46.2 - giữ UI gốc, thêm tên app Inter Bold dưới logo
 │   │   │   └── SplashViewModel.kt  # Dùng CheckAuthStateUseCase từ core:datastore
 │   │   ├── domain/activity/
 │   │   │   └── LoadGameHistoryUseCase.kt # 🆕 N38 - orchestration mỏng cho lịch sử theo vai trò
@@ -390,34 +390,52 @@ Design system dùng chung cho toàn app. Centralize Material 3 theme, typography
 #### Trách nhiệm
 - ✅ Define Material 3 theme (Color scheme, Typography, Shapes)
 - ✅ Shared reusable composables (buttons, text fields, cards, etc.)
-- ✅ Custom components (CountdownTimer, QuizCard, PlayerAvatar, etc.)
-- ✅ `UiText` sealed class cho localized strings
+- ✅ Component thật: buttons/code input/answer row/quiz summary/leaderboard/avatar/remote image/inline link; không liệt kê tên dự kiến như file đã tồn tại
+- ℹ️ `UiText` bên dưới là pattern minh họa, không phải file đã tồn tại trong tree main được đối chiếu ở N46
 - ❌ **KHÔNG** chứa business logic hay data models
 - ❌ **KHÔNG** phụ thuộc `:core:network` hay `:core:database`
 
 #### Cấu trúc thư mục
 ```
 core/ui/
-├── src/main/java/.../ui/
+├── src/main/java/.../core/ui/
 │   ├── theme/
-│   │   ├── Color.kt                      # Primary, Secondary, Error colors
-│   │   ├── Type.kt                       # Typography definitions
-│   │   ├── Theme.kt                      # QuizAppTheme composable
-│   │   └── Shape.kt                      # Corner shapes
+│   │   ├── Color.kt                    # Brand + FrontendColors light palette/gradient
+│   │   ├── ComponentColors.kt          # N46 - internal light/dark resolver
+│   │   ├── Type.kt                     # N46 - InterFontFamily, đủ 15 typography role
+│   │   └── Theme.kt                    # MyQuizAppTheme
 │   ├── components/
-│   │   ├── QuizButton.kt                 # Branded button styles
-│   │   ├── QuizTextField.kt              # Consistent text input
-│   │   ├── QuizCard.kt                   # Card component with elevation
-│   │   ├── CountdownTimer.kt             # Circular countdown display
-│   │   ├── PlayerAvatar.kt               # User avatar with fallback
-│   │   ├── RemoteImage.kt                # Ảnh mạng dùng chung với placeholder/error fallback
-│   │   ├── QuestionImage.kt              # N40 - ảnh câu hỏi 16:9, bỏ qua URL rỗng
-│   │   └── LoadingIndicator.kt           # Loading states
-│   └── UiText.kt                         # sealed class for string resources
+│   │   ├── QuizButtons.kt              # Primary/Secondary/Danger; leading icon slot
+│   │   ├── CustomClickableText.kt      # Chỉ action span là link; stateless
+│   │   ├── SixCharacterCode.kt         # OTP/Room normalize thuần
+│   │   ├── SixCharacterCodeField.kt    # Wrapper focus + stateless Content
+│   │   ├── AnswerOptionItem.kt         # Selection khác correctness; single-choice
+│   │   ├── QuizSummaryCard.kt          # Card ngang theo mẫu N46; primitive props
+│   │   ├── LeaderboardPlayerCard.kt    # Top 3 medals; caller cung cấp rank/score
+│   │   ├── ComponentGalleryPreview.kt  # Tổng hợp Light/Dark/narrow-large-text
+│   │   ├── QuizCardItem.kt             # Card dọc cũ; chưa mass-migrate
+│   │   ├── HomeSectionRow.kt
+│   │   ├── AuthRequiredDialog.kt
+│   │   ├── Avatar.kt
+│   │   ├── RemoteImage.kt              # Preview inspection placeholder; runtime Coil
+│   │   ├── QuestionImage.kt            # N40 - 16:9, URL rỗng không chiếm chỗ
+│   │   └── SettingSwitchRow.kt
+│   ├── gameconfig/                     # Editor cấu hình dùng chung từ N20
+│   └── style/                          # AppTextStyles hiện hữu
+├── src/main/res/font/
+│   ├── inter_regular.ttf              # 400
+│   ├── inter_medium.ttf               # 500
+│   ├── inter_semibold.ttf             # 600
+│   └── inter_bold.ttf                 # 700
+├── src/test/java/.../components/
+│   └── SixCharacterCodeTest.kt         # 10 case đã viết; chưa xác minh run mới
+├── licenses/Inter-LICENSE.txt
 └── build.gradle.kts
 ```
 
-#### UiText Pattern
+Tree trên đối chiếu source main tại `ee8701c`, không lấy source vắng khi checkout docs làm bằng chứng file chưa có. N46.0–N46.1a đã commit; Preview không thay thế test/build evidence. Chi tiết checkpoint ở `N46_UI_PROGRESS.md`.
+
+#### UiText Pattern (minh họa, không phải inventory source)
 ```kotlin
 sealed class UiText {
     data class DynamicString(val value: String) : UiText()
@@ -447,7 +465,9 @@ dependencies {
 #### Lưu ý quan trọng
 🎨 **Theme Values**: Colors được định nghĩa từ logo MyQuizApp:
 - Primary: `#7B61FF` (tím brand)
-- Secondary: `#FF6B6B` (đỏ accent)
+- Material Secondary hiện hữu: `#625B71`; không nhầm với `FrontendColors.Danger = #EF4444`.
+- Palette Figma light đầy đủ và dark fallback ghi ở `N46_UI_PROGRESS.md`; chưa chốt dark design toàn app.
+- Root `MainActivity` áp `MyQuizAppTheme`; typography dùng Inter local, không download font lúc chạy.
 
 📱 **Stateful vs Stateless**: Components trong `:core:ui` nên **stateless** - nhận data qua parameters, emit events qua callbacks.
 
@@ -577,6 +597,7 @@ Xử lý authentication flow: Login, Register, Google One Tap, Forgot Password, 
 #### Trách nhiệm
 - ✅ LoginScreen + LoginViewModel (email/password, Play as Guest)
 - ✅ RegisterScreen + RegisterViewModel
+- 🚧 N46.3/N46.4 đã polish Login (`0ba1244`) và Register (`ee8701c`) theo ảnh local; Screen/Content stateless, ScrollState/visibility hoist lên wrapper, shared buttons/inline link và 5 Preview mỗi màn. Register phone dùng icon ống nghe. Không đổi validator/Use case/Intent/Effect/API; chưa xác minh regression/build mới, xem `N46_UI_PROGRESS.md`.
 - ✅ Google One Tap integration (Credential Manager API)
 - ✅ ForgotPasswordScreen + OTP verification flow + ResetPasswordScreen (deep-link token và OTP fallback)
 - ✅ `AuthValidator` dùng chung validate email/password/fullname/phone cho mọi form
