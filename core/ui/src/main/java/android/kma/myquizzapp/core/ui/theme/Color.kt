@@ -1,5 +1,6 @@
 package android.kma.myquizzapp.core.ui.theme
 
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 
 /**
@@ -53,3 +54,35 @@ val OutlineVariant = Color(0xFFCAC4D0)
 
 // Google button background
 val GoogleButtonGray = Color(0xFFC3C3C3)  // Gray for Google button
+
+/**
+ * Background tokens from the frontend CSS export (New Text Document.txt).
+ * Component foreground/accent colors also come from design/image.png.
+ * Neither export defines dark variants.
+ * Keep these tokens separate from Material color roles until each screen is reviewed.
+ */
+object FrontendColors {
+    // Exact light palette supplied in design/image.png.
+    val Foreground = Color(0xFF0F0E17)
+    val Border = Color(0xFFE8E5F0)
+    val MutedForeground = Color(0xFF71717A)
+    val Success = Color(0xFF10B981)
+    val SuccessForeground = Color(0xFF087857)
+    val Danger = Color(0xFFEF4444)
+    val BrandTint = Color(0xFFF3F0FF)
+    val Warning = Color(0xFFA66C00)
+    val PageBackground = Color(0xFFFFFFFF)
+    val SoftBackground = Color(0xFFF8F7FD)
+    val CorrectAnswerBackground = Color(0xFFE9FAF3)
+
+    val ResultGradientStart = Color(0xFF21113E)
+    val ResultGradientMiddle = Color(0xFF4C2B8D)
+    val ResultGradientEnd = Color(0xFF25144F)
+
+    // CSS: linear-gradient(180deg, start 0%, middle 48%, end 100%).
+    val ResultBackgroundGradient: Brush = Brush.verticalGradient(
+        0.0f to ResultGradientStart,
+        0.48f to ResultGradientMiddle,
+        1.0f to ResultGradientEnd,
+    )
+}

@@ -8,6 +8,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import android.kma.myquizzapp.core.ui.theme.MyQuizAppTheme
 import android.kma.myquizzapp.navigation.AppNavGraph
 import dagger.hilt.android.AndroidEntryPoint
 
@@ -24,7 +25,9 @@ class MainActivity : ComponentActivity() {
         handleDeepLink(intent)
         
         setContent {
-            AppNavGraph(initialDeepLinkToken = deepLinkToken)
+            MyQuizAppTheme {
+                AppNavGraph(initialDeepLinkToken = deepLinkToken)
+            }
         }
     }
     
