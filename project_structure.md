@@ -2,7 +2,7 @@
 
 > **Tài liệu cấu trúc dự án chi tiết**  
 > Mô tả vai trò, trách nhiệm và mối quan hệ giữa các module trong kiến trúc Multi-module Gradle  
-> **Version:** 2.22 | **Last Updated:** N46 WIP đến Register (source main `ee8701c`; N44 vẫn PARTIAL)
+> **Version:** 2.23 | **Last Updated:** N46 WIP đến Search/Discover (source main `d5571d6`; N44 vẫn PARTIAL)
 
 ---
 
@@ -101,7 +101,7 @@ app/
 │   │   │   └── ActivityScreen.kt
 │   │   └── navigation/
 │   │       ├── AppNavGraph.kt      # 🆕 N18.5 - Root NavHost orchestrator; N19.5: Scaffold + bottom bar bọc NGOÀI NavHost
-│   │       ├── MainScaffold.kt     # 🆕 N19.5 - TopLevelTab (5 tab) + MainBottomBar + navigateToTab
+│   │       ├── MainScaffold.kt     # N19.6: 4 tab; N46.6: MainBottomBarContent stateless, outlined/chấm tím + full Home Preview
 │   │       ├── CurrentUserViewModel.kt # 🆕 N19.5 - avatar cho tab Hồ sơ; scope Activity vì bar nằm ngoài NavHost
 │   │       ├── AuthNavGraph.kt     # 🆕 N18.5 - Auth routes: Login/Register/ForgotPassword/OtpVerification/ResetPassword
 │   │       ├── MainNavGraph.kt     # Main routes; N39 thêm GameHistoryDetail từ card Hoạt động
@@ -410,10 +410,11 @@ core/ui/
 │   │   ├── SixCharacterCode.kt         # OTP/Room normalize thuần
 │   │   ├── SixCharacterCodeField.kt    # Wrapper focus + stateless Content
 │   │   ├── AnswerOptionItem.kt         # Selection khác correctness; single-choice
-│   │   ├── QuizSummaryCard.kt          # Card ngang theo mẫu N46; primitive props
+│   │   ├── QuizListCard.kt             # Card ngang Search/Library; đổi tên từ QuizSummaryCard ở N46.6
+│   │   ├── DiscoveryQuizCard.kt        # Card dọc Home/Discover; uniformGrid cho lưới đều
+│   │   ├── RoomCodeEntryCard.kt        # Card room 6 ô, stateless primitive props
 │   │   ├── LeaderboardPlayerCard.kt    # Top 3 medals; caller cung cấp rank/score
 │   │   ├── ComponentGalleryPreview.kt  # Tổng hợp Light/Dark/narrow-large-text
-│   │   ├── QuizCardItem.kt             # Card dọc cũ; chưa mass-migrate
 │   │   ├── HomeSectionRow.kt
 │   │   ├── AuthRequiredDialog.kt
 │   │   ├── Avatar.kt
@@ -433,7 +434,7 @@ core/ui/
 └── build.gradle.kts
 ```
 
-Tree trên đối chiếu source main tại `ee8701c`, không lấy source vắng khi checkout docs làm bằng chứng file chưa có. N46.0–N46.1a đã commit; Preview không thay thế test/build evidence. Chi tiết checkpoint ở `N46_UI_PROGRESS.md`.
+Tree phần N46 trên đối chiếu source main tại `d5571d6`, không lấy source vắng khi checkout docs làm bằng chứng file chưa có. QuizSummaryCard đã đổi tên thành QuizListCard (`9417aad`); QuizCardItem đã xóa khỏi source (`d5571d6`). ComponentColors là internal chỉ dùng trong core:ui; feature dùng FrontendColors public + MaterialTheme dark fallback. Preview không thay thế test/build evidence; chi tiết checkpoint ở `N46_UI_PROGRESS.md`.
 
 #### UiText Pattern (minh họa, không phải inventory source)
 ```kotlin
@@ -599,8 +600,8 @@ Xử lý authentication flow: Login, Register, Google One Tap, Forgot Password, 
 - ✅ RegisterScreen + RegisterViewModel
 - 🚧 N46.3/N46.4 đã polish Login (`0ba1244`) và Register (`ee8701c`) theo ảnh local; Screen/Content stateless, ScrollState/visibility hoist lên wrapper, shared buttons/inline link và 5 Preview mỗi màn. Register phone dùng icon ống nghe. Không đổi validator/Use case/Intent/Effect/API; chưa xác minh regression/build mới, xem `N46_UI_PROGRESS.md`.
 - ✅ Google One Tap integration (Credential Manager API)
-- ✅ ForgotPasswordScreen + OTP verification flow + ResetPasswordScreen (deep-link token và OTP fallback)
-- ✅ `AuthValidator` dùng chung validate email/password/fullname/phone cho mọi form
+- ✅ ForgotPasswordScreen → OtpVerificationScreen → ResetPasswordScreen: luồng reset ticket thật từ N16.5, hỗ trợ deep-link token verify → ticket; N46.5 polish 3 màn (`3d92af1`), không viết thêm endpoint. OTP 6 ô + countdown/resend inline gộp căn giữa dưới nút; giữ top app bar, không icon lớn/checklist.
+- ✅ `AuthValidator` thuần Kotlin validate email/password/fullname/phone; N46.5 thêm resetPasswordError (rule register min 8) và confirmPasswordError (rỗng/khớp chính xác, không trim). ViewModel gọi validator + Use case và claim loading đồng bộ; `a1327bb`. 8 PasswordResetValidationTest case đã viết, chưa xác minh run mới.
 - ✅ Deep linking cho reset password token
 
 #### Cấu trúc thư mục
@@ -608,6 +609,7 @@ Xử lý authentication flow: Login, Register, Google One Tap, Forgot Password, 
 feature/auth/
 ├── src/main/java/.../feature/auth/
 │   ├── presentation/
+│   │   ├── PasswordResetFormField.kt  # N46.5 - field stateless dùng chung Forgot/Reset
 │   │   ├── login/
 │   │   │   ├── LoginScreen.kt
 │   │   │   ├── LoginViewModel.kt
@@ -644,9 +646,11 @@ feature/auth/
 │       └── usecase/
 │           ├── AuthUseCases.kt           # LoginUseCase, RegisterUseCase, GetCurrentUserUseCase, LoginWithGoogleUseCase, LogoutUseCase
 │           ├── EnableGuestModeUseCase.kt # Persist guest mode khi bấm "Play as Guest"
-│           ├── ForgotPasswordUseCase.kt
-│           ├── ResetPasswordUseCase.kt         # Reset qua deep-link token
-│           └── ResetPasswordWithOtpUseCase.kt  # Reset qua email + OTP (fallback)
+│           ├── ForgotPasswordUseCase.kt       # Request reset OTP/email
+│           ├── VerifyResetOtpUseCase.kt       # Email + OTP → ticket
+│           ├── VerifyResetTokenUseCase.kt     # Deep-link token → ticket
+│           ├── GetResetTicketUseCase.kt       # Peek ticket metadata
+│           └── CompleteResetUseCase.kt        # Ticket + password → complete reset
 └── build.gradle.kts
 ```
 
@@ -680,9 +684,9 @@ dependencies {
 Browse public quizzes, search, view "My Quizzes" (nếu logged in), entry point để tạo game room.
 
 #### Trách nhiệm
-- ✅ HomeScreen — tabs Khám phá/Của tôi qua `HomeSection` (N11, 17/8)
-- ✅ SearchScreen **riêng** (Option B, N11) — tách khỏi HomeScreen, auto-focus + infinite scroll
-- ✅ N20.5: `presentation/discover` có `DiscoverScreen` stateful + `DiscoverScreenContent` stateless, UiState/Intent/Effect tách file; `domain/discover` có query resolver, PagingSource và Observe use case. Discover dùng public-only QuizApiService để không lẫn quiz private của owner.
+- ✅ HomeScreen — feed trong một LazyColumn; không còn tab Của tôi (Library là route riêng). N46.6 header brand/pill auth, room 6 ô qua slot + DiscoveryQuizCard (`88a1307`). Không fake continue progress/resume.
+- ✅ SearchScreen **riêng** — auto-focus, manual submit/IME và cursor append. N46.7 dùng QuizListCard ngang (`496dc36`), có append error/retry đúng cursor giữ results; SearchUiStateTest tổng 9 case, chưa xác minh run mới.
+- ✅ N20.5: `presentation/discover` có Screen/Content và UiState/Intent/Effect riêng; domain có resolver/PagingSource/Observe use case, dùng public-only client. N46.8 (`d5571d6`): grid 2 cột DiscoveryQuizCard uniform, category chips/sort; wrapper hoist grid/filter state và captured snapshot cho count/key/data, live access guard index/ID để giữ prefetch. Có source fix Paging index crash, chưa có xác nhận retest sau sửa; không thêm tab hay total giả.
 - ✅ Search quizzes công khai (không cần login - `optionalAuthMiddleware`)
 - ⚠️ Quiz detail (preview + entry chơi) đã **chuyển sang `:feature:quiz-manage/presentation/quizdetail`** (N12, 21/8) — xem mục 3.7, không còn ở `feature:home`
 - ✅ Navigate to CreateRoomScreen (trong `:feature:quiz-manage`)
@@ -697,7 +701,7 @@ feature/home/
 │   │       ├── DiscoverPagingSource.kt   # Cursor Paging; feed/search theo query
 │   │       └── ObserveDiscoverQuizzesUseCase.kt
 │   ├── presentation/
-│   │   ├── HomeScreen.kt                 # TopBar + tabs + sections scroll
+│   │   ├── HomeScreen.kt                 # N46.6: header + room slot + một LazyColumn feed
 │   │   ├── HomeViewModel.kt
 │   │   ├── discover/
 │   │   │   ├── DiscoverScreen.kt
@@ -719,7 +723,7 @@ feature/home/
 └── build.gradle.kts
 ```
 
-> ℹ️ `QuizCardItem.kt`/`HomeSectionRow.kt` đã move sang `core:ui/components/` (17/8) — dùng lại được cho `quiz-manage`/`leaderboard`.
+> ℹ️ `HomeSectionRow.kt` ở `core:ui/components/`, nay render DiscoveryQuizCard. QuizListCard là card ngang Search/Library, DiscoveryQuizCard là card dọc Home/Discover. QuizCardItem đã xóa ở N46.8; không còn là API để dùng lại.
 
 #### Phụ thuộc
 ```kotlin
@@ -735,7 +739,7 @@ dependencies {
 #### Lưu ý quan trọng
 🔍 **Optional Auth**: Endpoint `/quizzes/search` không yêu cầu login - guest users có thể browse quizzes.
 
-📄 **Paging**: Danh sách quiz dùng Paging 3 với `PagingSource` gọi API theo page/limit.
+📄 **Pagination**: Discover dùng Paging 3 với cursor/limit thật; Search giữ UiState + nextCursor/hasMore và submit thủ công. Không suy ra cursor/hasMore từ itemCount hoặc gọi page số thay cursor. Khi tách stateless Content, count/key/data phải cùng snapshot; xem bài học N46 trong AGENTS.md.
 
 ---
 
@@ -1624,9 +1628,9 @@ MyQuizApp được xây dựng với **14 modules** theo **Clean Architecture + 
 
 ---
 
-**Document Version:** 2.21  
-**Last Updated:** N44 WIP (source Android `3ea792a`)
-**Status:** Living document - N44 đang WIP ở source commit `3ea792a`: history/session isolation và logout reset graph đã triển khai, 16 regression test bổ sung có XML local PASS; N43 có XML PASS cho 25 test bổ sung. Google relogin guest chưa tái hiện trong capture mới (5/5 login success); user yêu cầu tạm hoãn điều tra/fix Google và hai cookie race đã tái hiện bằng diagnostic. Đã gỡ N44Session instrumentation; không gọi đây là fixed. Chặng tiếp theo là N44 chặng 4 — E2E/matrix + bằng chứng build/CI/backend, chưa chốt N45/M6. Vẫn 14 module; backend/deployment và gate N45/M6 chưa chốt. Tài liệu chỉ ở docs; chi tiết history/session/navigation trong N44_INTEGRATION.md.
+**Document Version:** 2.23  
+**Last Updated:** N46 WIP đến Search/Discover (source Android `d5571d6`)
+**Status:** Living document — cập nhật thêm 7 commit sau Register: password recovery/validator/guards, component/Home/room/bottom nav, Search và Discover. Source snapshot fix Paging và internal-color đã commit; chưa có xác nhận retest sau sửa hoặc build/lint/test/CI mới được agent đối chiếu. N46 chưa hoàn tất, N44 vẫn PARTIAL, Google/cookie DEFERRED và backend/privacy/session/deployment gates giữ nguyên; chưa chốt N45/M6/release. Vẫn 14 module. Source/tests ở main, tài liệu ở docs; checkpoint/evidence trong N46_UI_PROGRESS.md, báo cáo N44 trong N44_E2E_REPORT.md.
 
 ---
 
