@@ -16,6 +16,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.font.FontWeight
+import android.kma.myquizzapp.core.ui.theme.ComponentColors
 import android.kma.myquizzapp.core.common.model.HomeSection
 
 /**
@@ -37,39 +40,54 @@ fun HomeSectionRow(
     section: HomeSection,
     onQuizClick: (Long) -> Unit,
     modifier: Modifier = Modifier,
-    onSeeMore: (() -> Unit)? = null
+    onSeeMore: (() -> Unit)? = null,
+    eyebrowText: String? = null,
 ) {
     Column(modifier = modifier) {
+        if (eyebrowText != null) {
+            Text(
+                eyebrowText, modifier = Modifier.padding(horizontal = 20.dp).padding(bottom = 8.dp),
+                color = MaterialTheme.colorScheme.primary,
+                style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp, lineHeight = 16.sp, letterSpacing = 0.sp, fontWeight = FontWeight.SemiBold),
+            )
+        }
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 16.dp, end = 4.dp),
+                .padding(horizontal = 20.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
                 text = section.title,
-                style = MaterialTheme.typography.titleLarge,
+                color = ComponentColors.foreground,
+                style = MaterialTheme.typography.titleLarge.copy(fontSize = 20.sp, lineHeight = 28.sp, letterSpacing = 0.sp, fontWeight = FontWeight.Bold),
                 modifier = Modifier
                     .weight(1f)
                     .padding(vertical = 8.dp)
             )
             if (onSeeMore != null) {
-                TextButton(onClick = onSeeMore) { Text("Xem thêm") }
+                TextButton(onClick = onSeeMore) {
+                    Text("Xem thêm", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold))
+                }
             }
         }
 
         // Horizontal scrolling row of quiz cards
         LazyRow(
-            contentPadding = PaddingValues(horizontal = 16.dp),
+            contentPadding = PaddingValues(horizontal = 20.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             items(
                 items = section.items,
                 key = { it.id }
             ) { quiz ->
-                QuizCardItem(
-                    quiz = quiz,
-                    onClick = { onQuizClick(quiz.id) }
+                DiscoveryQuizCard(
+                    title = quiz.quizName,
+                    categoryText = quiz.quizCategory,
+                    metadataText = "${quiz.questionCount} câu • ${quiz.playCount} lượt chơi",
+                    imageUrl = quiz.quizImage,
+                    onClick = { onQuizClick(quiz.id) },
+                    modifier = Modifier.width(220.dp),
                 )
             }
         }
@@ -101,4 +119,3 @@ private fun HomeSectionRowPreview() {
         }
     }
 }
-

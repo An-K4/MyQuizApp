@@ -59,7 +59,7 @@ class JoinRoomViewModel @Inject constructor(
                 // tránh người dùng dán mã kèm space rồi nhận "không tìm thấy phòng".
                 it.copy(
                     sessionCode = intent.value
-                        .filter { ch -> ch.isLetterOrDigit() }
+                        .filter { ch -> ch in 'a'..'z' || ch in 'A'..'Z' || ch in '0'..'9' }
                         .uppercase()
                         .take(SESSION_CODE_LENGTH),
                     codeError = null
@@ -84,8 +84,8 @@ class JoinRoomViewModel @Inject constructor(
         val code = _uiState.value.sessionCode.trim()
         if (code.length != SESSION_CODE_LENGTH || _uiState.value.isSubmitting) return
 
+        _uiState.update { it.copy(isSubmitting = true, codeError = null, errorMessage = null) }
         viewModelScope.launch {
-            _uiState.update { it.copy(isSubmitting = true, codeError = null, errorMessage = null) }
             when (val result = lookupRoom(code)) {
                 is Result.Success -> onRoomFound(code, result.data)
                 is Result.Error -> _uiState.update {

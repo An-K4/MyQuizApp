@@ -2,29 +2,20 @@ package android.kma.myquizzapp.feature.lobby.presentation.joinroom
 
 import android.content.res.Configuration
 import android.kma.myquizzapp.core.ui.theme.MyQuizAppTheme
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
+import android.kma.myquizzapp.core.ui.components.RoomCodeEntryCard
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -66,6 +57,14 @@ fun JoinRoomCard(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
+    // Business text stays in ViewModel; only selection/focus are local visual state.
+    var codeSelection by remember { mutableStateOf(TextRange.Zero) }
+    var codeFocused by remember { mutableStateOf(false) }
+    val codeValue = TextFieldValue(
+        uiState.sessionCode,
+        TextRange(codeSelection.start.coerceIn(0, uiState.sessionCode.length), codeSelection.end.coerceIn(0, uiState.sessionCode.length)),
+    )
+
     LaunchedEffect(Unit) {
         viewModel.effect.collect { effect ->
             when (effect) {
@@ -85,6 +84,13 @@ fun JoinRoomCard(
 
     JoinRoomCardContent(
         uiState = uiState,
+        codeValue = codeValue,
+        onCodeValueChange = {
+            codeSelection = it.selection
+            viewModel.onIntent(JoinRoomIntent.CodeChanged(it.text))
+        },
+        codeFocused = codeFocused,
+        onCodeFocusChange = { codeFocused = it },
         onIntent = viewModel::onIntent,
         modifier = modifier,
         exitMessage = exitMessage,
@@ -95,86 +101,28 @@ fun JoinRoomCard(
 @Composable
 fun JoinRoomCardContent(
     uiState: JoinRoomUiState,
+    codeValue: TextFieldValue,
+    onCodeValueChange: (TextFieldValue) -> Unit,
+    codeFocused: Boolean,
+    onCodeFocusChange: (Boolean) -> Unit,
     onIntent: (JoinRoomIntent) -> Unit,
     modifier: Modifier = Modifier,
     exitMessage: String? = null,
-    onExitMessageShown: () -> Unit = {}
+    onExitMessageShown: () -> Unit = {},
 ) {
-    Card(modifier = modifier.fillMaxWidth()) {
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Text(
-                text = "Nhập mã phòng gồm 6 ký tự được chủ phòng chia sẻ để vào trận.",
-                style = MaterialTheme.typography.bodyMedium
-            )
-
-            // Lý do vừa bị rời phòng — đặt ngay trên ô nhập vì việc tiếp theo của
-            // người dùng thường là nhập lại mã đó.
-            exitMessage?.let { message ->
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = message,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.weight(1f)
-                    )
-                    TextButton(onClick = onExitMessageShown) { Text("Đã hiểu") }
-                }
-            }
-
-            OutlinedTextField(
-                value = uiState.sessionCode,
-                onValueChange = { onIntent(JoinRoomIntent.CodeChanged(it)) },
-                label = { Text("Mã phòng") },
-                singleLine = true,
-                isError = uiState.codeError != null,
-                supportingText = uiState.codeError?.let { { Text(it) } },
-                enabled = !uiState.isSubmitting,
-                keyboardOptions = KeyboardOptions(
-                    capitalization = KeyboardCapitalization.Characters,
-                    imeAction = ImeAction.Go
-                ),
-                // Enter trên bàn phím = bấm "Vào phòng": gõ mã xong vào luôn, không
-                // bắt người dùng đóng bàn phím rồi mới tìm nút.
-                keyboardActions = KeyboardActions(
-                    onGo = { if (uiState.canSubmit) onIntent(JoinRoomIntent.Submit) }
-                ),
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            // Lỗi không thuộc ô nhập (mất mạng, lỗi server, chưa xác định được phiên).
-            uiState.errorMessage?.let { message ->
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = message,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.weight(1f)
-                    )
-                    TextButton(onClick = { onIntent(JoinRoomIntent.ErrorShown) }) { Text("Đóng") }
-                }
-            }
-
-            Button(
-                onClick = { onIntent(JoinRoomIntent.Submit) },
-                enabled = uiState.canSubmit,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                if (uiState.isSubmitting) {
-                    CircularProgressIndicator(modifier = Modifier.size(18.dp))
-                } else {
-                    Text("Vào phòng")
-                }
-            }
-        }
-    }
-
+    RoomCodeEntryCard(
+        codeValue = codeValue, onCodeValueChange = onCodeValueChange,
+        codeFocused = codeFocused, onCodeFocusChange = onCodeFocusChange,
+        onSubmit = { onIntent(JoinRoomIntent.Submit) }, canSubmit = uiState.canSubmit,
+        modifier = modifier, isSubmitting = uiState.isSubmitting,
+        codeError = uiState.codeError, errorMessage = uiState.errorMessage,
+        onErrorDismiss = { onIntent(JoinRoomIntent.ErrorShown) },
+        exitMessage = exitMessage, onExitMessageDismiss = onExitMessageShown,
+    )
     if (uiState.guestBlocked) {
         GuestBlockedDialog(
             onDismiss = { onIntent(JoinRoomIntent.GuestBlockedDismissed) },
-            onLogin = { onIntent(JoinRoomIntent.GuestBlockedLoginClicked) }
+            onLogin = { onIntent(JoinRoomIntent.GuestBlockedLoginClicked) },
         )
     }
 }
@@ -202,40 +150,25 @@ private fun GuestBlockedDialog(onDismiss: () -> Unit, onLogin: () -> Unit) {
     )
 }
 
-@Preview(showBackground = true)
-@Preview(showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(name = "Join Room Light", showBackground = true, widthDp = 390)
+@Preview(name = "Join Room Dark", showBackground = true, widthDp = 390, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
-private fun JoinRoomCardPreview() {
-    MyQuizAppTheme {
-        JoinRoomCardContent(
-            uiState = JoinRoomUiState(sessionCode = "4829AB"),
-            onIntent = {}
-        )
-    }
-}
+private fun JoinRoomCardPreview() = JoinRoomPreview(JoinRoomUiState(sessionCode = "AB23CD"))
 
-@Preview(showBackground = true)
+@Preview(name = "Join Room Error", showBackground = true, widthDp = 390)
 @Composable
-private fun JoinRoomCardErrorPreview() {
-    MyQuizAppTheme {
-        JoinRoomCardContent(
-            uiState = JoinRoomUiState(
-                sessionCode = "000000",
-                codeError = "Không tìm thấy phòng với mã này"
-            ),
-            onIntent = {}
-        )
-    }
-}
+private fun JoinRoomCardErrorPreview() = JoinRoomPreview(JoinRoomUiState(sessionCode = "AB23CD", codeError = "Không tìm thấy phòng"))
 
-@Preview(showBackground = true)
+@Preview(name = "Join Room Guest Blocked", showBackground = true, widthDp = 390)
 @Composable
-private fun JoinRoomCardExitMessagePreview() {
+private fun JoinRoomGuestBlockedPreview() = JoinRoomPreview(JoinRoomUiState(guestBlocked = true))
+
+@Composable
+private fun JoinRoomPreview(state: JoinRoomUiState) {
     MyQuizAppTheme {
         JoinRoomCardContent(
-            uiState = JoinRoomUiState(),
-            onIntent = {},
-            exitMessage = "Chủ phòng đã hủy phòng này"
+            state, TextFieldValue(state.sessionCode, TextRange(state.sessionCode.length)), {}, false, {}, {},
+            modifier = Modifier.padding(20.dp),
         )
     }
 }

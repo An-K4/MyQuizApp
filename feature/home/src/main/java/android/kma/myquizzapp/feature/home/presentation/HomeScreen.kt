@@ -5,10 +5,25 @@ import android.kma.myquizzapp.core.common.model.HomeSection
 import android.kma.myquizzapp.core.ui.components.HomeSectionRow
 import android.kma.myquizzapp.core.ui.theme.MyQuizAppTheme
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.outlined.Search
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.RoundedCornerShape
+import android.kma.myquizzapp.core.ui.components.CustomClickableText
+import android.kma.myquizzapp.core.ui.components.QuizSecondaryButton
+import android.kma.myquizzapp.core.ui.components.RoomCodeEntryCard
+import android.kma.myquizzapp.core.ui.theme.FrontendColors
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.sp
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -48,6 +63,7 @@ fun HomeScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+    val listState = rememberLazyListState()
 
     LaunchedEffect(noticeMessage) {
         noticeMessage?.let { message ->
@@ -76,6 +92,7 @@ fun HomeScreen(
         onNavigateToDiscover = onNavigateToDiscover,
         onRetry = { viewModel.onIntent(HomeIntent.Retry) },
         snackbarHostState = snackbarHostState,
+        listState = listState,
         roomCodeCard = roomCodeCard,
         modifier = modifier
     )
@@ -89,28 +106,17 @@ fun HomeScreenContent(
     onNavigateToAuth: () -> Unit,
     onNavigateToQuizDetail: (Long) -> Unit,
     onRetry: () -> Unit,
-    snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
+    snackbarHostState: SnackbarHostState,
+    listState: LazyListState,
     onNavigateToDiscover: (sectionKey: String?, sectionType: String?, title: String?, topic: String?) -> Unit = { _, _, _, _ -> },
     roomCodeCard: @Composable () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
-            TopAppBar(
-                title = { Text("MyQuizz") },
-                actions = {
-                    // N19.6: lối vào phòng không còn ở top bar lẫn bottom nav —
-                    // ô nhập mã nằm ngay trong nội dung trang (xem roomCodeCard).
-                    IconButton(onClick = onNavigateToSearch) {
-                        Icon(Icons.Default.Search, contentDescription = "Tìm kiếm")
-                    }
-                    AuthHeaderAction(
-                        showSignIn = uiState.showSignInAction,
-                        onNavigateToAuth = onNavigateToAuth
-                    )
-                }
-            )
+            HomeHeader(uiState.showSignInAction, onNavigateToSearch, onNavigateToAuth)
         },
         modifier = modifier
     ) { paddingValues ->
@@ -120,7 +126,8 @@ fun HomeScreenContent(
             onRetry = onRetry,
             onNavigateToDiscover = onNavigateToDiscover,
             roomCodeCard = roomCodeCard,
-            modifier = Modifier.fillMaxSize().padding(paddingValues)
+            listState = listState,
+            modifier = Modifier.fillMaxSize().padding(paddingValues).imePadding()
         )
     }
 }
@@ -137,12 +144,33 @@ fun HomeScreenContent(
  * mất với người đã đăng nhập).
  */
 @Composable
-private fun AuthHeaderAction(
-    showSignIn: Boolean,
-    onNavigateToAuth: () -> Unit
-) {
-    if (showSignIn) {
-        TextButton(onClick = onNavigateToAuth) { Text("Đăng ký/Đăng nhập") }
+private fun HomeHeader(showSignIn: Boolean, onSearch: () -> Unit, onSignIn: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 20.dp, vertical = 8.dp).heightIn(min = 48.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            "MyQuizz", modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.primary,
+            style = MaterialTheme.typography.headlineSmall.copy(fontSize = 24.sp, lineHeight = 32.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.sp),
+            maxLines = 1, overflow = TextOverflow.Ellipsis,
+        )
+        IconButton(onClick = onSearch) { Icon(Icons.Outlined.Search, "Tìm kiếm", Modifier.size(22.dp)) }
+        if (showSignIn) {
+            // The visible pill is compact; its clickable outer target remains at least 48dp tall.
+            Box(Modifier.heightIn(min = 48.dp).clickable(onClick = onSignIn), contentAlignment = Alignment.Center) {
+                val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+                Surface(
+                    shape = RoundedCornerShape(50),
+                    color = if (isDark) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f) else FrontendColors.BrandTint,
+                ) {
+                    Text(
+                        "Đăng ký/Đăng nhập", modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        color = MaterialTheme.colorScheme.primary,
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp, lineHeight = 16.sp, letterSpacing = 0.sp, fontWeight = FontWeight.SemiBold),
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -169,16 +197,18 @@ private fun HomeFeed(
     onRetry: () -> Unit,
     onNavigateToDiscover: (sectionKey: String?, sectionType: String?, title: String?, topic: String?) -> Unit,
     roomCodeCard: @Composable () -> Unit,
+    listState: LazyListState,
     modifier: Modifier = Modifier
 ) {
     val homeError = uiState.homeError
     LazyColumn(
         modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-        contentPadding = PaddingValues(vertical = 16.dp)
+        state = listState,
+        verticalArrangement = Arrangement.spacedBy(24.dp),
+        contentPadding = PaddingValues(top = 20.dp, bottom = 24.dp)
     ) {
         item(key = KEY_ROOM_CODE) {
-            Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+            Box(modifier = Modifier.padding(horizontal = 20.dp)) {
                 roomCodeCard()
             }
         }
@@ -200,7 +230,7 @@ private fun HomeFeed(
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.error
                         )
-                        Button(onClick = onRetry) { Text("Thử lại") }
+                        QuizSecondaryButton("Thử lại", onRetry)
                     }
                 }
             }
@@ -226,6 +256,7 @@ private fun HomeFeed(
                     HomeSectionRow(
                         section = section,
                         onQuizClick = onQuizClick,
+                        eyebrowText = if (section.sectionKey == uiState.discoverySections.firstOrNull()?.sectionKey) "QUIZ NỔI BẬT" else null,
                         onSeeMore = if (section.hasSeeMore) {
                             {
                                 onNavigateToDiscover(
@@ -245,10 +276,11 @@ private fun HomeFeed(
 
                 // 3) Lối vào màn Khám phá đầy đủ (nhiều section hơn Trang chủ).
                 item(key = KEY_DISCOVER_ALL) {
-                    TextButton(
-                        onClick = { onNavigateToDiscover(null, null, null, null) },
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
-                    ) { Text("Khám phá tất cả") }
+                    CustomClickableText(
+                        "Khám phá tất cả", { onNavigateToDiscover(null, null, null, null) },
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp), textAlign = TextAlign.Center,
+                        textSize = 14.sp,
+                    )
                 }
             }
         }
@@ -268,7 +300,7 @@ private fun HomeFeed(
  */
 @Composable
 private fun DiscoverStatusCard(content: @Composable () -> Unit) {
-    Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+    Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -287,17 +319,61 @@ private const val KEY_DISCOVER_ALL = "discover-all"
 /** Đủ cao để khối trạng thái trông như một khu vực nội dung, không phải một dòng lỗi. */
 private const val DISCOVER_STATUS_MIN_HEIGHT = 200
 
-@Preview(showBackground = true)
-@Preview(showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(name = "Home Guest Light", showBackground = true, showSystemUi = true, widthDp = 390, heightDp = 844)
+@Preview(name = "Home Guest Dark", showBackground = true, showSystemUi = true, widthDp = 390, heightDp = 844, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
-private fun HomeScreenContentPreview() {
+private fun HomeScreenContentPreview() = HomeContentPreview(homePreviewState())
+
+@Preview(name = "Home Continue Section", showBackground = true, showSystemUi = true, widthDp = 390, heightDp = 844)
+@Composable
+private fun HomeContinuePreview() {
+    val state = homePreviewState()
+    HomeContentPreview(state.copy(homeSections = listOf(HomeSection("continue-preview", "Tiếp tục chơi", "continue", state.homeSections.first().items)) + state.homeSections))
+}
+
+@Preview(name = "Home Session Unknown", showBackground = true, widthDp = 390, heightDp = 844)
+@Composable
+private fun HomeUnknownSessionPreview() = HomeContentPreview(homePreviewState().copy(session = android.kma.myquizzapp.core.common.model.SessionState.Unknown))
+
+@Preview(name = "Home Loading", showBackground = true, widthDp = 390, heightDp = 844)
+@Composable
+private fun HomeLoadingPreview() = HomeContentPreview(homePreviewState().copy(isLoadingHome = true))
+
+@Preview(name = "Home Feed Error", showBackground = true, widthDp = 390, heightDp = 844)
+@Composable
+private fun HomeErrorPreview() = HomeContentPreview(homePreviewState().copy(homeError = "Kiểm tra kết nối rồi thử lại."))
+
+@Preview(name = "Home Empty", showBackground = true, widthDp = 390, heightDp = 844)
+@Composable
+private fun HomeEmptyPreview() = HomeContentPreview(homePreviewState().copy(homeSections = emptyList()))
+
+@Preview(name = "Home Narrow Large Text", showBackground = true, widthDp = 320, heightDp = 640, fontScale = 1.3f)
+@Composable
+private fun HomeNarrowPreview() = HomeContentPreview(homePreviewState())
+
+@Composable
+private fun HomeContentPreview(state: HomeUiState) {
     MyQuizAppTheme {
         HomeScreenContent(
-            uiState = HomeUiState(),
-            onNavigateToSearch = {},
-            onNavigateToAuth = {},
-            onNavigateToQuizDetail = {},
-            onRetry = {}
+            uiState = state, onNavigateToSearch = {}, onNavigateToAuth = {}, onNavigateToQuizDetail = {}, onRetry = {},
+            snackbarHostState = remember { SnackbarHostState() }, listState = rememberLazyListState(),
+            roomCodeCard = {
+                RoomCodeEntryCard(TextFieldValue("AB23", TextRange(4)), {}, true, {}, {}, false)
+            },
         )
     }
+}
+
+private fun homePreviewState(): HomeUiState {
+    val quiz = android.kma.myquizzapp.core.common.model.QuizCard(
+        id = 1L, quizName = "Đố vui vũ trụ", quizCategory = "Khoa học", quizLanguage = "vi", quizOwnerId = 1L,
+        questionCount = 12, playCount = 350, completionRate = 0.85, createdAt = "2026-10-10T00:00:00Z",
+    )
+    return HomeUiState(
+        session = android.kma.myquizzapp.core.common.model.SessionState.Guest,
+        homeSections = listOf(
+            HomeSection("trending-preview", "Thịnh hành tuần này 🔥", "trending", listOf(quiz, quiz.copy(id = 2L, quizName = "Khám phá thế giới", quizCategory = "Địa lý"))),
+            HomeSection("newest-preview", "Quiz mới nhất", "newest", listOf(quiz.copy(id = 3L))),
+        ),
+    )
 }
