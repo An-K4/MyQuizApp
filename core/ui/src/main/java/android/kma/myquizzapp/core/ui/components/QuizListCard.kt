@@ -22,7 +22,7 @@ import androidx.compose.ui.unit.sp
 
 /** Horizontal card; metadata/rating are caller-provided display values, never fabricated here. */
 @Composable
-fun QuizSummaryCard(
+fun QuizListCard(
     title: String,
     metadataText: String,
     imageUrl: String?,
@@ -61,16 +61,15 @@ fun QuizSummaryCard(
 @Preview(name = "Quiz Card Light", showBackground = true, widthDp = 390)
 @Preview(name = "Quiz Card Dark", showBackground = true, widthDp = 390, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
-private fun QuizSummaryCardPreview() {
+private fun QuizListCardPreview() {
     MyQuizAppTheme {
         Surface(color = MaterialTheme.colorScheme.background) {
             Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 // Null image uses the local placeholder: previews do not fetch network images.
-                QuizSummaryCard("100 Câu Tiếng Anh Giao Tiếp Thông Dụng", "20 câu hỏi • 500 người đã chơi • Tạo bởi Anh Thư", null, {}, ratingText = "4.9")
-                QuizSummaryCard("Quiz chưa có đánh giá", "10 câu hỏi • Tạo bởi Minh Anh", null, {})
-                QuizSummaryCard("Quiz tạm thời không thể mở", "20 câu hỏi", null, {}, enabled = false)
+                QuizListCard("100 Câu Tiếng Anh Giao Tiếp Thông Dụng", "20 câu hỏi • 500 người đã chơi • Tạo bởi Anh Thư", null, {}, ratingText = "4.9")
+                QuizListCard("Quiz chưa có đánh giá", "10 câu hỏi • Tạo bởi Minh Anh", null, {})
+                QuizListCard("Quiz tạm thời không thể mở", "20 câu hỏi", null, {}, enabled = false)
             }
         }
     }
 }
-
