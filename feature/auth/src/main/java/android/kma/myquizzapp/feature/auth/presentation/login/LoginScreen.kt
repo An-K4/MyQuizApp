@@ -2,7 +2,23 @@ package android.kma.myquizzapp.feature.auth.presentation.login
 
 import android.content.res.Configuration
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.ScrollState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.material.icons.outlined.Email
+import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.Visibility
+import androidx.compose.material.icons.outlined.VisibilityOff
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.unit.sp
+import android.kma.myquizzapp.core.ui.components.QuizPrimaryButton
+import android.kma.myquizzapp.core.ui.components.QuizSecondaryButton
+import android.kma.myquizzapp.core.ui.theme.FrontendColors
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,11 +31,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -40,9 +51,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -59,14 +68,15 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import android.kma.myquizzapp.core.common.util.hashSha256
 import android.kma.myquizzapp.feature.auth.R
-import android.kma.myquizzapp.core.ui.style.AppTextStyles
-import android.kma.myquizzapp.core.ui.theme.GoogleButtonGray
 import android.kma.myquizzapp.core.ui.theme.MyQuizAppTheme
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import kotlinx.coroutines.launch
 import timber.log.Timber
 import java.util.UUID
+
+import android.kma.myquizzapp.core.ui.components.CustomClickableText
+import androidx.compose.ui.text.style.TextAlign
 
 @Composable
 fun LoginScreen(
@@ -143,14 +153,12 @@ fun LoginScreen(
         onIntent = viewModel::onIntent,
         onGoogleSignIn = { launchGoogleOneTap() },
         onGoToRegister = onGoToRegister,
-        snackbarHostState = snackbarHostState
+        snackbarHostState = snackbarHostState,
+        scrollState = rememberScrollState(),
     )
 }
 
-/**
- * Stateless composable for Login screen UI
- * Pure UI component without ViewModel - Preview-friendly
- */
+/** Stateless login UI; integration and transient UI state belong to LoginScreen. */
 @Composable
 fun LoginScreenContent(
     uiState: LoginUiState,
@@ -160,212 +168,204 @@ fun LoginScreenContent(
     onGoogleSignIn: () -> Unit,
     onGoToRegister: () -> Unit,
     snackbarHostState: SnackbarHostState,
+    scrollState: ScrollState,
 ) {
-    val density = LocalDensity.current
+    val scheme = MaterialTheme.colorScheme
+    val isDark = scheme.background.luminance() < 0.5f
+    val foreground = if (isDark) scheme.onBackground else FrontendColors.Foreground
+    val muted = if (isDark) scheme.onSurfaceVariant else FrontendColors.MutedForeground
+    val border = if (isDark) scheme.outlineVariant else FrontendColors.Border
+    val fieldColors = OutlinedTextFieldDefaults.colors(
+        focusedTextColor = foreground,
+        unfocusedTextColor = foreground,
+        focusedBorderColor = scheme.primary,
+        unfocusedBorderColor = border,
+        focusedLeadingIconColor = muted,
+        unfocusedLeadingIconColor = muted,
+        focusedTrailingIconColor = muted,
+        unfocusedTrailingIconColor = muted,
+        focusedPlaceholderColor = muted,
+        unfocusedPlaceholderColor = muted,
+        cursorColor = scheme.primary,
+    )
+    val inputStyle = MaterialTheme.typography.bodyMedium.copy(
+        fontSize = 14.sp, lineHeight = 20.3.sp, letterSpacing = 0.sp,
+    )
 
     Scaffold(
+        containerColor = scheme.background,
         snackbarHost = {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.TopCenter
-            ) {
-                SnackbarHost(
-                    hostState = snackbarHostState,
-                    modifier = Modifier.padding(top = 8.dp)
-                )
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+                SnackbarHost(snackbarHostState, Modifier.padding(top = 8.dp))
             }
-        }
+        },
     ) { padding ->
         Column(
-            modifier = Modifier
-                .fillMaxSize()
+            modifier = Modifier.fillMaxSize()
                 .padding(padding)
-                .padding(24.dp),
-            verticalArrangement = Arrangement.Center,
+                .imePadding()
+                .verticalScroll(scrollState)
+                .padding(horizontal = 20.dp)
+                .padding(top = 48.dp, bottom = 32.dp),
         ) {
-            // Title
             Text(
-                text = "Đăng nhập",
-                style = AppTextStyles.titleLarge,
-                fontWeight = FontWeight.Bold
+                "Chào mừng trở lại! 👋",
+                style = MaterialTheme.typography.headlineMedium.copy(
+                    fontSize = 26.sp, lineHeight = 36.sp,
+                    letterSpacing = 0.sp, fontWeight = FontWeight.Bold,
+                ),
+                color = foreground,
             )
-            Spacer(Modifier.height(4.dp))
-
-            // Subtitle
+            Spacer(Modifier.height(8.dp))
             Text(
-                text = "Chào mừng bạn quay trở lại ứng dụng",
-                style = AppTextStyles.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                "Đăng nhập để lưu lịch sử và quản lý quiz của bạn",
+                style = inputStyle,
+                color = muted,
             )
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(20.dp))
 
-            // Email field
             OutlinedTextField(
                 value = uiState.email,
                 onValueChange = { onIntent(LoginIntent.EmailChanged(it)) },
-                label = { Text("Email") },
+                placeholder = { Text("Nhập email của bạn", style = inputStyle) },
+                leadingIcon = { Icon(Icons.Outlined.Email, "Email", Modifier.size(20.dp)) },
                 isError = uiState.emailError != null,
-                supportingText = { uiState.emailError?.let { Text(it) } },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                supportingText = if (uiState.emailError != null) { { Text(uiState.emailError) } } else null,
+                enabled = !uiState.isLoading,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next),
                 singleLine = true,
+                textStyle = inputStyle,
+                shape = RoundedCornerShape(16.dp),
                 modifier = Modifier.fillMaxWidth(),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedTextColor = MaterialTheme.colorScheme.onBackground,
-                    unfocusedTextColor = MaterialTheme.colorScheme.onBackground,
-                    focusedBorderColor = MaterialTheme.colorScheme.primary,
-                    cursorColor = MaterialTheme.colorScheme.primary
-                )
+                colors = fieldColors,
             )
-            Spacer(Modifier.height(8.dp))
-
-            // Password field with visibility toggle
+            Spacer(Modifier.height(12.dp))
             OutlinedTextField(
                 value = uiState.password,
                 onValueChange = { onIntent(LoginIntent.PasswordChanged(it)) },
-                label = { Text("Mật khẩu") },
+                placeholder = { Text("Nhập mật khẩu", style = inputStyle) },
+                leadingIcon = { Icon(Icons.Outlined.Lock, "Mật khẩu", Modifier.size(20.dp)) },
                 isError = uiState.passwordError != null,
-                supportingText = { uiState.passwordError?.let { Text(it) } },
+                supportingText = if (uiState.passwordError != null) { { Text(uiState.passwordError) } } else null,
+                enabled = !uiState.isLoading,
                 visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = {
+                    if (!uiState.isLoading) onIntent(LoginIntent.Submit)
+                }),
                 singleLine = true,
+                textStyle = inputStyle,
+                shape = RoundedCornerShape(16.dp),
                 trailingIcon = {
-                    IconButton(onClick = { onPasswordVisibilityChange(!passwordVisible) }) {
+                    IconButton(
+                        onClick = { onPasswordVisibilityChange(!passwordVisible) },
+                        enabled = !uiState.isLoading,
+                    ) {
                         Icon(
-                            imageVector = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
-                            contentDescription = if (passwordVisible) "Ẩn mật khẩu" else "Hiện mật khẩu"
+                            if (passwordVisible) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility,
+                            if (passwordVisible) "Ẩn mật khẩu" else "Hiện mật khẩu",
+                            Modifier.size(20.dp),
                         )
                     }
                 },
                 modifier = Modifier.fillMaxWidth(),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedTextColor = MaterialTheme.colorScheme.onBackground,
-                    unfocusedTextColor = MaterialTheme.colorScheme.onBackground,
-                    focusedBorderColor = MaterialTheme.colorScheme.primary,
-                    cursorColor = MaterialTheme.colorScheme.primary
-                )
+                colors = fieldColors,
             )
-
-            // Forgot password link
-            Text(
-                text = "Quên mật khẩu?",
-                style = AppTextStyles.linkText,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier
-                    .clickable { onIntent(LoginIntent.GoToForgotPassword) }
-                    .align(Alignment.End)
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-
-            // Login button
-            Button(
+            TextButton(
+                onClick = { onIntent(LoginIntent.GoToForgotPassword) },
+                enabled = !uiState.isLoading,
+                contentPadding = PaddingValues(horizontal = 0.dp, vertical = 8.dp),
+                modifier = Modifier.align(Alignment.End),
+            ) {
+                Text("Quên mật khẩu?", style = inputStyle.copy(fontWeight = FontWeight.Bold))
+            }
+            Spacer(Modifier.height(4.dp))
+            QuizPrimaryButton(
+                text = "Đăng nhập",
                 onClick = { onIntent(LoginIntent.Submit) },
+                loading = uiState.isLoading,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Spacer(Modifier.height(12.dp))
+            QuizSecondaryButton(
+                text = "Tiếp tục với tư cách Khách",
+                onClick = { onIntent(LoginIntent.PlayAsGuest) },
                 enabled = !uiState.isLoading,
                 modifier = Modifier.fillMaxWidth(),
-            ) {
-                if (uiState.isLoading) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(20.dp),
-                        color = MaterialTheme.colorScheme.onPrimary
-                    )
-                } else {
-                    Text("Đăng nhập", style = AppTextStyles.buttonText)
-                }
+            )
+            Spacer(Modifier.height(20.dp))
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+                HorizontalDivider(Modifier.weight(1f), color = border)
+                Text("Hoặc đăng nhập với", color = muted,
+                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp, lineHeight = 18.sp, letterSpacing = 0.sp))
+                HorizontalDivider(Modifier.weight(1f), color = border)
             }
-            Spacer(Modifier.height(16.dp))
-
-            // Divider text
-            Row (
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                HorizontalDivider(modifier = Modifier.weight(0.5F))
-                Text(
-                    text = "hoặc",
-                    style = AppTextStyles.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 2.dp)
-                )
-                HorizontalDivider(modifier = Modifier.weight(0.5F))
-            }
-            Spacer(Modifier.height(16.dp))
-
-            // Google button with gray background
-            Button(
+            Spacer(Modifier.height(20.dp))
+            QuizSecondaryButton(
+                text = "Google",
                 onClick = onGoogleSignIn,
                 enabled = !uiState.isLoading,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = GoogleButtonGray,
-                    contentColor = Color.Black
-                ),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Image(
-                        painter = painterResource(R.drawable.ic_google),
-                        contentDescription = null,
-                        modifier = Modifier.height(
-                            with(density) { AppTextStyles.buttonText.fontSize.toDp() }
-                        )
-                    )
-                    Text(
-                        text = "Tiếp tục với Google",
-                        style = AppTextStyles.buttonText
-                    )
-                }
-            }
-            Spacer(Modifier.height(16.dp))
-
-            // Guest login link
-            TextButton(
-                onClick = { onIntent(LoginIntent.PlayAsGuest) },
-                modifier = Modifier.align(Alignment.CenterHorizontally)
-            ) {
-                Text("Đăng nhập với tư cách khách", style = AppTextStyles.linkText)
-            }
-
-            // Create account link
-            TextButton(
-                onClick = onGoToRegister,
-                modifier = Modifier.align(Alignment.CenterHorizontally)
-            ) {
-                Text("Tạo tài khoản mới", style = AppTextStyles.linkText)
-            }
+                modifier = Modifier.fillMaxWidth(),
+                contentColor = foreground,
+                leadingIcon = {
+                    Image(painterResource(R.drawable.ic_google), null, Modifier.size(20.dp))
+                },
+            )
+            Spacer(Modifier.height(20.dp))
+            CustomClickableText(
+                startText = "Chưa có tài khoản?",
+                clickableText = "Đăng ký ngay",
+                clickableTextTag = "register",
+                onTextClicked = onGoToRegister,
+                textSize = 12.sp,
+                enabled = !uiState.isLoading,
+                color = muted,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
+            )
         }
     }
 }
 
-@Preview(showBackground = true)
+@Preview(name = "Login Light", showBackground = true, showSystemUi = true, widthDp = 390, heightDp = 844)
 @Composable
-fun LoginScreenPreviewLight() {
+fun LoginScreenPreviewLight() = LoginContentPreview(LoginUiState())
+
+@Preview(name = "Login Dark", showBackground = true, showSystemUi = true, widthDp = 390, heightDp = 844,
+    uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+fun LoginScreenPreviewDark() = LoginContentPreview(LoginUiState())
+
+@Preview(name = "Login Loading", showBackground = true, widthDp = 390, heightDp = 844)
+@Composable
+private fun LoginLoadingPreview() = LoginContentPreview(
+    LoginUiState(email = "preview@example.com", password = "preview-only", isLoading = true),
+)
+
+@Preview(name = "Login Validation Errors", showBackground = true, widthDp = 390, heightDp = 844)
+@Composable
+private fun LoginErrorsPreview() = LoginContentPreview(
+    LoginUiState(email = "email", emailError = "Email không hợp lệ", passwordError = "Vui lòng nhập mật khẩu"),
+)
+
+@Preview(name = "Login Narrow Large Text", showBackground = true, widthDp = 320, heightDp = 740, fontScale = 1.5f)
+@Composable
+private fun LoginLargeTextPreview() = LoginContentPreview(LoginUiState())
+
+@Composable
+private fun LoginContentPreview(uiState: LoginUiState) {
     MyQuizAppTheme {
         LoginScreenContent(
-            uiState = LoginUiState(),
+            uiState = uiState,
             passwordVisible = false,
             onPasswordVisibilityChange = {},
             onIntent = {},
             onGoogleSignIn = {},
             onGoToRegister = {},
-            snackbarHostState = remember { SnackbarHostState() }
+            snackbarHostState = remember { SnackbarHostState() },
+            scrollState = rememberScrollState(),
         )
     }
 }
 
-@Preview(showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
-@Composable
-fun LoginScreenPreviewDark() {
-    MyQuizAppTheme {
-        LoginScreenContent(
-            uiState = LoginUiState(),
-            passwordVisible = false,
-            onPasswordVisibilityChange = {},
-            onIntent = {},
-            onGoogleSignIn = {},
-            onGoToRegister = {},
-            snackbarHostState = remember { SnackbarHostState() }
-        )
-    }
-}
