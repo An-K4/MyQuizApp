@@ -42,6 +42,18 @@ data class SearchUiState(
     val hasQuery: Boolean
         get() = query.isNotBlank()
 
+    // Append only after a successful page for the current submitted query.
+    // A failed append pauses automatic loading; explicit retry keeps the same cursor.
+    private val hasAppendablePage: Boolean
+        get() = hasCompletedSearch && submittedQuery == query.trim() &&
+            hasResults && hasMore && nextCursor != null
+
+    val canLoadMore: Boolean
+        get() = hasAppendablePage && !isLoading && error == null
+
+    val canRetryLoadMore: Boolean
+        get() = hasAppendablePage && !isLoading && error != null
+
     /** Chỉ hiện empty-result sau response Success rỗng của đúng query đang nhập. */
     val shouldShowNoResults: Boolean
         get() = hasCompletedSearch &&

@@ -7,6 +7,7 @@ import android.kma.myquizzapp.feature.home.domain.usecase.SearchQuizzesUseCase
 import android.kma.myquizzapp.core.common.result.Result
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -79,22 +80,22 @@ class SearchViewModel @Inject constructor(
 
         searchJob?.cancel()
         loadMoreJob?.cancel()
+        _uiState.update {
+            it.copy(
+                isSearching = true,
+                isLoadingMore = false,
+                error = null,
+                hasCompletedSearch = false,
+                submittedQuery = query,
+                nextCursor = null,
+                results = emptyList(),
+                hasMore = true
+            )
+        }
         searchJob = viewModelScope.launch {
-            _uiState.update {
-                it.copy(
-                    isSearching = true,
-                    error = null,
-                    hasCompletedSearch = false,
-                    submittedQuery = query,
-                    // N16.5: query mới → reset cursor (cursor gắn fingerprint của filter;
-                    // dùng cursor cũ với keyword khác → QUIZ_CURSOR_INVALID 400).
-                    nextCursor = null,
-                    results = emptyList(),
-                    hasMore = true
-                )
-            }
-
-            when (val result = searchQuizzesUseCase(query)) {
+            val result = searchQuizzesUseCase(query)
+            ensureActive()
+            when (result) {
                 is Result.Success -> {
                     _uiState.update {
                         it.copy(
@@ -125,41 +126,29 @@ class SearchViewModel @Inject constructor(
     /**
      * Load next page of search results (infinite scroll).
      */
-    private fun loadMore() {
+    private fun loadMore(isRetry: Boolean = false) {
         val currentState = _uiState.value
-
-        // Guard: Don't load if already loading or no more results
-        if (!currentState.hasMore || currentState.isLoadingMore) {
-            return
-        }
+        if (!(currentState.canLoadMore || (isRetry && currentState.canRetryLoadMore))) return
 
         val query = currentState.query.trim()
-        if (query.isBlank()) return
-
-        loadMoreJob?.cancel()
+        val cursor = currentState.nextCursor ?: return
+        // Claim loading synchronously: multiple near-end emissions cannot start duplicate requests.
+        _uiState.update { it.copy(isLoadingMore = true, error = null) }
         loadMoreJob = viewModelScope.launch {
-            _uiState.update { it.copy(isLoadingMore = true) }
-
-            // N16.5: cursor của trang trước (nextCursor null ⇒ hasMore=false ⇒ không vào đây)
-            when (val result = searchQuizzesUseCase(query, cursor = currentState.nextCursor)) {
-                is Result.Success -> {
-                    _uiState.update {
-                        it.copy(
-                            // Append new results to existing list
-                            results = it.results + result.data,
-                            nextCursor = result.page?.nextCursor,
-                            isLoadingMore = false,
-                            hasMore = result.page?.hasMore ?: false
-                        )
-                    }
+            val result = searchQuizzesUseCase(query, cursor = cursor)
+            ensureActive()
+            when (result) {
+                is Result.Success -> _uiState.update {
+                    it.copy(
+                        results = it.results + result.data,
+                        nextCursor = result.page?.nextCursor,
+                        hasMore = result.page?.hasMore ?: false,
+                        isLoadingMore = false,
+                        error = null
+                    )
                 }
-                is Result.Error -> {
-                    _uiState.update {
-                        it.copy(
-                            isLoadingMore = false,
-                            error = result.error.toUserMessage()
-                        )
-                    }
+                is Result.Error -> _uiState.update {
+                    it.copy(isLoadingMore = false, error = result.error.toUserMessage())
                 }
             }
         }
@@ -184,8 +173,10 @@ class SearchViewModel @Inject constructor(
      * Retry failed search.
      */
     private fun retry() {
-        if (_uiState.value.error != null) {
-            submitSearch()
+        val state = _uiState.value
+        when {
+            state.canRetryLoadMore -> loadMore(isRetry = true)
+            state.error != null && !state.isLoading -> submitSearch()
         }
     }
 }
