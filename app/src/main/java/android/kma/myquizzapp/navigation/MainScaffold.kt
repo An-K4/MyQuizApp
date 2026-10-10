@@ -3,20 +3,39 @@ package android.kma.myquizzapp.navigation
 import android.content.res.Configuration
 import android.kma.myquizzapp.core.ui.components.Avatar
 import android.kma.myquizzapp.core.ui.theme.MyQuizAppTheme
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontWeight
+import android.kma.myquizzapp.core.ui.theme.FrontendColors
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.List
-import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.outlined.History
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.LibraryBooks
+import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
+import android.kma.myquizzapp.core.common.model.HomeSection
+import android.kma.myquizzapp.core.common.model.QuizCard
+import android.kma.myquizzapp.core.common.model.SessionState
+import android.kma.myquizzapp.core.ui.components.RoomCodeEntryCard
+import android.kma.myquizzapp.feature.home.presentation.HomeScreenContent
+import android.kma.myquizzapp.feature.home.presentation.HomeUiState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
@@ -59,10 +78,10 @@ enum class TopLevelTab(
     val icon: ImageVector,
     val usesAvatar: Boolean = false
 ) {
-    HOME(Route.Home, "Trang chủ", Icons.Filled.Home),
-    LIBRARY(Route.MyQuizzes, "Thư viện", Icons.Filled.List),
-    ACTIVITY(Route.Activity, "Hoạt động", Icons.Filled.History),
-    PROFILE(Route.Profile, "Hồ sơ", Icons.Filled.Person, usesAvatar = true)
+    HOME(Route.Home, "Trang chủ", Icons.Outlined.Home),
+    LIBRARY(Route.MyQuizzes, "Thư viện", Icons.Outlined.LibraryBooks),
+    ACTIVITY(Route.Activity, "Hoạt động", Icons.Outlined.History),
+    PROFILE(Route.Profile, "Hồ sơ", Icons.Outlined.Person, usesAvatar = true)
 }
 
 /**
@@ -84,7 +103,7 @@ fun NavHostController.navigateToTab(route: Route) {
  *
  * Avatar ở tab Hồ sơ được vẽ bằng [Avatar] (ảnh nguyên màu) thay vì [Icon] (bị
  * nhuộm theo màu trạng thái). Để bù lại phần định hướng bị mất, trạng thái đang
- * chọn của tab đó vẫn thể hiện qua indicator pill và màu nhãn của Material.
+ * chọn của tab đó vẫn thể hiện qua chấm tím và màu nhãn của tab.
  *
  * @param avatarUrl avatar của user đang đăng nhập cho tab "Hồ sơ"; null = guest
  *   hoặc chưa tải xong, khi đó dùng icon [TopLevelTab.icon].
@@ -96,45 +115,54 @@ fun MainBottomBar(
     avatarUrl: String?,
     modifier: Modifier = Modifier
 ) {
-    val labelFontSize = rememberTabLabelFontSize()
+    MainBottomBarContent(selected, onSelect, avatarUrl, rememberTabLabelFontSize(), modifier)
+}
 
-    NavigationBar(modifier = modifier) {
-        TopLevelTab.entries.forEach { tab ->
-            NavigationBarItem(
-                selected = selected == tab.route,
-                onClick = { onSelect(tab.route) },
-                icon = {
-                    when {
-                        tab.usesAvatar && !avatarUrl.isNullOrBlank() -> Avatar(
-                            avatarUrl = avatarUrl,
-                            contentDescription = tab.label,
-                            size = TAB_ICON_SIZE_DP.dp
+/** Pure visual content; every destination and selected state comes from the app navigation boundary. */
+@Composable
+fun MainBottomBarContent(
+    selected: Route?,
+    onSelect: (Route) -> Unit,
+    avatarUrl: String?,
+    labelFontSize: TextUnit,
+    modifier: Modifier = Modifier,
+) {
+    val scheme = MaterialTheme.colorScheme
+    val isDark = scheme.background.luminance() < 0.5f
+    val muted = if (isDark) scheme.onSurfaceVariant else FrontendColors.MutedForeground
+    val border = if (isDark) scheme.outlineVariant else FrontendColors.Border
+    Surface(modifier = modifier.fillMaxWidth(), color = scheme.background) {
+        Column(Modifier.navigationBarsPadding()) {
+            Box(Modifier.fillMaxWidth().height(1.dp).background(border))
+            Row(Modifier.fillMaxWidth().selectableGroup()) {
+                TopLevelTab.entries.forEach { tab ->
+                    val active = selected == tab.route
+                    val tint = if (active) scheme.primary else muted
+                    Column(
+                        Modifier.weight(1f).heightIn(min = 64.dp)
+                            .selectable(selected = active, role = Role.Tab, onClick = { onSelect(tab.route) })
+                            .padding(horizontal = 4.dp, vertical = 8.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        if (tab.usesAvatar && !avatarUrl.isNullOrBlank()) {
+                            Avatar(avatarUrl = avatarUrl, contentDescription = tab.label, size = TAB_ICON_SIZE_DP.dp)
+                        } else {
+                            Icon(tab.icon, null, Modifier.size(TAB_ICON_SIZE_DP.dp), tint = tint)
+                        }
+                        Text(
+                            tab.label, color = tint, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
+                            textAlign = TextAlign.Center,
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontSize = labelFontSize, lineHeight = labelFontSize * 1.25f, letterSpacing = 0.sp,
+                                fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
+                            ),
                         )
-                        else -> Icon(tab.icon, contentDescription = tab.label)
+                        // Fixed space keeps labels aligned; the active tab has the small purple dot from the sample.
+                        Box(Modifier.size(3.dp).background(if (active) scheme.primary else Color.Transparent, CircleShape))
                     }
-                },
-                label = {
-                    Text(
-                        text = tab.label,
-                        // softWrap = false: thà co chữ chứ không để nhãn tràn xuống
-                        // dòng 2 (làm lệch chiều cao cả thanh nav).
-                        maxLines = 1,
-                        softWrap = false,
-                        overflow = TextOverflow.Ellipsis,
-                        textAlign = TextAlign.Center,
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            fontSize = labelFontSize,
-                            lineHeight = labelFontSize * 1.25f,
-                            // labelSmall mặc định có letterSpacing 0.5sp — bỏ đi để lấy
-                            // thêm chỗ cho nhãn 9 ký tự ("Trang chủ", "Hoạt động").
-                            letterSpacing = 0.sp
-                        ),
-                        // Ô nhãn của Material rộng bằng cả item; fillMaxWidth + center để
-                        // chữ căn giữa theo icon thay vì dồn về bên trái.
-                        modifier = Modifier.fillMaxWidth()
-                    )
                 }
-            )
+            }
         }
     }
 }
@@ -181,7 +209,7 @@ private const val MAX_TAB_LABEL_SP = 12f
 @Composable
 private fun MainBottomBarHomeSelectedPreview() {
     MyQuizAppTheme {
-        MainBottomBar(selected = Route.Home, onSelect = {}, avatarUrl = null)
+        MainBottomBarContent(selected = Route.Home, onSelect = {}, avatarUrl = null, labelFontSize = 11.sp)
     }
 }
 
@@ -190,6 +218,35 @@ private fun MainBottomBarHomeSelectedPreview() {
 @Composable
 private fun MainBottomBarNarrowScreenPreview() {
     MyQuizAppTheme {
-        MainBottomBar(selected = Route.Profile, onSelect = {}, avatarUrl = null)
+        MainBottomBarContent(selected = Route.Profile, onSelect = {}, avatarUrl = null, labelFontSize = 10.sp)
+    }
+}
+
+/** Full Home + bottom navigation fixture. No ViewModel, Hilt, network, or NavController. */
+@Preview(name = "Home Full Light", showBackground = true, showSystemUi = true, widthDp = 390, heightDp = 844)
+@Preview(name = "Home Full Dark", showBackground = true, showSystemUi = true, widthDp = 390, heightDp = 844, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(name = "Home Full Narrow Large Text", showBackground = true, widthDp = 320, heightDp = 640, fontScale = 1.3f)
+@Composable
+private fun MainHomeFullPreview() {
+    val quiz = QuizCard(
+        id = 1L, quizName = "Đố vui vũ trụ", quizCategory = "Khoa học", quizLanguage = "vi", quizOwnerId = 1L,
+        questionCount = 12, playCount = 350, completionRate = 0.85, createdAt = "2026-10-10T00:00:00Z",
+    )
+    val state = HomeUiState(
+        session = SessionState.Guest,
+        homeSections = listOf(HomeSection("trending-preview", "Thịnh hành tuần này 🔥", "trending", listOf(quiz, quiz.copy(id = 2L, quizName = "Khám phá thế giới", quizCategory = "Địa lý")))),
+    )
+    MyQuizAppTheme {
+        Scaffold(
+            contentWindowInsets = WindowInsets(0, 0, 0, 0),
+            bottomBar = { MainBottomBarContent(Route.Home, {}, null, 11.sp) },
+        ) { padding ->
+            HomeScreenContent(
+                uiState = state, onNavigateToSearch = {}, onNavigateToAuth = {}, onNavigateToQuizDetail = {}, onRetry = {},
+                snackbarHostState = remember { SnackbarHostState() }, listState = rememberLazyListState(),
+                roomCodeCard = { RoomCodeEntryCard(TextFieldValue("AB23", TextRange(4)), {}, true, {}, {}, false) },
+                modifier = Modifier.padding(padding).consumeWindowInsets(padding),
+            )
+        }
     }
 }
