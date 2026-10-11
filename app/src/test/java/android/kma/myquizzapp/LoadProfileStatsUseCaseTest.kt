@@ -16,7 +16,10 @@ class LoadProfileStatsUseCaseTest {
             sessions = Result.Success(17), quizzes = Result.Success(4)
         ))
 
-        assertEquals(ProfileStats(participatedSessionCount = 17, createdQuizCount = 4), useCase())
+        assertEquals(
+            Result.Success(ProfileStats(participatedSessionCount = 17, createdQuizCount = 4)),
+            useCase()
+        )
     }
 
     @Test fun `does not provide partial totals when one request fails`() = runTest {
