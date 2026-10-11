@@ -1,13 +1,13 @@
 # N46 — UI polish theo từng mốc nhỏ (WIP)
 
-> Baseline source Android: `main` tại `2308cc6` (Thư viện/Chi tiết quiz). Sau lần docs đến `d5571d6`, thêm 4 commit `d5571d6..2308cc6` (18 commit tổng cộng sau `cd018bb`). Đây là baseline source đã commit, không phải SHA APK đã kiểm thử.
+> Baseline source Android: `main` tại `7178588` (Chơi thử + form Tạo/Sửa quiz). Sau baseline docs `2308cc6`, thêm 3 commit `141d81c`, `2c1543c`, `7178588`. Đây là baseline source đã commit, không phải SHA APK đã kiểm thử.
 > N46 được triển khai từng phần theo user duyệt, không làm một mạch toàn app. N44 vẫn PARTIAL, N45/M6 và release gates chưa đóng; xem `N44_E2E_REPORT.md`.
 
 ## 1. Cách đọc trạng thái
 
 - “Đã triển khai/commit” chỉ xác nhận source có trên main.
 - “User duyệt UI” không thay thế build, lint, unit test, Compose UI test hoặc E2E.
-- Agent chưa chạy Gradle/render Compose; đã đối chiếu XML local 29/29 unit test quiz-manage PASS (mục 6). Chưa xác minh full build/lint/CI mới; không suy ra PASS từ commit hoặc `@Preview`.
+- Agent chưa chạy Gradle/render Compose; đã đối chiếu 10 XML local gồm 28 quiz-preview + 44 quiz-manage + 16 editor-validator = 88 PASS (mục 6). Chưa xác minh full assemble/lint/CI hoặc E2E mới; không suy ra PASS từ commit/@Preview.
 - Dark hiện là fallback theo Material theme, chưa có mẫu dark được duyệt toàn app.
 
 ## 2. Sổ mốc triển khai
@@ -32,6 +32,9 @@
 | N46.9b | AppConfirmDialog normal/danger dùng chung | `77b4c1a` | Đã commit; AuthRequiredDialog và ConfirmDeleteQuizDialog dùng recipe; user xác nhận ổn |
 | N46.10 | Thư viện, menu sửa/xóa, không thanh tab | `25901b2` | User xác nhận ổn; 9 ViewModel test XML local PASS |
 | N46.11 | Chi tiết quiz + QuestionPreviewCard, mặc định mở hết | `2308cc6` | User xác nhận ổn; 10 ViewModel + 10 presentation test XML local PASS |
+| N46.12a | Multi-select AnswerOptionItem + info palette | `141d81c` | Đã commit; opt-in checkbox, single/readOnly mặc định không đổi |
+| N46.12b | Chơi thử theo ảnh 12, feedback/chuyển câu thủ công | `2c1543c` | User duyệt; top bar Chơi thử, critical timer 30%; 28 test XML local PASS |
+| N46.13 | Form Tạo/Sửa dùng chung theo ảnh 13/14 đã điều chỉnh | `7178588` | User duyệt; validator/mapping/guards + 25 Preview; 31 editor test XML local PASS, E2E lưu/mở lại chưa xác minh |
 | N46.next | Màn tiếp theo do user chọn + ảnh mẫu | Chưa chốt | Giữ backlog retest Search/Discover/Paging và regression; không tự chuyển màn hoặc đóng N46 |
 
 Tên mốc là checkpoint nội bộ của N46, không thay đổi kế hoạch N1–N50 hoặc tạo release gate mới.
@@ -57,6 +60,9 @@ Tên mốc là checkpoint nội bộ của N46, không thay đổi kế hoạch 
 | SoftBackground | `#F8F7FD` |
 | Warning | `#A66C00` |
 | CorrectAnswerBackground | `#E9FAF3` |
+| Info | `#3B82F6` |
+| InfoBackground | `#EDF5FF` |
+| EditorAnswerAmber | `#F59E0B` |
 
 Gradient result từ CSS: `#21113E` tại 0%, `#4C2B8D` tại 48%, `#25144F` tại 100%. Chỉ có token, chưa coi Final Result đã được polish. Contrast chữ trắng trên tím brand cần quyết định/kiểm tra accessibility trước khi đóng N46; không tự đổi màu user đã duyệt.
 
@@ -68,7 +74,7 @@ Gradient result từ CSS: `#21113E` tại 0%, `#4C2B8D` tại 48%, `#25144F` t�
 | `CustomClickableText.kt` | Stateless; chỉ đoạn action là link; `LinkAnnotation.Clickable` + `TextLinkStyles`; không dùng `ClickableText` deprecated, không nối chuỗi null thành chữ “null” |
 | `SixCharacterCode.kt` | Normalize thuần: OTP 6 ASCII digits; room 6 ASCII alphanumeric uppercase; không pad/auto-submit |
 | `SixCharacterCodeField.kt` | Wrapper chỉ giữ focus; text/selection nằm ngoài. `SixCharacterCodeFieldContent` là lõi stateless và là đích Preview |
-| `AnswerOptionItem.kt` | Stateless; selected khác correctness. `readOnly=true` bỏ tương tác/feedback cho xem câu hỏi; default interactive giữ nguyên |
+| `AnswerOptionItem.kt` | Stateless; selected khác correctness. readOnly bỏ tương tác/feedback; selectionMode Single mặc định, Multiple opt-in checkbox ở Chơi thử; không tự đổi multiplayer policy |
 | `SearchQuizCard.kt` | Card ngang Search; tên cũ QuizListCard (trước đó QuizSummaryCard); rename `19c6425`, primitive props/rating optional |
 | `LibraryQuizCard.kt` | Card quản lý quiz riêng: ảnh vuông, visibility badge, overflow sửa/xóa; menu state/callback hoist |
 | `AppConfirmDialog.kt` | Wrapper Dialog/scroll + Content stateless; Normal/Danger, nút chia đều, loading/error; AuthRequiredDialog/ConfirmDeleteQuizDialog là recipe |
@@ -164,40 +170,74 @@ Gradient result từ CSS: `#21113E` tại 0%, `#4C2B8D` tại 48%, `#25144F` t�
 
 - `2308cc6`: top bar back + title rút gọn, owner có 2 action Sửa/Xóa; không icon chia sẻ/lưu chưa có chức năng. Cover 16:9 bo góc, author/avatar/ngày và category/language hiện hữu; không thêm badge tác giả uy tín giả.
 - Stats dùng count thật (fallback số câu đã tải), thời gian chung **chỉ khi danh sách không rỗng và mọi câu cùng thời gian**; khác nhau/rỗng thì bỏ ô này. playCount là “Lượt chơi”, thiếu thì bỏ, không giả unique participant count.
-- **QuestionPreviewCard** ở feature:quiz-manage/presentation/components, khác card soạn QuestionEditorCard. Header có nội dung/loại/thời gian/chevron; body có ảnh optional, AnswerOptionItem readOnly cho lựa chọn, vùng đáp án chỉ đọc cho short/long answer. QuestionTypeLabels dùng chung nhãn với editor, không đổi nghiệp vụ editor.
+- **QuestionPreviewCard** ở feature:quiz-manage/presentation/components, khác card soạn QuestionEditorCard. Header có nội dung/loại/thời gian/chevron; body có ảnh optional, AnswerOptionItem readOnly cho lựa chọn, vùng đáp án chỉ đọc cho short/long answer. QuestionTypeLabels dùng cho nhãn loại; editor N46.13 dùng nhãn chip ngắn riêng.
 - Quyết định cuối của user: **mặc định expand tất cả câu hỏi**, chỉ thu khi user bấm. Wrapper hoist rememberSaveable collapsedQuestionIds; nhiều card có thể cùng mở, câu mới mặc định mở. Content stateless; không ghi nhầm trạng thái mặc định thu gọn của phương án ban đầu.
 - Correct answers ẩn với cả owner; muốn xem/sửa đáp án dùng editor. QuestionPreviewUiModel không truyền correctAnswer/hint/explanation xuống card. Backend GET detail vẫn trả answer key: đây là giới hạn transport/privacy còn mở, readonly UI không phải fix API/privacy.
 - Bottom actions cố định: **“Chơi thử” / “Tạo phòng”**, Secondary/Primary cùng kích thước; giữ navigation/auth gate. Giữ disabled behavior quiz rỗng.
 - ViewModel claim loading/deleting trước launch, chặn duplicate loads; xóa chỉ khi loaded/owner/valid target/confirmation, khóa reload/dismiss khi mutation. Reload bỏ stale confirmation trước kiểm tra owner; resource missing dọn quiz/owner/dialog, transient error giữ dialog retry; mutation đi qua Use case.
 - Preview Content đủ owner/visitor, mixed time, question mở/thu, loading/error/empty, Light/Dark/narrow. User xác nhận UI ổn. 10 ViewModel + 10 presentation test local PASS.
 
+### Chơi thử local — N46.12a/N46.12b
+
+- `141d81c`: AnswerOptionItem thêm selection mode nhiều lựa chọn (checkbox); mặc định single và readOnly giữ nguyên. Color.kt thêm Info `#3B82F6`/InfoBackground `#EDF5FF` cho gợi ý/giải thích.
+- `2c1543c`, mẫu 12 theo quyết định user: top bar **“Chơi thử (Câu x/y)”**, back là thoát lượt có AppConfirmDialog, nút **X bên phải là bỏ qua câu**, không phải đóng màn.
+- Nhãn luyện tập/không tính xếp hạng và nhãn điểm ước tính riêng. Một lựa chọn chấm ngay khi chọn; nhiều lựa chọn/trả lời ngắn/trả lời dài dùng **Gửi đáp án** → feedback → **Câu tiếp theo** (câu cuối **Xem tổng kết**). Không tự chuyển sau 2/4 giây nữa; skip cũng có feedback rồi chuyển thủ công. Không quay lại câu trước.
+- Đáp án đúng luôn xanh, kể cả không được user chọn; chỉ lựa chọn sai mà user đã chọn mới đỏ với icon X. Multiple-select chấm exact set, không biến một lựa chọn đúng thành đỏ chỉ vì thiếu đáp án khác; answer key thiếu cho trạng thái không thể chấm.
+- Trước trả lời: Gợi ý nếu có; sau trả lời/skip: Giải thích nếu có, giữ icon bóng đèn. Timer progress theo thời gian, **đỏ khi còn ≤30%**, sau user yêu cầu tăng từ 10% lên gấp ba; dùng milliseconds cho ngưỡng ngắn. Time limit ≤0 ẩn timer, không tự thay bằng 30s. Đây là phòng thủ khi đọc dữ liệu, **không cho editor gửi time_limit=0** vì API tạo/sửa yêu cầu 5–600s.
+- Hết thời gian không tự gửi/chuyển câu; có thể trả lời muộn theo rule cũ (đúng muộn 900, không bonus). Countdown 3 giây/tổng kết/chơi lại/edit owner-only giữ nguyên. Không room/socket/history/play-count, không đổi multiplayer scoring hoặc sửa Practice pause/resume blocker N29.
+- LoadQuizPreviewUseCase sở hữu đọc quiz + kiểm tra owner qua Repository interfaces; ViewModel chỉ inject Use case/SavedStateHandle. Screen giữ effects/navigation/focus/scroll/dialog, Content stateless; thêm QuizPreviewPresentation.kt và Preview đại diện. User đã duyệt UI. XML local: 8 scoring + 8 presentation + 12 ViewModel = 28 PASS; không coi đó là E2E.
+
+### Tạo và Sửa quiz dùng chung — N46.13
+
+- `7178588`, ảnh 13/14 được user duyệt theo phương án **gộp một màn**. Không step badge/Next/nút lưu trên top bar; ảnh bìa đầu form, field nhãn ngoài/bo 16dp, ngôn ngữ và chủ đề vẫn nhập tự do (ngôn ngữ mặc định `vi`, không tự map “Tiếng Việt” thành `vi`).
+- Phân biệt **QuestionDraft là model UI**, **QuestionEditorCard là card soạn**, **QuestionPreviewCard là card xem ở Detail**. Card soạn tách file riêng; state/scroll/expansion/callback hoist từ Screen, form dùng chung QuizEditorContent. Không đưa feature model vào core UI.
+- Giữ 4 loại câu hỏi bằng chip cuộn ngang. Câu lựa chọn mới có **2 đáp án**, thêm/xóa trong khoảng **2–4**; nhập trực tiếp trong hàng A/B/C/D màu đỏ/xanh dương/cam/xanh lá, radio một lựa chọn hoặc checkbox nhiều lựa chọn. **Không viền con cả lúc focus/gõ**. Chữ tối màu giữ contrast trên nền sáng; EditorAnswerAmber `#F59E0B` thêm ở Color.kt. Không thêm dialog bút sửa, loại Đúng/Sai mới hoặc giới hạn 6 như ảnh.
+- Preset **10s/20s/30s/60s + Khác**, mặc định 30s. Chọn Khác hiện ô số **5–600 giây**, không nhận 0/rỗng; usesCustomTime là trạng thái riêng để ô không biến mất khi đang gõ một giá trị trùng preset. Edit prefill duration ngoài preset ở chế độ Khác.
+- **Thông tin bổ sung** (gợi ý/giải thích) mặc định thu gọn. Xóa câu hỏi ngay, không dialog, nhưng luôn giữ tối thiểu một câu. **Không reorder/tay nắm kéo**, duplicate hoặc autosave draft trong scope này.
+- Nút lưu cố định dưới màn: Create công khai **Lưu & xuất bản**, riêng tư **Lưu quiz**; Edit **Lưu thay đổi**. API lưu ngay với is_public, **không có bước draft/publish riêng**. Chọn ảnh vẫn chỉ local, upload qua Use case khi Submit; giữ protocol presign/ảnh cũ và giới hạn PATCH hiện hữu (không claim đã sửa clear-cover metadata).
+- Create thêm dirty guard; Create/Edit dùng AppConfirmDialog Danger khi rời màn có thay đổi. Screen giữ Photo Picker (target String saveable), UI expansion/list/scroll/dialog/effects; Content thuần. Khi đang lưu, UI và ViewModel khóa thay đổi dữ liệu, Submit lặp, reload và back.
+- QuizEditorValidator ở **core:common** nhận input thuần QuestionValidationInput, không Android Uri/feature model; dùng chung Create/Edit, trim nhất quán với payload. Kiểm tra name 3–100, description ≤500, language không rỗng, category ≤50, question text 1–200, options 2–4 mỗi option 1–100, hint/explanation ≤255, timer 5–600, correct index hợp lệ và single đúng một đáp án.
+- **Không filter bỏ option trống rồi giữ index cũ**: validator yêu cầu mọi hàng hiện có được điền; mapper trim nhưng giữ thứ tự/chỉ số. Xóa option dịch correctIndexes đúng; đổi lại cùng loại không reset answer key. Claim submitting/load đồng bộ trước launch; lỗi giữ draft cho retry. Validation hiển thị theo field/card và cuộn tới lỗi đầu, validationAttempt cho phép bấm lưu lại cùng lỗi vẫn cuộn.
+- 25 Preview tại Create/Edit/Card/Image-Dialog component: đủ 4 types, 2/4 options, custom time, supplementary, ảnh placeholder, lỗi/saving, light/dark và discard **Content** trực tiếp. Agent chưa render Android Preview; user đã xác nhận editor khá ổn sau bỏ viền con. Cần retest máy thật Tạo → mở lại → Sửa → lưu → mở lại, ảnh/IME/back/loading/error.
+- 31 test editor đã đối chiếu XML PASS: 16 validator + 6 Create VM + 7 Edit VM + 2 mapping. Quiz-manage còn 29 regression List/Detail PASS trong lượt XML mới; không suy ra full assemble/lint/CI hoặc E2E.
+
 ## 6. Checklist evidence và việc còn mở
 
-- [x] Đối chiếu source/commit N46.0–N46.11 tại main `2308cc6`; lần này thêm 4 commit sau `d5571d6`, giữ docs tách khỏi main.
-- [x] User xác nhận UI Login/Register/Home/Thư viện/Chi tiết quiz và dialog ổn; không suy ra full visual/E2E PASS.
-- [x] Đọc XML local: 9 List VM + 10 Detail VM + 10 presentation = 29 PASS, không failures/errors; phạm vi evidence bên dưới.
-- [ ] Thu thập full build/lint/CI và các suite còn lại cho baseline N46 mới; không dùng XML N43/N44 hoặc 29 quiz-manage test để suy ra toàn app PASS.
+- [x] Đối chiếu source/commit N46.0–N46.13 tại main `7178588`; lần này thêm 3 commit sau `2308cc6`, giữ docs tách khỏi main.
+- [x] User xác nhận UI Login/Register/Home/Thư viện/Chi tiết/Chơi thử/editor và dialog ổn; không suy ra full visual/E2E PASS.
+- [x] Đọc 10 XML local mới: 28 quiz-preview + 44 quiz-manage + 16 editor-validator = 88 PASS, 0 failures/errors/skipped; chi tiết dưới đây.
+- [ ] Thu thập full assemble/lint/CI và các suite còn lại cho baseline N46 mới; 88 test local dưới đây không phải kết quả toàn app hoặc bằng chứng APK cùng SHA.
 - [ ] Kiểm thử auth regression: validation, visibility, loading/error, guest, forgot/register/login navigation, Google và session; không đánh Google/cookie fixed nếu happy case pass.
 - [ ] Xem Preview và máy thật: light/dark, field/icon/spacing, keyboard/IME, font scale, narrow screen, TalkBack/touch targets/contrast.
 - [ ] Retest lỗi Paging index trên Discover sau `d5571d6`: cuộn append, retry, đổi danh mục/sort nhanh từ list nhiều sang ít/rỗng, back/reopen; chưa có xác nhận sau sửa.
 - [ ] Regression Search: submit/clear/query change/cancel, empty result, append error/retry đúng cursor, không tự retry-loop hoặc mất results.
+- [ ] Debt editor hiện hữu: domain QuizDraft/Create–Update assets use cases còn dùng presentation QuestionDraft/toNewQuestion; chưa chuyển model/mapper qua boundary trong đợt UI này.
+- [ ] Đối chiếu schema API với DDL/runtime backend khi retest lưu: audit `7c103c8` có API description ≤500, language không enum; DDL gốc 002_quizzes.sql khai description varchar(255), language varchar(50). Chưa xác minh DB triển khai/migration tương ứng; không coi API cho phép chuỗi tự do là độ dài vô hạn hoặc tuyên bố runtime bug đã tái hiện.
+- [ ] E2E Chơi thử 4 types/skip/late/key thiếu/manual Next; Create/Edit lưu → mở lại, prefill ảnh/đáp án/custom duration, lỗi upload/retry, IME/back/rotation trong Photo Picker.
 - [ ] Chốt mẫu dark và tích hợp shared components vào các màn tiếp theo theo user chọn; màn tiếp theo chưa chốt, không tự suy đoán thứ tự.
 - [ ] Các màn khác, animation, sheet dark-mode và accessibility toàn app còn mở; N46 chưa hoàn tất.
 - [ ] N44-OFFLINE-BOOT, Practice pause/resume, N20.6/N25/N28.5/N29/N30, privacy/session và build/deployment gates giữ trong hồ sơ N44, không waived bởi UI polish.
 
-### Evidence unit test quiz-manage mới
+### Evidence unit test local mới — Chơi thử và editor
 
-Đã đọc XML tại `feature/quiz-manage/build/test-results/testDebugUnitTest/` trên máy user ngày 11/10/2026:
+Đã đọc 10 XML trong `feature/quiz-preview/build/test-results/testDebugUnitTest/`, `feature/quiz-manage/build/test-results/testDebugUnitTest/` và báo cáo **QuizEditorValidatorTest** tại `core/common/build/test-results/testDebugUnitTest/`. Không coi đây là toàn bộ suite core:common/toàn app.
 
-| Suite | Tests | Failures / errors | Timestamp trong XML (UTC) |
+| Suite | Tests | Failures / errors / skipped | Timestamp XML (UTC) |
 | --- | --- | --- | --- |
-| `QuizDetailViewModelTest` | 10 | 0 / 0 | `2026-10-11T04:36:51.891Z` |
-| `QuizDetailPresentationTest` | 10 | 0 / 0 | `2026-10-11T04:36:51.791Z` |
-| `QuizManageListViewModelTest` | 9 | 0 / 0 | `2026-10-11T04:36:53.179Z` |
+| `QuizEditorValidatorTest` | 16 | 0 / 0 / 0 | `2026-10-11T14:22:18.947Z` |
+| `CreateQuizViewModelTest` | 6 | 0 / 0 / 0 | `2026-10-11T14:22:28.995Z` |
+| `EditQuizViewModelTest` | 7 | 0 / 0 / 0 | `2026-10-11T14:22:31.031Z` |
+| `QuestionDraftMappingTest` | 2 | 0 / 0 / 0 | `2026-10-11T14:22:31.136Z` |
+| `QuizDetailViewModelTest` | 10 | 0 / 0 / 0 | `2026-10-11T14:22:31.199Z` |
+| `QuizDetailPresentationTest` | 10 | 0 / 0 / 0 | `2026-10-11T14:22:31.143Z` |
+| `QuizManageListViewModelTest` | 9 | 0 / 0 / 0 | `2026-10-11T14:22:31.652Z` |
+| `PreviewScoringTest` | 8 | 0 / 0 / 0 | `2026-10-11T13:22:14.901Z` |
+| `QuizPreviewPresentationTest` | 8 | 0 / 0 / 0 | `2026-10-11T13:22:14.969Z` |
+| `QuizPreviewViewModelTest` | 12 | 0 / 0 / 0 | `2026-10-11T13:22:14.991Z` |
 
-**Tổng 29/29 PASS local.** XML không mang git SHA/run id; timestamp sau commit main `2308cc6` không tự chứng minh APK cùng SHA, full assemble/lint/CI hoặc E2E. Agent không chạy Gradle. 10 normalization, 8 password-reset và 9 Search state test vẫn chưa có kết quả chạy mới được đối chiếu trong lượt docs này.
+**Tổng 88/88 PASS local:** 28 quiz-preview + 44 quiz-manage (15 editor + 29 List/Detail regression) + 16 core editor-validator; 0 failures/errors/skipped. Timestamps là 11/10/2026: Preview khoảng 13:22 UTC, editor/List/Detail khoảng 14:22 UTC. XML không mang git SHA/run id; thời gian gần các commit không chứng minh APK/backend cùng revision hoặc full assemble/lint/CI/E2E. Agent đọc report, không chạy Gradle.
 
-Hai test Detail từng fail do fixture khởi tạo ViewModel trong @Before: coroutine init có thể chạy khi runTest bắt đầu, trước mock setup/assertion trong thân test. Đã chuyển khởi tạo vào runTest **sau khi cấu hình mock**; giữ assertions và guard production, không sửa test để che lỗi. XML trên là evidence sau sửa.
+Lượt docs trước ghi 29/29 List/Detail PASS tại 04:36 UTC ngày 11/10/2026; giữ là evidence lịch sử, lượt mới trên bổ sung editor và practice. Hai fixture Detail từng fail đã được sửa bằng tạo ViewModel trong runTest sau mock setup, không bỏ assertions/production guards. 10 normalization, 8 password-reset và 9 Search state test vẫn chưa được đối chiếu run mới trong lượt này.
 
 ## 7. Quy trình cho các mốc tiếp theo
 

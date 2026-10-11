@@ -2,7 +2,7 @@
 
 > **Tài liệu cấu trúc dự án chi tiết**  
 > Mô tả vai trò, trách nhiệm và mối quan hệ giữa các module trong kiến trúc Multi-module Gradle  
-> **Version:** 2.24 | **Last Updated:** N46 WIP đến Thư viện/Chi tiết quiz (source main 2308cc6; N44 vẫn PARTIAL)
+> **Version:** 2.25 | **Last Updated:** N46 WIP đến Chơi thử/Tạo–Sửa quiz (source main 7178588; N44 vẫn PARTIAL)
 
 ---
 
@@ -436,7 +436,7 @@ core/ui/
 └── build.gradle.kts
 ```
 
-Tree phần N46 trên đối chiếu main `2308cc6`, không lấy source vắng trên docs làm bằng chứng chưa có file. QuizSummaryCard → QuizListCard (`9417aad`) → SearchQuizCard (`19c6425`); LibraryQuizCard riêng, DiscoveryQuizCard giữ Home/Discover; QuizCardItem xóa ở `d5571d6`. ComponentColors internal chỉ trong core:ui, feature dùng FrontendColors public + MaterialTheme dark. 29 quiz-manage test XML local PASS; Preview không thay full build/CI/E2E. Xem `N46_UI_PROGRESS.md`.
+Tree phần N46 trên đối chiếu main `7178588`, không lấy source vắng trên docs làm bằng chứng chưa có file. QuizSummaryCard → QuizListCard (`9417aad`) → SearchQuizCard (`19c6425`); LibraryQuizCard riêng, DiscoveryQuizCard giữ Home/Discover; QuizCardItem xóa ở `d5571d6`. AnswerOptionItem Multiple opt-in (`141d81c`), ComponentColors internal chỉ trong core:ui. 88 XML PASS local trong các suite liên quan; Preview không thay full build/CI/E2E. Xem `N46_UI_PROGRESS.md`.
 
 #### UiText Pattern (minh họa, không phải inventory source)
 ```kotlin
@@ -1046,7 +1046,7 @@ Tạo, chỉnh sửa, xóa quiz (chỉ dành cho Host đã login). Editor hỗ t
 
 #### Trách nhiệm
 - ✅ QuizManageListScreen — Thư viện, search/filter/sort, LibraryQuizCard + menu sửa/xóa, FAB; không tab saved chưa có
-- ✅ QuizEditorScreen - editor với drag-drop reorder questions
+- ✅ CreateQuizScreen/EditQuizScreen dùng chung QuizEditorContent + QuestionEditorCard (N46.13 `7178588`); **chưa có drag-drop/reorder**, không hiển thị tay nắm kéo
 - ✅ CreateRoomScreen - tạo game room với config động từ `GET /games/game-modes`
 - ✅ Upload ảnh 2 bước: (1) GET presigned URL, (2) PUT file trực tiếp lên S3
 - ✅ Question editor hỗ trợ 4 types: multiple_choice, multiple_select, short_answer, long_answer
@@ -1054,7 +1054,7 @@ Tạo, chỉnh sửa, xóa quiz (chỉ dành cho Host đã login). Editor hỗ t
 - ✅ N41: entry chơi thử; N46.11 đổi nhãn thành “Chơi thử”/“Tạo phòng”, disabled quiz rỗng, callback app sở hữu; không phụ thuộc trực tiếp feature:quiz-preview.
 - ✅ N46.11: QuestionPreviewCard riêng, readonly AnswerOptionItem, mặc định expand hết; ownership/delete guards và stats thật. User đã duyệt UI; 29 unit test quiz-manage XML local PASS, chưa xác minh full assemble/lint/CI/E2E.
 
-#### Inventory phần quiz quản lý/detail đã đối chiếu ở N46
+#### Inventory phần quiz quản lý/detail/editor đã đối chiếu ở N46
 
 Đây là cây **các file thuộc phạm vi N46 mới**, không phải danh sách đầy đủ editor/create-room/use case của module. Source/tests nằm trên main; docs không chứa source.
 
@@ -1073,13 +1073,23 @@ feature/quiz-manage/
 │   │   ├── QuizDetailUiState.kt
 │   │   ├── QuizDetailIntent.kt
 │   │   └── QuizDetailPresentation.kt     # Readonly projection, duration/count/author/date helpers
+│   ├── createquiz/                     # Screen/UiState/Intent/Effect/ViewModel; dirty guard + Create use case
+│   ├── editquiz/                       # Screen/UiState/Intent/Effect/ViewModel; load/prefill + Update use case
 │   └── components/
 │       ├── ConfirmDeleteQuizDialog.kt   # Feature copy/callback → core AppConfirmDialog Danger
 │       ├── QuestionPreviewCard.kt       # Xem câu hỏi, không phải editor; AnswerOptionItem readOnly
-│       ├── QuestionTypeLabels.kt        # Nhãn 4 loại dùng chung với editor
-│       └── QuestionEditorComponents.kt  # Editor hiện hữu; dùng labels chung, behavior không đổi
+│       ├── QuestionTypeLabels.kt        # Nhãn loại cho card xem; editor dùng nhãn chip ngắn
+│       ├── QuestionDraft.kt             # Model UI + mapper giữ thứ tự options + validation adapter
+│       ├── QuestionEditorCard.kt        # Stateless: 4 types, answer rows, preset/Custom, supplementary
+│       ├── QuestionEditorComponents.kt  # Image picker/EditorColors + discard Content Preview
+│       ├── QuizEditorContent.kt         # Form gộp Create/Edit + fixed save, lỗi theo field/card
+│       └── QuizEditorUiState.kt         # Screen helpers: scroll states + scroll tới lỗi đầu
 ├── src/test/java/.../presentation/
 │   ├── quizmanagelist/QuizManageListViewModelTest.kt  # 9 XML PASS
+│   ├── editor/
+│   │   ├── CreateQuizViewModelTest.kt     # 6 XML PASS
+│   │   ├── EditQuizViewModelTest.kt       # 7 XML PASS
+│   │   └── QuestionDraftMappingTest.kt    # 2 XML PASS
 │   └── quizdetail/
 │       ├── QuizDetailViewModelTest.kt                # 10 XML PASS
 │       └── QuizDetailPresentationTest.kt            # 10 XML PASS
@@ -1087,6 +1097,10 @@ feature/quiz-manage/
 ```
 
 Thư viện giữ ALL/PUBLIC/PRIVATE + 4 sort, search bo góc, menu editor/delete, không thanh tab một mục. Paging count/key/render cùng snapshot và guard live prefetch. Detail chỉ lưu collapsedQuestionIds ở wrapper: mặc định mọi câu mở, user tự thu; mixed time bỏ ô thời gian chung. Projection không đưa correctAnswer/hint/explanation xuống card nhưng backend detail vẫn gửi answer key, privacy transport chưa được sửa. AppConfirmDialog generic ở core:ui, không tạo feature → app dependency. XML 29 PASS local ngày 11/10/2026 là evidence có giới hạn (không git SHA/run id), không kết luận build/CI/E2E.
+
+N46.13 cũng áp dụng UI cho Edit: ảnh bìa đầu form, ngôn ngữ/chủ đề nhập tự do, 4 types, 2–4 options không viền con, preset + Khác 5–600s, supplementary thu gọn, fixed save và shared discard dialog. QuestionDraft là model, không phải card; không reorder/autosave. usesCustomTime nằm trong draft/VM, expansion và scroll ở Screen; Photo Picker target saveable. UI/intent khóa khi mutation; lỗi giữ draft, cuộn lỗi đầu qua validationAttempt. 25 Preview trong 4 file UI, chưa được agent render.
+
+Core validation mới: `core/common/.../validator/QuizEditorValidator.kt` chứa QuestionValidationInput/QuizEditorErrors và validator thuần; adapter QuestionDraft.toValidationInput giữ Uri/feature model ngoài core. Test `core/common/src/test/.../validator/QuizEditorValidatorTest.kt` có 16 XML PASS. Mapping trim nhưng không filter row để correctIndexes không lệch. 31 editor tests + 29 quiz-manage regression + 28 quiz-preview = 88 XML PASS local; timestamp/SHA limits ở sổ N46.
 
 Các Use case orchestration hiện hữu giữ nguyên: GetQuizWithOwnershipUseCase (detail + ownership), CreateQuizWithAssetsUseCase/UpdateQuizWithAssetsUseCase (metadata/questions + upload assets), DeleteQuizUseCase, CreateGameSessionUseCase và GetGameModesUseCase. N46 không chuyển Repository/API vào UI hoặc navigation.
 
@@ -1128,15 +1142,15 @@ dependencies {
 
 ### 3.8 `:feature:quiz-preview` - Solo Preview local (N41)
 
-**Status:** Hoàn thành tại commit `648bf37`; user xác nhận kiểm thử nhanh pass.
+**Status:** N41 hoàn thành tại `648bf37`; N46.12 đã polish tại `141d81c`/`2c1543c`, user duyệt UI Chơi thử. 28 XML test local PASS; full build/CI/E2E chưa xác minh.
 
 - Dependency module: chỉ `:core:common` + `:core:ui`, không network/database hoặc feature khác. `:app` wiring `QuizPreviewNavGraph.kt`, `Route.QuizPreview(quizId)` và callback từ Quiz Detail.
-- Namespace/package: `android.kma.myquizzapp.feature.quiz_preview`. File thực tế nằm trực tiếp trong package (không dựng thêm cây presentation/domain/data giả).
+- Namespace/package: `android.kma.myquizzapp.feature.quiz_preview`. Contract/scoring/presentation/Screen/ViewModel nằm trực tiếp trong package; **domain/usecase/LoadQuizPreviewUseCase.kt đã có thật từ N46.12**, không dựng data/presentation tree giả.
 - `PreviewContract.kt`: `PreviewPhase`, `QuizPreviewUiState`, intent/effect, `PreviewQuestionResult`.
 - `PreviewScoring.kt`: evaluator thuần Kotlin cho 4 types; multiple-select exact set, text trim/case-insensitive, key thiếu không crash; điểm ước tính Classic mặc định, đúng muộn chỉ 900 không bonus.
-- `QuizPreviewViewModel.kt`: inject `QuizRepository`, `SessionRepository`, `SavedStateHandle`; đọc quiz và owner từ session SSOT, countdown 3 giây, timer monotonic, local grade, skip/late, feedback auto-next 2/4 giây, restart/exit/edit.
-- `QuizPreviewScreen.kt`: stateful wrapper + stateless content; loading/error/empty, ảnh `QuestionImage`, hint, inputs, feedback, tổng kết/review. Edit owner-only pop Preview trước khi mở editor.
-- Tests: `PreviewScoringTest.kt`, `QuizPreviewViewModelTest.kt` (scoring/types/key/late, load/countdown/local grade và số lần gọi quiz repository).
+- `domain/usecase/LoadQuizPreviewUseCase.kt`: đọc quiz và owner qua QuizRepository/SessionRepository interfaces; không room/submission/result mutation. `QuizPreviewViewModel.kt` inject Use case + SavedStateHandle, countdown 3 giây, timer monotonic, local grade, skip/late và **Next thủ công**, restart/exit/edit; không còn direct Repository injection hoặc auto-next 2/4s.
+- `QuizPreviewScreen.kt`: Screen wrapper giữ navigation/focus/scroll/dialog, Content stateless; top bar Chơi thử, X Skip/back Exit, score badge, 4 loại inputs, hint→explanation, timer progress đỏ ≤30%/ẩn khi untimed. Correct key xanh, sai đã chọn đỏ; Edit owner-only pop Preview trước editor. `QuizPreviewPresentation.kt` chứa feedback/time/primary-label helpers thuần.
+- Tests: `PreviewScoringTest.kt` (8), `QuizPreviewPresentationTest.kt` (8), `QuizPreviewViewModelTest.kt` (12) = **28 XML PASS local**; scoring/key/types/late/untimed/critical threshold/manual Next/skip/load guards. Không thay E2E multiplayer Practice pause/resume.
 - Không room/host/socket/history/play-count; không dùng nguyên `GamePlayScreen`. Không thay đổi server-authoritative của multiplayer; điểm preview không phải kết quả trận thật.
 
 ---
@@ -1636,9 +1650,9 @@ MyQuizApp được xây dựng với **14 modules** theo **Clean Architecture + 
 
 ---
 
-**Document Version:** 2.24
-**Last Updated:** N46 WIP đến Thư viện/Chi tiết quiz (source Android 2308cc6)
-**Status:** Living document — baseline main `2308cc6`, cập nhật 4 commit card/dialog/Thư viện/Chi tiết quiz sau `d5571d6`. XML local 29 quiz-manage test PASS; full assemble/lint/CI/E2E và Discover Paging retest chưa xác minh. N46 WIP, N44 PARTIAL; Google/cookie DEFERRED và backend/privacy/session/deployment gates giữ nguyên, chưa chốt N45/M6/release. Vẫn 14 module; source/tests trên main, docs trên docs. Xem N46_UI_PROGRESS.md và N44_E2E_REPORT.md.
+**Document Version:** 2.25
+**Last Updated:** N46 WIP đến Chơi thử/Tạo–Sửa quiz (source Android 7178588)
+**Status:** Living document — baseline main `7178588`, cập nhật 3 commit multi-select/Chơi thử/shared editor sau `2308cc6`. 10 XML local: 28 quiz-preview + 44 quiz-manage + 16 editor-validator = 88 PASS; full assemble/lint/CI/E2E và Discover Paging retest chưa xác minh. N46 WIP, N44 PARTIAL; Google/cookie DEFERRED và backend/privacy/session/deployment gates giữ nguyên, chưa chốt N45/M6/release. Vẫn 14 module; source/tests trên main, docs trên docs. Xem N46_UI_PROGRESS.md và N44_E2E_REPORT.md.
 
 ---
 
