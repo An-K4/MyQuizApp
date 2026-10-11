@@ -3,7 +3,7 @@ package android.kma.myquizzapp.feature.home.presentation.search
 import android.content.res.Configuration
 import android.kma.myquizzapp.core.common.model.QuizCard
 import android.kma.myquizzapp.core.common.model.QuizOwner
-import android.kma.myquizzapp.core.ui.components.QuizListCard
+import android.kma.myquizzapp.core.ui.components.SearchQuizCard
 import android.kma.myquizzapp.core.ui.theme.FrontendColors
 import android.kma.myquizzapp.core.ui.theme.MyQuizAppTheme
 import androidx.compose.foundation.layout.*
@@ -136,7 +136,7 @@ fun SearchScreenContent(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     items(uiState.results, key = { it.id }) { quiz ->
-                        QuizListCard(
+                        SearchQuizCard(
                             title = quiz.quizName,
                             metadataText = buildString {
                                 append("${quiz.questionCount} câu hỏi • ${quiz.playCount} lượt chơi")

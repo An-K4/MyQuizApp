@@ -20,9 +20,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-/** Horizontal card; metadata/rating are caller-provided display values, never fabricated here. */
+/** Search-result card; metadata/rating are caller-provided values, never fabricated here. */
 @Composable
-fun QuizListCard(
+fun SearchQuizCard(
     title: String,
     metadataText: String,
     imageUrl: String?,
@@ -58,17 +58,17 @@ fun QuizListCard(
     }
 }
 
-@Preview(name = "Quiz Card Light", showBackground = true, widthDp = 390)
-@Preview(name = "Quiz Card Dark", showBackground = true, widthDp = 390, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(name = "Search Card Light", showBackground = true, widthDp = 390)
+@Preview(name = "Search Card Dark", showBackground = true, widthDp = 390, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
-private fun QuizListCardPreview() {
+private fun SearchQuizCardPreview() {
     MyQuizAppTheme {
         Surface(color = MaterialTheme.colorScheme.background) {
             Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 // Null image uses the local placeholder: previews do not fetch network images.
-                QuizListCard("100 Câu Tiếng Anh Giao Tiếp Thông Dụng", "20 câu hỏi • 500 người đã chơi • Tạo bởi Anh Thư", null, {}, ratingText = "4.9")
-                QuizListCard("Quiz chưa có đánh giá", "10 câu hỏi • Tạo bởi Minh Anh", null, {})
-                QuizListCard("Quiz tạm thời không thể mở", "20 câu hỏi", null, {}, enabled = false)
+                SearchQuizCard("100 Câu Tiếng Anh Giao Tiếp Thông Dụng", "20 câu hỏi • 500 người đã chơi • Tạo bởi Anh Thư", null, {}, ratingText = "4.9")
+                SearchQuizCard("Quiz chưa có đánh giá", "10 câu hỏi • Tạo bởi Minh Anh", null, {})
+                SearchQuizCard("Quiz tạm thời không thể mở", "20 câu hỏi", null, {}, enabled = false)
             }
         }
     }

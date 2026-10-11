@@ -28,7 +28,11 @@ import androidx.compose.ui.unit.sp
 /** Supplied only when the caller is allowed to reveal server/review feedback. */
 enum class AnswerOptionFeedback { None, Correct, Incorrect }
 
-/** Stateless single-choice row. The caller owns group selection and feedback visibility policy. */
+/**
+ * Stateless option row. The caller owns selection and feedback policy.
+ * readOnly renders plain option content: no click/radio semantics or answer-key styling,
+ * even if selected/feedback were supplied accidentally. Interactive defaults are unchanged.
+ */
 @Composable
 fun AnswerOptionItem(
     label: String,
@@ -38,44 +42,49 @@ fun AnswerOptionItem(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     feedback: AnswerOptionFeedback = AnswerOptionFeedback.None,
+    readOnly: Boolean = false,
 ) {
+    val isSelected = selected && !readOnly
+    val visibleFeedback = if (readOnly) AnswerOptionFeedback.None else feedback
     val background = when {
-        feedback == AnswerOptionFeedback.Correct -> ComponentColors.successSurface
-        feedback == AnswerOptionFeedback.Incorrect -> ComponentColors.dangerSurface
-        selected -> ComponentColors.selectedSurface
+        visibleFeedback == AnswerOptionFeedback.Correct -> ComponentColors.successSurface
+        visibleFeedback == AnswerOptionFeedback.Incorrect -> ComponentColors.dangerSurface
+        isSelected -> ComponentColors.selectedSurface
         else -> ComponentColors.surface
     }
-    val foreground = when (feedback) {
+    val foreground = when (visibleFeedback) {
         AnswerOptionFeedback.Correct -> ComponentColors.successForeground
         AnswerOptionFeedback.Incorrect -> ComponentColors.dangerForeground
-        AnswerOptionFeedback.None -> if (selected) ComponentColors.selectedForeground else ComponentColors.foreground
+        AnswerOptionFeedback.None -> if (isSelected) ComponentColors.selectedForeground else ComponentColors.foreground
     }
     val outline = when {
-        feedback == AnswerOptionFeedback.Correct -> FrontendColors.Success
-        selected || feedback != AnswerOptionFeedback.None -> foreground
+        visibleFeedback == AnswerOptionFeedback.Correct -> FrontendColors.Success
+        isSelected || visibleFeedback != AnswerOptionFeedback.None -> foreground
         else -> ComponentColors.border
     }
-    val stateLabel = when (feedback) {
+    val stateLabel = when (visibleFeedback) {
         AnswerOptionFeedback.Correct -> "Đáp án đúng"
         AnswerOptionFeedback.Incorrect -> "Đáp án sai"
-        AnswerOptionFeedback.None -> if (selected) "Đã chọn" else "Chưa chọn"
+        AnswerOptionFeedback.None -> if (isSelected) "Đã chọn" else "Chưa chọn"
     }
     Surface(
-        modifier = modifier.fillMaxWidth().heightIn(min = 48.dp)
-            .selectable(selected, enabled = enabled, role = Role.RadioButton, onClick = onClick)
-            .semantics(mergeDescendants = true) { stateDescription = stateLabel },
+        modifier = modifier.fillMaxWidth().heightIn(min = 48.dp).then(
+            if (readOnly) Modifier.semantics(mergeDescendants = true) {}
+            else Modifier.selectable(isSelected, enabled = enabled, role = Role.RadioButton, onClick = onClick)
+                .semantics(mergeDescendants = true) { stateDescription = stateLabel }
+        ),
         color = background, shape = RoundedCornerShape(16.dp), border = BorderStroke(1.dp, outline),
     ) {
         Row(Modifier.padding(horizontal = 12.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(label, color = if (selected || feedback != AnswerOptionFeedback.None) foreground else ComponentColors.muted,
+            Text(label, color = if (isSelected || visibleFeedback != AnswerOptionFeedback.None) foreground else ComponentColors.muted,
                 style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold))
             Text(text, modifier = Modifier.weight(1f), color = foreground,
                 style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp, lineHeight = 20.sp, fontWeight = FontWeight.SemiBold))
             val indicator = when {
-                feedback == AnswerOptionFeedback.Correct -> Icons.Outlined.CheckCircle
-                feedback == AnswerOptionFeedback.Incorrect -> Icons.Outlined.Cancel
-                selected -> Icons.Outlined.RadioButtonChecked
+                visibleFeedback == AnswerOptionFeedback.Correct -> Icons.Outlined.CheckCircle
+                visibleFeedback == AnswerOptionFeedback.Incorrect -> Icons.Outlined.Cancel
+                isSelected -> Icons.Outlined.RadioButtonChecked
                 else -> null
             }
             if (indicator != null) Icon(indicator, null, tint = outline, modifier = Modifier.size(20.dp))
@@ -91,6 +100,7 @@ private fun AnswerOptionItemPreview() {
         Surface(color = MaterialTheme.colorScheme.background) {
             Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 AnswerOptionItem("A", "K2", false, {})
+                AnswerOptionItem("A", "Chỉ xem — không chọn hoặc tiết lộ đáp án", false, {}, readOnly = true)
                 AnswerOptionItem("B", "Đã chọn, chưa có kết quả", true, {})
                 AnswerOptionItem("B", "Everest", true, {}, enabled = false, feedback = AnswerOptionFeedback.Correct)
                 AnswerOptionItem("D", "Lhotse", true, {}, enabled = false, feedback = AnswerOptionFeedback.Incorrect)
@@ -99,4 +109,5 @@ private fun AnswerOptionItemPreview() {
         }
     }
 }
+
 

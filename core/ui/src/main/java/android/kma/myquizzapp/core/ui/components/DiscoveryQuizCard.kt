@@ -16,7 +16,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-/** Vertical card for Home/Discover. QuizListCard is the horizontal Search/Library variant. */
+/** Vertical card for Home/Discover; SearchQuizCard and LibraryQuizCard serve their own lists. */
 @Composable
 fun DiscoveryQuizCard(
     title: String,

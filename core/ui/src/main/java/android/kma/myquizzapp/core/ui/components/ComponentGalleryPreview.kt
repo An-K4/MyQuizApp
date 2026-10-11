@@ -49,8 +49,8 @@ private fun ComponentGalleryPreview() {
                 }
                 AnswerOptionItem("A", "Đã chọn, chưa chấm điểm", true, {})
                 AnswerOptionItem("D", "Đáp án sai", true, {}, enabled = false, feedback = AnswerOptionFeedback.Incorrect)
-                QuizListCard("100 Câu Tiếng Anh Giao Tiếp Thông Dụng", "20 câu hỏi • 500 người đã chơi • Tạo bởi Anh Thư", null, {}, ratingText = "4.9")
-                QuizListCard("Quiz chưa có đánh giá", "10 câu hỏi", null, {})
+                SearchQuizCard("100 Câu Tiếng Anh Giao Tiếp Thông Dụng", "20 câu hỏi • 500 người đã chơi • Tạo bởi Anh Thư", null, {}, ratingText = "4.9")
+                SearchQuizCard("Quiz chưa có đánh giá", "10 câu hỏi", null, {})
                 LeaderboardPlayerCard("🥇", "Minh Anh", "4,120 điểm", initials = "MA", scoreDeltaText = "(+950)")
                 LeaderboardPlayerCard("2", "Một tên người chơi dài để kiểm tra xuống dòng", null, initials = "TN", isCurrentPlayer = true)
             }
