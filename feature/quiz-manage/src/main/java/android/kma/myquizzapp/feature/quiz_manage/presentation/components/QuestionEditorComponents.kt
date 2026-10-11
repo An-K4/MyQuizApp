@@ -246,9 +246,4 @@ fun QuestionTypeMenuButtonContent(
     }
 }
 
-private fun questionTypeLabel(type: QuestionType): String = when (type) {
-    QuestionType.MULTIPLE_CHOICE -> "Chọn 1 đáp án"
-    QuestionType.MULTIPLE_SELECT -> "Chọn nhiều đáp án"
-    QuestionType.SHORT_ANSWER -> "Trả lời ngắn"
-    QuestionType.LONG_ANSWER -> "Trả lời dài"
-}
+

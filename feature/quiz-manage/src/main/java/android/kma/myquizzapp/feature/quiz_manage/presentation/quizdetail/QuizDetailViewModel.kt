@@ -3,9 +3,7 @@ package android.kma.myquizzapp.feature.quiz_manage.presentation.quizdetail
 import android.kma.myquizzapp.core.common.error.isMissingResource
 import android.kma.myquizzapp.core.common.error.toUserMessage
 import android.kma.myquizzapp.core.common.result.Result
-import android.kma.myquizzapp.feature.quiz_manage.domain.model.QuizWithOwnership
 import android.kma.myquizzapp.feature.quiz_manage.domain.usecase.DeleteQuizUseCase
-import android.kma.myquizzapp.feature.quiz_manage.domain.usecase.GetQuizDetailUseCase
 import android.kma.myquizzapp.feature.quiz_manage.domain.usecase.GetQuizWithOwnershipUseCase
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
@@ -50,8 +48,11 @@ class QuizDetailViewModel @Inject constructor(
         when (intent) {
             is QuizDetailIntent.LoadQuizDetail -> loadQuizDetail()
             is QuizDetailIntent.Retry -> loadQuizDetail()
-            is QuizDetailIntent.DeleteQuizClicked -> _uiState.update {
-                it.copy(isConfirmingDelete = true, deleteError = null)
+            is QuizDetailIntent.DeleteQuizClicked -> {
+                val state = _uiState.value
+                if (state.isOwner && state.quiz != null && !state.isLoading && state.error == null && !state.isDeleting) {
+                    _uiState.update { it.copy(isConfirmingDelete = true, deleteError = null) }
+                }
             }
             is QuizDetailIntent.DeleteQuizDismissed -> {
                 // Đang xóa dở thì không cho đóng dialog — nút đã disable ở UI,
@@ -65,9 +66,9 @@ class QuizDetailViewModel @Inject constructor(
     }
 
     private fun loadQuizDetail() {
+        if (_uiState.value.isLoading || _uiState.value.isDeleting) return
+        _uiState.update { it.copy(isLoading = true, error = null, isConfirmingDelete = false, deleteError = null) }
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null) }
-
             when (val result = getQuizWithOwnershipUseCase(quizId)) {
                 is Result.Success -> {
                     _uiState.update {
@@ -82,7 +83,10 @@ class QuizDetailViewModel @Inject constructor(
                 is Result.Error -> {
                     val message = result.error.toUserMessage()
                     if (result.error.isMissingResource("QUIZ_NOT_FOUND")) {
-                        _uiState.update { it.copy(isLoading = false) }
+                        _uiState.update {
+                            it.copy(quiz = null, isOwner = false, isLoading = false,
+                                isConfirmingDelete = false, deleteError = null)
+                        }
                         _effect.send(QuizDetailEffect.ResourceMissing(message))
                     } else {
                         _uiState.update { it.copy(isLoading = false, error = message) }
@@ -93,21 +97,32 @@ class QuizDetailViewModel @Inject constructor(
     }
 
     private fun deleteQuiz() {
-        if (_uiState.value.isDeleting) return
+        val state = _uiState.value
+        if (!state.isOwner || state.quiz == null || !state.isConfirmingDelete ||
+            state.isLoading || state.error != null || state.isDeleting) return
+        // Claim before launch, not inside it, so two taps cannot send two DELETEs.
+        _uiState.update { it.copy(isDeleting = true, deleteError = null) }
         viewModelScope.launch {
-            _uiState.update { it.copy(isDeleting = true, deleteError = null) }
             when (val result = deleteQuizUseCase(quizId)) {
                 is Result.Success -> {
-                    _uiState.update { it.copy(isDeleting = false, isConfirmingDelete = false) }
+                    _uiState.update { it.copy(quiz = null, isOwner = false, isDeleting = false, isConfirmingDelete = false, deleteError = null) }
                     _effect.send(QuizDetailEffect.QuizDeleted)
                 }
                 is Result.Error -> {
-                    // Quiz vẫn còn — giữ dialog mở, hiện lý do lỗi trong dialog.
-                    _uiState.update {
-                        it.copy(isDeleting = false, deleteError = result.error.toUserMessage())
+                    val message = result.error.toUserMessage()
+                    if (result.error.isMissingResource("QUIZ_NOT_FOUND")) {
+                        _uiState.update {
+                            it.copy(quiz = null, isOwner = false, isDeleting = false,
+                                isConfirmingDelete = false, deleteError = null)
+                        }
+                        _effect.send(QuizDetailEffect.ResourceMissing(message))
+                    } else {
+                        // Keep the confirmation open for a deliberate retry.
+                        _uiState.update { it.copy(isDeleting = false, deleteError = message) }
                     }
                 }
             }
         }
     }
 }
+
