@@ -46,6 +46,7 @@ dependencies {
     implementation(project(":core:database"))
     implementation(project(":core:datastore"))
     implementation(project(":core:ui"))
+    implementation(libs.androidx.material.icons.extended)
 
     implementation(project(":feature:auth"))
     implementation(project(":feature:home"))
