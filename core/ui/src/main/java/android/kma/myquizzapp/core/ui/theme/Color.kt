@@ -75,6 +75,10 @@ object FrontendColors {
     val SoftBackground = Color(0xFFF8F7FD)
     val CorrectAnswerBackground = Color(0xFFE9FAF3)
 
+    // Hint/explanation card sampled from screen 12 (light design).
+    val Info = Color(0xFF3B82F6)
+    val InfoBackground = Color(0xFFEDF5FF)
+
     val ResultGradientStart = Color(0xFF21113E)
     val ResultGradientMiddle = Color(0xFF4C2B8D)
     val ResultGradientEnd = Color(0xFF25144F)

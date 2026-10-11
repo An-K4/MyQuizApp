@@ -5,6 +5,7 @@ import android.kma.myquizzapp.core.ui.theme.FrontendColors
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CheckCircle
@@ -28,6 +29,9 @@ import androidx.compose.ui.unit.sp
 /** Supplied only when the caller is allowed to reveal server/review feedback. */
 enum class AnswerOptionFeedback { None, Correct, Incorrect }
 
+/** Preserve single-selection defaults; multi-choice callers opt into checkbox semantics. */
+enum class AnswerOptionSelectionMode { Single, Multiple }
+
 /**
  * Stateless option row. The caller owns selection and feedback policy.
  * readOnly renders plain option content: no click/radio semantics or answer-key styling,
@@ -43,6 +47,7 @@ fun AnswerOptionItem(
     enabled: Boolean = true,
     feedback: AnswerOptionFeedback = AnswerOptionFeedback.None,
     readOnly: Boolean = false,
+    selectionMode: AnswerOptionSelectionMode = AnswerOptionSelectionMode.Single,
 ) {
     val isSelected = selected && !readOnly
     val visibleFeedback = if (readOnly) AnswerOptionFeedback.None else feedback
@@ -70,7 +75,10 @@ fun AnswerOptionItem(
     Surface(
         modifier = modifier.fillMaxWidth().heightIn(min = 48.dp).then(
             if (readOnly) Modifier.semantics(mergeDescendants = true) {}
-            else Modifier.selectable(isSelected, enabled = enabled, role = Role.RadioButton, onClick = onClick)
+            else (if (selectionMode == AnswerOptionSelectionMode.Multiple)
+                Modifier.toggleable(value = isSelected, enabled = enabled, role = Role.Checkbox,
+                    onValueChange = { onClick() })
+            else Modifier.selectable(isSelected, enabled = enabled, role = Role.RadioButton, onClick = onClick))
                 .semantics(mergeDescendants = true) { stateDescription = stateLabel }
         ),
         color = background, shape = RoundedCornerShape(16.dp), border = BorderStroke(1.dp, outline),
@@ -102,6 +110,8 @@ private fun AnswerOptionItemPreview() {
                 AnswerOptionItem("A", "K2", false, {})
                 AnswerOptionItem("A", "Chỉ xem — không chọn hoặc tiết lộ đáp án", false, {}, readOnly = true)
                 AnswerOptionItem("B", "Đã chọn, chưa có kết quả", true, {})
+                AnswerOptionItem("B", "Chọn nhiều — chưa gửi đáp án", true, {},
+                    selectionMode = AnswerOptionSelectionMode.Multiple)
                 AnswerOptionItem("B", "Everest", true, {}, enabled = false, feedback = AnswerOptionFeedback.Correct)
                 AnswerOptionItem("D", "Lhotse", true, {}, enabled = false, feedback = AnswerOptionFeedback.Incorrect)
                 AnswerOptionItem("C", "Kangchenjunga — tên đáp án dài để kiểm tra xuống dòng", false, {}, enabled = false)
@@ -109,5 +119,6 @@ private fun AnswerOptionItemPreview() {
         }
     }
 }
+
 
 
