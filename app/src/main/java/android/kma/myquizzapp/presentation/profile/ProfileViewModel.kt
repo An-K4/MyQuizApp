@@ -5,6 +5,7 @@ import android.kma.myquizzapp.core.common.error.toUserMessage
 import android.kma.myquizzapp.core.common.model.SessionUserToken
 import android.kma.myquizzapp.core.common.model.User
 import android.kma.myquizzapp.core.common.model.userOrNull
+import android.kma.myquizzapp.domain.profile.LoadProfileStatsUseCase
 import android.kma.myquizzapp.domain.profile.ObserveProfileSessionUseCase
 import android.kma.myquizzapp.core.common.result.Result
 import android.kma.myquizzapp.domain.profile.AvatarUpdateResult
@@ -30,6 +31,7 @@ import kotlinx.coroutines.launch
 @HiltViewModel
 class ProfileViewModel @Inject constructor(
     private val observeSession: ObserveProfileSessionUseCase,
+    private val loadProfileStats: LoadProfileStatsUseCase,
     private val logoutUseCase: LogoutUseCase,
     private val saveProfile: SaveProfileUseCase,
     private val updateAvatar: UpdateAvatarUseCase,
@@ -41,6 +43,7 @@ class ProfileViewModel @Inject constructor(
     private val _effect = Channel<ProfileEffect>(Channel.BUFFERED)
     val effect = _effect.receiveAsFlow()
     private var actionJob: Job? = null
+    private var statsJob: Job? = null
     private var ownerToken: SessionUserToken? = null
     private var restored = false
 
@@ -55,17 +58,20 @@ class ProfileViewModel @Inject constructor(
         val token = observeSession.captureToken()
         if (token != ownerToken) {
             actionJob?.cancel()
+            statsJob?.cancel()
             val draft = if (!restored && token != null) restoreDraft(current.userOrNull) else null
             if (token != null) restored = true
             if (draft == null) clearDraft()
             ownerToken = token
             _uiState.value = ProfileUiState(session = current, sessionToken = token, draft = draft)
+            token?.let(::loadStats)
         } else _uiState.update { it.copy(session = current) }
     }
 
     fun onIntent(intent: ProfileIntent) {
         reconcileSession() // Read SSOT now, not the last Compose frame.
         when (intent) {
+            ProfileIntent.RefreshStats -> ownerToken?.let(::loadStats)
             ProfileIntent.EditProfile -> if (_uiState.value.canEdit) {
                 val user = _uiState.value.user ?: return
                 setDraft(ProfileDraft.from(user))
@@ -89,6 +95,25 @@ class ProfileViewModel @Inject constructor(
             }
             ProfileIntent.VerifyAvatar -> verifyAvatar()
             ProfileIntent.Logout -> logout()
+        }
+    }
+
+    private fun loadStats(token: SessionUserToken) {
+        if (statsJob?.isActive == true) return
+        _uiState.update { it.copy(isLoadingStats = true, profileStatsError = null) }
+        statsJob = viewModelScope.launch {
+            when (val result = loadProfileStats()) {
+                is Result.Success -> if (observeSession.captureToken() == token) {
+                    _uiState.update {
+                        it.copy(profileStats = result.data, isLoadingStats = false, profileStatsError = null)
+                    }
+                }
+                is Result.Error -> if (observeSession.captureToken() == token) {
+                    _uiState.update {
+                        it.copy(profileStats = null, isLoadingStats = false, profileStatsError = result.error.toUserMessage())
+                    }
+                }
+            }
         }
     }
 
@@ -196,6 +221,7 @@ class ProfileViewModel @Inject constructor(
         if (_uiState.value.isBusy) return
         // Explicit logout is available even while an avatar result awaits reconciliation.
         actionJob?.cancel()
+        statsJob?.cancel()
         _uiState.update { it.copy(isLoggingOut = true) }
         viewModelScope.launch {
             logoutUseCase()

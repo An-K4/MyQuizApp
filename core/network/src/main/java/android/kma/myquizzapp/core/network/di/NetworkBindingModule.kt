@@ -4,6 +4,7 @@ import android.kma.myquizzapp.core.common.network.NetworkMonitor
 import android.kma.myquizzapp.core.common.repository.AuthRepository
 import android.kma.myquizzapp.core.common.repository.GameResultRepository
 import android.kma.myquizzapp.core.common.repository.GameSessionRepository
+import android.kma.myquizzapp.core.common.repository.ProfileStatsRepository
 import android.kma.myquizzapp.core.common.repository.QuizRepository
 import android.kma.myquizzapp.core.common.repository.SessionRepository
 import android.kma.myquizzapp.core.common.repository.UserRepository
@@ -12,6 +13,7 @@ import android.kma.myquizzapp.core.network.ConnectivityNetworkMonitor
 import android.kma.myquizzapp.core.network.repository.AuthRepositoryImpl
 import android.kma.myquizzapp.core.network.repository.GameSessionRepositoryImpl
 import android.kma.myquizzapp.core.network.repository.InMemoryGameResultRepository
+import android.kma.myquizzapp.core.network.repository.ProfileStatsRepositoryImpl
 import android.kma.myquizzapp.core.network.repository.QuizRepositoryImpl
 import android.kma.myquizzapp.core.network.repository.SessionRepositoryImpl
 import android.kma.myquizzapp.core.network.repository.UserRepositoryImpl
@@ -37,6 +39,10 @@ abstract class NetworkBindingModule {
     @Binds
     @Singleton
     abstract fun bindQuizRepository(quizRepositoryImpl: QuizRepositoryImpl): QuizRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindProfileStatsRepository(impl: ProfileStatsRepositoryImpl): ProfileStatsRepository
 
     @Binds
     @Singleton

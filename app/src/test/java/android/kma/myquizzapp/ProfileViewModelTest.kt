@@ -3,7 +3,9 @@ package android.kma.myquizzapp
 import android.kma.myquizzapp.core.common.error.AppError
 import android.kma.myquizzapp.core.common.model.SessionState
 import android.kma.myquizzapp.core.common.result.Result
+import android.kma.myquizzapp.domain.profile.LoadProfileStatsUseCase
 import android.kma.myquizzapp.domain.profile.ObserveProfileSessionUseCase
+import android.kma.myquizzapp.domain.profile.ProfileStats
 import android.kma.myquizzapp.domain.profile.SaveProfileUseCase
 import android.kma.myquizzapp.domain.profile.UpdateAvatarUseCase
 import android.kma.myquizzapp.feature.auth.domain.usecase.LogoutUseCase
@@ -12,6 +14,7 @@ import android.kma.myquizzapp.presentation.profile.ProfileIntent
 import android.kma.myquizzapp.presentation.profile.ProfileViewModel
 import androidx.lifecycle.SavedStateHandle
 import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.mockk
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
@@ -45,6 +48,16 @@ class ProfileViewModelTest {
         assertTrue(fixture.vm.uiState.value.showDiscardConfirmation)
         fixture.vm.onIntent(ProfileIntent.DiscardEdits)
         assertNull(fixture.vm.uiState.value.draft)
+    }
+
+    @Test fun `server profile statistics load and can be refreshed`() = runTest(dispatcher) {
+        val fixture = fixture()
+        runCurrent()
+        assertEquals(ProfileStats(42, 12), fixture.vm.uiState.value.profileStats)
+        fixture.vm.onIntent(ProfileIntent.RefreshStats)
+        runCurrent()
+        assertEquals(ProfileStats(42, 12), fixture.vm.uiState.value.profileStats)
+        coVerify(exactly = 2) { fixture.loadStats.invoke() }
     }
 
     @Test fun `failed save retains draft and duplicate submit is blocked`() = runTest(dispatcher) {
@@ -134,14 +147,16 @@ class ProfileViewModelTest {
         val storage = ProfileTestStorage()
         val preparer = mockk<AvatarImagePreparer>()
         coEvery { preparer.prepare(any()) } returns Result.Success(byteArrayOf(1, 2))
+        val loadStats = mockk<LoadProfileStatsUseCase>()
+        coEvery { loadStats.invoke() } returns Result.Success(ProfileStats(42, 12))
         val logout = mockk<LogoutUseCase>()
         coEvery { logout.invoke() } coAnswers { session.onSignedOut(); Result.Success(Unit) }
-        return Fixture(ProfileViewModel(ObserveProfileSessionUseCase(session), logout, SaveProfileUseCase(users, session),
-            UpdateAvatarUseCase(storage, users, session), preparer, handle), session, users, storage)
+        return Fixture(ProfileViewModel(ObserveProfileSessionUseCase(session), loadStats, logout, SaveProfileUseCase(users, session),
+            UpdateAvatarUseCase(storage, users, session), preparer, handle), session, users, storage, loadStats)
     }
 
     private data class Fixture(
         val vm: ProfileViewModel, val session: ProfileTestSession,
-        val users: ProfileTestUsers, val storage: ProfileTestStorage
+        val users: ProfileTestUsers, val storage: ProfileTestStorage, val loadStats: LoadProfileStatsUseCase
     )
 }

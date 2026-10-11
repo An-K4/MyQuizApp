@@ -82,7 +82,8 @@ interface QuizApiService {
         @Query("keyword") keyword: String?,
         @Query("sort") sort: String,
         @Query("cursor") cursor: String?,
-        @Query("limit") limit: Int
+        @Query("limit") limit: Int,
+        @Query("include_total") includeTotal: Boolean = false
     ): Result<QuizSummaryListDto>
     
     /**

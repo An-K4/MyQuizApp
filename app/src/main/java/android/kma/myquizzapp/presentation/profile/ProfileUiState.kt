@@ -6,11 +6,15 @@ import android.kma.myquizzapp.core.common.model.User
 import android.kma.myquizzapp.core.common.model.userOrNull
 import android.kma.myquizzapp.domain.profile.AvatarUpdateResult
 import android.kma.myquizzapp.domain.profile.ProfileDraft
+import android.kma.myquizzapp.domain.profile.ProfileStats
 
 data class ProfileUiState(
     val session: SessionState = SessionState.Unknown,
     val sessionToken: SessionUserToken? = null,
     val draft: ProfileDraft? = null,
+    val profileStats: ProfileStats? = null,
+    val isLoadingStats: Boolean = false,
+    val profileStatsError: String? = null,
     val isSavingProfile: Boolean = false,
     val profileError: String? = null,
     val phoneServerError: String? = null,
@@ -29,6 +33,7 @@ data class ProfileUiState(
 }
 
 sealed interface ProfileIntent {
+    data object RefreshStats : ProfileIntent
     data object EditProfile : ProfileIntent
     data class ChangeFullname(val value: String) : ProfileIntent
     data class ChangePhone(val value: String) : ProfileIntent
