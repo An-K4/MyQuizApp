@@ -8,6 +8,11 @@ sealed interface QuizManageListIntent {
     data class SortChanged(val sort: MyQuizzesSort) : QuizManageListIntent
     data class KeywordChanged(val keyword: String) : QuizManageListIntent
 
+    data class DeleteQuizClicked(val target: QuizDeleteTarget) : QuizManageListIntent
+    data object DeleteQuizDismissed : QuizManageListIntent
+    data object DeleteQuizConfirmed : QuizManageListIntent
+
     /** N16: yêu cầu tạo Pager mới + load lại từ mạng (Screen gọi khi ON_RESUME). */
     data object Refresh : QuizManageListIntent
 }
+

@@ -39,6 +39,11 @@ fun NavGraphBuilder.quizManageGraph(
             },
             onNavigateToQuizDetail = { quizId ->
                 navController.navigate(Route.QuizDetail(quizId))
+            },
+            onNavigateToEditQuiz = { quizId ->
+                requireAuth("Đăng nhập để chỉnh sửa quiz.") {
+                    navController.navigate(Route.EditQuiz(quizId))
+                }
             }
         )
     }
