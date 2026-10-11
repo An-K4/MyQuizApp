@@ -27,6 +27,7 @@ data class QuizPreviewUiState(
     val currentIndex: Int = 0,
     val countdownSeconds: Int = 3,
     val remainingSeconds: Int = 0,
+    val remainingTimeMillis: Long? = null,
     val isLate: Boolean = false,
     val selectedOptionIds: Set<Long> = emptySet(),
     val textAnswer: String = "",
@@ -69,3 +70,4 @@ sealed interface QuizPreviewEffect {
     data object Exit : QuizPreviewEffect
     data class EditQuiz(val quizId: Long) : QuizPreviewEffect
 }
+

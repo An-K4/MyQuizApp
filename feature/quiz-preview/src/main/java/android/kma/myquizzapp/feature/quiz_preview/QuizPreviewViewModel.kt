@@ -1,10 +1,9 @@
 package android.kma.myquizzapp.feature.quiz_preview
 
+import android.kma.myquizzapp.feature.quiz_preview.domain.usecase.LoadQuizPreviewUseCase
+
 import android.kma.myquizzapp.core.common.error.toUserMessage
 import android.kma.myquizzapp.core.common.model.QuestionType
-import android.kma.myquizzapp.core.common.model.userOrNull
-import android.kma.myquizzapp.core.common.repository.QuizRepository
-import android.kma.myquizzapp.core.common.repository.SessionRepository
 import android.kma.myquizzapp.core.common.result.Result
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
@@ -23,11 +22,15 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 @HiltViewModel
-class QuizPreviewViewModel @Inject constructor(
-    private val quizRepository: QuizRepository,
-    private val sessionRepository: SessionRepository,
-    savedStateHandle: SavedStateHandle
+class QuizPreviewViewModel internal constructor(
+    private val loadQuizPreview: LoadQuizPreviewUseCase,
+    savedStateHandle: SavedStateHandle,
+    private val monotonicMillis: () -> Long,
 ) : ViewModel() {
+    @Inject
+    constructor(loadQuizPreview: LoadQuizPreviewUseCase, savedStateHandle: SavedStateHandle) :
+        this(loadQuizPreview, savedStateHandle, { System.nanoTime() / 1_000_000L })
+
     private val quizId: Long = checkNotNull(savedStateHandle["quizId"])
 
     private val _uiState = MutableStateFlow(QuizPreviewUiState())
@@ -36,6 +39,7 @@ class QuizPreviewViewModel @Inject constructor(
     private val _effect = Channel<QuizPreviewEffect>(Channel.BUFFERED)
     val effect = _effect.receiveAsFlow()
 
+    private var loadRequested = false
     private var phaseJob: Job? = null
     private var elapsedJob: Job? = null
     private var questionOpenedAtMs: Long = 0L
@@ -50,7 +54,12 @@ class QuizPreviewViewModel @Inject constructor(
             QuizPreviewIntent.Retry -> loadQuiz()
             is QuizPreviewIntent.SelectOption -> selectSingle(intent.optionId)
             is QuizPreviewIntent.ToggleOption -> toggleOption(intent.optionId)
-            is QuizPreviewIntent.ChangeText -> _uiState.update { it.copy(textAnswer = intent.value) }
+            is QuizPreviewIntent.ChangeText -> {
+                val state = _uiState.value
+                if (state.phase == PreviewPhase.QUESTION &&
+                    state.currentQuestion?.questionType in setOf(QuestionType.SHORT_ANSWER, QuestionType.LONG_ANSWER)
+                ) _uiState.update { it.copy(textAnswer = intent.value) }
+            }
             QuizPreviewIntent.Submit -> submit()
             QuizPreviewIntent.Skip -> grade(answered = false)
             QuizPreviewIntent.Next -> advance()
@@ -61,29 +70,28 @@ class QuizPreviewViewModel @Inject constructor(
     }
 
     private fun loadQuiz() {
+        if (loadRequested) return
+        loadRequested = true // Claim before launch, including rapid Retry taps.
         phaseJob?.cancel()
         elapsedJob?.cancel()
+        _uiState.value = QuizPreviewUiState(isLoading = true)
         viewModelScope.launch {
-            _uiState.update { QuizPreviewUiState(isLoading = true) }
-            when (val result = quizRepository.getQuizDetail(quizId)) {
-                is Result.Success -> {
-                    val quiz = result.data
-                    val owner = sessionRepository.state.value.userOrNull?.id == quiz.quizOwner
-                    _uiState.update {
-                        QuizPreviewUiState(
+            try {
+                when (val result = loadQuizPreview(quizId)) {
+                    is Result.Success -> {
+                        _uiState.value = QuizPreviewUiState(
                             isLoading = false,
-                            quiz = quiz,
-                            isOwner = owner
+                            quiz = result.data.quiz,
+                            isOwner = result.data.isOwner,
                         )
+                        if (result.data.quiz.questions.isNotEmpty()) startRun()
                     }
-                    if (quiz.questions.isNotEmpty()) startRun()
-                }
-                is Result.Error -> _uiState.update {
-                    QuizPreviewUiState(
-                        isLoading = false,
-                        errorMessage = result.error.toUserMessage()
+                    is Result.Error -> _uiState.value = QuizPreviewUiState(
+                        isLoading = false, errorMessage = result.error.toUserMessage(),
                     )
                 }
+            } finally {
+                loadRequested = false
             }
         }
     }
@@ -100,6 +108,7 @@ class QuizPreviewViewModel @Inject constructor(
                 currentIndex = 0,
                 countdownSeconds = COUNTDOWN_SECONDS,
                 remainingSeconds = 0,
+                remainingTimeMillis = null,
                 isLate = false,
                 selectedOptionIds = emptySet(),
                 textAnswer = "",
@@ -128,25 +137,27 @@ class QuizPreviewViewModel @Inject constructor(
     private fun openQuestion(index: Int) {
         val question = _uiState.value.quiz?.questions?.getOrNull(index) ?: return finish()
         phaseJob?.cancel()
-        val limit = question.timeLimit.takeIf { it > 0 } ?: FALLBACK_SECONDS
+        val limit = question.timeLimit.coerceAtLeast(0)
         questionOpenedAtMs = monotonicMillis()
         _uiState.update {
             it.copy(
                 phase = PreviewPhase.QUESTION,
                 currentIndex = index,
                 remainingSeconds = limit,
+                remainingTimeMillis = limit * 1_000L,
                 isLate = false,
                 selectedOptionIds = emptySet(),
                 textAnswer = "",
                 currentResult = null
             )
         }
+        if (limit == 0) return // Truly untimed: no fallback timer or late/speed penalty.
         phaseJob = viewModelScope.launch {
             val deadline = questionOpenedAtMs + limit * 1_000L
             while (isActive) {
-                val left = ((deadline - monotonicMillis() + 999L) / 1_000L)
-                    .coerceAtLeast(0L).toInt()
-                _uiState.update { it.copy(remainingSeconds = left) }
+                val leftMillis = (deadline - monotonicMillis()).coerceAtLeast(0L)
+                val left = ((leftMillis + 999L) / 1_000L).toInt()
+                _uiState.update { it.copy(remainingSeconds = left, remainingTimeMillis = leftMillis) }
                 if (left == 0) {
                     _uiState.update { it.copy(isLate = true) }
                     break
@@ -161,6 +172,7 @@ class QuizPreviewViewModel @Inject constructor(
         if (state.phase != PreviewPhase.QUESTION ||
             state.currentQuestion?.questionType != QuestionType.MULTIPLE_CHOICE
         ) return
+        if (state.currentQuestion?.answerOptions.orEmpty().none { it.id == optionId }) return
         _uiState.update { it.copy(selectedOptionIds = setOf(optionId)) }
         grade(answered = true)
     }
@@ -170,6 +182,7 @@ class QuizPreviewViewModel @Inject constructor(
         if (state.phase != PreviewPhase.QUESTION ||
             state.currentQuestion?.questionType != QuestionType.MULTIPLE_SELECT
         ) return
+        if (state.currentQuestion?.answerOptions.orEmpty().none { it.id == optionId }) return
         _uiState.update {
             val next = it.selectedOptionIds.toMutableSet().apply {
                 if (!add(optionId)) remove(optionId)
@@ -190,6 +203,7 @@ class QuizPreviewViewModel @Inject constructor(
         if (state.phase != PreviewPhase.QUESTION) return
         phaseJob?.cancel()
         val timeTaken = (monotonicMillis() - questionOpenedAtMs).coerceAtLeast(0L) / 1_000.0
+        val late = question.timeLimit > 0 && timeTaken >= question.timeLimit
         val evaluation = evaluatePreviewAnswer(
             question = question,
             selectedOptionIds = if (answered) state.selectedOptionIds else emptySet(),
@@ -199,8 +213,8 @@ class QuizPreviewViewModel @Inject constructor(
         val earned = computePreviewScore(
             isCorrect = evaluation.isCorrect == true,
             timeTakenSeconds = timeTaken,
-            timeLimitSeconds = question.timeLimit.takeIf { it > 0 } ?: FALLBACK_SECONDS,
-            isLate = state.isLate
+            timeLimitSeconds = question.timeLimit.coerceAtLeast(0),
+            isLate = late
         )
         val result = PreviewQuestionResult(
             question = question,
@@ -208,23 +222,22 @@ class QuizPreviewViewModel @Inject constructor(
             correctAnswer = evaluation.correctLabel,
             isCorrect = evaluation.isCorrect,
             isAnswered = answered,
-            isLate = state.isLate,
+            isLate = late,
             scoreEarned = earned,
             timeTakenSeconds = timeTaken
         )
         _uiState.update {
             it.copy(
                 phase = PreviewPhase.FEEDBACK,
+                isLate = late,
+                remainingSeconds = if (late) 0 else it.remainingSeconds,
+                remainingTimeMillis = if (late) 0L else it.remainingTimeMillis,
                 currentResult = result,
                 results = it.results + result,
                 totalScore = it.totalScore + earned
             )
         }
-        val revealSeconds = if (evaluation.isCorrect == true) 2L else 4L
-        phaseJob = viewModelScope.launch {
-            delay(revealSeconds * 1_000L)
-            advance()
-        }
+
     }
 
     private fun advance() {
@@ -245,7 +258,8 @@ class QuizPreviewViewModel @Inject constructor(
 
     private fun editQuiz() {
         val state = _uiState.value
-        if (!state.isOwner) return
+        val quiz = state.quiz ?: return
+        if (!state.isOwner || !loadQuizPreview.isOwner(quiz)) return
         viewModelScope.launch { _effect.send(QuizPreviewEffect.EditQuiz(quizId)) }
     }
 
@@ -258,10 +272,8 @@ class QuizPreviewViewModel @Inject constructor(
         super.onCleared()
     }
 
-    private fun monotonicMillis(): Long = System.nanoTime() / 1_000_000L
-
     private companion object {
         const val COUNTDOWN_SECONDS = 3
-        const val FALLBACK_SECONDS = 30
     }
 }
+

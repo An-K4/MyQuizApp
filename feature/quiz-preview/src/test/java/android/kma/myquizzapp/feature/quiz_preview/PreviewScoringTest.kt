@@ -63,6 +63,21 @@ class PreviewScoringTest {
         assertEquals(900, computePreviewScore(true, 45.0, 30, true))
     }
 
+    @Test
+    fun `untimed correct answer has base score only regardless of elapsed time`() {
+        assertEquals(1_000, computePreviewScore(true, 60.0, 0, false))
+    }
+
+    @Test
+    fun `skip has no submitted label and earns no points`() {
+        val question = choiceQuestion(QuestionType.MULTIPLE_CHOICE, listOf(1L))
+        val result = evaluatePreviewAnswer(question, emptySet(), "", answered = false)
+        assertEquals(false, result.isCorrect)
+        assertNull(result.submittedLabel)
+        assertEquals("Một", result.correctLabel)
+        assertEquals(0, computePreviewScore(result.isCorrect == true, 5.0, 30, false))
+    }
+
     private fun choiceQuestion(type: QuestionType, correct: List<Long>) = Question(
         id = 1,
         quizId = 1,
