@@ -1,249 +1,120 @@
 package android.kma.myquizzapp.feature.quiz_manage.presentation.components
 
-import android.kma.myquizzapp.core.common.model.QuestionType
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
+import android.content.res.Configuration
+import android.kma.myquizzapp.core.ui.components.AppConfirmDialogContent
+import android.kma.myquizzapp.core.ui.components.AppDialogVariant
+import android.kma.myquizzapp.core.ui.theme.MyQuizAppTheme
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.ui.tooling.preview.Preview
+import android.kma.myquizzapp.core.ui.components.RemoteImage
+import android.kma.myquizzapp.core.ui.theme.FrontendColors
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material3.Card
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import androidx.compose.material.icons.filled.Image
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import coil.compose.AsyncImage
 
-/**
- * Các composable editor câu hỏi dùng chung giữa màn Tạo quiz (N13-15) và Sửa quiz
- * (N16) — theo pattern QuizEditor.vue của frontend web: editor dùng chung, mỗi màn
- * chỉ khác cách load/save. Đặt ở presentation/components (KHÔNG phải core:ui) vì
- * đây là UI đặc thù của quiz-authoring, chỉ tồn tại trong feature:quiz-manage.
- *
- * API nhận callback riêng lẻ thay vì sealed Intent của từng màn, để cả
- * CreateQuizScreen lẫn EditQuizScreen cùng dùng mà không phụ thuộc intent của nhau.
- */
+/** Feature-local light design tokens with Material fallbacks for the existing dark theme. */
+object EditorColors {
+    val isDark: Boolean @Composable get() = MaterialTheme.colorScheme.background.luminance() < 0.5f
+    val foreground @Composable get() = if (isDark) MaterialTheme.colorScheme.onSurface else FrontendColors.Foreground
+    val muted @Composable get() = if (isDark) MaterialTheme.colorScheme.onSurfaceVariant else FrontendColors.MutedForeground
+    val soft @Composable get() = if (isDark) MaterialTheme.colorScheme.surfaceContainer else FrontendColors.SoftBackground
+    val surface @Composable get() = if (isDark) MaterialTheme.colorScheme.surface else FrontendColors.PageBackground
+    val border @Composable get() = if (isDark) MaterialTheme.colorScheme.outlineVariant else FrontendColors.Border
+    val tint @Composable get() = if (isDark) MaterialTheme.colorScheme.primaryContainer else FrontendColors.BrandTint
+}
 
-/**
- * Khối chọn/xem/xóa ảnh trong editor. [imageModel] là bất cứ kiểu nào Coil hiểu:
- * Uri (ảnh local mới chọn, chưa upload) hoặc String URL (ảnh đã lưu trên server).
- */
+/** Stateless image selection block: the Screen owns the platform picker. */
 @Composable
 fun ImagePickerSection(
     label: String,
     imageModel: Any?,
     onPick: () -> Unit,
-    onRemove: () -> Unit
+    onRemove: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    isCover: Boolean = false,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(text = label)
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (imageModel != null) {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                AsyncImage(
-                    model = imageModel,
-                    contentDescription = label,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(160.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                )
-                TextButton(onClick = onRemove) {
-                    Text("Xóa ảnh")
+            RemoteImage(
+                imageUrl = imageModel.toString(), contentDescription = label,
+                contentScale = if (isCover) ContentScale.Crop else ContentScale.Fit,
+                modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f)
+                    .clipEditorImage(),
+            )
+            Row {
+                TextButton(onClick = onPick, enabled = enabled) { Text("Đổi ảnh") }
+                TextButton(onClick = onRemove, enabled = enabled) { Text("Xóa ảnh", color = MaterialTheme.colorScheme.error) }
+            }
+        } else if (isCover) {
+            val border = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
+            Surface(
+                onClick = onPick, enabled = enabled, color = EditorColors.soft,
+                shape = RoundedCornerShape(20.dp), modifier = Modifier.fillMaxWidth(),
+            ) {
+                Box {
+                    Canvas(Modifier.matchParentSize()) {
+                        val inset = 1.dp.toPx()
+                        drawRoundRect(
+                            color = border, topLeft = androidx.compose.ui.geometry.Offset(inset, inset),
+                            size = androidx.compose.ui.geometry.Size(size.width - inset * 2, size.height - inset * 2),
+                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(20.dp.toPx()),
+                            style = Stroke(width = inset, pathEffect = PathEffect.dashPathEffect(floatArrayOf(8.dp.toPx(), 5.dp.toPx()))),
+                        )
+                    }
+                    Column(
+                        Modifier.fillMaxWidth().padding(20.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Icon(Icons.Default.Image, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(28.dp))
+                        Text("Chạm để tải ảnh bìa Quiz", color = EditorColors.foreground)
+                        Text("Khuyên dùng 16:9", style = MaterialTheme.typography.bodySmall, color = EditorColors.muted)
+                        Surface(color = EditorColors.tint, shape = RoundedCornerShape(50)) {
+                            Text("Chọn ảnh", color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp))
+                        }
+                    }
                 }
             }
         } else {
-            OutlinedButton(onClick = onPick, modifier = Modifier.fillMaxWidth()) {
-                Text("Chọn ảnh")
+            TextButton(onClick = onPick, enabled = enabled, contentPadding = PaddingValues(0.dp)) {
+                Icon(Icons.Default.Image, null, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("Thêm ảnh minh họa cho câu hỏi")
             }
         }
     }
 }
 
-/** Card soạn 1 câu hỏi: loại câu, nội dung, ảnh, đáp án theo loại, gợi ý/giải thích. */
-@OptIn(ExperimentalMaterial3Api::class)
+private fun Modifier.clipEditorImage() = this.then(
+    Modifier.clip(androidx.compose.foundation.shape.RoundedCornerShape(16.dp))
+)
+
+/** Render plain dialog content, not a separate popup window, in Android Studio Preview. */
+@Preview(name = "Quiz Editor - Discard Changes", showBackground = true, widthDp = 390)
+@Preview(name = "Quiz Editor - Discard Dark", showBackground = true, widthDp = 390, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
-fun QuestionEditorCard(
-    question: QuestionDraft,
-    canRemove: Boolean,
-    onTypeChanged: (QuestionType) -> Unit,
-    onTextChanged: (String) -> Unit,
-    onTimeLimitChanged: (String) -> Unit,
-    onPickImage: () -> Unit,
-    onRemoveImage: () -> Unit,
-    onOptionChanged: (index: Int, value: String) -> Unit,
-    onToggleCorrect: (index: Int) -> Unit,
-    onAddOption: () -> Unit,
-    onRemoveOption: (index: Int) -> Unit,
-    onHintChanged: (String) -> Unit,
-    onExplanationChanged: (String) -> Unit,
-    onCorrectTextChanged: (String) -> Unit,
-    onRemove: () -> Unit
-) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                QuestionTypeMenuButton(
-                    selected = question.questionType,
-                    onSelected = onTypeChanged,
-                    modifier = Modifier.weight(1f)
-                )
-                if (canRemove) {
-                    IconButton(onClick = onRemove) {
-                        Icon(Icons.Filled.Close, contentDescription = "Xóa câu hỏi")
-                    }
-                }
-            }
-
-            OutlinedTextField(
-                value = question.questionText,
-                onValueChange = onTextChanged,
-                label = { Text("Nội dung câu hỏi *") },
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            // Thời gian trả lời (giây) — time_limit trong schema. Để TRỐNG = mặc định
-            // 30s lúc submit; nhập thì phải 5-600s (validate ở ViewModel, quiz.schema.ts).
-            OutlinedTextField(
-                value = question.timeLimit,
-                onValueChange = { raw ->
-                    // Chỉ nhận số, tối đa 3 chữ số; cho phép xóa trắng ô.
-                    onTimeLimitChanged(raw.filter { it.isDigit() }.take(3))
-                },
-                label = { Text("Thời gian (giây) — trống = 30s") },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            ImagePickerSection(
-                label = "Ảnh câu hỏi (tùy chọn)",
-                // Ưu tiên ảnh local mới chọn; nếu không có thì hiện ảnh đã lưu (màn Sửa).
-                imageModel = question.imageUri ?: question.existingImageUrl,
-                onPick = onPickImage,
-                onRemove = onRemoveImage
-            )
-
-            if (question.isChoiceType) {
-                Text(text = "Lựa chọn (chọn đáp án đúng):")
-                question.options.forEachIndexed { index, option ->
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        if (question.questionType == QuestionType.MULTIPLE_CHOICE) {
-                            RadioButton(
-                                selected = question.correctIndexes.contains(index),
-                                onClick = { onToggleCorrect(index) }
-                            )
-                        } else {
-                            Checkbox(
-                                checked = question.correctIndexes.contains(index),
-                                onCheckedChange = { onToggleCorrect(index) }
-                            )
-                        }
-                        OutlinedTextField(
-                            value = option,
-                            onValueChange = { onOptionChanged(index, it) },
-                            label = { Text("Lựa chọn ${index + 1}") },
-                            modifier = Modifier.weight(1f)
-                        )
-                        if (question.options.size > 2) {
-                            IconButton(onClick = { onRemoveOption(index) }) {
-                                Icon(Icons.Filled.Close, contentDescription = "Xóa lựa chọn")
-                            }
-                        }
-                    }
-                }
-                if (question.options.size < 4) {
-                    TextButton(onClick = onAddOption) {
-                        Text("+ Thêm lựa chọn")
-                    }
-                }
-            } else {
-                OutlinedTextField(
-                    value = question.correctText,
-                    onValueChange = onCorrectTextChanged,
-                    label = { Text("Đáp án đúng *") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-
-            OutlinedTextField(
-                value = question.questionHint,
-                onValueChange = onHintChanged,
-                label = { Text("Gợi ý (tùy chọn)") },
-                modifier = Modifier.fillMaxWidth()
-            )
-            OutlinedTextField(
-                value = question.explanation,
-                onValueChange = onExplanationChanged,
-                label = { Text("Giải thích (tùy chọn)") },
-                modifier = Modifier.fillMaxWidth()
+private fun QuizEditorDiscardPreview() {
+    MyQuizAppTheme {
+        Box(Modifier.padding(20.dp)) {
+            AppConfirmDialogContent(
+                title = "Bỏ thay đổi?",
+                message = "Bạn có thay đổi chưa được lưu. Thoát sẽ mất toàn bộ thay đổi này.",
+                confirmText = "Bỏ thay đổi", dismissText = "Ở lại", variant = AppDialogVariant.Danger,
+                onConfirm = {}, onDismiss = {}, scrollState = rememberScrollState(),
             )
         }
     }
 }
-
-@Composable
-fun QuestionTypeMenuButton(
-    selected: QuestionType,
-    onSelected: (QuestionType) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    var expanded by remember { mutableStateOf(false) }
-    QuestionTypeMenuButtonContent(
-        selected = selected,
-        expanded = expanded,
-        onExpandedChange = { expanded = it },
-        onSelected = onSelected,
-        modifier = modifier
-    )
-}
-
-@Composable
-fun QuestionTypeMenuButtonContent(
-    selected: QuestionType,
-    expanded: Boolean,
-    onExpandedChange: (Boolean) -> Unit,
-    onSelected: (QuestionType) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Column(modifier = modifier) {
-        OutlinedButton(onClick = { onExpandedChange(true) }) {
-            Text(questionTypeLabel(selected))
-        }
-        DropdownMenu(expanded = expanded, onDismissRequest = { onExpandedChange(false) }) {
-            QuestionType.entries.forEach { type ->
-                DropdownMenuItem(
-                    text = { Text(questionTypeLabel(type)) },
-                    onClick = {
-                        onSelected(type)
-                        onExpandedChange(false)
-                    }
-                )
-            }
-        }
-    }
-}
-
-

@@ -3,11 +3,11 @@ package android.kma.myquizzapp.feature.quiz_manage.presentation.createquiz
 import android.kma.myquizzapp.core.common.error.toUserMessage
 import android.kma.myquizzapp.core.common.model.QuestionType
 import android.kma.myquizzapp.core.common.result.Result
-import android.kma.myquizzapp.core.common.validator.QuizDescriptionValidator
-import android.kma.myquizzapp.core.common.validator.QuizNameValidator
-import android.kma.myquizzapp.core.common.validator.ValidationResult
 import android.kma.myquizzapp.feature.quiz_manage.domain.model.QuizDraft
 import android.kma.myquizzapp.feature.quiz_manage.domain.usecase.CreateQuizWithAssetsUseCase
+import android.kma.myquizzapp.core.common.validator.QuizEditorValidator
+import android.kma.myquizzapp.core.common.validator.QuizEditorErrors
+import android.kma.myquizzapp.feature.quiz_manage.presentation.components.toValidationInput
 import android.kma.myquizzapp.feature.quiz_manage.presentation.components.QuestionDraft
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -41,28 +41,35 @@ class CreateQuizViewModel @Inject constructor(
     val effect = _effect.receiveAsFlow()
 
     fun onIntent(intent: CreateQuizIntent) {
+        if (_uiState.value.isSubmitting) return
         when (intent) {
-            is CreateQuizIntent.QuizNameChanged -> _uiState.update { it.copy(quizName = intent.value) }
-            is CreateQuizIntent.QuizDescriptionChanged -> _uiState.update { it.copy(quizDescription = intent.value) }
-            is CreateQuizIntent.QuizLanguageChanged -> _uiState.update { it.copy(quizLanguage = intent.value) }
-            is CreateQuizIntent.QuizCategoryChanged -> _uiState.update { it.copy(quizCategory = intent.value) }
-            is CreateQuizIntent.IsPublicChanged -> _uiState.update { it.copy(isPublic = intent.value) }
+            is CreateQuizIntent.QuizNameChanged -> _uiState.update { it.copy(quizName = intent.value, isDirty = true) }
+            is CreateQuizIntent.QuizDescriptionChanged -> _uiState.update { it.copy(quizDescription = intent.value, isDirty = true) }
+            is CreateQuizIntent.QuizLanguageChanged -> _uiState.update { it.copy(quizLanguage = intent.value, isDirty = true) }
+            is CreateQuizIntent.QuizCategoryChanged -> _uiState.update { it.copy(quizCategory = intent.value, isDirty = true) }
+            is CreateQuizIntent.IsPublicChanged -> _uiState.update { it.copy(isPublic = intent.value, isDirty = true) }
 
-            is CreateQuizIntent.PickCoverImage -> _uiState.update { it.copy(coverImageUri = intent.uri) }
-            is CreateQuizIntent.RemoveCoverImage -> _uiState.update { it.copy(coverImageUri = null) }
+            is CreateQuizIntent.PickCoverImage -> _uiState.update { it.copy(coverImageUri = intent.uri, isDirty = true) }
+            is CreateQuizIntent.RemoveCoverImage -> _uiState.update { it.copy(coverImageUri = null, isDirty = true) }
 
-            is CreateQuizIntent.AddQuestion -> _uiState.update { it.copy(questions = it.questions + QuestionDraft()) }
+            is CreateQuizIntent.AddQuestion -> _uiState.update { it.copy(questions = it.questions + QuestionDraft(), isDirty = true) }
             is CreateQuizIntent.RemoveQuestion -> _uiState.update { state ->
                 // Luôn giữ lại ít nhất 1 câu hỏi để tránh submit quiz rỗng.
                 if (state.questions.size <= 1) state
-                else state.copy(questions = state.questions.filterNot { it.localId == intent.localId })
+                else state.copy(questions = state.questions.filterNot { it.localId == intent.localId }, isDirty = true)
             }
             is CreateQuizIntent.PickQuestionImage -> updateQuestion(intent.localId) { it.copy(imageUri = intent.uri) }
             is CreateQuizIntent.RemoveQuestionImage -> updateQuestion(intent.localId) { it.copy(imageUri = null) }
             is CreateQuizIntent.QuestionTypeChanged -> updateQuestion(intent.localId) {
-                it.copy(questionType = intent.type, correctIndexes = emptySet(), correctText = "")
+                if (it.questionType == intent.type) it else
+                    it.copy(questionType = intent.type, correctIndexes = emptySet(), correctText = "")
             }
             is CreateQuizIntent.QuestionTextChanged -> updateQuestion(intent.localId) { it.copy(questionText = intent.value) }
+            is CreateQuizIntent.TimePresetSelected -> updateQuestion(intent.localId) {
+                if (intent.seconds !in listOf(10, 20, 30, 60)) it else
+                    it.copy(timeLimit = intent.seconds.toString(), usesCustomTime = false)
+            }
+            is CreateQuizIntent.CustomTimeSelected -> updateQuestion(intent.localId) { it.copy(usesCustomTime = true) }
             is CreateQuizIntent.TimeLimitChanged -> updateQuestion(intent.localId) { it.copy(timeLimit = intent.value) }
             is CreateQuizIntent.HintChanged -> updateQuestion(intent.localId) { it.copy(questionHint = intent.value) }
             is CreateQuizIntent.ExplanationChanged -> updateQuestion(intent.localId) { it.copy(explanation = intent.value) }
@@ -74,7 +81,7 @@ class CreateQuizViewModel @Inject constructor(
                 if (q.options.size >= 4) q else q.copy(options = q.options + "")
             }
             is CreateQuizIntent.RemoveOption -> updateQuestion(intent.localId) { q ->
-                if (q.options.size <= 2) q
+                if (q.options.size <= 2 || intent.index !in q.options.indices) q
                 else q.copy(
                     options = q.options.filterIndexed { i, _ -> i != intent.index },
                     correctIndexes = q.correctIndexes
@@ -84,6 +91,7 @@ class CreateQuizViewModel @Inject constructor(
                 )
             }
             is CreateQuizIntent.ToggleCorrectIndex -> updateQuestion(intent.localId) { q ->
+                if (!q.isChoiceType || intent.index !in q.options.indices) return@updateQuestion q
                 val newIndexes = when {
                     q.questionType == QuestionType.MULTIPLE_CHOICE -> setOf(intent.index)
                     q.correctIndexes.contains(intent.index) -> q.correctIndexes - intent.index
@@ -100,74 +108,32 @@ class CreateQuizViewModel @Inject constructor(
 
     private fun updateQuestion(localId: String, transform: (QuestionDraft) -> QuestionDraft) {
         _uiState.update { state ->
-            state.copy(questions = state.questions.map { if (it.localId == localId) transform(it) else it })
+            state.copy(questions = state.questions.map { if (it.localId == localId) transform(it) else it }, isDirty = true)
         }
     }
 
-    private fun validate(state: CreateQuizUiState): List<String> {
-        val errors = mutableListOf<String>()
-        
-        // Validate quiz name using QuizNameValidator (Pattern C)
-        val nameResult = QuizNameValidator.validate(state.quizName)
-        if (nameResult is ValidationResult.Error) {
-            errors += nameResult.message
-        }
-        
-        // Validate quiz description using QuizDescriptionValidator (Pattern C)
-        val descResult = QuizDescriptionValidator.validate(state.quizDescription)
-        if (descResult is ValidationResult.Error) {
-            errors += descResult.message
-        }
-        
-        if (state.questions.isEmpty()) {
-            errors += "Quiz phải có ít nhất 1 câu hỏi."
-        }
-        state.questions.forEachIndexed { index, q ->
-            val position = index + 1
-            if (q.questionText.trim().isEmpty()) {
-                errors += "Câu $position: thiếu nội dung câu hỏi."
-            }
-            // Để trống = mặc định 30s lúc submit; nhập thì phải 5-600s
-            // (TIME_LIMIT_MIN/MAX, quiz.schema.ts).
-            val timeText = q.timeLimit.trim()
-            if (timeText.isNotEmpty()) {
-                val seconds = timeText.toIntOrNull()
-                if (seconds == null || seconds < 5 || seconds > 600) {
-                    errors += "Câu $position: thời gian phải từ 5 đến 600 giây."
-                }
-            }
-            if (q.isChoiceType) {
-                val nonBlankOptions = q.options.count { it.isNotBlank() }
-                if (nonBlankOptions < 2) {
-                    errors += "Câu $position: cần ít nhất 2 lựa chọn."
-                }
-                if (q.correctIndexes.isEmpty()) {
-                    errors += "Câu $position: chọn ít nhất 1 đáp án đúng."
-                }
-            } else {
-                if (q.correctText.trim().isEmpty()) {
-                    errors += "Câu $position: thiếu đáp án đúng."
-                }
-            }
-        }
-        return errors
-    }
+    private fun validate(state: CreateQuizUiState): QuizEditorErrors = QuizEditorValidator.validate(
+        name = state.quizName, description = state.quizDescription,
+        language = state.quizLanguage, category = state.quizCategory,
+        questions = state.questions.map { it.toValidationInput() },
+    )
 
     private fun submit() {
         val state = _uiState.value
+        if (state.isSubmitting) return
         val errors = validate(state)
-        if (errors.isNotEmpty()) {
-            _uiState.update { it.copy(fieldErrors = errors) }
+        if (errors.hasErrors) {
+            _uiState.update { it.copy(validationErrors = errors, validationAttempt = it.validationAttempt + 1, errorMessage = null) }
             return
         }
-        _uiState.update { it.copy(isSubmitting = true, fieldErrors = emptyList(), errorMessage = null) }
+        _uiState.update { it.copy(isSubmitting = true, validationErrors = QuizEditorErrors(), errorMessage = null) }
 
         viewModelScope.launch {
             // Build QuizDraft từ UI state — validation đã xong ở trên
             val draft = QuizDraft(
-                quizName = state.quizName,
+                quizName = state.quizName.trim(),
                 quizDescription = state.quizDescription.trim().ifBlank { null },
-                quizLanguage = state.quizLanguage,
+                quizLanguage = state.quizLanguage.trim(),
                 quizCategory = state.quizCategory.trim().ifBlank { null },
                 isPublic = state.isPublic,
                 coverImageUri = state.coverImageUri,
@@ -177,7 +143,7 @@ class CreateQuizViewModel @Inject constructor(
             // Delegate orchestration logic (upload + create) to UseCase
             when (val result = createQuizWithAssetsUseCase(draft)) {
                 is Result.Success -> {
-                    _uiState.update { it.copy(isSubmitting = false) }
+                    _uiState.update { it.copy(isSubmitting = false, isDirty = false) }
                     _effect.send(CreateQuizEffect.QuizCreated(result.data.id))
                 }
                 is Result.Error -> failSubmit(result.error.toUserMessage())
@@ -189,3 +155,4 @@ class CreateQuizViewModel @Inject constructor(
         _uiState.update { it.copy(isSubmitting = false, errorMessage = message) }
     }
 }
+

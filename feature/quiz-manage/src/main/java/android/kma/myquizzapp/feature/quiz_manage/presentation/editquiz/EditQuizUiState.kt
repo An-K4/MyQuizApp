@@ -1,6 +1,7 @@
 package android.kma.myquizzapp.feature.quiz_manage.presentation.editquiz
 
 import android.kma.myquizzapp.feature.quiz_manage.presentation.components.QuestionDraft
+import android.kma.myquizzapp.core.common.validator.QuizEditorErrors
 import android.net.Uri
 
 /**
@@ -23,8 +24,12 @@ data class EditQuizUiState(
     val coverRemoved: Boolean = false,
     val questions: List<QuestionDraft> = emptyList(),
     val isSubmitting: Boolean = false,
+    val validationAttempt: Int = 0,
     // true khi có thay đổi chưa lưu — dùng cho dialog xác nhận thoát (pattern EditQuizPage web).
     val isDirty: Boolean = false,
     val errorMessage: String? = null,
-    val fieldErrors: List<String> = emptyList()
-)
+    val validationErrors: QuizEditorErrors =
+        QuizEditorErrors()
+) {
+    val fieldErrors: List<String> get() = validationErrors.messages
+}

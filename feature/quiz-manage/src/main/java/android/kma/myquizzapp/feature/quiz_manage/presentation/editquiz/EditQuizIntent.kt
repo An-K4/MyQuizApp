@@ -26,6 +26,8 @@ sealed interface EditQuizIntent {
     data class RemoveQuestionImage(val localId: String) : EditQuizIntent
     data class QuestionTypeChanged(val localId: String, val type: QuestionType) : EditQuizIntent
     data class QuestionTextChanged(val localId: String, val value: String) : EditQuizIntent
+    data class TimePresetSelected(val localId: String, val seconds: Int) : EditQuizIntent
+    data class CustomTimeSelected(val localId: String) : EditQuizIntent
     data class TimeLimitChanged(val localId: String, val value: String) : EditQuizIntent
     data class HintChanged(val localId: String, val value: String) : EditQuizIntent
     data class ExplanationChanged(val localId: String, val value: String) : EditQuizIntent
@@ -39,3 +41,4 @@ sealed interface EditQuizIntent {
     data object Submit : EditQuizIntent
     data object ErrorShown : EditQuizIntent
 }
+

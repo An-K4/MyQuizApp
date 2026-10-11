@@ -1,6 +1,7 @@
 package android.kma.myquizzapp.feature.quiz_manage.presentation.createquiz
 
 import android.kma.myquizzapp.feature.quiz_manage.presentation.components.QuestionDraft
+import android.kma.myquizzapp.core.common.validator.QuizEditorErrors
 import android.net.Uri
 
 data class CreateQuizUiState(
@@ -13,6 +14,11 @@ data class CreateQuizUiState(
     val coverImageUri: Uri? = null,
     val questions: List<QuestionDraft> = listOf(QuestionDraft()),
     val isSubmitting: Boolean = false,
+    val validationAttempt: Int = 0,
+    val isDirty: Boolean = false,
     val errorMessage: String? = null,
-    val fieldErrors: List<String> = emptyList()
-)
+    val validationErrors: QuizEditorErrors =
+        QuizEditorErrors()
+) {
+    val fieldErrors: List<String> get() = validationErrors.messages
+}

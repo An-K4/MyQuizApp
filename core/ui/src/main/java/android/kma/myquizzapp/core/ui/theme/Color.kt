@@ -79,6 +79,9 @@ object FrontendColors {
     val Info = Color(0xFF3B82F6)
     val InfoBackground = Color(0xFFEDF5FF)
 
+    // Answer C in the question-authoring design (screen 14).
+    val EditorAnswerAmber = Color(0xFFF59E0B)
+
     val ResultGradientStart = Color(0xFF21113E)
     val ResultGradientMiddle = Color(0xFF4C2B8D)
     val ResultGradientEnd = Color(0xFF25144F)
@@ -90,3 +93,4 @@ object FrontendColors {
         1.0f to ResultGradientEnd,
     )
 }
+

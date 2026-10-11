@@ -3,6 +3,7 @@ package android.kma.myquizzapp.feature.quiz_manage.presentation.components
 import android.kma.myquizzapp.core.common.model.CorrectAnswer
 import android.kma.myquizzapp.core.common.model.NewQuestion
 import android.kma.myquizzapp.core.common.model.QuestionType
+import android.kma.myquizzapp.core.common.validator.QuestionValidationInput
 import android.net.Uri
 import java.util.UUID
 
@@ -20,9 +21,10 @@ data class QuestionDraft(
     val localId: String = UUID.randomUUID().toString(),
     val questionType: QuestionType = QuestionType.MULTIPLE_CHOICE,
     val questionText: String = "",
-    // Thời gian (giây) dạng text thô — cho phép rỗng; rỗng = mặc định 30s lúc submit
-    // (xem toNewQuestion). Nhập thì phải 5-600s (validate ở ViewModel).
+    // Thời gian (giây) dạng text thô. Mặc định 30; validator yêu cầu 5–600 giây.
     val timeLimit: String = "30",
+    // Preserve the explicit Custom selection even while typing a preset value.
+    val usesCustomTime: Boolean = false,
     val questionHint: String = "",
     val explanation: String = "",
     // Chỉ dùng cho MULTIPLE_CHOICE / MULTIPLE_SELECT (2-4 items theo answer_options schema).
@@ -55,10 +57,18 @@ fun QuestionDraft.toNewQuestion(imageUrl: String?): NewQuestion = NewQuestion(
     questionImage = imageUrl,
     questionHint = questionHint.trim().ifBlank { null },
     explanation = explanation.trim().ifBlank { null },
-    answerOptions = if (isChoiceType) options.filter { it.isNotBlank() } else null,
+    answerOptions = if (isChoiceType) options.map(String::trim) else null,
     correctAnswer = if (isChoiceType) {
         CorrectAnswer.Indexes(correctIndexes.sorted())
     } else {
         CorrectAnswer.Text(correctText.trim())
     }
+)
+
+
+/** Adapter keeps the shared validator independent of Android and UI draft models. */
+fun QuestionDraft.toValidationInput() = QuestionValidationInput(
+    localId = localId, type = questionType, text = questionText, timeLimit = timeLimit,
+    options = options, correctIndexes = correctIndexes, correctText = correctText,
+    hint = questionHint, explanation = explanation,
 )

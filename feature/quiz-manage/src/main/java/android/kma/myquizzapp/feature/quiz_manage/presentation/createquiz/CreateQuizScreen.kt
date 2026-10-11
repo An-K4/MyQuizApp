@@ -2,11 +2,20 @@ package android.kma.myquizzapp.feature.quiz_manage.presentation.createquiz
 
 import android.content.res.Configuration
 import android.kma.myquizzapp.core.ui.theme.MyQuizAppTheme
-import android.kma.myquizzapp.feature.quiz_manage.presentation.components.QuizEditorContent
+import android.kma.myquizzapp.feature.quiz_manage.presentation.components.*
+import android.kma.myquizzapp.core.ui.components.AppConfirmDialog
+import android.kma.myquizzapp.core.ui.components.AppDialogVariant
+import androidx.compose.foundation.ScrollState
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -25,20 +34,37 @@ fun CreateQuizScreen(
     viewModel: CreateQuizViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    var pendingPickTarget by remember { mutableStateOf<PickTarget?>(null) }
+    var showDiscardDialog by rememberSaveable { mutableStateOf(false) }
+    // String is saveable across recreation while the system Photo Picker is open.
+    var pendingPickTarget by rememberSaveable { mutableStateOf<String?>(null) }
+    var supplementaryExpandedIds by rememberSaveable { mutableStateOf(listOf<String>()) }
+    val listState = rememberLazyListState()
+    val typeScrollStates = rememberQuestionScrollStates(uiState.questions)
+    val timeScrollStates = rememberQuestionScrollStates(uiState.questions)
+    ScrollToEditorError(uiState.validationErrors, uiState.validationAttempt, uiState.questions, listState)
+
+    val requestBack: () -> Unit = {
+        when {
+            uiState.isSubmitting -> Unit
+            uiState.isDirty -> showDiscardDialog = true
+            else -> onNavigateBack()
+        }
+    }
+    BackHandler(enabled = uiState.isDirty || uiState.isSubmitting) { requestBack() }
+
     val photoPickerLauncher = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         val target = pendingPickTarget
         pendingPickTarget = null
         if (uri != null && target != null) {
-            when (target) {
-                PickTarget.Cover -> viewModel.onIntent(CreateQuizIntent.PickCoverImage(uri))
-                is PickTarget.Question -> viewModel.onIntent(CreateQuizIntent.PickQuestionImage(target.localId, uri))
-            }
+            if (target == "cover") viewModel.onIntent(CreateQuizIntent.PickCoverImage(uri))
+            else viewModel.onIntent(CreateQuizIntent.PickQuestionImage(target, uri))
         }
     }
-    val launchImagePicker: (PickTarget) -> Unit = { target ->
-        pendingPickTarget = target
-        photoPickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+    val launchImagePicker: (String) -> Unit = { target ->
+        if (!uiState.isSubmitting) {
+            pendingPickTarget = target
+            photoPickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+        }
     }
 
     LaunchedEffect(Unit) {
@@ -49,10 +75,20 @@ fun CreateQuizScreen(
 
     CreateQuizScreenContent(
         uiState = uiState,
-        onNavigateBack = onNavigateBack,
+        listState = listState,
+        typeScrollStates = typeScrollStates,
+        timeScrollStates = timeScrollStates,
+        supplementaryExpandedIds = supplementaryExpandedIds,
+        onSupplementaryExpandedChange = { id, expanded ->
+            supplementaryExpandedIds = if (expanded) (supplementaryExpandedIds + id).distinct() else supplementaryExpandedIds - id
+        },
+        showDiscardDialog = showDiscardDialog,
+        onShowDiscardDialogChange = { showDiscardDialog = it },
+        onDiscardAndNavigateBack = onNavigateBack,
+        onNavigateBack = requestBack,
         onIntent = viewModel::onIntent,
-        onPickCoverImage = { launchImagePicker(PickTarget.Cover) },
-        onPickQuestionImage = { launchImagePicker(PickTarget.Question(it)) },
+        onPickCoverImage = { launchImagePicker("cover") },
+        onPickQuestionImage = { launchImagePicker(it) },
         modifier = modifier
     )
 }
@@ -61,19 +97,38 @@ fun CreateQuizScreen(
 @Composable
 fun CreateQuizScreenContent(
     uiState: CreateQuizUiState,
+    listState: LazyListState,
+    typeScrollStates: Map<String, ScrollState>,
+    timeScrollStates: Map<String, ScrollState>,
+    supplementaryExpandedIds: List<String>,
+    onSupplementaryExpandedChange: (String, Boolean) -> Unit,
+    showDiscardDialog: Boolean,
+    onShowDiscardDialogChange: (Boolean) -> Unit,
+    onDiscardAndNavigateBack: () -> Unit,
     onNavigateBack: () -> Unit,
     onIntent: (CreateQuizIntent) -> Unit,
     onPickCoverImage: () -> Unit,
     onPickQuestionImage: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    if (showDiscardDialog) {
+        AppConfirmDialog(
+            title = "Bỏ thay đổi?",
+            message = "Bạn có thay đổi chưa được lưu. Thoát sẽ mất toàn bộ thay đổi này.",
+            confirmText = "Bỏ thay đổi", dismissText = "Ở lại",
+            variant = AppDialogVariant.Danger,
+            onConfirm = { onShowDiscardDialogChange(false); onDiscardAndNavigateBack() },
+            onDismiss = { onShowDiscardDialogChange(false) },
+        )
+    }
+
     Scaffold(
-        modifier = modifier.fillMaxSize(),
+        modifier = modifier.fillMaxSize().imePadding(),
         topBar = {
             TopAppBar(
-                title = { Text("Tạo quiz mới") },
+                title = { Text("Tạo quiz mới", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
+                    IconButton(onClick = onNavigateBack, enabled = !uiState.isSubmitting) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Quay lại")
                     }
                 }
@@ -88,10 +143,15 @@ fun CreateQuizScreenContent(
             isPublic = uiState.isPublic,
             coverImageModel = uiState.coverImageUri,
             questions = uiState.questions,
-            fieldErrors = uiState.fieldErrors,
+            validationErrors = uiState.validationErrors,
+            listState = listState,
+            typeScrollStates = typeScrollStates,
+            timeScrollStates = timeScrollStates,
+            supplementaryExpandedIds = supplementaryExpandedIds,
+            onSupplementaryExpandedChange = onSupplementaryExpandedChange,
             errorMessage = uiState.errorMessage,
             isSubmitting = uiState.isSubmitting,
-            submitLabel = "Tạo quiz",
+            submitLabel = if (uiState.isPublic) "Lưu & xuất bản" else "Lưu quiz",
             onQuizNameChanged = { onIntent(CreateQuizIntent.QuizNameChanged(it)) },
             onQuizDescriptionChanged = { onIntent(CreateQuizIntent.QuizDescriptionChanged(it)) },
             onQuizLanguageChanged = { onIntent(CreateQuizIntent.QuizLanguageChanged(it)) },
@@ -102,6 +162,8 @@ fun CreateQuizScreenContent(
             onQuestionTypeChanged = { id, type -> onIntent(CreateQuizIntent.QuestionTypeChanged(id, type)) },
             onQuestionTextChanged = { id, value -> onIntent(CreateQuizIntent.QuestionTextChanged(id, value)) },
             onTimeLimitChanged = { id, value -> onIntent(CreateQuizIntent.TimeLimitChanged(id, value)) },
+            onTimePresetSelected = { id, seconds -> onIntent(CreateQuizIntent.TimePresetSelected(id, seconds)) },
+            onCustomTimeSelected = { onIntent(CreateQuizIntent.CustomTimeSelected(it)) },
             onPickQuestionImage = onPickQuestionImage,
             onRemoveQuestionImage = { onIntent(CreateQuizIntent.RemoveQuestionImage(it)) },
             onOptionChanged = { id, index, value -> onIntent(CreateQuizIntent.OptionChanged(id, index, value)) },
@@ -114,27 +176,43 @@ fun CreateQuizScreenContent(
             onRemoveQuestion = { onIntent(CreateQuizIntent.RemoveQuestion(it)) },
             onAddQuestion = { onIntent(CreateQuizIntent.AddQuestion) },
             onSubmit = { onIntent(CreateQuizIntent.Submit) },
-            modifier = Modifier.padding(innerPadding)
+            modifier = Modifier.padding(innerPadding).consumeWindowInsets(innerPadding)
         )
     }
 }
 
-private sealed interface PickTarget {
-    data object Cover : PickTarget
-    data class Question(val localId: String) : PickTarget
-}
-
-@Preview(showBackground = true)
-@Preview(showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
-private fun CreateQuizScreenContentPreview() {
+private fun CreateQuizPreviewContent(uiState: CreateQuizUiState = CreateQuizUiState(), initialItem: Int = 0) {
     MyQuizAppTheme {
         CreateQuizScreenContent(
-            uiState = CreateQuizUiState(),
-            onNavigateBack = {},
-            onIntent = {},
-            onPickCoverImage = {},
-            onPickQuestionImage = {}
+            uiState = uiState, listState = rememberLazyListState(initialFirstVisibleItemIndex = initialItem),
+            typeScrollStates = rememberQuestionScrollStates(uiState.questions),
+            timeScrollStates = rememberQuestionScrollStates(uiState.questions),
+            supplementaryExpandedIds = emptyList(), onSupplementaryExpandedChange = { _, _ -> },
+            showDiscardDialog = false, onShowDiscardDialogChange = {}, onDiscardAndNavigateBack = {},
+            onNavigateBack = {}, onIntent = {}, onPickCoverImage = {}, onPickQuestionImage = {},
         )
     }
 }
+
+@Preview(name = "Create Quiz - Light", showBackground = true, widthDp = 390, heightDp = 844)
+@Preview(name = "Create Quiz - Dark", showBackground = true, widthDp = 390, heightDp = 844, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable private fun CreateQuizScreenContentPreview() = CreateQuizPreviewContent()
+@Preview(name = "Create Quiz - Filled", showBackground = true, widthDp = 390, heightDp = 844)
+@Composable private fun CreateQuizFilledPreview() = CreateQuizPreviewContent(CreateQuizUiState(
+    quizName = "Khám phá Văn hóa Thế giới", quizDescription = "Phong tục và danh lam thắng cảnh trên toàn cầu.",
+    quizCategory = "Văn hóa", isDirty = true,
+))
+@Preview(name = "Create Quiz - Private", showBackground = true, widthDp = 390, heightDp = 844)
+@Composable private fun CreateQuizPrivatePreview() = CreateQuizPreviewContent(CreateQuizUiState(isPublic = false))
+@Preview(name = "Create Quiz - Validation", showBackground = true, widthDp = 390, heightDp = 844)
+@Composable private fun CreateQuizValidationPreview() = CreateQuizPreviewContent(CreateQuizUiState(
+    validationErrors = android.kma.myquizzapp.core.common.validator.QuizEditorErrors(name = "Tên quiz phải có ít nhất 3 ký tự"),
+))
+@Preview(name = "Create Quiz - Saving", showBackground = true, widthDp = 390, heightDp = 844)
+@Composable private fun CreateQuizSavingPreview() = CreateQuizPreviewContent(CreateQuizUiState(isSubmitting = true))
+@Preview(name = "Create Quiz - Save Error", showBackground = true, widthDp = 390, heightDp = 844)
+@Composable private fun CreateQuizSaveErrorPreview() = CreateQuizPreviewContent(CreateQuizUiState(errorMessage = "Không có kết nối mạng. Vui lòng thử lại."))
+
+@Preview(name = "Create Quiz - Question Section", showBackground = true, widthDp = 390, heightDp = 844)
+@Composable private fun CreateQuizQuestionSectionPreview() = CreateQuizPreviewContent(initialItem = 6)

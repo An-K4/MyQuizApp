@@ -6,12 +6,12 @@ import android.kma.myquizzapp.core.common.model.Question
 import android.kma.myquizzapp.core.common.model.QuestionType
 import android.kma.myquizzapp.core.common.model.Quiz
 import android.kma.myquizzapp.core.common.result.Result
-import android.kma.myquizzapp.core.common.validator.QuizDescriptionValidator
-import android.kma.myquizzapp.core.common.validator.QuizNameValidator
-import android.kma.myquizzapp.core.common.validator.ValidationResult
 import android.kma.myquizzapp.feature.quiz_manage.domain.model.QuizDraft
 import android.kma.myquizzapp.feature.quiz_manage.domain.usecase.GetQuizDetailUseCase
 import android.kma.myquizzapp.feature.quiz_manage.domain.usecase.UpdateQuizWithAssetsUseCase
+import android.kma.myquizzapp.core.common.validator.QuizEditorValidator
+import android.kma.myquizzapp.core.common.validator.QuizEditorErrors
+import android.kma.myquizzapp.feature.quiz_manage.presentation.components.toValidationInput
 import android.kma.myquizzapp.feature.quiz_manage.presentation.components.QuestionDraft
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
@@ -54,11 +54,16 @@ class EditQuizViewModel @Inject constructor(
     private val _effect = Channel<EditQuizEffect>(Channel.BUFFERED)
     val effect = _effect.receiveAsFlow()
 
+    private var loadInFlight = false
+
     init {
         loadQuiz()
     }
 
     fun onIntent(intent: EditQuizIntent) {
+        if (_uiState.value.isSubmitting) return
+        if ((_uiState.value.isLoading || _uiState.value.loadError != null) &&
+            intent != EditQuizIntent.LoadQuiz && intent != EditQuizIntent.Retry) return
         when (intent) {
             is EditQuizIntent.LoadQuiz, is EditQuizIntent.Retry -> loadQuiz()
 
@@ -96,9 +101,15 @@ class EditQuizViewModel @Inject constructor(
             }
             is EditQuizIntent.QuestionTypeChanged -> updateQuestion(intent.localId) {
                 // Đổi loại câu reset trạng thái đáp án để dữ liệu thừa không lọt vào payload.
-                it.copy(questionType = intent.type, correctIndexes = emptySet(), correctText = "")
+                if (it.questionType == intent.type) it else
+                    it.copy(questionType = intent.type, correctIndexes = emptySet(), correctText = "")
             }
             is EditQuizIntent.QuestionTextChanged -> updateQuestion(intent.localId) { it.copy(questionText = intent.value) }
+            is EditQuizIntent.TimePresetSelected -> updateQuestion(intent.localId) {
+                if (intent.seconds !in listOf(10, 20, 30, 60)) it else
+                    it.copy(timeLimit = intent.seconds.toString(), usesCustomTime = false)
+            }
+            is EditQuizIntent.CustomTimeSelected -> updateQuestion(intent.localId) { it.copy(usesCustomTime = true) }
             is EditQuizIntent.TimeLimitChanged -> updateQuestion(intent.localId) { it.copy(timeLimit = intent.value) }
             is EditQuizIntent.HintChanged -> updateQuestion(intent.localId) { it.copy(questionHint = intent.value) }
             is EditQuizIntent.ExplanationChanged -> updateQuestion(intent.localId) { it.copy(explanation = intent.value) }
@@ -110,7 +121,7 @@ class EditQuizViewModel @Inject constructor(
                 if (q.options.size >= 4) q else q.copy(options = q.options + "")
             }
             is EditQuizIntent.RemoveOption -> updateQuestion(intent.localId) { q ->
-                if (q.options.size <= 2) q
+                if (q.options.size <= 2 || intent.index !in q.options.indices) q
                 else q.copy(
                     options = q.options.filterIndexed { i, _ -> i != intent.index },
                     // Xóa 1 lựa chọn phải dời index đáp án đúng theo (giống CreateQuizViewModel).
@@ -121,6 +132,7 @@ class EditQuizViewModel @Inject constructor(
                 )
             }
             is EditQuizIntent.ToggleCorrectIndex -> updateQuestion(intent.localId) { q ->
+                if (!q.isChoiceType || intent.index !in q.options.indices) return@updateQuestion q
                 val newIndexes = when {
                     q.questionType == QuestionType.MULTIPLE_CHOICE -> setOf(intent.index)
                     q.correctIndexes.contains(intent.index) -> q.correctIndexes - intent.index
@@ -145,8 +157,10 @@ class EditQuizViewModel @Inject constructor(
     }
 
     private fun loadQuiz() {
+        if (loadInFlight || _uiState.value.isSubmitting) return
+        loadInFlight = true
+        _uiState.update { it.copy(isLoading = true, loadError = null) }
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, loadError = null) }
 
             when (val result = getQuizDetailUseCase(quizId)) {
                 is Result.Success -> _uiState.value = result.data.toEditUiState()
@@ -160,6 +174,7 @@ class EditQuizViewModel @Inject constructor(
                     }
                 }
             }
+            loadInFlight = false
         }
     }
 
@@ -190,6 +205,7 @@ class EditQuizViewModel @Inject constructor(
             questionType = questionType,
             questionText = questionText,
             timeLimit = timeLimit.toString(),
+            usesCustomTime = timeLimit !in listOf(10, 20, 30, 60),
             questionHint = questionHint.orEmpty(),
             explanation = explanation.orEmpty(),
             options = answerOptions?.map { it.optionText } ?: listOf("", ""),
@@ -199,71 +215,28 @@ class EditQuizViewModel @Inject constructor(
         )
     }
 
-    private fun validate(state: EditQuizUiState): List<String> {
-        // Cùng bộ rule với CreateQuizViewModel — khớp createQuestionSchema (quiz.schema.ts).
-        val errors = mutableListOf<String>()
-        
-        // Validate quiz name using QuizNameValidator (Pattern C)
-        val nameResult = QuizNameValidator.validate(state.quizName)
-        if (nameResult is ValidationResult.Error) {
-            errors += nameResult.message
-        }
-        
-        // Validate quiz description using QuizDescriptionValidator (Pattern C)
-        val descResult = QuizDescriptionValidator.validate(state.quizDescription)
-        if (descResult is ValidationResult.Error) {
-            errors += descResult.message
-        }
-        
-        if (state.questions.isEmpty()) {
-            errors += "Quiz phải có ít nhất 1 câu hỏi."
-        }
-        state.questions.forEachIndexed { index, q ->
-            val position = index + 1
-            if (q.questionText.trim().isEmpty()) {
-                errors += "Câu $position: thiếu nội dung câu hỏi."
-            }
-            // Để trống = mặc định 30s lúc submit; nhập thì phải 5-600s
-            // (TIME_LIMIT_MIN/MAX, quiz.schema.ts).
-            val timeText = q.timeLimit.trim()
-            if (timeText.isNotEmpty()) {
-                val seconds = timeText.toIntOrNull()
-                if (seconds == null || seconds < 5 || seconds > 600) {
-                    errors += "Câu $position: thời gian phải từ 5 đến 600 giây."
-                }
-            }
-            if (q.isChoiceType) {
-                val nonBlankOptions = q.options.count { it.isNotBlank() }
-                if (nonBlankOptions < 2) {
-                    errors += "Câu $position: cần ít nhất 2 lựa chọn."
-                }
-                if (q.correctIndexes.isEmpty()) {
-                    errors += "Câu $position: chọn ít nhất 1 đáp án đúng."
-                }
-            } else {
-                if (q.correctText.trim().isEmpty()) {
-                    errors += "Câu $position: thiếu đáp án đúng."
-                }
-            }
-        }
-        return errors
-    }
+    private fun validate(state: EditQuizUiState): QuizEditorErrors = QuizEditorValidator.validate(
+        name = state.quizName, description = state.quizDescription,
+        language = state.quizLanguage, category = state.quizCategory,
+        questions = state.questions.map { it.toValidationInput() },
+    )
 
     private fun submit() {
         val state = _uiState.value
+        if (state.isSubmitting) return
         val errors = validate(state)
-        if (errors.isNotEmpty()) {
-            _uiState.update { it.copy(fieldErrors = errors) }
+        if (errors.hasErrors) {
+            _uiState.update { it.copy(validationErrors = errors, validationAttempt = it.validationAttempt + 1, errorMessage = null) }
             return
         }
-        _uiState.update { it.copy(isSubmitting = true, fieldErrors = emptyList(), errorMessage = null) }
+        _uiState.update { it.copy(isSubmitting = true, validationErrors = QuizEditorErrors(), errorMessage = null) }
 
         viewModelScope.launch {
             // Build QuizDraft từ UI state — validation đã xong ở trên
             val draft = QuizDraft(
-                quizName = state.quizName,
+                quizName = state.quizName.trim(),
                 quizDescription = state.quizDescription.trim().ifBlank { null },
-                quizLanguage = state.quizLanguage,
+                quizLanguage = state.quizLanguage.trim(),
                 quizCategory = state.quizCategory.trim().ifBlank { null },
                 isPublic = state.isPublic,
                 coverImageUri = state.coverImageUri,
@@ -286,3 +259,4 @@ class EditQuizViewModel @Inject constructor(
         _uiState.update { it.copy(isSubmitting = false, errorMessage = message) }
     }
 }
+
