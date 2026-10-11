@@ -2,7 +2,7 @@
 
 > **Tài liệu cấu trúc dự án chi tiết**  
 > Mô tả vai trò, trách nhiệm và mối quan hệ giữa các module trong kiến trúc Multi-module Gradle  
-> **Version:** 2.23 | **Last Updated:** N46 WIP đến Search/Discover (source main `d5571d6`; N44 vẫn PARTIAL)
+> **Version:** 2.24 | **Last Updated:** N46 WIP đến Thư viện/Chi tiết quiz (source main 2308cc6; N44 vẫn PARTIAL)
 
 ---
 
@@ -409,14 +409,16 @@ core/ui/
 │   │   ├── CustomClickableText.kt      # Chỉ action span là link; stateless
 │   │   ├── SixCharacterCode.kt         # OTP/Room normalize thuần
 │   │   ├── SixCharacterCodeField.kt    # Wrapper focus + stateless Content
-│   │   ├── AnswerOptionItem.kt         # Selection khác correctness; single-choice
-│   │   ├── QuizListCard.kt             # Card ngang Search/Library; đổi tên từ QuizSummaryCard ở N46.6
+│   │   ├── AnswerOptionItem.kt         # Interactive default; readOnly opt-in bỏ interaction/feedback
+│   │   ├── SearchQuizCard.kt           # Card ngang Search; tên cũ QuizListCard/QuizSummaryCard
+│   │   ├── LibraryQuizCard.kt          # Card quản lý: ảnh vuông, visibility badge, menu sửa/xóa
 │   │   ├── DiscoveryQuizCard.kt        # Card dọc Home/Discover; uniformGrid cho lưới đều
 │   │   ├── RoomCodeEntryCard.kt        # Card room 6 ô, stateless primitive props
 │   │   ├── LeaderboardPlayerCard.kt    # Top 3 medals; caller cung cấp rank/score
 │   │   ├── ComponentGalleryPreview.kt  # Tổng hợp Light/Dark/narrow-large-text
 │   │   ├── HomeSectionRow.kt
-│   │   ├── AuthRequiredDialog.kt
+│   │   ├── AppConfirmDialog.kt         # Normal/Danger + stateless Content/Preview
+│   │   ├── AuthRequiredDialog.kt       # Recipe Normal, giữ callbacks/auth gate
 │   │   ├── Avatar.kt
 │   │   ├── RemoteImage.kt              # Preview inspection placeholder; runtime Coil
 │   │   ├── QuestionImage.kt            # N40 - 16:9, URL rỗng không chiếm chỗ
@@ -434,7 +436,7 @@ core/ui/
 └── build.gradle.kts
 ```
 
-Tree phần N46 trên đối chiếu source main tại `d5571d6`, không lấy source vắng khi checkout docs làm bằng chứng file chưa có. QuizSummaryCard đã đổi tên thành QuizListCard (`9417aad`); QuizCardItem đã xóa khỏi source (`d5571d6`). ComponentColors là internal chỉ dùng trong core:ui; feature dùng FrontendColors public + MaterialTheme dark fallback. Preview không thay thế test/build evidence; chi tiết checkpoint ở `N46_UI_PROGRESS.md`.
+Tree phần N46 trên đối chiếu main `2308cc6`, không lấy source vắng trên docs làm bằng chứng chưa có file. QuizSummaryCard → QuizListCard (`9417aad`) → SearchQuizCard (`19c6425`); LibraryQuizCard riêng, DiscoveryQuizCard giữ Home/Discover; QuizCardItem xóa ở `d5571d6`. ComponentColors internal chỉ trong core:ui, feature dùng FrontendColors public + MaterialTheme dark. 29 quiz-manage test XML local PASS; Preview không thay full build/CI/E2E. Xem `N46_UI_PROGRESS.md`.
 
 #### UiText Pattern (minh họa, không phải inventory source)
 ```kotlin
@@ -685,7 +687,7 @@ Browse public quizzes, search, view "My Quizzes" (nếu logged in), entry point 
 
 #### Trách nhiệm
 - ✅ HomeScreen — feed trong một LazyColumn; không còn tab Của tôi (Library là route riêng). N46.6 header brand/pill auth, room 6 ô qua slot + DiscoveryQuizCard (`88a1307`). Không fake continue progress/resume.
-- ✅ SearchScreen **riêng** — auto-focus, manual submit/IME và cursor append. N46.7 dùng QuizListCard ngang (`496dc36`), có append error/retry đúng cursor giữ results; SearchUiStateTest tổng 9 case, chưa xác minh run mới.
+- ✅ SearchScreen **riêng** — auto-focus, manual submit/IME và cursor append. N46.7 dùng SearchQuizCard ngang (`496dc36`, rename `19c6425`), có append error/retry đúng cursor giữ results; SearchUiStateTest tổng 9 case, chưa xác minh run mới.
 - ✅ N20.5: `presentation/discover` có Screen/Content và UiState/Intent/Effect riêng; domain có resolver/PagingSource/Observe use case, dùng public-only client. N46.8 (`d5571d6`): grid 2 cột DiscoveryQuizCard uniform, category chips/sort; wrapper hoist grid/filter state và captured snapshot cho count/key/data, live access guard index/ID để giữ prefetch. Có source fix Paging index crash, chưa có xác nhận retest sau sửa; không thêm tab hay total giả.
 - ✅ Search quizzes công khai (không cần login - `optionalAuthMiddleware`)
 - ⚠️ Quiz detail (preview + entry chơi) đã **chuyển sang `:feature:quiz-manage/presentation/quizdetail`** (N12, 21/8) — xem mục 3.7, không còn ở `feature:home`
@@ -723,7 +725,7 @@ feature/home/
 └── build.gradle.kts
 ```
 
-> ℹ️ `HomeSectionRow.kt` ở `core:ui/components/`, nay render DiscoveryQuizCard. QuizListCard là card ngang Search/Library, DiscoveryQuizCard là card dọc Home/Discover. QuizCardItem đã xóa ở N46.8; không còn là API để dùng lại.
+> ℹ️ `HomeSectionRow.kt` ở core:ui/components render DiscoveryQuizCard. SearchQuizCard ngang chỉ cho Search; LibraryQuizCard riêng có visibility badge/menu; DiscoveryQuizCard dọc cho Home/Discover. QuizListCard là tên cũ, QuizCardItem đã xóa ở N46.8; không dùng lại API cũ.
 
 #### Phụ thuộc
 ```kotlin
@@ -1043,44 +1045,50 @@ dependencies {
 Tạo, chỉnh sửa, xóa quiz (chỉ dành cho Host đã login). Editor hỗ trợ 4 loại câu hỏi với upload ảnh S3 presign.
 
 #### Trách nhiệm
-- ✅ QuizManageScreen - danh sách quiz của tôi
+- ✅ QuizManageListScreen — Thư viện, search/filter/sort, LibraryQuizCard + menu sửa/xóa, FAB; không tab saved chưa có
 - ✅ QuizEditorScreen - editor với drag-drop reorder questions
 - ✅ CreateRoomScreen - tạo game room với config động từ `GET /games/game-modes`
 - ✅ Upload ảnh 2 bước: (1) GET presigned URL, (2) PUT file trực tiếp lên S3
 - ✅ Question editor hỗ trợ 4 types: multiple_choice, multiple_select, short_answer, long_answer
 - ✅ N40: card câu hỏi trong Quiz Detail render `questionImage` bằng component dùng chung
-- ✅ N41: Quiz Detail thêm nút Tự chơi thử, disabled nếu quiz rỗng; callback điều hướng do app sở hữu, không phụ thuộc trực tiếp `feature:quiz-preview`.
+- ✅ N41: entry chơi thử; N46.11 đổi nhãn thành “Chơi thử”/“Tạo phòng”, disabled quiz rỗng, callback app sở hữu; không phụ thuộc trực tiếp feature:quiz-preview.
+- ✅ N46.11: QuestionPreviewCard riêng, readonly AnswerOptionItem, mặc định expand hết; ownership/delete guards và stats thật. User đã duyệt UI; 29 unit test quiz-manage XML local PASS, chưa xác minh full assemble/lint/CI/E2E.
 
-#### Cấu trúc thư mục
+#### Inventory phần quiz quản lý/detail đã đối chiếu ở N46
+
+Đây là cây **các file thuộc phạm vi N46 mới**, không phải danh sách đầy đủ editor/create-room/use case của module. Source/tests nằm trên main; docs không chứa source.
+
 ```
 feature/quiz-manage/
-├── src/main/java/.../feature/quiz_manage/
-│   ├── presentation/
-│   │   ├── quizdetail/                   # 🆕 N12 (21/8) — chuyển từ feature:home
-│   │   │   ├── QuizDetailScreen.kt       # Preview quiz + entry điểm chơi
-│   │   │   ├── QuizDetailViewModel.kt
-│   │   │   ├── QuizDetailUiState.kt
-│   │   │   └── QuizDetailIntent.kt
-│   │   ├── QuizManageScreen.kt           # List của quiz của tôi + FAB create
-│   │   ├── QuizEditorScreen.kt           # Edit quiz metadata + questions
-│   │   ├── CreateRoomScreen.kt           # Tạo game session với config
-│   │   └── components/
-│   │       ├── QuestionEditor.kt         # Dispatcher theo question_type
-│   │       ├── MultipleChoiceEditor.kt
-│   │       ├── MultipleSelectEditor.kt
-│   │       ├── ShortAnswerEditor.kt
-│   │       ├── LongAnswerEditor.kt
-│   │       └── ImageUploadField.kt       # S3 presign upload
-│   └── domain/
-│       └── usecase/
-│           ├── GetQuizWithOwnershipUseCase.kt  # 🆕 N18.5 - Orchestrates quiz detail + ownership check (replaces GetQuizDetailUseCase)
-│           ├── CreateQuizWithAssetsUseCase.kt  # 🆕 N18.5 - Orchestrates quiz creation + image uploads (replaces CreateQuizUseCase + UploadImageUseCase)
-│           ├── UpdateQuizWithAssetsUseCase.kt  # 🆕 N18.5 - Orchestrates quiz update + image uploads (replaces UpdateQuizUseCase + UploadImageUseCase)
-│           ├── DeleteQuizUseCase.kt
-│           ├── CreateGameSessionUseCase.kt     # inject GameSessionRepository
-│           └── GetGameModesUseCase.kt          # GET /games/game-modes
+├── src/main/java/.../feature/quiz_manage/presentation/
+│   ├── quizmanagelist/
+│   │   ├── QuizManageListScreen.kt       # Stateful wrapper + stateless Content/Preview
+│   │   ├── QuizManageListViewModel.kt    # List/filter/sort, delete + paging generation
+│   │   ├── QuizManageListUiState.kt      # Delete target/loading/error
+│   │   ├── QuizManageListIntent.kt
+│   │   └── QuizManageListEffect.kt       # ShowMessage
+│   ├── quizdetail/
+│   │   ├── QuizDetailScreen.kt           # Owner actions, stats, accordion, bottom actions
+│   │   ├── QuizDetailViewModel.kt        # Load/ownership/delete guards, Use case orchestration
+│   │   ├── QuizDetailUiState.kt
+│   │   ├── QuizDetailIntent.kt
+│   │   └── QuizDetailPresentation.kt     # Readonly projection, duration/count/author/date helpers
+│   └── components/
+│       ├── ConfirmDeleteQuizDialog.kt   # Feature copy/callback → core AppConfirmDialog Danger
+│       ├── QuestionPreviewCard.kt       # Xem câu hỏi, không phải editor; AnswerOptionItem readOnly
+│       ├── QuestionTypeLabels.kt        # Nhãn 4 loại dùng chung với editor
+│       └── QuestionEditorComponents.kt  # Editor hiện hữu; dùng labels chung, behavior không đổi
+├── src/test/java/.../presentation/
+│   ├── quizmanagelist/QuizManageListViewModelTest.kt  # 9 XML PASS
+│   └── quizdetail/
+│       ├── QuizDetailViewModelTest.kt                # 10 XML PASS
+│       └── QuizDetailPresentationTest.kt            # 10 XML PASS
 └── build.gradle.kts
 ```
+
+Thư viện giữ ALL/PUBLIC/PRIVATE + 4 sort, search bo góc, menu editor/delete, không thanh tab một mục. Paging count/key/render cùng snapshot và guard live prefetch. Detail chỉ lưu collapsedQuestionIds ở wrapper: mặc định mọi câu mở, user tự thu; mixed time bỏ ô thời gian chung. Projection không đưa correctAnswer/hint/explanation xuống card nhưng backend detail vẫn gửi answer key, privacy transport chưa được sửa. AppConfirmDialog generic ở core:ui, không tạo feature → app dependency. XML 29 PASS local ngày 11/10/2026 là evidence có giới hạn (không git SHA/run id), không kết luận build/CI/E2E.
+
+Các Use case orchestration hiện hữu giữ nguyên: GetQuizWithOwnershipUseCase (detail + ownership), CreateQuizWithAssetsUseCase/UpdateQuizWithAssetsUseCase (metadata/questions + upload assets), DeleteQuizUseCase, CreateGameSessionUseCase và GetGameModesUseCase. N46 không chuyển Repository/API vào UI hoặc navigation.
 
 #### S3 Presign Upload Flow
 ```kotlin
@@ -1628,9 +1636,9 @@ MyQuizApp được xây dựng với **14 modules** theo **Clean Architecture + 
 
 ---
 
-**Document Version:** 2.23  
-**Last Updated:** N46 WIP đến Search/Discover (source Android `d5571d6`)
-**Status:** Living document — cập nhật thêm 7 commit sau Register: password recovery/validator/guards, component/Home/room/bottom nav, Search và Discover. Source snapshot fix Paging và internal-color đã commit; chưa có xác nhận retest sau sửa hoặc build/lint/test/CI mới được agent đối chiếu. N46 chưa hoàn tất, N44 vẫn PARTIAL, Google/cookie DEFERRED và backend/privacy/session/deployment gates giữ nguyên; chưa chốt N45/M6/release. Vẫn 14 module. Source/tests ở main, tài liệu ở docs; checkpoint/evidence trong N46_UI_PROGRESS.md, báo cáo N44 trong N44_E2E_REPORT.md.
+**Document Version:** 2.24
+**Last Updated:** N46 WIP đến Thư viện/Chi tiết quiz (source Android 2308cc6)
+**Status:** Living document — baseline main `2308cc6`, cập nhật 4 commit card/dialog/Thư viện/Chi tiết quiz sau `d5571d6`. XML local 29 quiz-manage test PASS; full assemble/lint/CI/E2E và Discover Paging retest chưa xác minh. N46 WIP, N44 PARTIAL; Google/cookie DEFERRED và backend/privacy/session/deployment gates giữ nguyên, chưa chốt N45/M6/release. Vẫn 14 module; source/tests trên main, docs trên docs. Xem N46_UI_PROGRESS.md và N44_E2E_REPORT.md.
 
 ---
 
