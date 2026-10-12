@@ -57,10 +57,14 @@ class AccountSecurityViewModel @Inject constructor(
             is AccountSecurityIntent.OldPassword -> edit { copy(oldPassword = intent.value, passwordErrors = PasswordErrors(), message = null) }
             is AccountSecurityIntent.NewPassword -> edit { copy(newPassword = intent.value, passwordErrors = PasswordErrors(), message = null) }
             is AccountSecurityIntent.ConfirmPassword -> edit { copy(confirmPassword = intent.value, passwordErrors = PasswordErrors(), message = null) }
-            is AccountSecurityIntent.DeactivationPassword -> edit { copy(deactivationPassword = intent.value, deactivationError = null, message = null) }
+            is AccountSecurityIntent.DeactivationPassword -> if (state.value.canEdit && state.value.showConfirmation) {
+                state.update { it.copy(deactivationPassword = intent.value, deactivationError = null, message = null) }
+            }
             AccountSecurityIntent.ChangePassword -> submitPassword()
             AccountSecurityIntent.RequestDeactivation -> requestDeactivation()
-            AccountSecurityIntent.CancelDeactivation -> if (state.value.busy == null) state.update { it.copy(showConfirmation = false) }
+            AccountSecurityIntent.CancelDeactivation -> if (state.value.busy == null) state.update {
+                it.copy(showConfirmation = false, deactivationPassword = "", deactivationError = null)
+            }
             AccountSecurityIntent.ConfirmDeactivation -> submitDeactivation()
             AccountSecurityIntent.RetryLocalCleanup -> retryCleanup()
             AccountSecurityIntent.Back -> if (state.value.busy == null && !state.value.cleanupPending) {
@@ -89,15 +93,19 @@ class AccountSecurityViewModel @Inject constructor(
 
     private fun requestDeactivation() {
         if (!state.value.canEdit) return
-        val error = SecurityValidation.deactivate(state.value.deactivationPassword)
-        state.update { it.copy(deactivationError = error, showConfirmation = error == null, message = null) }
+        state.update { it.copy(deactivationError = null, showConfirmation = true, message = null) }
     }
 
     private fun submitDeactivation() {
         val s = state.value
         val token = s.account.token ?: return
         if (!s.canEdit || !s.showConfirmation) return
-        state.update { it.copy(busy = SecurityAction.DEACTIVATE, showConfirmation = false) }
+        val error = SecurityValidation.deactivate(s.deactivationPassword)
+        if (error != null) {
+            state.update { it.copy(deactivationError = error) }
+            return
+        }
+        state.update { it.copy(busy = SecurityAction.DEACTIVATE, deactivationError = null, message = null) }
         viewModelScope.launch {
             handle(deactivateAccount(s.deactivationPassword, true, token), SecurityAction.DEACTIVATE, token)
         }
@@ -137,7 +145,11 @@ class AccountSecurityViewModel @Inject constructor(
                 cleanupToken = token
                 state.update { it.copy(cleanupPending = true, message = "Cần dọn phiên trên thiết bị. Nút bên dưới chỉ dọn phiên, không gửi lại yêu cầu vô hiệu hóa.") }
             }
-            is SecurityMutationResult.Rejected -> state.update { it.copy(busy = null, message = result.error.toUserMessage()) }
+            is SecurityMutationResult.Rejected -> state.update {
+                if (action == SecurityAction.DEACTIVATE) {
+                    it.copy(busy = null, deactivationError = result.error.toUserMessage(), message = null)
+                } else it.copy(busy = null, message = result.error.toUserMessage())
+            }
         }
     }
 

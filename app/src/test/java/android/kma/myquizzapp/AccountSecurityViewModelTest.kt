@@ -37,12 +37,46 @@ class AccountSecurityViewModelTest {
         assertEquals("", vm.uiState.value.oldPassword); assertEquals("", vm.uiState.value.newPassword)
         assertNotNull(session.captureUserSession())
     }
-    @Test fun `cancel deactivation confirmation sends no delete`() = runTest(dispatcher) {
-        val users = SecurityTestUsers(); val vm = vm(users, ProfileTestSession()); runCurrent()
-        vm.onIntent(AccountSecurityIntent.DeactivationPassword("oldpass1"))
+    @Test fun `deactivation password is validated inside confirmation dialog`() = runTest(dispatcher) {
+        val users = SecurityTestUsers(); val session = ProfileTestSession(); val vm = vm(users, session)
+        runCurrent()
         vm.onIntent(AccountSecurityIntent.RequestDeactivation)
         assertTrue(vm.uiState.value.showConfirmation)
+
+        vm.onIntent(AccountSecurityIntent.ConfirmDeactivation)
+        assertNotNull(vm.uiState.value.deactivationError)
+        assertEquals(0, users.deactivateCalls)
+
+        vm.onIntent(AccountSecurityIntent.DeactivationPassword("oldpass1"))
+        vm.onIntent(AccountSecurityIntent.ConfirmDeactivation)
+        runCurrent()
+        assertEquals(1, users.deactivateCalls)
+        assertNull(session.captureUserSession())
+        assertEquals("", vm.uiState.value.deactivationPassword)
+    }
+
+    @Test fun `rejected deactivation keeps dialog open with password error`() = runTest(dispatcher) {
+        val users = SecurityTestUsers(); val session = ProfileTestSession(); val vm = vm(users, session)
+        users.deactivateHandler = { Result.Error(AppError.Api("USER_PASSWORD_INCORRECT")) }
+        runCurrent()
+        vm.onIntent(AccountSecurityIntent.RequestDeactivation)
+        vm.onIntent(AccountSecurityIntent.DeactivationPassword("oldpass1"))
+        vm.onIntent(AccountSecurityIntent.ConfirmDeactivation)
+        runCurrent()
+        assertTrue(vm.uiState.value.showConfirmation)
+        assertNotNull(vm.uiState.value.deactivationError)
+        assertNull(vm.uiState.value.message)
+        assertEquals(1, users.deactivateCalls)
+        assertNotNull(session.captureUserSession())
+    }
+
+    @Test fun `cancel deactivation confirmation clears password and sends no delete`() = runTest(dispatcher) {
+        val users = SecurityTestUsers(); val vm = vm(users, ProfileTestSession()); runCurrent()
+        vm.onIntent(AccountSecurityIntent.RequestDeactivation)
+        vm.onIntent(AccountSecurityIntent.DeactivationPassword("oldpass1"))
         vm.onIntent(AccountSecurityIntent.CancelDeactivation)
+        assertFalse(vm.uiState.value.showConfirmation)
+        assertEquals("", vm.uiState.value.deactivationPassword)
         vm.onIntent(AccountSecurityIntent.ConfirmDeactivation); runCurrent()
         assertEquals(0, users.deactivateCalls)
     }
