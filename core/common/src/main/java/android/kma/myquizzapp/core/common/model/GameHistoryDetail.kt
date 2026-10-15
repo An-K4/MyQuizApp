@@ -19,7 +19,9 @@ data class GameHistorySummary(
     /** Thành tích riêng vẫn được giữ khi danh sách xếp hạng bị ẩn khỏi player. */
     val viewerResult: LeaderboardRow? = null,
     /** Defense-in-depth: backend hiện vẫn serialize bảng dù player bị cấu hình ẩn. */
-    val leaderboardHiddenByConfig: Boolean = false
+    val leaderboardHiddenByConfig: Boolean = false,
+    /** Display only: a room code can be reused; sessionId remains the history identity. */
+    val sessionCode: String? = null
 )
 
 data class GameHistoryQuiz(

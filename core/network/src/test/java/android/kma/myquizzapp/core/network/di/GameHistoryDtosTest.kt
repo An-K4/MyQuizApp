@@ -55,4 +55,28 @@ class GameHistoryDtosTest {
         assertEquals(1, summary.perQuestion.size)
         assertEquals("2026-10-03T14:30:00Z", summary.finishedAt)
     }
+
+    @Test
+    fun `summary exposes room code but keeps stable session identity`() {
+        val envelope = json.decodeFromString<ApiEnvelope<GameHistorySummaryResponseDto>>(
+            """{"success":true,"data":{"summary":{"session":{"id":91,"session_name":"Friday room","session_code":"AB7CDE","game_mode":"classic","session_status":"finished"},"viewer":{"isHost":true}}}}"""
+        )
+
+        val summary = envelope.data!!.summary.toDomain()
+        assertEquals(91L, summary.sessionId)
+        assertEquals("AB7CDE", summary.sessionCode)
+        assertEquals("Friday room", summary.sessionName)
+    }
+
+    @Test
+    fun `summary accepts absent and null room code`() {
+        for (optionalField in listOf("", ",\"session_code\":null")) {
+            val envelope = json.decodeFromString<ApiEnvelope<GameHistorySummaryResponseDto>>(
+                """{"success":true,"data":{"summary":{"session":{"id":91,"session_name":"Friday room","game_mode":"classic","session_status":"finished"$optionalField},"viewer":{"isHost":true}}}}"""
+            )
+            val summary = envelope.data!!.summary.toDomain()
+            assertNull(summary.sessionCode)
+            assertEquals("Friday room", summary.sessionName)
+        }
+    }
 }

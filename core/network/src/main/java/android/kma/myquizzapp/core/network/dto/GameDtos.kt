@@ -534,7 +534,8 @@ data class GameHistorySummaryDto(
             perQuestion = if (viewerDomain.isHost) perQuestion.orEmpty().map { it.toDomain() } else emptyList(),
             viewer = viewerDomain,
             viewerResult = viewerDomain.playerId?.let { playerId -> rows.firstOrNull { it.id == playerId } },
-            leaderboardHiddenByConfig = hidden
+            leaderboardHiddenByConfig = hidden,
+            sessionCode = session.sessionCode
         )
     }
 }
@@ -551,7 +552,8 @@ data class GameHistorySummarySessionDto(
     @SerialName("finished_at") val finishedAt: String? = null,
     @SerialName("created_at") val createdAt: String? = null,
     @SerialName("session_host_name") val hostName: String? = null,
-    @SerialName("session_host_avatar") val hostAvatar: String? = null
+    @SerialName("session_host_avatar") val hostAvatar: String? = null,
+    @SerialName("session_code") val sessionCode: String? = null
 )
 
 @Serializable
