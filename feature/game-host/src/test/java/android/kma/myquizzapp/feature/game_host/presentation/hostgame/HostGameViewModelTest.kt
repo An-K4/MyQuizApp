@@ -335,7 +335,8 @@ private class FakeGameSessionRepository : GameSessionRepository {
         role: android.kma.myquizzapp.core.common.model.GameHistoryRole,
         cursor: String?,
         limit: Int,
-        guestId: String?
+        guestId: String?,
+        includeTotal: Boolean
     ): Result<List<android.kma.myquizzapp.core.common.model.GameHistoryItem>> = error("Not used")
     override suspend fun getGameHistorySummary(gameId: Long, guestId: String?): Result<android.kma.myquizzapp.core.common.model.GameHistorySummary> = error("Not used")
     override suspend fun getGameHistoryAnswers(gameId: Long, guestId: String?): Result<GameReview> = error("Not used")
