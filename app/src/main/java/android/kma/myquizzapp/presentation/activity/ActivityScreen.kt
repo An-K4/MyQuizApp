@@ -6,10 +6,8 @@ import android.kma.myquizzapp.core.common.model.GameHistoryRole
 import android.kma.myquizzapp.core.common.model.GameMode
 import android.kma.myquizzapp.core.common.model.SessionState
 import android.kma.myquizzapp.core.common.model.SessionStatus
-import android.kma.myquizzapp.core.ui.components.Avatar
-import android.kma.myquizzapp.core.ui.components.RemoteImage
+import android.kma.myquizzapp.core.common.model.User
 import android.kma.myquizzapp.core.ui.theme.MyQuizAppTheme
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,14 +17,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -36,6 +30,7 @@ import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -43,7 +38,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -53,9 +47,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import java.time.Instant
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 
 @Composable
 fun ActivityScreen(
@@ -90,7 +81,17 @@ fun ActivityScreenContent(
 ) {
     Scaffold(
         modifier = modifier.fillMaxSize(),
-        topBar = { TopAppBar(title = { Text("Hoạt động") }) }
+        topBar = {
+            TopAppBar(
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
+                title = {
+                    Text(
+                        "Hoạt động",
+                        style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold)
+                    )
+                }
+            )
+        }
     ) { innerPadding ->
         Column(Modifier.fillMaxSize().padding(innerPadding)) {
             if (uiState.showRoleTabs) {
@@ -100,7 +101,15 @@ fun ActivityScreenContent(
                         Tab(
                             selected = uiState.selectedRole == role,
                             onClick = { onIntent(ActivityIntent.SelectRole(role)) },
-                            text = { Text(if (role == GameHistoryRole.PLAYED) "Đã chơi" else "Đã tổ chức") }
+                            text = {
+                                val list = if (role == GameHistoryRole.PLAYED) uiState.played else uiState.hosted
+                                val title = if (role == GameHistoryRole.PLAYED) "Đã tham gia chơi" else "Đã tổ chức Host"
+                                Text(
+                                    text = list.totalCount?.let { "$title ($it)" } ?: title,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
                         )
                     }
                 }
@@ -148,15 +157,15 @@ private fun HistoryList(
             LazyColumn(
                 state = listState,
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 20.dp, vertical = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 items(page.items, key = { it.sessionId }) { item ->
-                    HistoryCard(
-                        item = item,
-                        role = role,
-                        onClick = { onOpenHistory(item.sessionId) }
-                    )
+                    val onClick = { onOpenHistory(item.sessionId) }
+                    when (role) {
+                        GameHistoryRole.PLAYED -> PlayedActivityCard(item, onClick)
+                        GameHistoryRole.HOSTED -> HostedActivityCard(item, onClick)
+                    }
                 }
                 if (page.isLoadingMore) {
                     item { Box(Modifier.fillMaxWidth().padding(12.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() } }
@@ -171,68 +180,6 @@ private fun HistoryList(
                             TextButton(onClick = onRetry) { Text("Thử lại") }
                         }
                     }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun HistoryCard(
-    item: GameHistoryItem,
-    role: GameHistoryRole,
-    onClick: () -> Unit
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-    ) {
-        Row(Modifier.fillMaxWidth().padding(12.dp)) {
-            RemoteImage(
-                imageUrl = item.quizImage,
-                contentDescription = item.quizName ?: item.sessionName,
-                modifier = Modifier.size(88.dp).clip(MaterialTheme.shapes.medium)
-            )
-            Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(
-                    text = item.quizName?.takeIf(String::isNotBlank) ?: item.sessionName,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = "${item.gameMode.label()} • ${item.sessionStatus.label()} • ${formatEndedAt(item.endedAt)}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                if (!item.hostName.isNullOrBlank()) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Avatar(item.hostAvatar, size = 22.dp)
-                        Spacer(Modifier.width(6.dp))
-                        Text(
-                            text = "Host: ${item.hostName}",
-                            style = MaterialTheme.typography.bodySmall,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                }
-                if (role == GameHistoryRole.PLAYED) {
-                    Text(
-                        text = buildString {
-                            append("Điểm ${item.playerScore ?: 0}")
-                            item.correctAnswersCount?.let { append(" • Đúng $it/${item.totalQuestions}") }
-                            item.rank?.let { append(" • Hạng $it") }
-                        },
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                } else {
-                    Text(
-                        text = "${item.totalPlayers} người chơi • ${item.totalQuestions} câu hỏi",
-                        style = MaterialTheme.typography.bodyMedium
-                    )
                 }
             }
         }
@@ -269,54 +216,51 @@ private fun ErrorState(message: String, onRetry: () -> Unit) {
     }
 }
 
-private fun GameMode.label(): String = when (this) {
-    GameMode.CLASSIC -> "Classic"
-    GameMode.SOLO -> "Solo"
-    GameMode.SURVIVAL -> "Sinh tồn"
-    GameMode.MARATHON -> "Marathon"
-    GameMode.PRACTICE -> "Luyện tập"
-}
-
-private fun SessionStatus.label(): String = when (this) {
-    SessionStatus.FINISHED -> "Đã kết thúc"
-    SessionStatus.CANCELLED -> "Đã hủy"
-    SessionStatus.LOBBY -> "Phòng chờ"
-    SessionStatus.ACTIVE -> "Đang chơi"
-    SessionStatus.PAUSED -> "Tạm dừng"
-}
-
-private val historyDateFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")
-private fun formatEndedAt(raw: String): String = runCatching {
-    historyDateFormatter.format(Instant.parse(raw).atZone(ZoneId.systemDefault()))
-}.getOrDefault(raw)
-
-@Preview(showBackground = true)
-@Preview(showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(name = "Hoạt động — đã chơi", showBackground = true, widthDp = 390, heightDp = 844)
+@Preview(name = "Hoạt động — đã chơi tối", showBackground = true, widthDp = 390, heightDp = 844, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
-private fun ActivityScreenPreview() {
+private fun ActivityPlayedPreview() {
     MyQuizAppTheme {
         ActivityScreenContent(
             uiState = ActivityUiState(
-                session = SessionState.Guest,
+                session = SessionState.LoggedIn(previewUser()),
                 played = HistoryListState(
                     hasLoaded = true,
+                    hasMore = true,
+                    nextCursor = "preview-next",
+                    totalCount = 24,
+                    items = previewPlayedItems()
+                ),
+                hosted = HistoryListState(hasLoaded = true, totalCount = 6)
+            ),
+            onIntent = {},
+            onOpenHistory = {}
+        )
+    }
+}
+
+@Preview(name = "Hoạt động — Host", showBackground = true, widthDp = 390, heightDp = 844)
+@Composable
+private fun ActivityHostedPreview() {
+    MyQuizAppTheme {
+        ActivityScreenContent(
+            uiState = ActivityUiState(
+                session = SessionState.LoggedIn(previewUser()),
+                selectedRole = GameHistoryRole.HOSTED,
+                played = HistoryListState(hasLoaded = true, totalCount = 24),
+                hosted = HistoryListState(
+                    hasLoaded = true,
+                    totalCount = 6,
                     items = listOf(
-                        GameHistoryItem(
-                            sessionId = 12,
-                            sessionName = "Phòng tối thứ sáu",
-                            gameMode = GameMode.CLASSIC,
-                            sessionStatus = SessionStatus.FINISHED,
-                            totalPlayers = 8,
-                            totalQuestions = 10,
-                            endedAt = "2026-10-03T14:30:00.000Z",
-                            quizId = 2,
-                            quizName = "Kiến thức Android",
-                            quizImage = null,
-                            hostName = "Kiro",
-                            hostAvatar = null,
-                            playerScore = 830,
-                            correctAnswersCount = 8,
-                            rank = 2
+                        previewHistoryItem(
+                            sessionId = 24,
+                            title = "Từ vựng tiếng Anh B2",
+                            endedAt = "2026-10-10T07:30:00Z",
+                            totalPlayers = 20,
+                            totalQuestions = 15,
+                            playerScore = null,
+                            correctAnswersCount = null,
+                            rank = null
                         )
                     )
                 )
@@ -326,3 +270,96 @@ private fun ActivityScreenPreview() {
         )
     }
 }
+
+@Preview(name = "Hoạt động — khách chưa chơi", showBackground = true, widthDp = 390, heightDp = 844)
+@Composable
+private fun ActivityGuestEmptyPreview() {
+    MyQuizAppTheme {
+        ActivityScreenContent(
+            uiState = ActivityUiState(
+                session = SessionState.Guest,
+                played = HistoryListState(hasLoaded = true)
+            ),
+            onIntent = {},
+            onOpenHistory = {}
+        )
+    }
+}
+
+@Preview(name = "Hoạt động — đang tải", showBackground = true, widthDp = 390, heightDp = 844)
+@Composable
+private fun ActivityLoadingPreview() {
+    MyQuizAppTheme {
+        ActivityScreenContent(ActivityUiState(), {}, {})
+    }
+}
+
+private fun previewUser() = User(
+    id = 7,
+    fullname = "Kiro",
+    email = "kiro@example.com",
+    createdAt = "2026-01-01T00:00:00Z",
+    updatedAt = "2026-01-01T00:00:00Z"
+)
+
+private fun previewPlayedItems() = listOf(
+    previewHistoryItem(
+        sessionId = 12,
+        title = "Đố vui Lịch sử Việt Nam",
+        endedAt = "2026-10-11T07:30:00Z",
+        totalPlayers = 15,
+        totalQuestions = 15,
+        playerScore = 8500,
+        correctAnswersCount = 12,
+        rank = 2,
+        quizImage = "https://preview.invalid/history.png"
+    ),
+    previewHistoryItem(
+        sessionId = 13,
+        title = "Từ vựng tiếng Anh B2",
+        endedAt = "2026-10-10T07:30:00Z",
+        totalPlayers = 20,
+        totalQuestions = 20,
+        playerScore = 6200,
+        correctAnswersCount = null,
+        rank = 5
+    ),
+    previewHistoryItem(
+        sessionId = 14,
+        title = "IQ Logic Toán học",
+        endedAt = "2026-10-08T07:30:00Z",
+        totalPlayers = 10,
+        totalQuestions = 10,
+        playerScore = 9000,
+        correctAnswersCount = 10,
+        rank = 1
+    )
+)
+
+private fun previewHistoryItem(
+    sessionId: Long,
+    title: String,
+    endedAt: String,
+    totalPlayers: Int,
+    totalQuestions: Int,
+    playerScore: Int?,
+    correctAnswersCount: Int?,
+    rank: Int?,
+    quizImage: String? = null
+) = GameHistoryItem(
+    sessionId = sessionId,
+    sessionName = title,
+    gameMode = GameMode.CLASSIC,
+    sessionStatus = SessionStatus.FINISHED,
+    totalPlayers = totalPlayers,
+    totalQuestions = totalQuestions,
+    endedAt = endedAt,
+    quizId = sessionId,
+    quizName = title,
+    quizImage = quizImage,
+    hostName = "Minh Anh",
+    hostAvatar = null,
+    playerScore = playerScore,
+    correctAnswersCount = correctAnswersCount,
+    rank = rank
+)

@@ -98,6 +98,23 @@ class GameHistoryApiTest {
         assertEquals(guestId, answersRequest.getHeader("x-guest-id"))
     }
 
+    @Test
+    fun `include total requests and exposes the exact count`() = runTest {
+        server.enqueue(
+            MockResponse()
+                .setHeader("Content-Type", "application/json")
+                .setBody("""{"success":true,"data":{"sessions":[]},"meta":{"pagination":{"limit":20,"nextCursor":null,"hasMore":false,"total":24}}}""")
+        )
+
+        val result = api.getGameHistory(role = "played", includeTotal = true)
+        val request = server.takeRequest()
+
+        assertEquals("true", request.requestUrl?.queryParameter("include_total"))
+        assertTrue(result is Result.Success)
+        result as Result.Success
+        assertEquals(24, result.page?.total)
+    }
+
     private fun successResponse() = MockResponse()
         .setHeader("Content-Type", "application/json")
         .setBody(

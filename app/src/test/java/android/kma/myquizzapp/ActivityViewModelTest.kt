@@ -82,6 +82,9 @@ class ActivityViewModelTest {
             ),
             repository.calls.map { it.role to it.cursor }
         )
+        assertEquals(listOf(true, true, false), repository.calls.map { it.includeTotal })
+        assertEquals(24, viewModel.uiState.value.played.totalCount)
+        assertEquals(6, viewModel.uiState.value.hosted.totalCount)
     }
 
     @Test
@@ -235,7 +238,8 @@ class ActivityViewModelTest {
 private data class HistoryCall(
     val role: GameHistoryRole,
     val cursor: String?,
-    val guestId: String?
+    val guestId: String?,
+    val includeTotal: Boolean
 )
 
 private class FakeGameSessionRepository : GameSessionRepository {
@@ -246,19 +250,20 @@ private class FakeGameSessionRepository : GameSessionRepository {
         role: GameHistoryRole,
         cursor: String?,
         limit: Int,
-        guestId: String?
+        guestId: String?,
+        includeTotal: Boolean
     ): Result<List<GameHistoryItem>> {
-        calls += HistoryCall(role, cursor, guestId)
+        calls += HistoryCall(role, cursor, guestId, includeTotal)
         historyHandler?.let { return it(role, cursor, guestId) }
         return when (role to cursor) {
             GameHistoryRole.PLAYED to null -> Result.Success(
-                listOf(historyItem(1)), PageInfo("played-2", hasMore = true)
+                listOf(historyItem(1)), PageInfo("played-2", hasMore = true, total = 24)
             )
             GameHistoryRole.PLAYED to "played-2" -> Result.Success(
                 listOf(historyItem(2)), PageInfo(null, hasMore = false)
             )
             GameHistoryRole.HOSTED to null -> Result.Success(
-                listOf(historyItem(9)), PageInfo(null, hasMore = false)
+                listOf(historyItem(9)), PageInfo(null, hasMore = false, total = 6)
             )
             else -> error("Unexpected history request: $role $cursor")
         }

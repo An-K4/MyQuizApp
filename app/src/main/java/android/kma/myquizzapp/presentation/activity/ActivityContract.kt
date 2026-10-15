@@ -6,6 +6,7 @@ import android.kma.myquizzapp.core.common.model.SessionState
 
 data class HistoryListState(
     val items: List<GameHistoryItem> = emptyList(),
+    val totalCount: Int? = null,
     val nextCursor: String? = null,
     val hasMore: Boolean = false,
     val hasLoaded: Boolean = false,

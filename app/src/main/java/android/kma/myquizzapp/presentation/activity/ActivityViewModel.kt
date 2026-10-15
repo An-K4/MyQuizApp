@@ -119,7 +119,7 @@ class ActivityViewModel @Inject constructor(
         val requestEpoch = epoch
         jobs[role] = viewModelScope.launch {
             val cursor = if (reset) null else before.nextCursor
-            val result = loadGameHistory(role, cursor, session)
+            val result = loadGameHistory(role, cursor, session, includeTotal = cursor == null)
             if (!isActive || requestEpoch != epoch || requestIds[role] != requestId) return@launch
             if (!observeSession.isCurrent(snapshot.identity)) {
                 reconcileSession(observeSession.current())
@@ -130,6 +130,7 @@ class ActivityViewModel @Inject constructor(
                     val merged = if (reset) result.data else current.items + result.data
                     current.copy(
                         items = merged.distinctBy { it.sessionId },
+                        totalCount = result.page?.total ?: current.totalCount,
                         nextCursor = result.page?.nextCursor,
                         hasMore = result.page?.hasMore == true,
                         hasLoaded = true,

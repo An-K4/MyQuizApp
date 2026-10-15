@@ -25,7 +25,8 @@ class LoadGameHistoryUseCase @Inject constructor(
         role: GameHistoryRole,
         cursor: String?,
         session: SessionState,
-        limit: Int = 20
+        limit: Int = 20,
+        includeTotal: Boolean = false
     ): Result<List<GameHistoryItem>> {
         val guestId = when (session) {
             is SessionState.LoggedIn -> null
@@ -39,7 +40,8 @@ class LoadGameHistoryUseCase @Inject constructor(
             role = role,
             cursor = cursor,
             limit = limit,
-            guestId = guestId
+            guestId = guestId,
+            includeTotal = includeTotal
         )
     }
 }

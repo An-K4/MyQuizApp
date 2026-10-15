@@ -47,7 +47,8 @@ interface GameSessionRepository {
         role: GameHistoryRole,
         cursor: String? = null,
         limit: Int = 20,
-        guestId: String? = null
+        guestId: String? = null,
+        includeTotal: Boolean = false
     ): Result<List<GameHistoryItem>>
 
     /** Tổng quan một trận cũ; guestId chỉ truyền khi không có phiên đăng nhập. */

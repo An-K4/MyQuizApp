@@ -59,13 +59,14 @@ class GameSessionRepositoryImpl @Inject constructor(
         role: GameHistoryRole,
         cursor: String?,
         limit: Int,
-        guestId: String?
+        guestId: String?,
+        includeTotal: Boolean
     ): Result<List<GameHistoryItem>> =
         gameApi.getGameHistory(
             role = role.apiValue,
             cursor = cursor,
             limit = limit,
-            includeTotal = false,
+            includeTotal = includeTotal,
             guestId = guestId
         ).map { response -> response.sessions.map { it.toDomain() } }
 
