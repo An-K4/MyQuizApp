@@ -2,7 +2,7 @@
 
 > **Tài liệu cấu trúc dự án chi tiết**  
 > Mô tả vai trò, trách nhiệm và mối quan hệ giữa các module trong kiến trúc Multi-module Gradle  
-> **Version:** 2.25 | **Last Updated:** N46 WIP đến Chơi thử/Tạo–Sửa quiz (source main 7178588; N44 vẫn PARTIAL)
+> **Version:** 2.26 | **Last Updated:** N46 WIP đến Hồ sơ/Bảo mật/Hoạt động/Chi tiết trận (source main da0cbf3; N44 PARTIAL)
 
 ---
 
@@ -88,8 +88,9 @@ app/
 │   │   ├── domain/profile/         # N42 - orchestration cho Profile do app sở hữu
 │   │   │   ├── ProfileDraft.kt
 │   │   │   ├── SaveProfileUseCase.kt
+│   │   │   ├── LoadProfileStatsUseCase.kt # N46.14 - 2 total server, không đếm page
 │   │   │   └── UpdateAvatarUseCase.kt
-│   │   ├── presentation/profile/   # N42 - sửa hồ sơ, avatar preview/lưu riêng, snackbar
+│   │   ├── presentation/profile/   # N42/N46.14–15 - profile + security; avatar entry trong edit, lưu riêng
 │   │   │   ├── ProfileScreen.kt
 │   │   │   ├── ProfileViewModel.kt
 │   │   │   ├── ProfileUiState.kt    # Bao gồm typed ProfileIntent
@@ -98,6 +99,7 @@ app/
 │   │   ├── presentation/activity/  # N38 - lịch sử server-backed cho user/guest
 │   │   │   ├── ActivityContract.kt
 │   │   │   ├── ActivityViewModel.kt
+│   │   │   ├── ActivityHistoryCard.kt # N46.16 - PlayedActivityCard/HostedActivityCard + shared frame
 │   │   │   └── ActivityScreen.kt
 │   │   └── navigation/
 │   │       ├── AppNavGraph.kt      # 🆕 N18.5 - Root NavHost orchestrator; N19.5: Scaffold + bottom bar bọc NGOÀI NavHost
@@ -153,6 +155,14 @@ dependencies {
 🔑 **`:app` không phụ thuộc domain của 1 feature cụ thể**: Trước đây `SplashViewModel` (trong `:app`) từng cần logic của `feature:auth` để kiểm tra trạng thái đăng nhập. Vì đây là logic cross-cutting (không chỉ Splash cần), `CheckAuthStateUseCase` được đưa xuống `core:datastore` thay vì đặt trong `:app` hay giữ phụ thuộc vào `feature:auth`. Xem mục 2.4 và mục 8.
 
 ---
+
+#### N46.14–N46.16 — top-level Hồ sơ/Bảo mật/Hoạt động
+
+- `app/domain/profile/LoadProfileStatsUseCase.kt` (kèm ProfileStats): gọi song song `core:common/repository/ProfileStatsRepository.kt`; impl tại `core:network/repository/ProfileStatsRepositoryImpl.kt`, binding NetworkBindingModule. Query history played/my-quizzes ALL, limit=1/includeTotal=true; bắt buộc meta.total, không page-size/Top 1 giả. ProfileUiState/ProfileViewModel thêm stats/loading/error/retry và token/job guard.
+- `ProfileScreen.kt`: avatar entry trong dialog edit, email disabled, form cuộn; guest QuizPrimaryButton không full width. Không đổi pipeline/avatar transaction, bỏ verified/camera/settings chưa có chức năng. Preview sample, không ViewModel/network thật.
+- `AccountSecurityScreen.kt`/ViewModel: 3 password eyes, Google-only card đồng bộ, mật khẩu vô hiệu hóa nhập/validate trong AlertDialog; row Hủy/Xác nhận dùng shared buttons. Lỗi giữ dialog, cancel xóa password/error; N43/N44 cleanup/session vẫn giữ. Helper SecretField hiện giữ visibility nhưng thiếu stateless Content overload: architecture debt cần rà trong scope source, chưa sửa trên docs.
+- `ActivityHistoryCard.kt`: PlayedActivityCard và HostedActivityCard khác metrics, chung frame/metadata. `HistoryListState.totalCount` lấy server từng role; LoadGameHistoryUseCase → GameSessionRepository.getGameHistory(..., includeTotal=false mặc định) → API; đầu cursor chain mới xin total, append giữ total. Card nav vẫn sessionId, guest chỉ played, không đổi session isolation.
+- Source refs: `e7576f6`/`2c67ec5`/`1affa01` (Profile), `cc9088a` (security), `798aabf` (Activity). App XML là evidence 11/10 cũ; security VM source 7 case nhưng report 5 case thiếu 3 tên dialog mới. Xem sổ N46, không coi đó là full regression PASS.
 
 #### N43 — ranh giới Account Security (không thêm module)
 - `app/domain/security`: `ObserveSecurityAccountUseCase`, `ChangePasswordUseCase`, `DeactivateAccountUseCase`, `SecurityValidation` và `SecurityMutationResult`. Quan sát/guard session, validation và orchestration qua Repository interface, không data implementation.
@@ -210,7 +220,8 @@ core/network/
 │   ├── repository/                       # 🟩 Implementation của interfaces từ core:common
 │   │   ├── AuthRepositoryImpl.kt         # implements AuthRepository
 │   │   ├── QuizRepositoryImpl.kt         # implements QuizRepository
-│   │   ├── GameSessionRepositoryImpl.kt  # implements GameSessionRepository; N39 history detail/answers
+│   │   ├── GameSessionRepositoryImpl.kt  # N39 history detail/answers; N46.16 forward includeTotal
+│   │   ├── ProfileStatsRepositoryImpl.kt # N46.14 - required meta.total cho profile
 │   │   └── InMemoryGameResultRepository.kt # 🆕 N24 - transient game:ended hand-off
 │   ├── socket/                            # 🆕 N18 (30/8) — 6 file thật
 │   │   ├── GameSocketClient.kt           # (socketToken) → callbackFlow<GameEvent> + awaitClose
@@ -436,7 +447,7 @@ core/ui/
 └── build.gradle.kts
 ```
 
-Tree phần N46 trên đối chiếu main `7178588`, không lấy source vắng trên docs làm bằng chứng chưa có file. QuizSummaryCard → QuizListCard (`9417aad`) → SearchQuizCard (`19c6425`); LibraryQuizCard riêng, DiscoveryQuizCard giữ Home/Discover; QuizCardItem xóa ở `d5571d6`. AnswerOptionItem Multiple opt-in (`141d81c`), ComponentColors internal chỉ trong core:ui. 88 XML PASS local trong các suite liên quan; Preview không thay full build/CI/E2E. Xem `N46_UI_PROGRESS.md`.
+Tree core:ui N46 trên đã có từ main `7178588`; baseline tổng thể nay `da0cbf3`, không lấy source vắng trên docs làm bằng chứng chưa có file. QuizSummaryCard → QuizListCard (`9417aad`) → SearchQuizCard (`19c6425`); LibraryQuizCard riêng, DiscoveryQuizCard Home/Discover, QuizCardItem xóa ở `d5571d6`. AnswerOptionItem Multiple opt-in, ComponentColors internal core:ui. Lượt này không sửa core:ui hoặc FinalResultScreen; evidence lịch sử 88 PASS và 56 PASS mới khác lượt/phạm vi, không phải full CI/E2E. Xem `N46_UI_PROGRESS.md`.
 
 #### UiText Pattern (minh họa, không phải inventory source)
 ```kotlin
@@ -522,13 +533,14 @@ core/common/
 │   │   ├── Player.kt
 │   │   ├── PlayerScore.kt
 │   │   ├── GameResults.kt
-│   │   ├── GameHistoryDetail.kt          # N39 - summary snapshot + viewer/visibility state
+│   │   ├── GameHistoryDetail.kt          # N39 summary; N46.17 sessionCode optional, identity vẫn sessionId
 │   │   ├── AuthState.kt                  # enum: FIRST_LAUNCH/GUEST_MODE/AUTHENTICATED
 │   │   └── GameEvent.kt                  # sealed class: all socket events
 │   ├── repository/                       # 🟦 Repository interfaces dùng chung
 │   │   ├── AuthRepository.kt             # Login, register, logout
 │   │   ├── QuizRepository.kt             # CRUD quizzes, search
-│   │   ├── GameSessionRepository.kt      # Create/join game, host token, leaderboard
+│   │   ├── GameSessionRepository.kt      # Create/join/history/results; N46.16 includeTotal
+│   │   ├── ProfileStatsRepository.kt     # N46.14 - interface total played + created quizzes
 │   │   ├── GameSocketRepository.kt       # 🆕 N18 base: events(socketToken)/joinLobby/disconnect
 │   │   ├── HostGameSocketRepository.kt   # 🆕 N18: startGame/nextQuestion/pause/resume/end
 │   │   ├── PlayerGameSocketRepository.kt # 🆕 N18: leaveLobby/submitAnswer/requestNext/sync
@@ -1003,6 +1015,7 @@ Sở hữu màn kết quả cuối game và màn chi tiết lịch sử. Leaderb
 - ✅ N39: `LoadGameHistorySummaryUseCase` và `LoadGameHistoryAnswersUseCase`; user dùng cookie, guest dùng UUID đã tồn tại; host không gọi answers
 - ✅ N39: summary/answers có loading-error-retry độc lập; render snapshot quiz, thành tích riêng, leaderboard, host per-question và answer sheet
 - ✅ N39: player giữ `viewerResult` nhưng full leaderboard bị loại khi `showLeaderboard=never`; host vẫn xem đủ
+- ✅ N46.17: HistorySummaryCard + HistoryReviewQuestionCard + HistoryQuestionStatCard riêng, Player/Guest không render full board, Host giữ board + thống kê; bỏ Host/count dòng thừa ở tổng quan. Correct/sai short/long theo server, ảnh câu bo góc dưới text; Host badge số + horizontal accuracy với answerCount làm mẫu số. Summary/answers/session guards không đổi.
 - ⚠️ Backend `BUG-17`: per-question group theo `question_id` nhưng dùng `min(question_index)`, nên self-paced shuffle có thể tạo nhiều thẻ cùng nhãn “Câu N”; Android không gộp nhầm theo index
 - ⏳ Share result ngoài phạm vi N39
 
@@ -1023,7 +1036,13 @@ feature/leaderboard/
 │       └── historydetail/
 │           ├── GameHistoryDetailContract.kt
 │           ├── GameHistoryDetailViewModel.kt
-│           └── GameHistoryDetailScreen.kt
+│           ├── GameHistoryDetailScreen.kt     # N46.17 Screen owns LazyListState / Content stateless
+│           ├── HistorySummaryCard.kt         # tổng quan + thành tích riêng, room code fallback name
+│           ├── HistoryReviewQuestionCard.kt  # history-only answer review + rounded question image
+│           ├── HistoryQuestionStatCard.kt    # Host aggregate counts, không có question text/key
+│           ├── HistoryDetailPresentation.kt  # pure projection + accuracy/room/status helpers
+│           ├── HistoryDetailColors.kt        # public light palette + dark fallback
+│           └── HistoryDetailPreviewData.kt   # sample chỉ cho Preview
 └── build.gradle.kts
 ```
 
@@ -1239,6 +1258,7 @@ abstract class DatabaseBindingModule {
 | `CookieStore` | `core:common/cookie` | `core:database` (RoomCookieStore) | `core:network` only |
 | `AuthRepository` | `core:common/repository` | `core:network` (AuthRepositoryImpl) | `feature:auth`, `core:datastore` (CheckAuthStateUseCase) |
 | `QuizRepository` | `core:common/repository` | `core:network` (QuizRepositoryImpl) | `feature:home`, `feature:quiz-manage` |
+| `ProfileStatsRepository` | `core:common/repository` | `core:network` (ProfileStatsRepositoryImpl) | `app/domain/profile/LoadProfileStatsUseCase` — 2 total server |
 | `GameSessionRepository` | `core:common/repository` | `core:network` (GameSessionRepositoryImpl) | `feature:lobby`, `feature:quiz-manage`, `feature:leaderboard` (N29 review, N35 results recovery, N39 history detail/answers), `app` (N38 history list) |
 | `GameSocketRepository` (base) | `core:common/repository` | `core:network/socket` (GameSocketClient) | `feature:lobby` (host ở N18, player ở N19), `feature:game-*` (N21+) |
 | `PlayerGameSocketRepository` | `core:common/repository` | `core:network/socket` (PlayerGameSocketRepositoryImpl) | `feature:lobby` (player), `feature:game-player` |
@@ -1650,9 +1670,9 @@ MyQuizApp được xây dựng với **14 modules** theo **Clean Architecture + 
 
 ---
 
-**Document Version:** 2.25
-**Last Updated:** N46 WIP đến Chơi thử/Tạo–Sửa quiz (source Android 7178588)
-**Status:** Living document — baseline main `7178588`, cập nhật 3 commit multi-select/Chơi thử/shared editor sau `2308cc6`. 10 XML local: 28 quiz-preview + 44 quiz-manage + 16 editor-validator = 88 PASS; full assemble/lint/CI/E2E và Discover Paging retest chưa xác minh. N46 WIP, N44 PARTIAL; Google/cookie DEFERRED và backend/privacy/session/deployment gates giữ nguyên, chưa chốt N45/M6/release. Vẫn 14 module; source/tests trên main, docs trên docs. Xem N46_UI_PROGRESS.md và N44_E2E_REPORT.md.
+**Document Version:** 2.26
+**Last Updated:** N46 WIP đến Hồ sơ/Bảo mật/Hoạt động/Chi tiết trận (source Android da0cbf3)
+**Status:** Living document — baseline main/origin/main `da0cbf3`; targeted docs sau `f098826`, không thêm module (vẫn 14). 8 XML mới timestamp 15/10/2026 có 56 PASS local; app XML 11/10 cũ không đóng security dialog regression. 88 practice/editor PASS giữ riêng là evidence lịch sử. Full assemble/lint/CI/E2E và Discover retest chưa xác minh; N46 WIP/N44 PARTIAL, N45/M6/release và Google/cookie/backend/privacy/session/deployment gates giữ nguyên. Source/tests trên main, docs trên docs; xem N46_UI_PROGRESS.md/N44_E2E_REPORT.md.
 
 ---
 

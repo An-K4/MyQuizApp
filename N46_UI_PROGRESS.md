@@ -1,13 +1,13 @@
 # N46 — UI polish theo từng mốc nhỏ (WIP)
 
-> Baseline source Android: `main` tại `7178588` (Chơi thử + form Tạo/Sửa quiz). Sau baseline docs `2308cc6`, thêm 3 commit `141d81c`, `2c1543c`, `7178588`. Đây là baseline source đã commit, không phải SHA APK đã kiểm thử.
+> Baseline source Android: `main` tại `da0cbf3`, đã đối chiếu cả `origin/main`. Sau docs `f098826` (source `7178588`), đã thêm Hồ sơ, Bảo mật tài khoản, Hoạt động, Chi tiết trận và các fix test. Đây là baseline source đã commit, không phải SHA APK/backend đã kiểm thử.
 > N46 được triển khai từng phần theo user duyệt, không làm một mạch toàn app. N44 vẫn PARTIAL, N45/M6 và release gates chưa đóng; xem `N44_E2E_REPORT.md`.
 
 ## 1. Cách đọc trạng thái
 
 - “Đã triển khai/commit” chỉ xác nhận source có trên main.
 - “User duyệt UI” không thay thế build, lint, unit test, Compose UI test hoặc E2E.
-- Agent chưa chạy Gradle/render Compose; đã đối chiếu 10 XML local gồm 28 quiz-preview + 44 quiz-manage + 16 editor-validator = 88 PASS (mục 6). Chưa xác minh full assemble/lint/CI hoặc E2E mới; không suy ra PASS từ commit/@Preview.
+- Agent chưa chạy Gradle/render Compose. Evidence mới: 8 XML local timestamp 15/10/2026, 56 PASS ở history/lobby/HostGame; 7 XML app 11/10/2026 có 41 PASS nhưng cũ, riêng security dialog chưa khớp source. Giữ 10 XML practice/editor 88 PASS của lượt trước như evidence lịch sử riêng (mục 6), không cộng thành một run/full-suite PASS. Full assemble/lint/CI/E2E mới chưa xác minh.
 - Dark hiện là fallback theo Material theme, chưa có mẫu dark được duyệt toàn app.
 
 ## 2. Sổ mốc triển khai
@@ -35,6 +35,14 @@
 | N46.12a | Multi-select AnswerOptionItem + info palette | `141d81c` | Đã commit; opt-in checkbox, single/readOnly mặc định không đổi |
 | N46.12b | Chơi thử theo ảnh 12, feedback/chuyển câu thủ công | `2c1543c` | User duyệt; top bar Chơi thử, critical timer 30%; 28 test XML local PASS |
 | N46.13 | Form Tạo/Sửa dùng chung theo ảnh 13/14 đã điều chỉnh | `7178588` | User duyệt; validator/mapping/guards + 25 Preview; 31 editor test XML local PASS, E2E lưu/mở lại chưa xác minh |
+| N46.14a | Thống kê Hồ sơ từ total server | `e7576f6` | LoadProfileStatsUseCase + ProfileStatsRepository; 2 chỉ số thật, loading/error/retry và session guard |
+| N46.14b | Hồ sơ theo ảnh 26 đã điều chỉnh | `2c67ec5` | User duyệt; avatar entry trong edit, email disabled/form cuộn, guest button không full width |
+| N46.14c | Sửa assertion test thống kê | `1affa01` | Sửa assertion Result.Success; app XML cũ đã đọc có 2 stats case PASS, không suy ra full CI |
+| N46.15 | Bảo mật tài khoản theo ảnh 27 | `cc9088a` | User duyệt; 3 mắt password, Google-only card, password xác nhận trong dialog; Hủy/Xác nhận ngang hàng. XML VM hiện còn cũ |
+| N46.16 | Hoạt động theo ảnh 24 + total riêng mỗi role | `798aabf` | User duyệt; Played/Hosted card riêng, giữ cursor/session/nav; app XML là evidence cũ |
+| N46.17a | Mapping mã phòng lịch sử | `be01ee7` | sessionCode optional, sessionId vẫn identity; 5 DTO test XML local PASS (3 cũ + 2 mới) |
+| N46.17b | Chi tiết trận theo ảnh 25 đã điều chỉnh | `43ed870` | User review tinh gọn tổng quan; history-only cards, ảnh câu bo góc, short/long answer + Host horizontal stats; 17 presentation test XML PASS |
+| Regression interface | Đồng bộ fake với includeTotal | `93c29e3`, `da0cbf3` | HostGame + FinalResult + HostLobby; XML local tương ứng PASS; không sửa production/giảm assertion |
 | N46.next | Màn tiếp theo do user chọn + ảnh mẫu | Chưa chốt | Giữ backlog retest Search/Discover/Paging và regression; không tự chuyển màn hoặc đóng N46 |
 
 Tên mốc là checkpoint nội bộ của N46, không thay đổi kế hoạch N1–N50 hoặc tạo release gate mới.
@@ -201,12 +209,58 @@ Gradient result từ CSS: `#21113E` tại 0%, `#4C2B8D` tại 48%, `#25144F` t�
 - 25 Preview tại Create/Edit/Card/Image-Dialog component: đủ 4 types, 2/4 options, custom time, supplementary, ảnh placeholder, lỗi/saving, light/dark và discard **Content** trực tiếp. Agent chưa render Android Preview; user đã xác nhận editor khá ổn sau bỏ viền con. Cần retest máy thật Tạo → mở lại → Sửa → lưu → mở lại, ảnh/IME/back/loading/error.
 - 31 test editor đã đối chiếu XML PASS: 16 validator + 6 Create VM + 7 Edit VM + 2 mapping. Quiz-manage còn 29 regression List/Detail PASS trong lượt XML mới; không suy ra full assemble/lint/CI hoặc E2E.
 
+### Hồ sơ — N46.14a–N46.14c
+
+- Ảnh 26 được chỉnh theo user: top bar **Hồ sơ** đậm; avatar/tên/email, không camera overlay/nhãn “đã xác thực”; bỏ Âm thanh & Hiệu ứng và Điều khoản & Hỗ trợ chưa có chức năng. Chỉ giữ **Chỉnh sửa thông tin cá nhân / Bảo mật tài khoản & Đổi mật khẩu** và logout viền đỏ; không thêm Top 1 giả.
+- Stats chỉ **Lượt tham gia / Quiz đã tạo**: `LoadProfileStatsUseCase` tại app/domain/profile gọi song song `ProfileStatsRepository` (core:common); impl core:network đọc history role=played và my-quizzes ALL, limit=1/includeTotal=true, lấy `meta.total`. Thiếu total trả lỗi, không lấy độ dài page hoặc biến thành 0; có loading/“—”/retry. ProfileViewModel quản lý job/token guard, hủy khi đổi phiên/logout.
+- Lối vào đổi ảnh chuyển vào **dialog Chỉnh sửa thông tin cá nhân**, không có item/avatar action riêng trên màn chính. Vẫn dùng Photo Picker, preview/lưu avatar riêng N42; đây không phải save atomically cùng các field text. Email là **OutlinedTextField disabled**, bỏ dòng “email không thể thay đổi”; form giới hạn chiều cao và cuộn được. Giữ PATCH delta/fullname/phone/description, guards và discard flow hiện hữu.
+- Khách dùng `QuizPrimaryButton` “Đăng ký/Đăng nhập”, **không full width**. Có Preview logged-in/guest/stats loading/error/edit; fixture User có createdAt/updatedAt đầy đủ. User đã duyệt hình thức.
+- `1affa01` sửa assertion test stats từng fail (`41 tests, 1 failed` trong log user); không sửa tính toán để xanh. App XML 11/10/2026 có 2 stats + 7 Profile VM + 8 Profile use case PASS, nhưng không ràng buộc SHA hoặc toàn bộ baseline mới.
+
+### Bảo mật tài khoản — N46.15
+
+- `cc9088a`, ảnh 27: back icon + title đậm, section Đổi mật khẩu với **mắt ẩn/hiện ở cả 3 field**, shared Primary “Cập nhật mật khẩu”. Giữ dòng cảnh báo đổi mật khẩu không tự đăng xuất thiết bị khác; không tự thêm chính sách password từ ảnh.
+- Google-only chỉ có card thông báo dùng màu card chung/light token + dark Material fallback; không dựng form/action backend chưa hỗ trợ.
+- Card nguy hiểm giữ nội dung thật: **vô hiệu hóa không xóa toàn bộ dữ liệu**, chưa có tự khôi phục. Không dùng lời hứa tạm khóa/xóa vĩnh viễn toàn bộ quiz trong ảnh.
+- Nút Vô hiệu hóa mở dialog; **password xác nhận nhập và validate trong dialog**, lỗi server giữ dialog/error để retry. Hủy xóa password/error, không gửi DELETE; busy khóa action/dismiss, giữ cleanup-only retry và session-end navigation N43/N44. Password chỉ RAM.
+- Review cuối của user: hàng **Hủy / Xác nhận** ngang nhau, chia đều như AppConfirmDialog; nhãn chỉ **Xác nhận**, không “Xác nhận vô hiệu hóa”. Implementation hiện là AlertDialog với row shared buttons, **không phải đã migrate sang AppConfirmDialog**.
+- Source AccountSecurityViewModelTest có 7 case; XML còn 5 case cũ, thiếu 3 tên test mới cho validate/cancel/rejected dialog và chứa 1 tên cancel cũ. Chưa có evidence mới cho regression này; không nâng N43/N44/Google-cookie gate.
+
+### Hoạt động — N46.16
+
+- `798aabf`, ảnh 24: title **Hoạt động** đậm; giữ 2 role/tab của user và guest chỉ played. Count tab lấy `totalCount` server từng role; thiếu total thì bỏ số, không dùng số item đang tải hay con số trong mockup.
+- `ActivityHistoryCard.kt`: tách **PlayedActivityCard** (rank/totalPlayers, score, correct/total + progress khi có dữ liệu) và **HostedActivityCard** (số người chơi/số câu hỏi, không rank/score cá nhân). Dùng chung frame/title/cover optional/mode/time; Played có host/avatar nếu có, Hosted không lặp tên chính mình. Card bo góc/nền dịu, icon mở detail; không bịa accuracy khi thiếu mẫu số/correct count.
+- Toàn card mở `sessionId` như trước; giữ initial/append loading-error-retry/empty và cursor/page độc lập, session isolation/lifecycle refresh. Không đổi endpoint/auth/navigation.
+- `getGameHistory(..., includeTotal: Boolean = false)` xuyên Use case → Repository → API; request total khi cursor=null, append giữ total cũ nếu response không có. Không fetch hết lịch sử để đếm; không cần backend role=all.
+- Content/Preview fake data/no-op giữ pattern; user duyệt UI. ActivityViewModelTest XML có 8 PASS nhưng timestamp 11/10, không có SHA/run id; cần run mới khi chốt regression baseline.
+
+### Chi tiết trận đấu — N46.17a–N46.17b
+
+- `be01ee7` map optional `session_code` vào GameHistorySummary.sessionCode; giữ default null cho payload cũ. **Mã phòng chỉ để hiển thị**, route/identity vẫn sessionId. Có mã dùng mã, thiếu/rỗng dùng tên phòng; không show cả hai hoặc chế mã từ ID.
+- `43ed870`, ảnh 25: title **Chi tiết trận đấu** đậm + back icon, **bỏ Quay lại bên phải**. Gộp card tổng quan/thành tích; giữ cover, mô tả snapshot, thời điểm/mode; chỉ badge **Đã hủy**, không Đã kết thúc. Review cuối đã **bỏ dòng Host và dòng “x người chơi • y câu hỏi”** để ngắn card; vẫn giữ rank/totalPlayers, score, correct/totalQuestions và streak khi có. Host chỉ “Bạn đã tổ chức trận này”, không giả thành tích riêng.
+- Player/Guest không render full leaderboard; summary → **Xem lại câu trả lời**. Host giữ full bảng bằng `LeaderboardPlayerCard`, sau đó **Thống kê từng câu**. Giữ summary/answers loading-error-retry độc lập và Use case/VM/session/privacy guards N39/N44.
+- History-only components: **HistorySummaryCard / HistoryReviewQuestionCard / HistoryQuestionStatCard**; `HistoryDetailPresentation.kt` projection thuần, `HistoryDetailColors.kt` dùng public palette + dark fallback, `HistoryDetailPreviewData.kt` chỉ fixture Preview. **Không sửa ReviewItemCard/QuestionStatCard hay polish FinalResultScreen**.
+- Review card nền trung tính; ảnh câu hỏi optional bo góc **ngay dưới nội dung**, rồi trạng thái/điểm, đáp án và explanation/time/late. Single/multiple chỉ hiện correct keys xanh ✓ và wrong selected đỏ ✕; ẩn distractor chưa chọn. Lựa chọn đúng đã chọn vẫn xanh nếu cả bộ multi-select chưa đúng; giữ thứ tự/nhãn option snapshot, không lộ raw ID khi thiếu nội dung.
+- Short/long dùng cùng renderer do review payload không có question_type: server `answered/isCorrect` quyết định trạng thái, **không so text để chấm lại**. Đúng chỉ block câu trả lời xanh; sai block đã trả lời đỏ + correct key xanh; bỏ qua trạng thái trung tính, không tạo câu trả lời sai giả. Key/nội dung thiếu có notice phù hợp.
+- Host stat: **badge số N bên trái + column “x/y trả lời đúng – a%” và thanh tiến độ ngang**. N là questionIndex+1 server, y là answerCount (không totalPlayers), 0 lượt trả lời ghi rõ không có dữ liệu, không bịa 0%; invalid counts fallback chưa khả dụng. Không circular progress.
+- Contract đã audit ở backend `7c103c87b4c78d817e8a7acf50fd0424edd16c79` (game.service.ts/game.repository.ts): summary có gs.* gồm session_code; perQuestion chỉ questionId/index/answerCount/correctCount, **không nội dung/ảnh/key/explanation**. Không fetch quiz hiện tại để giả snapshot lịch sử. BUG-17 min(question_index)/shuffle vẫn mở; chưa xác minh backend deployment mới.
+- Screen sở hữu LazyListState; Content + card Preview bằng sample/no-op, có Player/Host, dark/narrow/large text, loading/error/disabled/empty, lựa chọn và short/long/skipped/key thiếu. Agent chưa render Android Preview. 17 presentation + 3 Detail VM + 9 identity + 7 FinalResult regression có XML PASS trong lượt mới; không suy ra E2E/privacy PASS.
+
+### Regression fake sau includeTotal
+
+- `93c29e3`: HostGameViewModelTest fake thêm tham số includeTotal. `da0cbf3`: FinalResultViewModelTest và HostLobbyViewModelTest fake cùng sửa; không đổi production, không bỏ test/assertion. User đã commit cả hai, main/origin/main hiện `da0cbf3`.
+- Hai log trước là **compileDebugUnitTestKotlin FAILED**, chưa tới assertion. `--tests` vẫn compile toàn bộ test source của module; filter history không tránh fake lỗi trong FinalResult. Rà batch 57 file test khi search_content trả rỗng sai; 4 override trực tiếp (Activity/HostGame/FinalResult/HostLobby) đã khớp interface trong phạm vi đã đọc.
+- 11 HostGame + 7 FinalResult + 2 HostLobby XML mới PASS (nằm trong tổng 56 dưới đây), không cộng lại thành run riêng.
+
 ## 6. Checklist evidence và việc còn mở
 
-- [x] Đối chiếu source/commit N46.0–N46.13 tại main `7178588`; lần này thêm 3 commit sau `2308cc6`, giữ docs tách khỏi main.
-- [x] User xác nhận UI Login/Register/Home/Thư viện/Chi tiết/Chơi thử/editor và dialog ổn; không suy ra full visual/E2E PASS.
-- [x] Đọc 10 XML local mới: 28 quiz-preview + 44 quiz-manage + 16 editor-validator = 88 PASS, 0 failures/errors/skipped; chi tiết dưới đây.
-- [ ] Thu thập full assemble/lint/CI và các suite còn lại cho baseline N46 mới; 88 test local dưới đây không phải kết quả toàn app hoặc bằng chứng APK cùng SHA.
+- [x] Đối chiếu source/commit N46.0–N46.17 tại main/origin/main `da0cbf3`; docs cập nhật sau `f098826`, không merge main vào docs.
+- [x] User duyệt/hiệu chỉnh UI các mốc trước và Hồ sơ/Bảo mật/Hoạt động/Chi tiết trận; card tổng quan đã bỏ 2 dòng thừa. Không suy ra full visual/E2E PASS.
+- [x] Evidence lịch sử của lượt docs `f098826`: 10 XML local practice/editor, 88 PASS, 0 failures/errors/skipped; giữ riêng bảng dưới, không coi là run mới.
+- [ ] Thu thập full assemble/lint/CI và các suite còn lại cho baseline mới; 56 test XML mới và 88 test lịch sử không chứng minh toàn app/APK cùng SHA.
+- [x] Đọc thêm 8 XML history/lobby/HostGame timestamp 15/10/2026: 56 PASS; 7 XML app cũ 11/10 có 41 PASS nhưng security VM không khớp source (chi tiết dưới).
+- [ ] Chạy lại app regression cho source hiện tại, đặc biệt 7 AccountSecurityViewModelTest (3 tên case dialog mới chưa có trong XML); không dùng XML cũ 5 case để đóng checkpoint.
+- [ ] Architecture debt cục bộ: SecretField ở AccountSecurityScreen hiện giữ visibility bằng remember nhưng thiếu stateless Content overload sau polish; cần rà/tách lõi theo AGENTS khi duyệt scope source, không sửa code trên docs.
 - [ ] Kiểm thử auth regression: validation, visibility, loading/error, guest, forgot/register/login navigation, Google và session; không đánh Google/cookie fixed nếu happy case pass.
 - [ ] Xem Preview và máy thật: light/dark, field/icon/spacing, keyboard/IME, font scale, narrow screen, TalkBack/touch targets/contrast.
 - [ ] Retest lỗi Paging index trên Discover sau `d5571d6`: cuộn append, retry, đổi danh mục/sort nhanh từ list nhiều sang ít/rỗng, back/reopen; chưa có xác nhận sau sửa.
@@ -218,7 +272,7 @@ Gradient result từ CSS: `#21113E` tại 0%, `#4C2B8D` tại 48%, `#25144F` t�
 - [ ] Các màn khác, animation, sheet dark-mode và accessibility toàn app còn mở; N46 chưa hoàn tất.
 - [ ] N44-OFFLINE-BOOT, Practice pause/resume, N20.6/N25/N28.5/N29/N30, privacy/session và build/deployment gates giữ trong hồ sơ N44, không waived bởi UI polish.
 
-### Evidence unit test local mới — Chơi thử và editor
+### Evidence lịch sử — Chơi thử và editor (lượt docs f098826)
 
 Đã đọc 10 XML trong `feature/quiz-preview/build/test-results/testDebugUnitTest/`, `feature/quiz-manage/build/test-results/testDebugUnitTest/` và báo cáo **QuizEditorValidatorTest** tại `core/common/build/test-results/testDebugUnitTest/`. Không coi đây là toàn bộ suite core:common/toàn app.
 
@@ -238,6 +292,27 @@ Gradient result từ CSS: `#21113E` tại 0%, `#4C2B8D` tại 48%, `#25144F` t�
 **Tổng 88/88 PASS local:** 28 quiz-preview + 44 quiz-manage (15 editor + 29 List/Detail regression) + 16 core editor-validator; 0 failures/errors/skipped. Timestamps là 11/10/2026: Preview khoảng 13:22 UTC, editor/List/Detail khoảng 14:22 UTC. XML không mang git SHA/run id; thời gian gần các commit không chứng minh APK/backend cùng revision hoặc full assemble/lint/CI/E2E. Agent đọc report, không chạy Gradle.
 
 Lượt docs trước ghi 29/29 List/Detail PASS tại 04:36 UTC ngày 11/10/2026; giữ là evidence lịch sử, lượt mới trên bổ sung editor và practice. Hai fixture Detail từng fail đã được sửa bằng tạo ViewModel trong runTest sau mock setup, không bỏ assertions/production guards. 10 normalization, 8 password-reset và 9 Search state test vẫn chưa được đối chiếu run mới trong lượt này.
+
+### Evidence mới — history/lobby/HostGame và giới hạn app XML
+
+Đọc 8 XML từ `feature/leaderboard`, `feature/lobby`, `feature/game-host` và riêng suite `core/network/.../GameHistoryDtosTest` trong `build/test-results/testDebugUnitTest/`. Các file dưới timestamp **15/10/2026 UTC**, không phải timestamp lượt 11/10 trước đó; chưa ràng buộc được với git SHA/run id hoặc APK/backend revision.
+
+| Suite | Tests | Failures / errors / skipped | Timestamp XML (UTC) |
+| --- | --- | --- | --- |
+| `GameHistoryIdentityTest` | 9 | 0 / 0 / 0 | `2026-10-15T14:20:36.132Z` |
+| `FinalResultViewModelTest` | 7 | 0 / 0 / 0 | `2026-10-15T14:20:38.986Z` |
+| `GameHistoryDetailPresentationTest` | 17 | 0 / 0 / 0 | `2026-10-15T14:20:39.028Z` |
+| `GameHistoryDetailViewModelTest` | 3 | 0 / 0 / 0 | `2026-10-15T14:20:39.088Z` |
+| `HostLobbyViewModelTest` | 2 | 0 / 0 / 0 | `2026-10-15T14:20:40.997Z` |
+| `PlayerLobbyViewModelTest` | 2 | 0 / 0 / 0 | `2026-10-15T14:20:41.265Z` |
+| `HostGameViewModelTest` | 11 | 0 / 0 / 0 | `2026-10-15T14:14:08.533Z` |
+| `GameHistoryDtosTest` | 5 | 0 / 0 / 0 | `2026-10-15T14:11:26.614Z` |
+
+**Tổng mới: 56/56 PASS trong 8 XML** = 36 leaderboard + 4 lobby + 11 HostGame + 5 history DTO. Đối chiếu tên testcase với source trong phạm vi này khớp; không thay thế SHA/run binding/full CI hoặc E2E. Không phải toàn core:network; các suite khác/cookie-race không được đánh PASS theo đó.
+
+Đọc thêm **7 XML app timestamp 11/10/2026**, tổng 41 PASS: AccountSecurityUseCasesTest 10, AccountSecurityViewModelTest 5, ActivityViewModelTest 8, ExampleUnitTest 1, LoadProfileStatsUseCaseTest 2, ProfileUseCasesTest 8, ProfileViewModelTest 7. Đây là **evidence cũ**, không gộp vào 56 thành một run 97 PASS hiện tại. Riêng security VM source có 7 case: 3 tên mới về validate/cancel/rejected dialog chưa có trong report, 1 tên cancel cũ vẫn có trong XML; cần run lại. Các suite app khác tên testcase khớp nhưng XML không có SHA nên cũng chưa chứng minh regression baseline mới.
+
+Tổng 88 PASS practice/editor ở bảng trên tiếp tục là lượt lịch sử riêng. Agent chỉ đọc report/source, không chạy Gradle, không xác minh full assemble/lint/CI, runtime tải ảnh, E2E hoặc backend deployment trong lượt docs này.
 
 ## 7. Quy trình cho các mốc tiếp theo
 
