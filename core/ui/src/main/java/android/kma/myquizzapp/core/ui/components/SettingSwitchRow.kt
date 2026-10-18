@@ -6,6 +6,12 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Surface
 import androidx.compose.ui.tooling.preview.Preview
 
+import android.kma.myquizzapp.core.ui.theme.ComponentColors
+import android.kma.myquizzapp.core.ui.theme.Primary
+import androidx.compose.material3.SwitchDefaults
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -33,19 +39,32 @@ fun SettingSwitchRow(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            Text(text = title, style = MaterialTheme.typography.bodyLarge)
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = ComponentColors.foreground.copy(alpha = if (enabled) 1f else 0.55f),
+            )
             description?.let {
                 Text(
                     text = it,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = ComponentColors.muted
                 )
             }
         }
         Switch(
             checked = checked,
             onCheckedChange = onCheckedChange,
-            enabled = enabled
+            enabled = enabled,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = Color.White,
+                checkedTrackColor = Primary,
+                checkedBorderColor = Color.Transparent,
+                uncheckedThumbColor = ComponentColors.surface,
+                uncheckedTrackColor = ComponentColors.border,
+                uncheckedBorderColor = Color.Transparent,
+            ),
         )
     }
 }

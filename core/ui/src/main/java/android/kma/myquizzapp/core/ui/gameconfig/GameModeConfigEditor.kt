@@ -8,6 +8,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.font.FontWeight
+import android.kma.myquizzapp.core.ui.theme.ComponentColors
 
 /**
  * Form sửa cấu hình theo từng chế độ chơi.
@@ -113,7 +115,7 @@ private fun MarathonModeEditor(scope: EditorScope) {
         SettingsSection("Ngân sách thời gian") {
             NumberSetting(
                 scope = scope,
-                title = "Tổng thời gian trận",
+                title = "Tổng thời gian trận (giây)",
                 key = GameConfigKey.TOTAL_MATCH_SECONDS,
                 state = scope.form.totalMatchSeconds,
                 description = "Thời gian tối đa cho toàn bộ trận"
@@ -149,7 +151,7 @@ private fun ModeSettingsColumn(content: @Composable () -> Unit) {
 @Composable
 private fun SettingsSection(title: String, content: @Composable () -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(title, style = MaterialTheme.typography.titleMedium)
+        Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = ComponentColors.foreground)
         content()
     }
 }
@@ -192,7 +194,7 @@ private fun ScoringSettings(scope: EditorScope, includeNegativeMarking: Boolean)
 private fun PerQuestionSecondsField(scope: EditorScope) {
     NumberSetting(
         scope = scope,
-        title = "Thời gian mỗi câu",
+        title = "Thời gian mỗi câu (giây)",
         key = GameConfigKey.PER_QUESTION_SECONDS,
         state = scope.form.perQuestionSeconds,
         description = "Để trống: dùng thời gian của câu hỏi \u2022 0: không giới hạn"
