@@ -1,6 +1,7 @@
 package android.kma.myquizzapp.feature.lobby.presentation.playerlobby
 
 import android.kma.myquizzapp.core.common.model.AnswerAck
+import android.kma.myquizzapp.core.common.model.DisconnectReason
 import android.kma.myquizzapp.core.common.model.GameEvent
 import android.kma.myquizzapp.core.common.model.PlayerAnswer
 import android.kma.myquizzapp.core.common.repository.PlayerGameSocketRepository
@@ -9,6 +10,7 @@ import android.kma.myquizzapp.feature.lobby.presentation.hostlobby.ConnectionSta
 import androidx.lifecycle.SavedStateHandle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -69,12 +71,40 @@ class PlayerLobbyViewModelTest {
         assertEquals(2, socket.joinCalls)
         assertEquals(ConnectionStatus.CONNECTED, viewModel.uiState.value.connection)
     }
+    @Test
+    fun `confirmed leave emits leave before disconnect when connected`() = runTest(dispatcher) {
+        runCurrent()
+        socket.emit(GameEvent.Connected)
+        runCurrent()
+
+        viewModel.onIntent(PlayerLobbyIntent.LeaveRoom)
+        runCurrent()
+
+        assertEquals(listOf("leave", "disconnect"), socket.leaveActions)
+        assertEquals(PlayerLobbyEffect.ExitLobby(null), viewModel.effect.first())
+    }
+
+    @Test
+    fun `leave during reconnect skips unsendable leave but still exits`() = runTest(dispatcher) {
+        runCurrent()
+        socket.emit(GameEvent.Connected)
+        socket.emit(GameEvent.Disconnected(DisconnectReason.TRANSPORT))
+        runCurrent()
+
+        viewModel.onIntent(PlayerLobbyIntent.LeaveRoom)
+        runCurrent()
+
+        assertEquals(listOf("disconnect"), socket.leaveActions)
+        assertEquals(PlayerLobbyEffect.ExitLobby(null), viewModel.effect.first())
+    }
+
 }
 
 private class FakePlayerLobbySocketRepository : PlayerGameSocketRepository {
     private val events = MutableSharedFlow<GameEvent>(extraBufferCapacity = 16)
     val tokens = mutableListOf<String>()
     var joinCalls = 0
+    val leaveActions = mutableListOf<String>()
 
     override fun events(socketToken: String): Flow<GameEvent> {
         tokens += socketToken
@@ -89,8 +119,12 @@ private class FakePlayerLobbySocketRepository : PlayerGameSocketRepository {
         joinCalls++
     }
 
-    override suspend fun disconnect() = Unit
-    override suspend fun leaveLobby() = Unit
+    override suspend fun disconnect() {
+        leaveActions += "disconnect"
+    }
+    override suspend fun leaveLobby() {
+        leaveActions += "leave"
+    }
     override suspend fun submitAnswer(answer: PlayerAnswer): Result<AnswerAck> = error("Not used")
     override suspend fun requestNextQuestion() = Unit
     override suspend fun sync() = Unit

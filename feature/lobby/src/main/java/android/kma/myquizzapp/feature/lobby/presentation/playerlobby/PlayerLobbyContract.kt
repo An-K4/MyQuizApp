@@ -27,6 +27,12 @@ data class PlayerLobbyUiState(
 
     val playerCount: Int get() = players.size
 
+    /** Use the room identity, not the signed-in account name (the player may be a guest). */
+    val myPlayer: LobbyPlayer? get() = players.firstOrNull { it.id == myPlayerId }
+
+    /** Keep offline/unknown rows in the total; only exact connected statuses count as online. */
+    val connectedPlayerCount: Int get() = players.count { it.status == "connected" }
+
     /** Có mode tính mạng (survival) hay không — quyết định có hiện số mạng không. */
     val showLives: Boolean get() = players.any { it.lives != null }
 }

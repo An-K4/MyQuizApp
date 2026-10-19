@@ -2,157 +2,196 @@ package android.kma.myquizzapp.feature.lobby.presentation.playerlobby
 
 import android.kma.myquizzapp.core.common.model.LobbyPlayer
 import android.kma.myquizzapp.core.common.model.SessionStatus
-import android.kma.myquizzapp.core.ui.components.Avatar
+import android.kma.myquizzapp.core.ui.components.AppConfirmDialog
+import android.kma.myquizzapp.core.ui.components.AppConfirmDialogContent
+import android.kma.myquizzapp.core.ui.components.QuizSecondaryButton
 import android.kma.myquizzapp.core.ui.theme.MyQuizAppTheme
+import android.kma.myquizzapp.core.ui.theme.Primary
+import android.kma.myquizzapp.feature.lobby.R
+import android.kma.myquizzapp.feature.lobby.presentation.components.LobbyColors
+import android.kma.myquizzapp.feature.lobby.presentation.components.LobbyConnectionBadge
+import android.kma.myquizzapp.feature.lobby.presentation.components.LobbyPlayerAvatar
+import android.kma.myquizzapp.feature.lobby.presentation.components.LobbyPlayerStatusBadge
 import android.kma.myquizzapp.feature.lobby.presentation.hostlobby.ConnectionStatus
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyGridState
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
-/**
- * Màn phòng chờ của NGƯỜI CHƠI (stateful).
- *
- * @param onExit được gọi khi rời phòng. `message` khác null là bị buộc rời — tầng
- *   navigation quyết định hiển thị thông báo ở đâu sau khi pop.
- */
+/** Stateful boundary: socket effects/navigation, snackbar, scroll and leave confirmation. */
 @Composable
 fun PlayerLobbyScreen(
     onExit: (message: String?) -> Unit,
     onNavigateToGame: (gameId: Long, playerId: Long, socketToken: String) -> Unit,
     modifier: Modifier = Modifier,
-    viewModel: PlayerLobbyViewModel = hiltViewModel()
+    viewModel: PlayerLobbyViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val gridState = rememberLazyGridState()
+    val snackbarHostState = remember { SnackbarHostState() }
+    var showLeaveConfirmation by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         viewModel.effect.collect { effect ->
+            showLeaveConfirmation = false
             when (effect) {
                 is PlayerLobbyEffect.ExitLobby -> onExit(effect.message)
                 is PlayerLobbyEffect.NavigateToGame -> onNavigateToGame(
-                    effect.gameId,
-                    effect.playerId,
-                    effect.socketToken
+                    effect.gameId, effect.playerId, effect.socketToken,
                 )
             }
         }
     }
+    LaunchedEffect(uiState.errorMessage) {
+        val message = uiState.errorMessage ?: return@LaunchedEffect
+        snackbarHostState.showSnackbar(message)
+        viewModel.onIntent(PlayerLobbyIntent.ErrorShown)
+    }
+    BackHandler { showLeaveConfirmation = true }
 
     PlayerLobbyScreenContent(
         uiState = uiState,
-        onIntent = viewModel::onIntent,
-        modifier = modifier
+        gridState = gridState,
+        onBack = { showLeaveConfirmation = true },
+        onRetry = { viewModel.onIntent(PlayerLobbyIntent.Retry) },
+        modifier = modifier,
+        snackbarHost = { SnackbarHost(snackbarHostState) },
     )
+    if (showLeaveConfirmation) {
+        AppConfirmDialog(
+            title = LEAVE_ROOM_TITLE,
+            message = LEAVE_ROOM_MESSAGE,
+            confirmText = "Rời phòng",
+            dismissText = "Ở lại",
+            onConfirm = {
+                showLeaveConfirmation = false
+                // Keep the existing leaveLobby-before-disconnect path; never pop directly.
+                viewModel.onIntent(PlayerLobbyIntent.LeaveRoom)
+            },
+            onDismiss = { showLeaveConfirmation = false },
+        )
+    }
 }
 
+/** Pure UI: header, identity card and roster scroll together; connection footer stays visible. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PlayerLobbyScreenContent(
     uiState: PlayerLobbyUiState,
-    onIntent: (PlayerLobbyIntent) -> Unit,
-    modifier: Modifier = Modifier
+    gridState: LazyGridState,
+    onBack: () -> Unit,
+    onRetry: () -> Unit,
+    modifier: Modifier = Modifier,
+    snackbarHost: @Composable () -> Unit = {},
 ) {
-    val snackbarHostState = remember { SnackbarHostState() }
-
-    LaunchedEffect(uiState.errorMessage) {
-        val message = uiState.errorMessage ?: return@LaunchedEffect
-        snackbarHostState.showSnackbar(message)
-        onIntent(PlayerLobbyIntent.ErrorShown)
-    }
-
     Scaffold(
         modifier = modifier.fillMaxSize(),
-        snackbarHost = { SnackbarHost(snackbarHostState) },
+        containerColor = LobbyColors.surface,
+        contentColor = LobbyColors.foreground,
+        snackbarHost = snackbarHost,
         topBar = {
             TopAppBar(
-                title = { Text("Phòng chờ") },
+                title = {
+                    Text("Phòng chờ", fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                },
                 navigationIcon = {
-                    IconButton(onClick = { onIntent(PlayerLobbyIntent.LeaveRoom) }) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Rời phòng"
-                        )
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Rời phòng chờ")
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = LobbyColors.surface,
+                    titleContentColor = LobbyColors.foreground,
+                    navigationIconContentColor = LobbyColors.foreground,
+                ),
+            )
+        },
+        bottomBar = { PlayerConnectionFooter(uiState.connection, onRetry) },
+    ) { innerPadding ->
+        BoxWithConstraints(
+            Modifier.fillMaxSize().padding(innerPadding).consumeWindowInsets(innerPadding),
+        ) {
+            // At most two columns. Small screens/large text get one readable column.
+            val minimumCellWidth = 100.dp * LocalDensity.current.fontScale.coerceAtLeast(1f)
+            val columns = if (maxWidth >= minimumCellWidth * 2 + 50.dp) 2 else 1
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(columns),
+                state = gridState,
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(horizontal = 20.dp, vertical = 20.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                item(key = "waiting-header", span = { GridItemSpan(maxLineSpan) }) {
+                    Column(verticalArrangement = Arrangement.spacedBy(24.dp)) {
+                        WaitingHero(uiState.sessionStatus, uiState.hasLobbySnapshot)
+                        MyPlayerCard(uiState.myPlayer, uiState.hasLobbySnapshot)
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text(
+                                if (uiState.hasLobbySnapshot) "Người chơi cùng phòng (${uiState.playerCount} người chơi)"
+                                else "Người chơi cùng phòng",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                            )
+                            Text(
+                                when {
+                                    !uiState.hasLobbySnapshot -> "Đang tải danh sách người chơi..."
+                                    uiState.connection == ConnectionStatus.CONNECTED ->
+                                        "${uiState.connectedPlayerCount} người đang kết nối"
+                                    else -> "${uiState.connectedPlayerCount} người kết nối ở lần đồng bộ gần nhất"
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = LobbyColors.muted,
+                            )
+                        }
                     }
                 }
-            )
-        }
-    ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .padding(horizontal = 16.dp)
-        ) {
-            WaitingCard(sessionStatus = uiState.sessionStatus)
-
-            Spacer(Modifier.height(12.dp))
-
-            ConnectionBanner(
-                status = uiState.connection,
-                onRetry = { onIntent(PlayerLobbyIntent.Retry) }
-            )
-
-            Spacer(Modifier.height(12.dp))
-
-            Text(
-                text = "Người chơi (${uiState.playerCount})",
-                style = MaterialTheme.typography.titleMedium
-            )
-
-            Spacer(Modifier.height(8.dp))
-
-            when {
-                !uiState.hasLobbySnapshot -> Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    CircularProgressIndicator()
-                }
-
-                else -> LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(uiState.players, key = { it.id }) { player ->
-                        PlayerRow(
-                            player = player,
-                            isMe = player.id == uiState.myPlayerId,
-                            showLives = uiState.showLives
+                when {
+                    !uiState.hasLobbySnapshot -> item(key = "loading", span = { GridItemSpan(maxLineSpan) }) {
+                        Box(Modifier.fillMaxWidth().heightIn(min = 100.dp), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator(Modifier.size(28.dp), color = Primary)
+                        }
+                    }
+                    uiState.players.isEmpty() -> item(key = "empty", span = { GridItemSpan(maxLineSpan) }) {
+                        Text(
+                            "Chưa có thông tin người chơi trong phòng.",
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 20.dp),
+                            textAlign = TextAlign.Center,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = LobbyColors.muted,
                         )
+                    }
+                    else -> items(uiState.players, key = { "player-${it.id}" }) { player ->
+                        PlayerLobbyCard(player, isMe = player.id == uiState.myPlayerId)
                     }
                 }
             }
@@ -161,198 +200,216 @@ fun PlayerLobbyScreenContent(
 }
 
 @Composable
-private fun WaitingCard(sessionStatus: SessionStatus?, modifier: Modifier = Modifier) {
-    Card(modifier = modifier.fillMaxWidth()) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(
-                text = when (sessionStatus) {
-                    SessionStatus.ACTIVE -> "Trận đang diễn ra"
-                    SessionStatus.PAUSED -> "Trận đang tạm dừng"
-                    else -> "Đang chờ chủ phòng bắt đầu"
-                },
-                style = MaterialTheme.typography.titleLarge
-            )
-            Text(
-                text = "Giữ màn hình này để không bị lỡ lượt chơi.",
-                style = MaterialTheme.typography.bodySmall
-            )
-        }
+private fun WaitingHero(sessionStatus: SessionStatus?, hasSnapshot: Boolean) {
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Image(
+            painter = painterResource(R.drawable.gamepad_lobby),
+            contentDescription = null,
+            modifier = Modifier.size(96.dp),
+            contentScale = ContentScale.Fit,
+        )
+        Text(
+            text = when {
+                !hasSnapshot -> "Đang kết nối tới phòng..."
+                sessionStatus == SessionStatus.ACTIVE -> "Trận đang diễn ra"
+                sessionStatus == SessionStatus.PAUSED -> "Trận đang tạm dừng"
+                else -> "Đang chờ chủ phòng bắt đầu trận đấu..."
+            },
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold,
+            color = LobbyColors.foreground,
+            textAlign = TextAlign.Center,
+        )
+        Text(
+            "Giữ màn hình này để không bỏ lỡ lúc trận đấu bắt đầu.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = LobbyColors.muted,
+            textAlign = TextAlign.Center,
+        )
     }
 }
 
+/** Identity only: no '(Bạn)' suffix, accent name or special highlight in this wide card. */
 @Composable
-private fun ConnectionBanner(
-    status: ConnectionStatus,
-    onRetry: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    when (status) {
-        ConnectionStatus.CONNECTED -> Text(
-            text = "Đã kết nối",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = modifier.fillMaxWidth()
-        )
-
-        ConnectionStatus.CONNECTING -> Row(
-            modifier = modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            CircularProgressIndicator(modifier = Modifier.size(16.dp))
-            Text("Đang kết nối...", style = MaterialTheme.typography.bodyMedium)
-        }
-
-        ConnectionStatus.RECONNECTING -> Text(
-            text = "Mất kết nối — đang tự động thử lại",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.error,
-            modifier = modifier.fillMaxWidth()
-        )
-
-        ConnectionStatus.RECONNECT_FAILED -> Row(
-            modifier = modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Text(
-                text = "Không thể kết nối lại",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.error
-            )
-            TextButton(onClick = onRetry) { Text("Kết nối lại") }
-        }
-    }
-}
-
-@Composable
-private fun PlayerRow(
-    player: LobbyPlayer,
-    isMe: Boolean,
-    showLives: Boolean,
-    modifier: Modifier = Modifier
-) {
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        // Tô nền dòng của chính mình: phòng đông tới 100 người, không có dấu hiệu
-        // này thì người chơi rất khó tự tìm mình trong danh sách.
-        colors = if (isMe) {
-            CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.primaryContainer
-            )
-        } else {
-            CardDefaults.cardColors()
-        }
+private fun MyPlayerCard(player: LobbyPlayer?, hasSnapshot: Boolean) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        color = LobbyColors.softSurface,
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
+            Modifier.padding(20.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            PlayerAvatar(name = player.playerName, avatarUrl = player.playerAvatar)
-
-            Text(
-                text = if (isMe) "${player.playerName} (bạn)" else player.playerName,
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = if (isMe) FontWeight.Bold else FontWeight.Normal,
-                modifier = Modifier.weight(1f)
-            )
-
-            // lives chỉ có nghĩa ở mode survival; mode khác backend trả null nên ẩn hẳn
-            // thay vì hiện "0 mạng" gây hiểu nhầm là đã bị loại.
-            if (showLives && player.lives != null) {
+            if (player != null) LobbyPlayerAvatar(player, size = 40.dp)
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text("Bạn là:", style = MaterialTheme.typography.bodySmall, color = LobbyColors.muted)
                 Text(
-                    text = "❤️ ${player.lives}",
-                    style = MaterialTheme.typography.bodyMedium
-                )
-            }
-
-            Text(
-                text = if (player.status == STATUS_DISCONNECTED) "Mất kết nối" else "Sẵn sàng",
-                style = MaterialTheme.typography.bodySmall
-            )
-        }
-    }
-}
-
-/**
- * Avatar trong lobby.
- *
- * Khách không có ảnh đại diện, mà [Avatar] của core:ui lại rơi về icon người
- * chung chung — cả phòng toàn khách sẽ thành một dãy icon giống hệt nhau. Ở đây
- * dùng chữ cái đầu để mỗi người vẫn khác biệt. Giữ cục bộ trong package này vì
- * mới chỉ lobby cần; khi màn chơi / bảng điểm cần nữa thì chuyển lên core:ui.
- */
-@Composable
-private fun PlayerAvatar(
-    name: String,
-    avatarUrl: String?,
-    modifier: Modifier = Modifier,
-    size: Dp = 40.dp
-) {
-    if (avatarUrl != null) {
-        Avatar(avatarUrl = avatarUrl, contentDescription = name, size = size, modifier = modifier)
-    } else {
-        Surface(
-            modifier = modifier.size(size),
-            shape = CircleShape,
-            color = MaterialTheme.colorScheme.secondaryContainer
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Text(
-                    text = name.trim().firstOrNull()?.uppercase() ?: "?",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                    player?.playerName ?: if (hasSnapshot) "Chưa có thông tin của bạn" else "Đang tải thông tin...",
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = LobbyColors.foreground,
                 )
             }
         }
     }
 }
 
-/** Giá trị status do backend gửi (chuỗi, không phải enum — xem LobbyPlayerDto). */
-private const val STATUS_DISCONNECTED = "disconnected"
-
-@Preview(showBackground = true)
 @Composable
-private fun PlayerLobbyScreenContentPreview() {
-    MyQuizAppTheme {
-        PlayerLobbyScreenContent(
-            uiState = PlayerLobbyUiState(
-                sessionStatus = SessionStatus.LOBBY,
-                connection = ConnectionStatus.CONNECTED,
-                myPlayerId = 2,
-                players = listOf(
-                    LobbyPlayer(id = 1, playerName = "Kiro", playerScore = 0, status = "connected"),
-                    LobbyPlayer(
-                        id = 2,
-                        playerName = "Khách vui tính",
-                        playerScore = 0,
-                        status = "connected"
-                    ),
-                    LobbyPlayer(
-                        id = 3,
-                        playerName = "Lan",
-                        playerScore = 0,
-                        status = "disconnected"
+private fun PlayerLobbyCard(player: LobbyPlayer, isMe: Boolean, modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        color = LobbyColors.softSurface,
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            LobbyPlayerAvatar(player, size = 42.dp)
+            Text(
+                text = if (isMe) "${player.playerName} (Bạn)" else player.playerName,
+                modifier = Modifier.fillMaxWidth(),
+                style = MaterialTheme.typography.bodySmall,
+                color = LobbyColors.foreground,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center,
+                minLines = 2, maxLines = 2, overflow = TextOverflow.Ellipsis,
+            )
+            LobbyPlayerStatusBadge(player)
+            player.lives?.let { lives ->
+                Surface(shape = RoundedCornerShape(50), color = LobbyColors.neutralSurface) {
+                    Text(
+                        "$lives mạng",
+                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 5.dp),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = LobbyColors.muted,
                     )
-                )
+                }
+            }
+        }
+    }
+}
+
+/** Always outside the scrolling grid; connection loss never discards the last roster. */
+@Composable
+private fun PlayerConnectionFooter(status: ConnectionStatus, onRetry: () -> Unit) {
+    Surface(color = LobbyColors.surface) {
+        Column(Modifier.fillMaxWidth().navigationBarsPadding()) {
+            HorizontalDivider(color = LobbyColors.border)
+            Column(
+                Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                LobbyConnectionBadge(status, connectedLabel = "Đã kết nối máy chủ")
+                if (status != ConnectionStatus.CONNECTED) {
+                    Text(
+                        when (status) {
+                            ConnectionStatus.CONNECTING -> "Đang kết nối tới phòng..."
+                            ConnectionStatus.RECONNECTING -> "Đang tự động kết nối lại. Danh sách chưa được cập nhật."
+                            ConnectionStatus.RECONNECT_FAILED -> "Không thể kết nối lại. Hãy kiểm tra mạng rồi thử lại."
+                            ConnectionStatus.CONNECTED -> ""
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = LobbyColors.muted,
+                    )
+                }
+                if (status == ConnectionStatus.RECONNECT_FAILED) {
+                    QuizSecondaryButton("Kết nối lại", onRetry)
+                }
+            }
+        }
+    }
+}
+
+private const val LEAVE_ROOM_TITLE = "Rời phòng chờ?"
+private const val LEAVE_ROOM_MESSAGE = "Bạn sẽ rời phòng chơi và quay về màn trước. Bạn có thể nhập mã phòng để tham gia lại nếu phòng còn cho phép."
+
+// Six fixed, network-free previews. No parameter-provider combinations.
+private fun playerLobbyPreviewState(): PlayerLobbyUiState {
+    val names = listOf("Minh Anh", "Hoàng Long", "Thảo Vy", "Quang Huy", "Tuấn Kiệt", "Quốc Tuấn", "Mai Lan", "Đức Anh", "Ngọc Hà")
+    return PlayerLobbyUiState(
+        sessionStatus = SessionStatus.LOBBY,
+        connection = ConnectionStatus.CONNECTED,
+        myPlayerId = 6,
+        players = List(18) { index ->
+            LobbyPlayer(
+                id = index.toLong() + 1,
+                playerName = names[index % names.size],
+                playerScore = 0,
+                status = if (index == 2 || index == 7) "disconnected" else "connected",
+            )
+        },
+    )
+}
+
+@Composable
+private fun PlayerLobbyPreviewContent(state: PlayerLobbyUiState) {
+    PlayerLobbyScreenContent(
+        uiState = state, gridState = rememberLazyGridState(), onBack = {}, onRetry = {},
+    )
+}
+
+@Preview(name = "Player lobby Main", showBackground = true, widthDp = 390, heightDp = 844)
+@Composable
+private fun PlayerLobbyMainPreview() {
+    MyQuizAppTheme { PlayerLobbyPreviewContent(playerLobbyPreviewState()) }
+}
+
+@Preview(name = "Player lobby Small / large text", showBackground = true, widthDp = 320, heightDp = 568, fontScale = 1.3f)
+@Composable
+private fun PlayerLobbySmallPreview() {
+    MyQuizAppTheme { PlayerLobbyPreviewContent(playerLobbyPreviewState()) }
+}
+
+@Preview(name = "Player lobby Connecting", showBackground = true, widthDp = 390, heightDp = 844)
+@Composable
+private fun PlayerLobbyConnectingPreview() {
+    MyQuizAppTheme { PlayerLobbyPreviewContent(PlayerLobbyUiState(myPlayerId = 6)) }
+}
+
+@Preview(name = "Player lobby Connection failed", showBackground = true, widthDp = 390, heightDp = 844)
+@Composable
+private fun PlayerLobbyConnectionFailedPreview() {
+    MyQuizAppTheme {
+        PlayerLobbyPreviewContent(playerLobbyPreviewState().copy(connection = ConnectionStatus.RECONNECT_FAILED))
+    }
+}
+
+@Preview(name = "Player lobby Lives / missing identity", showBackground = true, widthDp = 390, heightDp = 844)
+@Composable
+private fun PlayerLobbyLivesPreview() {
+    val state = playerLobbyPreviewState()
+    MyQuizAppTheme {
+        PlayerLobbyPreviewContent(
+            state.copy(
+                myPlayerId = 100,
+                players = listOf(
+                    state.players[0].copy(playerName = "Người chơi có biệt danh dài để kiểm tra bố cục", lives = 3),
+                    state.players[1].copy(lives = 0, status = "eliminated"),
+                    state.players[2].copy(lives = 1, status = "finished"),
+                    state.players[3].copy(status = "future-status"),
+                ),
             ),
-            onIntent = {}
         )
     }
 }
 
-@Preview(showBackground = true)
+@Preview(name = "Player lobby Leave confirmation", showBackground = true, widthDp = 390)
 @Composable
-private fun PlayerLobbyScreenContentConnectingPreview() {
+private fun PlayerLobbyLeavePreview() {
     MyQuizAppTheme {
-        PlayerLobbyScreenContent(uiState = PlayerLobbyUiState(), onIntent = {})
+        AppConfirmDialogContent(
+            title = LEAVE_ROOM_TITLE, message = LEAVE_ROOM_MESSAGE,
+            confirmText = "Rời phòng", dismissText = "Ở lại",
+            onConfirm = {}, onDismiss = {}, scrollState = rememberScrollState(),
+            modifier = Modifier.padding(20.dp),
+        )
     }
 }
