@@ -10,6 +10,7 @@ android {
 }
 
 dependencies {
+    implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.core.ktx)
     testImplementation(libs.junit)
     testImplementation(libs.turbine)
@@ -23,6 +24,7 @@ dependencies {
     implementation(project(":core:datastore"))
 
     // 2. Compose Navigation & Lifecycle
+    implementation(libs.androidx.activity)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)

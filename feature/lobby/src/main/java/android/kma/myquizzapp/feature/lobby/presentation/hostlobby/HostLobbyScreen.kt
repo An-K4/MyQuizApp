@@ -3,72 +3,86 @@ package android.kma.myquizzapp.feature.lobby.presentation.hostlobby
 import android.kma.myquizzapp.core.common.model.GameMode
 import android.kma.myquizzapp.core.common.model.LobbyPlayer
 import android.kma.myquizzapp.core.common.model.SessionStatus
+import android.kma.myquizzapp.core.ui.components.AppConfirmDialog
+import android.kma.myquizzapp.core.ui.components.AppConfirmDialogContent
+import android.kma.myquizzapp.core.ui.components.QuizPrimaryButton
+import android.kma.myquizzapp.core.ui.components.QuizSecondaryButton
+import android.kma.myquizzapp.core.ui.gameconfig.BooleanSettingUiState
+import android.kma.myquizzapp.core.ui.gameconfig.ChoiceSettingUiState
 import android.kma.myquizzapp.core.ui.gameconfig.GameModeConfigEditor
+import android.kma.myquizzapp.core.ui.gameconfig.NumberSettingUiState
+import android.kma.myquizzapp.core.ui.gameconfig.RoomConfigForm
+import android.kma.myquizzapp.core.ui.theme.FrontendColors
 import android.kma.myquizzapp.core.ui.theme.MyQuizAppTheme
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import android.kma.myquizzapp.core.ui.theme.Primary
+import android.kma.myquizzapp.feature.lobby.presentation.components.LobbyColors
+import android.kma.myquizzapp.feature.lobby.presentation.components.LobbyConnectionBadge
+import android.kma.myquizzapp.feature.lobby.presentation.components.LobbyPlayerAvatar
+import android.kma.myquizzapp.feature.lobby.presentation.components.LobbyPlayerStatusBadge
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.ScrollState
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyGridState
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.outlined.ContentCopy
+import androidx.compose.material.icons.outlined.Link
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.launch
 
-/**
- * Màn phòng chờ của HOST (stateful).
- *
- * @param onExit được gọi khi phải rời phòng. `message` khác null là trường hợp
- *   bị buộc rời (token sai, phòng không còn...) — tầng navigation quyết định
- *   hiển thị thông báo ở đâu sau khi pop.
- * @param onNavigateToHostGame trận đã bắt đầu thật (đã nhận `game:started`).
- */
+/** Stateful boundary: navigation, platform actions, effects, dialogs and scroll/sheet state. */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HostLobbyScreen(
     onExit: (message: String?) -> Unit,
     onNavigateToHostGame: (gameId: Long, socketToken: String) -> Unit,
     modifier: Modifier = Modifier,
-    viewModel: HostLobbyViewModel = hiltViewModel()
+    viewModel: HostLobbyViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val gridState = rememberLazyGridState()
+    val configScrollState = rememberScrollState()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val clipboard = LocalClipboardManager.current
+    val scope = rememberCoroutineScope()
+    var showEmptyRoomWarning by rememberSaveable { mutableStateOf(false) }
+    var showLeaveConfirmation by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         viewModel.effect.collect { effect ->
@@ -79,429 +93,504 @@ fun HostLobbyScreen(
             }
         }
     }
+    LaunchedEffect(uiState.errorMessage) {
+        val message = uiState.errorMessage ?: return@LaunchedEffect
+        snackbarHostState.showSnackbar(message)
+        viewModel.onIntent(HostLobbyIntent.ErrorShown)
+    }
+    LaunchedEffect(uiState.configNotice) {
+        val message = uiState.configNotice ?: return@LaunchedEffect
+        snackbarHostState.showSnackbar(message)
+        viewModel.onIntent(HostLobbyIntent.ConfigNoticeShown)
+    }
+    LaunchedEffect(uiState.isConfigSheetOpen) {
+        if (uiState.isConfigSheetOpen) configScrollState.scrollTo(0)
+    }
+    LaunchedEffect(uiState.sessionStatus, uiState.isStarting) {
+        if (uiState.isStarting || uiState.sessionStatus != SessionStatus.LOBBY) {
+            showEmptyRoomWarning = false
+        }
+    }
+
+    // Let the modal sheet handle Back while it is open; otherwise match the toolbar back action.
+    BackHandler(enabled = !uiState.isConfigSheetOpen) { showLeaveConfirmation = true }
 
     HostLobbyScreenContent(
         uiState = uiState,
         onIntent = viewModel::onIntent,
-        modifier = modifier
+        gridState = gridState,
+        onBack = { showLeaveConfirmation = true },
+        onStart = {
+            if (uiState.canStartGame) {
+                if (uiState.players.isEmpty()) showEmptyRoomWarning = true
+                else viewModel.onIntent(HostLobbyIntent.StartGame)
+            }
+        },
+        onCopyCode = {
+            clipboard.setText(AnnotatedString(uiState.sessionCode))
+            scope.launch { snackbarHostState.showSnackbar("Đã sao chép mã phòng.") }
+        },
+        onCopyLink = {
+            clipboard.setText(AnnotatedString(uiState.shareLink))
+            scope.launch { snackbarHostState.showSnackbar("Đã sao chép link tham gia phòng.") }
+        },
+        modifier = modifier,
+        snackbarHost = { SnackbarHost(snackbarHostState) },
     )
+
+    if (uiState.isConfigSheetOpen) {
+        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ModalBottomSheet(
+            onDismissRequest = { viewModel.onIntent(HostLobbyIntent.DismissConfigSheet) },
+            sheetState = sheetState,
+            containerColor = LobbyColors.surface,
+            contentColor = LobbyColors.foreground,
+        ) {
+            ConfigSheetContent(
+                uiState = uiState,
+                onIntent = viewModel::onIntent,
+                scrollState = configScrollState,
+                maxHeight = LocalConfiguration.current.screenHeightDp.dp * 0.85f,
+            )
+        }
+    }
+    if (showEmptyRoomWarning) {
+        AppConfirmDialog(
+            title = EMPTY_ROOM_TITLE,
+            message = EMPTY_ROOM_MESSAGE,
+            confirmText = "Vẫn bắt đầu",
+            dismissText = "Chờ thêm",
+            onConfirm = {
+                showEmptyRoomWarning = false
+                viewModel.onIntent(HostLobbyIntent.StartGame)
+            },
+            onDismiss = { showEmptyRoomWarning = false },
+        )
+    }
+    if (showLeaveConfirmation) {
+        AppConfirmDialog(
+            title = LEAVE_ROOM_TITLE,
+            message = LEAVE_ROOM_MESSAGE,
+            confirmText = "Rời phòng",
+            dismissText = "Ở lại",
+            onConfirm = {
+                showLeaveConfirmation = false
+                viewModel.onIntent(HostLobbyIntent.LeaveRoom)
+            },
+            onDismiss = { showLeaveConfirmation = false },
+        )
+    }
 }
 
+/** Pure UI: a single scrolling grid includes the header; the start action stays in the footer. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HostLobbyScreenContent(
     uiState: HostLobbyUiState,
     onIntent: (HostLobbyIntent) -> Unit,
-    modifier: Modifier = Modifier
+    gridState: LazyGridState,
+    onBack: () -> Unit,
+    onStart: () -> Unit,
+    onCopyCode: () -> Unit,
+    onCopyLink: () -> Unit,
+    modifier: Modifier = Modifier,
+    snackbarHost: @Composable () -> Unit = {},
 ) {
-    val snackbarHostState = remember { SnackbarHostState() }
-    val clipboard = LocalClipboardManager.current
-
-    // Cảnh báo "phòng chưa có ai" là trạng thái của UI chứ không phải của phòng,
-    // nên giữ ở đây. rememberSaveable để quay máy không làm dialog biến mất.
-    var showEmptyRoomWarning by rememberSaveable { mutableStateOf(false) }
-
-    // Lỗi không chết người (VD một lệnh bị từ chối) hiện bằng snackbar rồi xóa
-    // khỏi state, tránh hiện lại mỗi lần recompose.
-    LaunchedEffect(uiState.errorMessage) {
-        val message = uiState.errorMessage ?: return@LaunchedEffect
-        snackbarHostState.showSnackbar(message)
-        onIntent(HostLobbyIntent.ErrorShown)
-    }
-
-    LaunchedEffect(uiState.configNotice) {
-        val message = uiState.configNotice ?: return@LaunchedEffect
-        snackbarHostState.showSnackbar(message)
-        onIntent(HostLobbyIntent.ConfigNoticeShown)
-    }
-
     Scaffold(
         modifier = modifier.fillMaxSize(),
-        snackbarHost = { SnackbarHost(snackbarHostState) },
+        containerColor = LobbyColors.surface,
+        contentColor = LobbyColors.foreground,
+        snackbarHost = snackbarHost,
         topBar = {
             TopAppBar(
-                title = { Text("Phòng chờ") },
+                title = {
+                    Text("Phòng chờ Host", fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                },
                 navigationIcon = {
-                    IconButton(onClick = { onIntent(HostLobbyIntent.LeaveRoom) }) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Thoát phòng"
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Rời phòng chờ")
+                    }
+                },
+                actions = {
+                    LobbyConnectionBadge(uiState.connection, Modifier.padding(end = 20.dp))
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = LobbyColors.surface,
+                    titleContentColor = LobbyColors.foreground,
+                    navigationIconContentColor = LobbyColors.foreground,
+                ),
+            )
+        },
+        bottomBar = { HostLobbyActions(uiState, onStart) },
+    ) { innerPadding ->
+        // Increase the minimum cell width with font scale instead of squeezing names/badges.
+        val minCellWidth = 104.dp * LocalDensity.current.fontScale.coerceAtLeast(1f)
+        LazyVerticalGrid(
+            columns = GridCells.Adaptive(minCellWidth),
+            state = gridState,
+            modifier = Modifier.fillMaxSize().padding(innerPadding).consumeWindowInsets(innerPadding),
+            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            item(key = "room-header", span = { GridItemSpan(maxLineSpan) }) {
+                Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
+                    SessionCodeCard(uiState.sessionCode, onCopyCode, onCopyLink)
+                    if (uiState.connection != ConnectionStatus.CONNECTED) {
+                        ConnectionNotice(uiState.connection, onRetry = { onIntent(HostLobbyIntent.Retry) })
+                    }
+                    QuizSecondaryButton(
+                        text = if (uiState.sessionStatus == null || uiState.canEditConfig) "Sửa cấu hình phòng"
+                            else "Không thể sửa cấu hình",
+                        onClick = { onIntent(HostLobbyIntent.OpenConfigSheet) },
+                        enabled = uiState.canEditConfig && !uiState.isStarting,
+                        modifier = Modifier.fillMaxWidth(),
+                        trailingIcon = { Icon(Icons.Outlined.Settings, null, Modifier.size(18.dp)) },
+                    )
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(
+                            text = if (uiState.hasLobbySnapshot) "Người chơi (${uiState.playerCount})" else "Người chơi",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        Text(
+                            text = when {
+                                !uiState.hasLobbySnapshot -> "Đang tải danh sách người chơi..."
+                                uiState.connection != ConnectionStatus.CONNECTED ->
+                                    "${uiState.connectedPlayerCount} đang kết nối ở lần đồng bộ gần nhất"
+                                else -> "${uiState.connectedPlayerCount} đang kết nối"
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = LobbyColors.muted,
                         )
                     }
                 }
-            )
-        }
-    ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .padding(horizontal = 16.dp)
-        ) {
-            SessionCodeCard(
-                sessionCode = uiState.sessionCode,
-                onCopyCode = { clipboard.setText(AnnotatedString(uiState.sessionCode)) },
-                onCopyLink = { clipboard.setText(AnnotatedString(uiState.shareLink)) }
-            )
-
-            Spacer(Modifier.height(12.dp))
-
-            ConnectionBanner(
-                status = uiState.connection,
-                onRetry = { onIntent(HostLobbyIntent.Retry) }
-            )
-
-            Spacer(Modifier.height(12.dp))
-
-            OutlinedButton(
-                onClick = { onIntent(HostLobbyIntent.OpenConfigSheet) },
-                enabled = uiState.canEditConfig && !uiState.isStarting,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(
-                    if (uiState.canEditConfig) {
-                        "Sửa cấu hình phòng"
-                    } else {
-                        "Trận đã bắt đầu — không sửa được cấu hình"
-                    }
-                )
             }
-
-            Spacer(Modifier.height(12.dp))
-
-            Text(
-                text = "Người chơi (${uiState.playerCount})",
-                style = MaterialTheme.typography.titleMedium
-            )
-
-            Spacer(Modifier.height(8.dp))
-
             when {
-                // Chưa có snapshot nào: không biết phòng rỗng hay chưa kịp nhận dữ liệu
-                // — hiện loading thay vì báo "chưa có ai" (dễ gây hiểu sai).
-                !uiState.hasLobbySnapshot -> LoadingPlayers()
-                uiState.players.isEmpty() -> EmptyPlayers()
-                else -> LazyColumn(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    items(uiState.players, key = { it.id }) { player ->
-                        PlayerRow(player)
-                    }
+                !uiState.hasLobbySnapshot -> item(key = "players-loading", span = { GridItemSpan(maxLineSpan) }) {
+                    LoadingPlayers()
                 }
-            }
-
-            Spacer(Modifier.height(12.dp))
-
-            StartGameButton(
-                uiState = uiState,
-                onStart = {
-                    if (uiState.players.isEmpty()) {
-                        showEmptyRoomWarning = true
-                    } else {
-                        onIntent(HostLobbyIntent.StartGame)
-                    }
+                uiState.players.isEmpty() -> item(key = "players-empty", span = { GridItemSpan(maxLineSpan) }) {
+                    EmptyPlayers()
                 }
-            )
-
-            Spacer(Modifier.height(12.dp))
-        }
-
-        if (uiState.isConfigSheetOpen) {
-            val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-            ModalBottomSheet(
-                onDismissRequest = { onIntent(HostLobbyIntent.DismissConfigSheet) },
-                sheetState = sheetState
-            ) {
-                ConfigSheetContent(uiState = uiState, onIntent = onIntent)
-            }
-        }
-
-        if (showEmptyRoomWarning) {
-            AlertDialog(
-                onDismissRequest = { showEmptyRoomWarning = false },
-                title = { Text("Phòng chưa có ai") },
-                text = {
-                    Text(
-                        "Chưa có người chơi nào vào phòng. Bắt đầu bây giờ thì những người " +
-                            "vào sau chỉ tham gia được nếu phòng bật cho vào giữa trận."
-                    )
-                },
-                confirmButton = {
-                    TextButton(onClick = {
-                        showEmptyRoomWarning = false
-                        onIntent(HostLobbyIntent.StartGame)
-                    }) { Text("Vẫn bắt đầu") }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showEmptyRoomWarning = false }) { Text("Để chờ thêm") }
-                }
-            )
-        }
-    }
-}
-
-/**
- * Nội dung bảng sửa cấu hình.
- *
- * Dùng Column + verticalScroll chứ không LazyColumn: nội dung lồng trong bottom
- * sheet đã có sẵn chỉ vài chục dòng và quy ước của dự án là mỗi trang chỉ một
- * LazyColumn — danh sách người chơi đã giữ chỗ đó.
- */
-@Composable
-private fun ConfigSheetContent(
-    uiState: HostLobbyUiState,
-    onIntent: (HostLobbyIntent) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val mode = uiState.mode
-    val form = uiState.configForm
-
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp)
-            .padding(bottom = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        Text("Cấu hình phòng", style = MaterialTheme.typography.titleLarge)
-
-        when {
-            uiState.isLoadingSpec -> Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                CircularProgressIndicator(modifier = Modifier.height(20.dp))
-                Text("Đang tải thiết lập của chế độ chơi...")
-            }
-
-            mode == null || form == null -> Column(
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Text("Chưa tải được thiết lập của phòng này.")
-                Button(onClick = { onIntent(HostLobbyIntent.RetryLoadSpec) }) { Text("Thử lại") }
-            }
-
-            else -> {
-                GameModeConfigEditor(
-                    mode = mode,
-                    form = form,
-                    invalidKeys = uiState.invalidConfigKeys,
-                    enabled = uiState.isConfigFormEnabled,
-                    onToggle = { key, checked ->
-                        onIntent(HostLobbyIntent.ToggleChanged(key, checked))
-                    },
-                    onNumberChange = { key, value ->
-                        onIntent(HostLobbyIntent.NumberChanged(key, value))
-                    },
-                    onChoiceChange = { key, value ->
-                        onIntent(HostLobbyIntent.ChoiceChanged(key, value))
-                    }
-                )
-
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(
-                        onClick = { onIntent(HostLobbyIntent.SaveConfig) },
-                        enabled = uiState.isConfigFormEnabled,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        if (uiState.isSavingConfig) {
-                            CircularProgressIndicator(Modifier.height(20.dp))
-                        } else {
-                            Text("Lưu")
-                        }
-                    }
-                    OutlinedButton(
-                        onClick = { onIntent(HostLobbyIntent.DismissConfigSheet) },
-                        enabled = !uiState.isSavingConfig,
-                        modifier = Modifier.weight(1f)
-                    ) { Text("Đóng") }
+                else -> items(uiState.players, key = { "player-${it.id}" }) { player ->
+                    HostLobbyPlayerCard(player)
                 }
             }
         }
     }
 }
 
-@Composable
-private fun StartGameButton(
-    uiState: HostLobbyUiState,
-    onStart: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Button(
-        onClick = onStart,
-        enabled = uiState.canStartGame,
-        modifier = modifier.fillMaxWidth()
-    ) {
-        if (uiState.isStarting) {
-            CircularProgressIndicator(Modifier.height(20.dp))
-        } else {
-            Text(if (uiState.canEditConfig) "Bắt đầu" else "Trận đã bắt đầu")
-        }
-    }
-}
-
-/**
- * Thẻ mã phòng với hai cách chia sẻ.
- *
- * Hai nút riêng vì hai ngữ cảnh khác nhau: mã trần để đọc cho người ngồi cạnh
- * nhập vào app, còn link để dán vào chat cho người mở bằng web.
- */
 @Composable
 private fun SessionCodeCard(
     sessionCode: String,
     onCopyCode: () -> Unit,
     onCopyLink: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
-    Card(modifier = modifier.fillMaxWidth()) {
+    Surface(modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp), color = Color.Transparent) {
         Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .background(Brush.verticalGradient(listOf(FrontendColors.ResultGradientMiddle, Primary)))
+                .padding(horizontal = 20.dp, vertical = 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Text(
-                text = "Mã phòng",
-                style = MaterialTheme.typography.labelLarge
+                "MÃ PHÒNG", color = FrontendColors.PageBackground.copy(alpha = 0.8f),
+                style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center,
             )
             Text(
-                text = sessionCode,
-                style = MaterialTheme.typography.headlineLarge,
-                textAlign = TextAlign.Center
+                sessionCode, color = FrontendColors.PageBackground,
+                style = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.Bold, letterSpacing = 5.sp),
+                textAlign = TextAlign.Center,
             )
-            Text(
-                text = "Chia sẻ mã này để người khác vào phòng",
-                style = MaterialTheme.typography.bodySmall,
-                textAlign = TextAlign.Center
-            )
-
-            Spacer(Modifier.height(8.dp))
-
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = onCopyCode) { Text("Copy mã") }
-                OutlinedButton(onClick = onCopyLink) { Text("Copy link") }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
+            ) {
+                RoomCopyButton("Copy mã", onCopyCode, isLink = false, modifier = Modifier.weight(1f))
+                RoomCopyButton("Copy link", onCopyLink, isLink = true, modifier = Modifier.weight(1f))
             }
         }
     }
 }
 
 @Composable
-private fun ConnectionBanner(
-    status: ConnectionStatus,
-    onRetry: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    when (status) {
-        ConnectionStatus.CONNECTED -> Row(
-            modifier = modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "Đã kết nối",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.primary
-            )
-        }
-
-        ConnectionStatus.CONNECTING -> Row(
-            modifier = modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            CircularProgressIndicator(modifier = Modifier.height(16.dp))
-            Text("Đang kết nối...", style = MaterialTheme.typography.bodyMedium)
-        }
-
-        ConnectionStatus.RECONNECTING -> Text(
-            text = "Mất kết nối — đang tự động thử lại",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.error,
-            modifier = modifier.fillMaxWidth()
-        )
-
-        ConnectionStatus.RECONNECT_FAILED -> Row(
-            modifier = modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Text(
-                text = "Không thể kết nối lại",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.error
-            )
-            TextButton(onClick = onRetry) { Text("Kết nối lại") }
-        }
-    }
-}
-
-@Composable
-private fun PlayerRow(player: LobbyPlayer, modifier: Modifier = Modifier) {
-    Card(modifier = modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text(text = player.playerName, style = MaterialTheme.typography.bodyLarge)
-            Text(
-                text = if (player.status == STATUS_DISCONNECTED) "Mất kết nối" else "Sẵn sàng",
-                style = MaterialTheme.typography.bodySmall
-            )
-        }
-    }
-}
-
-@Composable
-private fun LoadingPlayers(modifier: Modifier = Modifier) {
-    Column(
-        modifier = modifier.fillMaxWidth(),
-        horizontalAlignment = Alignment.CenterHorizontally
+private fun RoomCopyButton(text: String, onClick: () -> Unit, isLink: Boolean, modifier: Modifier = Modifier) {
+    Button(
+        onClick = onClick,
+        modifier = modifier.heightIn(min = 48.dp),
+        shape = RoundedCornerShape(50),
+        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 10.dp),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = FrontendColors.PageBackground.copy(alpha = 0.16f),
+            contentColor = FrontendColors.PageBackground,
+        ),
+        elevation = null,
     ) {
-        CircularProgressIndicator()
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(text, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+            Icon(if (isLink) Icons.Outlined.Link else Icons.Outlined.ContentCopy, null, Modifier.size(16.dp))
+        }
     }
 }
 
 @Composable
-private fun EmptyPlayers(modifier: Modifier = Modifier) {
-    Text(
-        text = "Chưa có ai vào phòng. Hãy chia sẻ mã phòng ở trên.",
-        style = MaterialTheme.typography.bodyMedium,
-        modifier = modifier.fillMaxWidth()
+private fun HostLobbyActions(state: HostLobbyUiState, onStart: () -> Unit) {
+    Surface(color = LobbyColors.surface) {
+        Column(Modifier.fillMaxWidth().navigationBarsPadding()) {
+            HorizontalDivider(color = LobbyColors.border)
+            QuizPrimaryButton(
+                text = when {
+                    state.isStarting -> "Đang bắt đầu..."
+                    state.hasLobbySnapshot && !state.canEditConfig -> "Trận đã bắt đầu"
+                    else -> "Bắt đầu trò chơi"
+                },
+                onClick = onStart,
+                enabled = state.canStartGame,
+                loading = state.isStarting,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp),
+                trailingIcon = {
+                    if (!state.isStarting) Icon(Icons.Default.PlayArrow, null, Modifier.size(20.dp))
+                },
+            )
+        }
+    }
+}
+
+@Composable
+private fun ConnectionNotice(status: ConnectionStatus, onRetry: () -> Unit) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp),
+        color = LobbyColors.softSurface,
+    ) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                when (status) {
+                    ConnectionStatus.CONNECTING -> "Đang kết nối tới phòng..."
+                    ConnectionStatus.RECONNECTING -> "Mất kết nối — đang tự động thử lại. Danh sách chưa được cập nhật."
+                    ConnectionStatus.RECONNECT_FAILED -> "Không thể kết nối lại. Hãy kiểm tra mạng rồi thử lại."
+                    ConnectionStatus.CONNECTED -> "Đã kết nối"
+                },
+                style = MaterialTheme.typography.bodySmall, color = LobbyColors.muted,
+            )
+            if (status == ConnectionStatus.RECONNECT_FAILED) {
+                QuizSecondaryButton("Kết nối lại", onRetry)
+            }
+        }
+    }
+}
+
+@Composable
+private fun HostLobbyPlayerCard(player: LobbyPlayer, modifier: Modifier = Modifier) {
+    Surface(modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp), color = LobbyColors.softSurface) {
+        Column(
+            Modifier.padding(horizontal = 8.dp, vertical = 12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            LobbyPlayerAvatar(player)
+            Text(
+                player.playerName,
+                modifier = Modifier.fillMaxWidth(),
+                style = MaterialTheme.typography.bodySmall,
+                color = LobbyColors.foreground,
+                fontWeight = FontWeight.SemiBold,
+                textAlign = TextAlign.Center,
+                minLines = 2, maxLines = 2, overflow = TextOverflow.Ellipsis,
+            )
+            LobbyPlayerStatusBadge(player)
+        }
+    }
+}
+
+@Composable
+private fun LoadingPlayers() {
+    Box(Modifier.fillMaxWidth().heightIn(min = 120.dp), contentAlignment = Alignment.Center) {
+        CircularProgressIndicator(color = Primary, modifier = Modifier.size(28.dp))
+    }
+}
+
+@Composable
+private fun EmptyPlayers() {
+    Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp), color = LobbyColors.softSurface) {
+        Column(
+            Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text("Chưa có người chơi", fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+            Text(
+                "Chia sẻ mã phòng hoặc link ở trên để mời mọi người tham gia.",
+                style = MaterialTheme.typography.bodySmall, color = LobbyColors.muted, textAlign = TextAlign.Center,
+            )
+        }
+    }
+}
+
+/** Stateless body of the modal sheet; scrolling belongs to the Screen. */
+@Composable
+private fun ConfigSheetContent(
+    uiState: HostLobbyUiState,
+    onIntent: (HostLobbyIntent) -> Unit,
+    scrollState: ScrollState,
+    maxHeight: Dp,
+    modifier: Modifier = Modifier,
+) {
+    val mode = uiState.mode
+    val form = uiState.configForm
+    Column(modifier.fillMaxWidth().heightIn(max = maxHeight).imePadding()) {
+        Text(
+            "Cấu hình phòng", modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
+            style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold,
+            color = LobbyColors.foreground,
+        )
+        Column(
+            Modifier.weight(1f, fill = false).fillMaxWidth().verticalScroll(scrollState).padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            when {
+                uiState.isLoadingSpec -> Column(
+                    Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    CircularProgressIndicator(Modifier.size(24.dp), color = Primary)
+                    Text("Đang tải thiết lập của chế độ chơi...", color = LobbyColors.muted)
+                }
+                mode == null || form == null -> {
+                    Text("Chưa tải được thiết lập của phòng này.", color = LobbyColors.muted)
+                    QuizSecondaryButton("Thử lại", onClick = { onIntent(HostLobbyIntent.RetryLoadSpec) })
+                }
+                else -> {
+                    GameModeConfigEditor(
+                        mode = mode, form = form, invalidKeys = uiState.invalidConfigKeys,
+                        enabled = uiState.isConfigFormEnabled,
+                        onToggle = { key, checked -> onIntent(HostLobbyIntent.ToggleChanged(key, checked)) },
+                        onNumberChange = { key, value -> onIntent(HostLobbyIntent.NumberChanged(key, value)) },
+                        onChoiceChange = { key, value -> onIntent(HostLobbyIntent.ChoiceChanged(key, value)) },
+                    )
+                    if (uiState.invalidConfigKeys.isNotEmpty()) {
+                        Text(
+                            "Kiểm tra các thiết lập được đánh dấu.",
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                }
+            }
+        }
+        HorizontalDivider(color = LobbyColors.border)
+        Row(
+            Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 20.dp, vertical = 12.dp)
+                .height(IntrinsicSize.Min),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            QuizSecondaryButton(
+                "Đóng", onClick = { onIntent(HostLobbyIntent.DismissConfigSheet) },
+                enabled = !uiState.isSavingConfig, modifier = Modifier.weight(1f).fillMaxHeight(),
+            )
+            QuizPrimaryButton(
+                "Lưu", onClick = { onIntent(HostLobbyIntent.SaveConfig) },
+                enabled = mode != null && form != null && uiState.isConfigFormEnabled,
+                loading = uiState.isSavingConfig, modifier = Modifier.weight(1f).fillMaxHeight(),
+            )
+        }
+    }
+}
+
+private const val EMPTY_ROOM_TITLE = "Phòng chưa có ai"
+private const val EMPTY_ROOM_MESSAGE = "Chưa có người chơi nào vào phòng. Bắt đầu bây giờ thì những người vào sau chỉ tham gia được nếu phòng bật cho vào giữa trận."
+private const val LEAVE_ROOM_TITLE = "Rời phòng chờ?"
+private const val LEAVE_ROOM_MESSAGE = "Bạn sẽ ngắt kết nối và rời màn phòng chờ. Thao tác này không hủy phòng chơi."
+
+// Six fixed previews only: do not multiply combinations through parameter providers.
+// Local samples have no ViewModel, socket, clipboard or production effects.
+private fun hostLobbyPreviewState(): HostLobbyUiState {
+    val names = listOf("Minh Anh", "Hoàng Long", "Thảo Vy", "Quang Huy", "Tuấn Kiệt", "Quốc Tuấn", "Mai Lan", "Đức Anh", "Ngọc Hà")
+    return HostLobbyUiState(
+        sessionCode = "582910", sessionStatus = SessionStatus.LOBBY,
+        connection = ConnectionStatus.CONNECTED, mode = GameMode.CLASSIC,
+        players = List(18) { index ->
+            LobbyPlayer(
+                id = index.toLong() + 1, playerName = names[index % names.size], playerScore = 0,
+                status = if (index == 2 || index == 7) "disconnected" else "connected",
+            )
+        },
     )
 }
 
-/** Giá trị status do backend gửi (chuỗi, không phải enum — xem LobbyPlayerDto). */
-private const val STATUS_DISCONNECTED = "disconnected"
+@Composable
+private fun HostLobbyPreviewContent(state: HostLobbyUiState) {
+    HostLobbyScreenContent(
+        uiState = state, onIntent = {}, gridState = rememberLazyGridState(),
+        onBack = {}, onStart = {}, onCopyCode = {}, onCopyLink = {},
+    )
+}
 
-@Preview(showBackground = true)
+@Preview(name = "Host lobby Main", showBackground = true, widthDp = 390, heightDp = 844)
 @Composable
 private fun HostLobbyScreenContentPreview() {
+    MyQuizAppTheme { HostLobbyPreviewContent(hostLobbyPreviewState()) }
+}
+
+@Preview(name = "Host lobby Small / large text", showBackground = true, widthDp = 320, heightDp = 568, fontScale = 1.3f)
+@Composable
+private fun HostLobbySmallPreview() {
+    MyQuizAppTheme { HostLobbyPreviewContent(hostLobbyPreviewState()) }
+}
+
+@Preview(name = "Host lobby Empty", showBackground = true, widthDp = 390, heightDp = 844)
+@Composable
+private fun HostLobbyEmptyPreview() {
+    MyQuizAppTheme { HostLobbyPreviewContent(hostLobbyPreviewState().copy(players = emptyList())) }
+}
+
+@Preview(name = "Host lobby Connection failed", showBackground = true, widthDp = 390, heightDp = 844)
+@Composable
+private fun HostLobbyReconnectPreview() {
     MyQuizAppTheme {
-        HostLobbyScreenContent(
-            uiState = HostLobbyUiState(
-                sessionCode = "482913",
-                sessionStatus = SessionStatus.LOBBY,
-                connection = ConnectionStatus.CONNECTED,
-                mode = GameMode.CLASSIC,
-                players = listOf(
-                    LobbyPlayer(id = 1, playerName = "Kiro", playerScore = 0, status = "connected"),
-                    LobbyPlayer(id = 2, playerName = "Lan", playerScore = 0, status = "disconnected")
-                )
-            ),
-            onIntent = {}
-        )
+        HostLobbyPreviewContent(hostLobbyPreviewState().copy(connection = ConnectionStatus.RECONNECT_FAILED))
     }
 }
 
-@Preview(showBackground = true)
+/** Illustrative editor values, not authoritative mode constraints. */
+private fun hostLobbyPreviewForm(): RoomConfigForm {
+    val toggle = BooleanSettingUiState(false, true)
+    return RoomConfigForm(
+        perQuestionSeconds = NumberSettingUiState("20", 0, 600, true, null, true),
+        autoAdvance = toggle, totalMatchSeconds = NumberSettingUiState("600", 1, 3600, true, null, true),
+        maxPlayers = NumberSettingUiState("100", 1, 200, false, null, true),
+        allowLateJoin = toggle, allowGuests = toggle.copy(value = true),
+        showCorrectAnswer = toggle.copy(value = true),
+        showLeaderboard = ChoiceSettingUiState("end_only", listOf("never", "end_only"), true),
+        lives = NumberSettingUiState("3", 1, 10, true, null, true),
+        allowAnswerLate = toggle, shuffleQuestions = toggle, shuffleOptions = toggle,
+        showHint = toggle, reviewMode = toggle.copy(value = true), speedBonus = toggle.copy(value = true),
+        negativeMarking = toggle,
+    )
+}
+
+@Preview(name = "Host lobby Config sheet", showBackground = true, widthDp = 390, heightDp = 700)
 @Composable
-private fun HostLobbyScreenContentConnectingPreview() {
+private fun HostLobbyConfigSheetPreview() {
     MyQuizAppTheme {
-        HostLobbyScreenContent(uiState = HostLobbyUiState(sessionCode = "482913"), onIntent = {})
+        Surface(color = LobbyColors.surface) {
+            ConfigSheetContent(
+                hostLobbyPreviewState().copy(configForm = hostLobbyPreviewForm()),
+                {}, rememberScrollState(), maxHeight = 620.dp,
+            )
+        }
+    }
+}
+
+@Preview(name = "Host lobby Leave confirmation", showBackground = true, widthDp = 390)
+@Composable
+private fun HostLobbyLeaveDialogPreview() {
+    MyQuizAppTheme {
+        AppConfirmDialogContent(
+            title = LEAVE_ROOM_TITLE, message = LEAVE_ROOM_MESSAGE,
+            confirmText = "Rời phòng", dismissText = "Ở lại", onConfirm = {}, onDismiss = {},
+            scrollState = rememberScrollState(), modifier = Modifier.padding(20.dp),
+        )
     }
 }
