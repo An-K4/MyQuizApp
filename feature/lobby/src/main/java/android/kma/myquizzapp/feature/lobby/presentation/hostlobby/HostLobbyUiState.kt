@@ -67,6 +67,9 @@ data class HostLobbyUiState(
 
     val playerCount: Int get() = players.size
 
+    /** Exact snapshot statuses only: disconnected/unknown rows still belong to the roster. */
+    val connectedPlayerCount: Int get() = players.count { it.status == "connected" }
+
     /**
      * Chỉ được sửa config khi phòng còn ở lobby.
      *
