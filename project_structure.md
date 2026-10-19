@@ -2,7 +2,7 @@
 
 > **Tài liệu cấu trúc dự án chi tiết**  
 > Mô tả vai trò, trách nhiệm và mối quan hệ giữa các module trong kiến trúc Multi-module Gradle  
-> **Version:** 2.26 | **Last Updated:** N46 WIP đến Hồ sơ/Bảo mật/Hoạt động/Chi tiết trận (source main da0cbf3; N44 PARTIAL)
+> **Version:** 2.27 | **Last Updated:** N46 WIP đến Phòng chờ Player (source local main 992b8c6; N44 PARTIAL)
 
 ---
 
@@ -447,7 +447,7 @@ core/ui/
 └── build.gradle.kts
 ```
 
-Tree core:ui N46 trên đã có từ main `7178588`; baseline tổng thể nay `da0cbf3`, không lấy source vắng trên docs làm bằng chứng chưa có file. QuizSummaryCard → QuizListCard (`9417aad`) → SearchQuizCard (`19c6425`); LibraryQuizCard riêng, DiscoveryQuizCard Home/Discover, QuizCardItem xóa ở `d5571d6`. AnswerOptionItem Multiple opt-in, ComponentColors internal core:ui. Lượt này không sửa core:ui hoặc FinalResultScreen; evidence lịch sử 88 PASS và 56 PASS mới khác lượt/phạm vi, không phải full CI/E2E. Xem `N46_UI_PROGRESS.md`.
+Tree core:ui nền tảng từ main `7178588`; baseline tổng thể hiện local main `992b8c6`, source không nằm trên docs không có nghĩa chưa tồn tại. `c5ced7a` cập nhật SettingSwitchRow + gameconfig/ChoiceSettingField/NumberSettingField/GameModeConfigEditor, thêm RoomConfigTextField.kt và GameModeConfigEditorPreview.kt. Shared editor được CreateRoom và sheet Host dùng chung; dropdown choice bo góc/full width. `cc3b1c4` để runtime/ui-graphics theo BOM 2025.06.01, không nâng SDK/AGP. SearchQuizCard/LibraryQuizCard/DiscoveryQuizCard giữ đúng vai trò; ComponentColors vẫn internal core:ui. Không sửa FinalResultScreen; các XML PASS cũ giữ lịch sử, chưa có run mới gắn baseline cuối. Xem `N46_UI_PROGRESS.md`.
 
 #### UiText Pattern (minh họa, không phải inventory source)
 ```kotlin
@@ -769,14 +769,17 @@ Phòng chờ trước khi game bắt đầu. Có 2 perspectives: **Host** (đi�
 - ✅ PlayerLobbyScreen + PlayerLobbyViewModel (N19, 5/9 — join REST → `socketToken` → socket realtime, đã test trên máy thật)
 - ✅ `JoinRoomCard` (ô nhập mã phòng, N19.6 nhúng vào Home qua slot `roomCodeCard`; trước đó là `JoinRoomScreen` riêng ở N19) + GuestNicknameScreen (chỉ khách thấy; người đã đăng nhập vào thẳng lobby)
 - ✅ Real-time player list qua socket event **`lobby:updated`** — server bắn 1 snapshot đầy đủ, KHÔNG có `lobby:player-joined`/`lobby:player-left` như doc cũ ghi
-- ✅ Host có thể kick player, update config
-- ✅ Hiển thị room code + QR code để share
+- ✅ Host sửa config thật qua shared editor + ACK; **chưa có kick UI**, không suy chức năng từ dấu x trong thiết kế
+- ✅ Mã phòng + Copy mã/Copy link (clipboard); **không có QR/native share** trong UI hiện tại
+- ✅ N46.19–N46.21: Guest nickname card (1–50 ký tự sau trim, không avatar); Host/Player lobby shared badges/avatar, card dọc và confirm back. Header+roster cùng cuộn, footer Start của Host/status của Player cố định; user duyệt UI, chưa có log full build/test mới
 
 #### Cấu trúc thư mục
 ```
 feature/lobby/
 ├── src/main/java/.../feature/lobby/
 │   ├── presentation/
+│   │   ├── components/
+│   │   │   └── LobbyComponents.kt         # N46: internal palette, avatar/initials, connection/player status badges
 │   │   ├── hostlobby/                     # 🆕 N18 (30/8) — hàng thật, đã test trên máy thật
 │   │   │   ├── HostLobbyScreen.kt        # Stateful + HostLobbyScreenContent stateless
 │   │   │   ├── HostLobbyViewModel.kt     # re-join sau MỌI Connected, refresh token đúng 1 lần
@@ -788,21 +791,21 @@ feature/lobby/
 │   │   │   ├── JoinRoomViewModel.kt       # lookup → rẽ nhánh: đã login → join luôn / khách → GuestNickname
 │   │   │   └── JoinRoomContract.kt         # 🆕 N19.6 — UiState + Intent + Effect + `SESSION_CODE_LENGTH = 6`
 │   │   ├── guestnickname/                  # 🆕 N19 (5/9) — chỉ dành cho khách
-│   │   │   ├── GuestNicknameScreen.kt
+│   │   │   ├── GuestNicknameScreen.kt     # Screen/Content + Preview cuối file; không file Preview riêng
 │   │   │   ├── GuestNicknameViewModel.kt  # NicknameValidator + GuestIdentityStore (UUID)
-│   │   │   ├── GuestNicknameUiState.kt
-│   │   │   ├── GuestNicknameIntent.kt
-│   │   │   └── GuestNicknameEffect.kt
+│   │   │   └── GuestNicknameContract.kt   # UiState + Intent + Effect
 │   │   └── playerlobby/                    # 🆕 N19 (5/9) — hàng thật, dùng lại socket layer N18
 │   │       ├── PlayerLobbyScreen.kt       # Stateful + Content stateless
 │   │       ├── PlayerLobbyViewModel.kt    # re-join sau MỌI Connected; token invalid = fatal (không refresh được)
-│   │       ├── PlayerLobbyUiState.kt
-│   │       ├── PlayerLobbyIntent.kt
-│   │       └── PlayerLobbyEffect.kt       # ExitLobby(message)
+│   │       └── PlayerLobbyContract.kt     # UiState + Intent + Effect; myPlayer/connectedPlayerCount
 │   └── domain/
 │       └── usecase/
 │           └── RefreshHostTokenUseCase.kt # 🆕 N18: POST /games/:id/host-token (idempotent)
 ```
+
+**Inventory bổ sung N46 trên main:** `presentation/components/LobbyComponents.kt`; `src/main/res/drawable/gamepad_lobby.webp` (asset runtime do user cung cấp, được track); `src/test/.../hostlobby/HostLobbyUiStateTest.kt`, `playerlobby/PlayerLobbyUiStateTest.kt`, `playerlobby/PlayerLobbyViewModelTest.kt` (thêm leave cases). Không dùng XML lobby 2 VM case/màn trước polish để xác nhận các test mới PASS.
+
+**Layout hiện tại:** Host grid Adaptive min 104dp × fontScale; Player tối đa 2 cột khi width ≥ 2 × 140dp × max(fontScale, 1) + 50dp (không theo số người). Cả hai giữ offline/unknown + connected count riêng. Player identity theo playerId, thẻ dài không suffix; own grid name + (Bạn) đậm foreground. Host/Player mỗi màn 6 Preview cố định, no VM/socket. Không có feature dependency mới.
 
 > ✅ **Đã chốt ở N19 (5/9)**: use case thật của `feature:lobby` là `RefreshHostTokenUseCase` (N18), `LookupRoomUseCase` và `JoinGameUseCase` (N19). Tên dự kiến trong v2.2 không dùng: `JoinGameAsPlayerUseCase` → `JoinGameUseCase`; `GetHostSocketTokenUseCase` → `RefreshHostTokenUseCase`; `ConnectLobbySocketUseCase` **bỏ hẳn** vì connect nằm trong `GameSocketRepository.events()` ở `core:network`.
 
@@ -1066,7 +1069,7 @@ Tạo, chỉnh sửa, xóa quiz (chỉ dành cho Host đã login). Editor hỗ t
 #### Trách nhiệm
 - ✅ QuizManageListScreen — Thư viện, search/filter/sort, LibraryQuizCard + menu sửa/xóa, FAB; không tab saved chưa có
 - ✅ CreateQuizScreen/EditQuizScreen dùng chung QuizEditorContent + QuestionEditorCard (N46.13 `7178588`); **chưa có drag-drop/reorder**, không hiển thị tay nắm kéo
-- ✅ CreateRoomScreen - tạo game room với config động từ `GET /games/game-modes`
+- ✅ CreateRoomScreen — config động từ `GET /games/game-modes`; N46.18 `c5ced7a`: RoomConfigTextField/shared config controls, mode chips + pacing hint, form cuộn/footer tạo cố định; giữ validation/token retry. Fixture tại presentation/createroom/CreateRoomPreviewData.kt
 - ✅ Upload ảnh 2 bước: (1) GET presigned URL, (2) PUT file trực tiếp lên S3
 - ✅ Question editor hỗ trợ 4 types: multiple_choice, multiple_select, short_answer, long_answer
 - ✅ N40: card câu hỏi trong Quiz Detail render `questionImage` bằng component dùng chung
@@ -1670,9 +1673,9 @@ MyQuizApp được xây dựng với **14 modules** theo **Clean Architecture + 
 
 ---
 
-**Document Version:** 2.26
-**Last Updated:** N46 WIP đến Hồ sơ/Bảo mật/Hoạt động/Chi tiết trận (source Android da0cbf3)
-**Status:** Living document — baseline main/origin/main `da0cbf3`; targeted docs sau `f098826`, không thêm module (vẫn 14). 8 XML mới timestamp 15/10/2026 có 56 PASS local; app XML 11/10 cũ không đóng security dialog regression. 88 practice/editor PASS giữ riêng là evidence lịch sử. Full assemble/lint/CI/E2E và Discover retest chưa xác minh; N46 WIP/N44 PARTIAL, N45/M6/release và Google/cookie/backend/privacy/session/deployment gates giữ nguyên. Source/tests trên main, docs trên docs; xem N46_UI_PROGRESS.md/N44_E2E_REPORT.md.
+**Document Version:** 2.27
+**Last Updated:** N46 WIP đến Phòng chờ Player (source Android local main 992b8c6)
+**Status:** Living document — baseline local main `992b8c6`; targeted docs sau `336aba3`, không thêm module (vẫn 14). Tổng phiên 8 màn duyệt UI từ Hồ sơ đến Player Lobby; lượt này cập nhật 4 màn cuối + Compose/shared lobby fix. Chưa đối chiếu log/XML mới gắn baseline cuối: 56/88 PASS và 41 app PASS là evidence lịch sử khác lượt/phạm vi, không chứng minh test lobby mới/full CI/E2E. Discover retest, N46 dark/accessibility/animation còn mở. N44 PARTIAL, N45/M6/release và Google/cookie/backend/privacy/session/deployment gates giữ nguyên. Source/tests trên main, docs trên docs; xem N46_UI_PROGRESS.md/N44_E2E_REPORT.md/N46_HANDOFF_PROMPT.md.
 
 ---
 

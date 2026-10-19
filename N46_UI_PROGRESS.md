@@ -1,13 +1,13 @@
 # N46 — UI polish theo từng mốc nhỏ (WIP)
 
-> Baseline source Android: `main` tại `da0cbf3`, đã đối chiếu cả `origin/main`. Sau docs `f098826` (source `7178588`), đã thêm Hồ sơ, Bảo mật tài khoản, Hoạt động, Chi tiết trận và các fix test. Đây là baseline source đã commit, không phải SHA APK/backend đã kiểm thử.
+> Baseline source Android: local `main` tại `992b8c6` (Player Lobby), đã đọc git log sau user commit. Checkpoint docs trước `336aba3` dừng ở source `da0cbf3`; lượt này thêm Tạo phòng, Biệt danh khách, Host Lobby, Player Lobby và fix Compose/shared components. Không fetch/xác nhận remote mới, không coi SHA source là SHA APK/backend đã kiểm thử.
 > N46 được triển khai từng phần theo user duyệt, không làm một mạch toàn app. N44 vẫn PARTIAL, N45/M6 và release gates chưa đóng; xem `N44_E2E_REPORT.md`.
 
 ## 1. Cách đọc trạng thái
 
 - “Đã triển khai/commit” chỉ xác nhận source có trên main.
 - “User duyệt UI” không thay thế build, lint, unit test, Compose UI test hoặc E2E.
-- Agent chưa chạy Gradle/render Compose. Evidence mới: 8 XML local timestamp 15/10/2026, 56 PASS ở history/lobby/HostGame; 7 XML app 11/10/2026 có 41 PASS nhưng cũ, riêng security dialog chưa khớp source. Giữ 10 XML practice/editor 88 PASS của lượt trước như evidence lịch sử riêng (mục 6), không cộng thành một run/full-suite PASS. Full assemble/lint/CI/E2E mới chưa xác minh.
+- Agent không chạy Gradle/render Compose. Chưa thu thập log/XML mới gắn baseline cuối `992b8c6`; user đã review UI trên máy test và báo lỗi build Compose đã ổn, không phải evidence full assemble/lint/CI/E2E. Các XML ở mục 6 thuộc checkpoint cũ: 56 PASS history/lobby/HostGame ngày 15/10, 41 PASS app cũ ngày 11/10 và 88 PASS practice/editor ngày 11/10 giữ riêng; không cộng thành một run. Đặc biệt XML lobby 2 VM case/màn có trước test polish mới, không chứng minh các case mới PASS.
 - Dark hiện là fallback theo Material theme, chưa có mẫu dark được duyệt toàn app.
 
 ## 2. Sổ mốc triển khai
@@ -43,6 +43,11 @@
 | N46.17a | Mapping mã phòng lịch sử | `be01ee7` | sessionCode optional, sessionId vẫn identity; 5 DTO test XML local PASS (3 cũ + 2 mới) |
 | N46.17b | Chi tiết trận theo ảnh 25 đã điều chỉnh | `43ed870` | User review tinh gọn tổng quan; history-only cards, ảnh câu bo góc, short/long answer + Host horizontal stats; 17 presentation test XML PASS |
 | Regression interface | Đồng bộ fake với includeTotal | `93c29e3`, `da0cbf3` | HostGame + FinalResult + HostLobby; XML local tương ứng PASS; không sửa production/giảm assertion |
+| N46.18 | Tạo phòng + shared config controls, ảnh 15 | `c5ced7a` | User duyệt; field/switch/choice bo góc, dropdown full width, footer cố định; giữ 5 mode/validation/token retry |
+| N46.19 | Nhập biệt danh khách, ảnh 16 | `61f5e1c` | User duyệt; card trắng, mã phòng thật, bỏ avatar; 1–50 ký tự sau trim, Preview cuối file |
+| N46.20 | Phòng chờ Host, ảnh 17 | `f28c778`, `14aecf8`, merge `4355485` | User duyệt; header+roster cùng cuộn, footer Start, confirm back/empty room, config sheet; 6 Preview cố định |
+| Build/shared lobby | Đồng bộ Compose + track shared components | `cc3b1c4` | Bỏ pin runtime/ui-graphics, theo BOM; user báo build đã ổn, chưa có log xác nhận full suite |
+| N46.21 | Phòng chờ Player, ảnh 18 | `992b8c6` | User duyệt trên máy test; card dọc/1–2 cột, own suffix (Bạn) đậm, footer status/retry; thêm state/leave tests, chưa đối chiếu run mới |
 | N46.next | Màn tiếp theo do user chọn + ảnh mẫu | Chưa chốt | Giữ backlog retest Search/Discover/Paging và regression; không tự chuyển màn hoặc đóng N46 |
 
 Tên mốc là checkpoint nội bộ của N46, không thay đổi kế hoạch N1–N50 hoặc tạo release gate mới.
@@ -248,16 +253,65 @@ Gradient result từ CSS: `#21113E` tại 0%, `#4C2B8D` tại 48%, `#25144F` t�
 
 ### Regression fake sau includeTotal
 
-- `93c29e3`: HostGameViewModelTest fake thêm tham số includeTotal. `da0cbf3`: FinalResultViewModelTest và HostLobbyViewModelTest fake cùng sửa; không đổi production, không bỏ test/assertion. User đã commit cả hai, main/origin/main hiện `da0cbf3`.
+- `93c29e3`: HostGameViewModelTest fake thêm tham số includeTotal. `da0cbf3`: FinalResultViewModelTest và HostLobbyViewModelTest fake cùng sửa; không đổi production, không bỏ test/assertion. User đã commit cả hai; tại checkpoint docs `336aba3`, main/origin/main là `da0cbf3` (baseline hiện tại xem đầu tài liệu).
 - Hai log trước là **compileDebugUnitTestKotlin FAILED**, chưa tới assertion. `--tests` vẫn compile toàn bộ test source của module; filter history không tránh fake lỗi trong FinalResult. Rà batch 57 file test khi search_content trả rỗng sai; 4 override trực tiếp (Activity/HostGame/FinalResult/HostLobby) đã khớp interface trong phạm vi đã đọc.
 - 11 HostGame + 7 FinalResult + 2 HostLobby XML mới PASS (nằm trong tổng 56 dưới đây), không cộng lại thành run riêng.
 
+## 5a. Tạo phòng → hai phòng chờ — checkpoint mới sau docs 336aba3
+
+### Tạo phòng (ảnh 15, c5ced7a)
+
+- `CreateRoomScreen.kt` dùng room-name field nhãn ngoài, radius 16; switches/number/choice qua shared config editor. `RoomConfigTextField.kt` mới ở core:ui/gameconfig; `SettingSwitchRow.kt`, `NumberSettingField.kt`, `ChoiceSettingField.kt` cùng đồng bộ. Choice selector bo góc và dropdown **rộng bằng field**, không ôm text.
+- Giữ 5 mode hiện hữu từ descriptor/server: Cổ điển/Solo/Sinh tồn/Marathon/Luyện tập bằng chip; hướng dẫn nhỏ theo HOST/SELF pacing, không mode card/icon giả theo ảnh 2 chế độ. Form cuộn, nút tạo cố định dưới; error/validation ở footer vẫn thấy được.
+- Không đổi nghiệp vụ: tên 2–100, server config constraints, disabled/submitting, create game → host-token, token retry dùng “Thử vào phòng” không tạo phòng lặp. Có Preview local và fixture `CreateRoomPreviewData.kt`, `GameModeConfigEditorPreview.kt`; chưa có run mới được đối chiếu.
+
+### Biệt danh khách (ảnh 16, 61f5e1c)
+
+- `GuestNicknameScreen.kt`: nền soft, một card trắng bo góc, badge mã phòng nếu nonblank, title/field centered, info khách, shared Primary. Bỏ avatar/chọn ảnh. Giữ mã phòng đã được truyền, không thay code thành chỉ số giả 6 chữ số; room code alphanumeric hợp lệ.
+- Giới hạn đúng source `NicknameValidator`: 1–50 ký tự sau trim, không 20 như ảnh. Counter `trim().length/MAX_LENGTH`, raw input không cắt, lỗi/IME Go/loading theo canSubmit/Intent cũ. Đã đăng nhập không đi qua màn này.
+- Screen giữ ScrollState/Snackbar/effects, Content stateless; form cuộn theo IME/viewport nhỏ. Preview đã gộp cuối screen, không file Preview riêng; bỏ BoxWithConstraints không dùng scope. Không thêm API/avatar feature.
+
+### Phòng chờ Host (ảnh 17, f28c778/14aecf8 → merge 4355485)
+
+- Top bar đậm + back và badge connection có chữ. Gradient card mã phòng với **Copy mã / Copy link** (clipboard), không QR/native share chưa có. Nút sửa cấu hình dùng editor shared trong sheet, giữ tải spec/retry/validation/ACK/server-normalized config.
+- Một LazyVerticalGrid chứa cả header/card mã phòng và roster: **cuộn cả card mã phòng**, không chỉ danh sách. Grid Adaptive min 104dp × max(fontScale, 1); không áp số cột Host cho Player. Card dọc avatar/name/status; tổng là toàn roster, connected count riêng, stale notice khi mất kết nối. Không giấu offline/unknown.
+- Footer Start cố định; phòng rỗng có dialog cảnh báo “Vẫn bắt đầu/Chờ thêm”, không cấm dưới 2 người. Back/system back có confirm, rời phòng chờ **không hủy phòng**. Không thêm kick UI trong scope này; không suy từ dấu x của thiết kế thành contract có sẵn.
+- `HostLobbyUiState.connectedPlayerCount` + suite state test mới. Production VM/socket/ACK/start timeout giữ nguyên. Host Preview đã thu gọn xuống **6 case cố định** thay vì 38 tổ hợp; chưa xác minh render tất cả.
+
+### Compose regression và shared lobby (cc3b1c4)
+
+- Lịch sử có 2 commit Host cùng tên (`f28c778`, `14aecf8`) rồi merge `4355485`; không tự rewrite/cherry-pick. Bản pin `uiGraphics = 1.12.1` kéo ui/runtime-saveable/tooling AAR yêu cầu SDK 37 + AGP 9.1, không khớp compileSdk 36 + AGP 8.13.2.
+- Fix bỏ version keys runtime 1.11.4/uiGraphics 1.12.1 và version.ref của 2 aliases để đi theo **Compose BOM 2025.06.01**. Giữ direct ui-graphics dependency versionless; không nâng SDK/AGP/Kotlin/BOM để chữa UI. `NoSuchMethodError getCurrentCompositeKeyHashCode` trong Preview cần kiểm tra dependency/runtime/tooling, không chứng minh do giới hạn số Preview.
+- Merge tham chiếu shared file từng còn untracked; `cc3b1c4` đã track `feature/lobby/.../presentation/components/LobbyComponents.kt` cùng fix catalog. Helper internal feature:lobby: LobbyColors (dark fallback), avatar/initials, connection/status badges. Không mở ComponentColors internal core:ui cho feature.
+- User báo lỗi đã ổn, nhưng chưa cung cấp log full build/test sau fix; không đánh AAR/Preview/full CI tất cả PASS từ lời xác nhận giao diện.
+
+### Phòng chờ Player (ảnh 18, 992b8c6)
+
+- Bỏ chữ Rời phòng góc phải và 3 dots. Back icon/system back mở `AppConfirmDialog`; confirm gửi LeaveRoom có sẵn, không pop trực tiếp. Không thêm ready/start/keep-screen-awake flag.
+- Asset runtime có track: `feature/lobby/src/main/res/drawable/gamepad_lobby.webp` do user cung cấp (khác ảnh thiết kế trong design/ vẫn ignored). Hero, thẻ “Bạn là” và roster cuộn cùng nhau; **footer connection badge/retry cố định**. Khi game started giữ navigation/socket behavior cũ.
+- Thẻ “Bạn là”: avatar + label + **tên đậm cùng foreground**, không hậu tố (Bạn), không highlight tím. Grid card **dọc như Host**: avatar → tên đậm centered → status badge → lives nếu non-null (0 vẫn hiện). Riêng own item có **“Tên (Bạn)” đậm, cùng màu foreground**, không chỉ tô tím; user chốt sau review máy thật.
+- Tối đa 2 cột, hẹp/font lớn về 1; **không phụ thuộc số người**. Ngưỡng mới: `2 × 140dp × max(fontScale, 1) + 50dp` (330dp ở scale 1, đã hạ từ 370dp để máy 360dp có 2 cột). Không khóa 2 cột khi font quá lớn.
+- `myPlayer` match playerId, không fullname/account. Total giữ cả offline/unknown; online chỉ exact connected. Trước snapshot không bịa count; reconnect giữ roster kèm wording lần đồng bộ gần nhất. Lives là data thật không bịa mode/mạng.
+- Preview **6 case cố định**, no VM/network/socket, avatar Inspection fallback. Thêm `PlayerLobbyUiStateTest` (7 case) và 2 leave cases vào `PlayerLobbyViewModelTest` (tổng 4); Host state suite mới cũng chưa đối chiếu run. XML 2 VM case/màn của checkpoint trước không chứng minh các test mới đã chạy.
+
+### Phạm vi bàn giao và evidence cuối phiên
+
+- Tổng phiên từ baseline `7178588`: **8 màn** đã được user review/duyệt UI: Hồ sơ, Bảo mật, Hoạt động, Chi tiết trận, Tạo phòng, Biệt danh khách, Host Lobby, Player Lobby. Checkpoint docs `336aba3` đã lưu 4 màn đầu; lượt docs này cập nhật 4 màn cuối và build/shared fix.
+- Baseline **local main 992b8c6**; không fetch/xác nhận remote revision, agent không chạy Gradle/render. Review máy test và user báo build ổn không thay thế log suite/CI/E2E. Giữ evidence XML lịch sử ở mục 6, không nâng trạng thái các gate.
+- Lệnh user có thể chạy trên main để bổ sung evidence (không chạy source Gradle trên docs):
+
+```powershell
+.\gradlew.bat :app:checkDebugAarMetadata :app:assembleDebug :feature:lobby:testDebugUnitTest
+```
+
+- Còn cần đối chiếu run/report baseline mới, smoke reconnect/retry/leave/game-start/config/clipboard/roster, narrow/font scale/IME/avatar và regression các consumer shared config. N44/backlog presence/session/privacy/Google-cookie vẫn giữ. Agent kế tiếp đọc prompt `N46_HANDOFF_PROMPT.md`, **hỏi user màn tiếp theo, không tự chọn**.
+
 ## 6. Checklist evidence và việc còn mở
 
-- [x] Đối chiếu source/commit N46.0–N46.17 tại main/origin/main `da0cbf3`; docs cập nhật sau `f098826`, không merge main vào docs.
-- [x] User duyệt/hiệu chỉnh UI các mốc trước và Hồ sơ/Bảo mật/Hoạt động/Chi tiết trận; card tổng quan đã bỏ 2 dòng thừa. Không suy ra full visual/E2E PASS.
+- [x] Đối chiếu checkpoint N46.0–N46.21 đến local main `992b8c6`; docs trước `336aba3` dừng ở `da0cbf3`. Lượt mới chỉ targeted docs, không merge source hoặc xác nhận remote đã đồng bộ.
+- [x] User duyệt/hiệu chỉnh UI 8 màn của phiên, đến Player Lobby. Không suy ra full visual regression/E2E PASS; các quyết định cuối ở mục 5a.
 - [x] Evidence lịch sử của lượt docs `f098826`: 10 XML local practice/editor, 88 PASS, 0 failures/errors/skipped; giữ riêng bảng dưới, không coi là run mới.
-- [ ] Thu thập full assemble/lint/CI và các suite còn lại cho baseline mới; 56 test XML mới và 88 test lịch sử không chứng minh toàn app/APK cùng SHA.
+- [ ] Thu thập full assemble/lint/CI và các suite còn lại cho baseline `992b8c6`; 56/88 PASS XML lịch sử không chứng minh toàn app/APK cùng SHA. Cần run mới cho HostLobbyUiStateTest, PlayerLobbyUiStateTest và 4 PlayerLobbyViewModelTest, không dùng report lobby 2 case/màn cũ.
 - [x] Đọc thêm 8 XML history/lobby/HostGame timestamp 15/10/2026: 56 PASS; 7 XML app cũ 11/10 có 41 PASS nhưng security VM không khớp source (chi tiết dưới).
 - [ ] Chạy lại app regression cho source hiện tại, đặc biệt 7 AccountSecurityViewModelTest (3 tên case dialog mới chưa có trong XML); không dùng XML cũ 5 case để đóng checkpoint.
 - [ ] Architecture debt cục bộ: SecretField ở AccountSecurityScreen hiện giữ visibility bằng remember nhưng thiếu stateless Content overload sau polish; cần rà/tách lõi theo AGENTS khi duyệt scope source, không sửa code trên docs.
@@ -293,7 +347,7 @@ Gradient result từ CSS: `#21113E` tại 0%, `#4C2B8D` tại 48%, `#25144F` t�
 
 Lượt docs trước ghi 29/29 List/Detail PASS tại 04:36 UTC ngày 11/10/2026; giữ là evidence lịch sử, lượt mới trên bổ sung editor và practice. Hai fixture Detail từng fail đã được sửa bằng tạo ViewModel trong runTest sau mock setup, không bỏ assertions/production guards. 10 normalization, 8 password-reset và 9 Search state test vẫn chưa được đối chiếu run mới trong lượt này.
 
-### Evidence mới — history/lobby/HostGame và giới hạn app XML
+### Evidence lịch sử — checkpoint docs 336aba3: history/lobby/HostGame và giới hạn app XML
 
 Đọc 8 XML từ `feature/leaderboard`, `feature/lobby`, `feature/game-host` và riêng suite `core/network/.../GameHistoryDtosTest` trong `build/test-results/testDebugUnitTest/`. Các file dưới timestamp **15/10/2026 UTC**, không phải timestamp lượt 11/10 trước đó; chưa ràng buộc được với git SHA/run id hoặc APK/backend revision.
 
