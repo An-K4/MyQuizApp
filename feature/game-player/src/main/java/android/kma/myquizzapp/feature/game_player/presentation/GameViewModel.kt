@@ -49,7 +49,7 @@ class GameViewModel @Inject constructor(
 
     fun onIntent(intent: GameIntent) {
         when (intent) {
-            is GameIntent.SelectOption -> _uiState.update { if (!it.isAnswerInputEnabled) it else it.copy(selectedOptionId = intent.id) }
+            is GameIntent.SelectOption -> selectOption(intent.id)
             is GameIntent.ToggleOption -> _uiState.update { state ->
                 if (!state.isAnswerInputEnabled) state else state.copy(
                     selectedOptionIds = state.selectedOptionIds.toMutableSet().apply {
@@ -135,6 +135,7 @@ class GameViewModel @Inject constructor(
                         selectedOptionIds = emptySet(),
                         textAnswer = "",
                         endsAt = event.started.endsAt,
+                        timeLimitSeconds = event.started.timeLimitSeconds,
                         matchEndsAt = event.started.matchEndsAt,
                         allowAnswerLate = event.started.allowAnswerLate,
                         remainingSeconds = event.started.remainingSeconds,
@@ -275,6 +276,9 @@ class GameViewModel @Inject constructor(
                 phase = phase,
                 question = snapshot.question ?: old.question,
                 endsAt = snapshot.endsAt,
+                timeLimitSeconds = old.timeLimitSeconds.takeIf {
+                    old.question?.id == snapshot.question?.id && old.question?.index == snapshot.index
+                },
                 matchEndsAt = snapshot.matchEndsAt,
                 allowAnswerLate = allowAnswerLate,
                 remainingSeconds = snapshot.remainingSeconds,
@@ -319,6 +323,18 @@ class GameViewModel @Inject constructor(
         )
     }
 
+    private fun selectOption(id: String) {
+        val state = _uiState.value
+        val question = state.question ?: return
+        if (!state.isAnswerInputEnabled || question.questionType != "multiple_choice" ||
+            question.answerOptions.none { it.id == id }
+        ) return
+        _uiState.update { it.copy(selectedOptionId = id) }
+        // Classic follows local Preview's tap-to-submit UX, not its local grading.
+        // submit() locks synchronously before launch, so a second tap cannot send again.
+        if (state.isClassic) submit()
+    }
+
     private fun submit() {
         val state = _uiState.value
         if (!state.canSubmit) return
@@ -331,7 +347,13 @@ class GameViewModel @Inject constructor(
         }
         _uiState.update { it.copy(phase = GamePhaseUi.Submitted, isInputLocked = true, isSubmitting = true) }
         viewModelScope.launch {
-            when (val result = session.submit(answer)) {
+            val result = session.submit(answer)
+            val current = _uiState.value
+            // Late ACK/error must not modify a newer question or regress results/locked.
+            if (current.question?.id != question.id || current.question?.index != question.index ||
+                current.phase != GamePhaseUi.Submitted
+            ) return@launch
+            when (result) {
                 is Result.Success -> applyAnswerAck(result.data)
                 is Result.Error -> {
                     val code = (result.error as? AppError.Api)?.code.orEmpty()

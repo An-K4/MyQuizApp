@@ -39,6 +39,8 @@ data class GameUiState(
     val selectedOptionIds: Set<String> = emptySet(),
     val textAnswer: String = "",
     val endsAt: String? = null,
+    /** Original duration from question:started; never inferred from reconnect time left. */
+    val timeLimitSeconds: Int? = null,
     val matchEndsAt: String? = null,
     val allowAnswerLate: Boolean = false,
     val serverOffsetMs: Long = 0L,
@@ -64,6 +66,10 @@ data class GameUiState(
     val matchTimeExpired: Boolean = false,
     val errorMessage: String? = null
 ) {
+    val isClassic: Boolean get() = mode == GameMode.CLASSIC && pacing == Pacing.HOST
+    val usesClassicQuestionLayout: Boolean
+        get() = isClassic && question != null &&
+            (phase == GamePhaseUi.Question || phase == GamePhaseUi.Submitted || phase == GamePhaseUi.Locked)
     val isPaused: Boolean get() = sessionStatus == SessionStatus.PAUSED
     val isSelfPaced: Boolean get() = pacing == Pacing.SELF
     val isAnswerInputEnabled: Boolean get() = !isInputLocked && !isPaused

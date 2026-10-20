@@ -8,6 +8,7 @@ import android.kma.myquizzapp.core.common.model.AnsweredQuestionSnapshot
 import android.kma.myquizzapp.core.common.model.DisconnectReason
 import android.kma.myquizzapp.core.common.model.GameConfig
 import android.kma.myquizzapp.core.common.model.GameEnded
+import android.kma.myquizzapp.core.common.model.GameMode
 import android.kma.myquizzapp.core.common.model.GameEvent
 import android.kma.myquizzapp.core.common.model.GamePhase
 import android.kma.myquizzapp.core.common.model.GameSnapshot
@@ -599,19 +600,184 @@ class GameViewModelTest {
         assertTrue(viewModel.uiState.value.phase is GamePhaseUi.Finished)
     }
 
+    @Test
+    fun `classic single tap submits once and cannot reveal even a verbose ack`() = runTest(dispatcher) {
+        socket.submitResult = Result.Success(AnswerAck(accepted = true, isCorrect = true,
+            scoreEarned = 950, totalScore = 950, streak = 1, correctAnswers = listOf("a")))
+        startQuestion(mode = GameMode.CLASSIC)
+        viewModel.onIntent(GameIntent.SelectOption("a"))
+        assertTrue(viewModel.uiState.value.isInputLocked)
+        viewModel.onIntent(GameIntent.SelectOption("b"))
+        viewModel.onIntent(GameIntent.Submit)
+        runCurrent()
+        assertEquals(listOf(PlayerAnswer.SingleChoice("a")), socket.answers)
+        assertEquals("a", viewModel.uiState.value.selectedOptionId)
+        assertEquals(GamePhaseUi.Submitted, viewModel.uiState.value.phase)
+        assertNull(viewModel.uiState.value.outcome)
+        assertNull(viewModel.uiState.value.results)
+        assertNull(viewModel.uiState.value.scoreEarned)
+        assertNull(viewModel.uiState.value.streak)
+    }
+
+    @Test
+    fun `classic rejects invalid choice and paused disconnected or expired taps`() = runTest(dispatcher) {
+        startQuestion(mode = GameMode.CLASSIC)
+        viewModel.onIntent(GameIntent.SelectOption("not-an-option"))
+        assertNull(viewModel.uiState.value.selectedOptionId)
+        socket.emit(configEvent(SessionStatus.PAUSED))
+        runCurrent()
+        viewModel.onIntent(GameIntent.SelectOption("a"))
+        socket.emit(configEvent(SessionStatus.ACTIVE))
+        socket.emit(GameEvent.Disconnected(DisconnectReason.TRANSPORT))
+        runCurrent()
+        viewModel.onIntent(GameIntent.SelectOption("a"))
+        assertTrue(socket.answers.isEmpty())
+        startQuestion(mode = GameMode.CLASSIC)
+        viewModel.onIntent(GameIntent.DeadlineReached)
+        viewModel.onIntent(GameIntent.SelectOption("a"))
+        runCurrent()
+        assertTrue(socket.answers.isEmpty())
+    }
+
+    @Test
+    fun `classic multi select waits for submit and preserves server option order`() = runTest(dispatcher) {
+        startQuestion(mode = GameMode.CLASSIC, questionType = "multiple_select")
+        viewModel.onIntent(GameIntent.ToggleOption("b"))
+        viewModel.onIntent(GameIntent.ToggleOption("a"))
+        runCurrent()
+        assertTrue(socket.answers.isEmpty())
+        viewModel.onIntent(GameIntent.Submit)
+        viewModel.onIntent(GameIntent.Submit)
+        runCurrent()
+        assertEquals(listOf(PlayerAnswer.MultipleSelect(listOf("a", "b"))), socket.answers)
+    }
+
+    @Test
+    fun `classic text answers require submit and never send blank values`() = runTest(dispatcher) {
+        for (type in listOf("short_answer", "long_answer")) {
+            startQuestion(mode = GameMode.CLASSIC, questionType = type)
+            val before = socket.answers.size
+            viewModel.onIntent(GameIntent.ChangeText("   "))
+            viewModel.onIntent(GameIntent.Submit)
+            runCurrent()
+            assertEquals(before, socket.answers.size)
+            viewModel.onIntent(GameIntent.ChangeText("  câu trả lời  "))
+            runCurrent()
+            assertEquals(before, socket.answers.size)
+            viewModel.onIntent(GameIntent.Submit)
+            runCurrent()
+            assertEquals(PlayerAnswer.Text("câu trả lời"), socket.answers.last())
+            assertEquals(before + 1, socket.answers.size)
+        }
+    }
+
+    @Test
+    fun `classic tap with ack timeout syncs without retrying answer`() = runTest(dispatcher) {
+        socket.submitResult = Result.Error(AppError.Api("CLIENT_ACK_TIMEOUT"))
+        startQuestion(mode = GameMode.CLASSIC)
+        viewModel.onIntent(GameIntent.SelectOption("a"))
+        runCurrent()
+        assertTrue(viewModel.uiState.value.isConfirming)
+        assertEquals(1, socket.syncCalls)
+        viewModel.onIntent(GameIntent.SelectOption("b"))
+        runCurrent()
+        assertEquals(1, socket.answers.size)
+        assertEquals("a", viewModel.uiState.value.selectedOptionId)
+    }
+
+    @Test
+    fun `classic confirmed tap stays locked after pause resume`() = runTest(dispatcher) {
+        startQuestion(mode = GameMode.CLASSIC)
+        viewModel.onIntent(GameIntent.SelectOption("a"))
+        runCurrent()
+        socket.emit(snapshot(answered = false, status = SessionStatus.PAUSED))
+        socket.emit(snapshot(answered = false, status = SessionStatus.ACTIVE))
+        runCurrent()
+        viewModel.onIntent(GameIntent.SelectOption("b"))
+        runCurrent()
+        assertEquals(GamePhaseUi.Submitted, viewModel.uiState.value.phase)
+        assertTrue(viewModel.uiState.value.isInputLocked)
+        assertEquals(1, socket.answers.size)
+    }
+
+    @Test
+    fun `late classic submit error cannot contaminate a new question`() = runTest(dispatcher) {
+        val gate = CompletableDeferred<Result<AnswerAck>>()
+        socket.submitGate = gate
+        startQuestion(mode = GameMode.CLASSIC)
+        viewModel.onIntent(GameIntent.SelectOption("a"))
+        runCurrent()
+        socket.emit(GameEvent.QuestionStarted(PlayerQuestionStarted(question().copy(index = 1, id = 11))))
+        runCurrent()
+        gate.complete(Result.Error(AppError.Api("CLIENT_ACK_TIMEOUT")))
+        runCurrent()
+        assertEquals(1, viewModel.uiState.value.question?.index)
+        assertEquals(GamePhaseUi.Question, viewModel.uiState.value.phase)
+        assertFalse(viewModel.uiState.value.isInputLocked)
+        assertFalse(viewModel.uiState.value.isConfirming)
+        assertNull(viewModel.uiState.value.errorMessage)
+        assertEquals(0, socket.syncCalls)
+    }
+
+    @Test
+    fun `classic results before ack cannot be pulled back into confirming`() = runTest(dispatcher) {
+        val gate = CompletableDeferred<Result<AnswerAck>>()
+        socket.submitGate = gate
+        startQuestion(mode = GameMode.CLASSIC)
+        viewModel.onIntent(GameIntent.SelectOption("a"))
+        runCurrent()
+        socket.emit(GameEvent.QuestionResultsReceived(QuestionResults(0, correctAnswers = listOf("a"))))
+        runCurrent()
+        gate.complete(Result.Error(AppError.Api("CLIENT_ACK_TIMEOUT")))
+        runCurrent()
+        assertTrue(viewModel.uiState.value.phase is GamePhaseUi.Results)
+        assertFalse(viewModel.uiState.value.isConfirming)
+        assertNull(viewModel.uiState.value.errorMessage)
+    }
+
+    @Test
+    fun `classic duration survives same question snapshot but not an unseen next question`() = runTest(dispatcher) {
+        startQuestion(mode = GameMode.CLASSIC)
+        assertEquals(30, viewModel.uiState.value.timeLimitSeconds)
+        socket.emit(snapshot(answered = false))
+        runCurrent()
+        assertEquals(30, viewModel.uiState.value.timeLimitSeconds)
+        socket.emit(GameEvent.StateSnapshot(GameSnapshot(mode = GameMode.CLASSIC,
+            phase = GamePhase.QUESTION_ACTIVE, index = 1, question = question().copy(index = 1, id = 11),
+            endsAt = "2026-09-15T14:00:30Z", remainingSeconds = 8)))
+        runCurrent()
+        assertNull(viewModel.uiState.value.timeLimitSeconds)
+    }
+
+    @Test
+    fun `non classic single choice still waits for explicit submit`() = runTest(dispatcher) {
+        startQuestion(pacing = Pacing.SELF, mode = GameMode.SOLO)
+        viewModel.onIntent(GameIntent.SelectOption("a"))
+        runCurrent()
+        assertTrue(socket.answers.isEmpty())
+        assertEquals(GamePhaseUi.Question, viewModel.uiState.value.phase)
+        viewModel.onIntent(GameIntent.Submit)
+        runCurrent()
+        assertEquals(1, socket.answers.size)
+    }
+
     private suspend fun TestScope.startQuestion(
         showCorrectAnswer: Boolean = true,
         showLeaderboard: ShowLeaderboard = ShowLeaderboard.BETWEEN_QUESTIONS,
         pacing: Pacing = Pacing.HOST,
         allowAnswerLate: Boolean = false,
-        autoAdvance: Boolean = true
+        autoAdvance: Boolean = true,
+        mode: GameMode? = null,
+        questionType: String = "multiple_choice"
     ) {
         runCurrent()
-        socket.emit(configEvent(SessionStatus.ACTIVE, showCorrectAnswer, showLeaderboard, pacing, allowAnswerLate, autoAdvance))
+        val config = configEvent(SessionStatus.ACTIVE, showCorrectAnswer, showLeaderboard, pacing, allowAnswerLate, autoAdvance)
+        socket.emit(config.copy(snapshot = config.snapshot.copy(mode = mode)))
         socket.emit(
             GameEvent.QuestionStarted(
                 PlayerQuestionStarted(
-                    question(),
+                    question().copy(questionType = questionType),
+                    timeLimitSeconds = 30,
                     endsAt = "2026-09-15T14:00:30Z",
                     allowAnswerLate = allowAnswerLate
                 )

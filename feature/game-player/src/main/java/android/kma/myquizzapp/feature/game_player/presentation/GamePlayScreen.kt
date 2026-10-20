@@ -3,6 +3,15 @@ package android.kma.myquizzapp.feature.game_player.presentation
 import android.kma.myquizzapp.core.common.model.PublicAnswerOption
 import android.kma.myquizzapp.core.common.model.PublicQuestion
 import android.kma.myquizzapp.core.ui.components.QuestionImage
+import android.kma.myquizzapp.core.ui.components.AppConfirmDialog
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.key
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import android.kma.myquizzapp.core.ui.theme.MyQuizAppTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -57,7 +66,68 @@ fun GamePlayScreen(
             }
         }
     }
-    GamePlayScreenContent(state, viewModel::onIntent, modifier)
+    val snackbar = remember { SnackbarHostState() }
+    val listState = rememberLazyListState()
+    val focusManager = LocalFocusManager.current
+    val keyboard = LocalSoftwareKeyboardController.current
+    var showExitDialog by rememberSaveable { mutableStateOf(false) }
+    val requestExit: () -> Unit = {
+        if (state.isClassic) showExitDialog = true else viewModel.onIntent(GameIntent.Leave)
+    }
+    BackHandler(enabled = state.isClassic) { requestExit() }
+    LaunchedEffect(state.errorMessage) {
+        state.errorMessage?.let { snackbar.showSnackbar(it); viewModel.onIntent(GameIntent.ErrorShown) }
+    }
+    LaunchedEffect(state.question?.id, state.question?.index) {
+        if (state.isClassic) listState.scrollToItem(0)
+    }
+    LaunchedEffect(state.isClassic, state.phase, state.isAnswerInputEnabled) {
+        if (state.isClassic && (state.phase != GamePhaseUi.Question || !state.isAnswerInputEnabled)) {
+            focusManager.clearFocus()
+            keyboard?.hide()
+        }
+    }
+    if (state.usesClassicQuestionLayout) {
+        val time = rememberClassicQuestionTime(state)
+        LaunchedEffect(state.question?.id, state.question?.index, state.endsAt, time.expired, state.isPaused) {
+            if (time.expired && !state.isPaused) viewModel.onIntent(GameIntent.DeadlineReached)
+        }
+        ClassicQuestionScreenContent(
+            state = state, time = time, onIntent = viewModel::onIntent,
+            onRequestExit = requestExit, listState = listState, snackbar = snackbar, modifier = modifier,
+        )
+    } else {
+        // Countdown, results and non-Classic layouts are intentionally unchanged in this milestone.
+        GamePlayScreenContent(
+            state = state, onIntent = viewModel::onIntent, onRequestExit = requestExit,
+            snackbar = snackbar, modifier = modifier,
+        )
+    }
+    if (showExitDialog && state.isClassic) {
+        AppConfirmDialog(
+            title = "Rời màn chơi?",
+            message = "Bạn sẽ ngắt kết nối và rời màn chơi. Thao tác này không kết thúc trận của cả phòng.",
+            confirmText = "Rời màn", dismissText = "Tiếp tục chơi",
+            onConfirm = { showExitDialog = false; viewModel.onIntent(GameIntent.Leave) },
+            onDismiss = { showExitDialog = false },
+        )
+    }
+}
+
+/** Stateful clock adapter lives at the Screen boundary; the Classic content only renders values. */
+@Composable
+private fun rememberClassicQuestionTime(state: GameUiState): ClassicQuestionTime {
+    val time by key(state.question?.id, state.question?.index, state.endsAt, state.serverOffsetMs,
+        state.timeLimitSeconds, state.isPaused, state.remainingSeconds) {
+        produceState(initialValue = classicQuestionTime(state, System.currentTimeMillis())) {
+            do {
+                value = classicQuestionTime(state, System.currentTimeMillis())
+                if (state.isPaused || value.seconds == null || value.expired) break
+                delay(200)
+            } while (true)
+        }
+    }
+    return time
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -65,19 +135,17 @@ fun GamePlayScreen(
 fun GamePlayScreenContent(
     state: GameUiState,
     onIntent: (GameIntent) -> Unit,
+    onRequestExit: () -> Unit,
+    snackbar: SnackbarHostState,
     modifier: Modifier = Modifier
 ) {
-    val snackbar = remember { SnackbarHostState() }
-    LaunchedEffect(state.errorMessage) {
-        state.errorMessage?.let { snackbar.showSnackbar(it); onIntent(GameIntent.ErrorShown) }
-    }
     Scaffold(
         modifier = modifier.fillMaxSize(),
         snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
             TopAppBar(
                 title = { Text("Đang chơi") },
-                actions = { TextButton(onClick = { onIntent(GameIntent.Leave) }) { Text("Thoát") } }
+                actions = { TextButton(onClick = onRequestExit) { Text("Thoát") } }
             )
         }
     ) { padding ->
@@ -393,7 +461,9 @@ private fun PreviewGame() {
                 ),
                 isInputLocked = false
             ),
-            onIntent = {}
+            onIntent = {},
+            onRequestExit = {},
+            snackbar = remember { SnackbarHostState() },
         )
     }
 }
