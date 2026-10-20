@@ -107,7 +107,8 @@ fun QuizPreviewScreenContent(
     val showQuestion = !state.isLoading && state.currentQuestion != null &&
         state.phase in setOf(PreviewPhase.QUESTION, PreviewPhase.FEEDBACK)
     Scaffold(
-        modifier = modifier.fillMaxSize(),
+        // Resize the screen viewport for IME, not the footer/button's measured height.
+        modifier = modifier.fillMaxSize().imePadding(),
         containerColor = previewPageColor(),
         topBar = {
             Column {
@@ -160,7 +161,7 @@ fun QuizPreviewScreenContent(
                             trailingIcon = if (state.phase == PreviewPhase.FEEDBACK) {
                                 { Icon(Icons.AutoMirrored.Filled.ArrowForward, null, Modifier.size(18.dp)) }
                             } else null,
-                            modifier = Modifier.fillMaxWidth().navigationBarsPadding().imePadding()
+                            modifier = Modifier.fillMaxWidth().navigationBarsPadding()
                                 .padding(horizontal = 20.dp, vertical = 12.dp),
                         )
                     }
