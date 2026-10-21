@@ -34,8 +34,9 @@ enum class AnswerOptionSelectionMode { Single, Multiple }
 
 /**
  * Stateless option row. The caller owns selection and feedback policy.
- * readOnly renders plain option content: no click/radio semantics or answer-key styling,
- * even if selected/feedback were supplied accidentally. Interactive defaults are unchanged.
+ * readOnly removes click/radio semantics and selection. Feedback is also hidden unless
+ * showReadOnlyFeedback is explicitly enabled by a caller with reveal permission.
+ * Existing interactive and read-only defaults are unchanged.
  */
 @Composable
 fun AnswerOptionItem(
@@ -48,9 +49,10 @@ fun AnswerOptionItem(
     feedback: AnswerOptionFeedback = AnswerOptionFeedback.None,
     readOnly: Boolean = false,
     selectionMode: AnswerOptionSelectionMode = AnswerOptionSelectionMode.Single,
+    showReadOnlyFeedback: Boolean = false,
 ) {
     val isSelected = selected && !readOnly
-    val visibleFeedback = if (readOnly) AnswerOptionFeedback.None else feedback
+    val visibleFeedback = if (readOnly && !showReadOnlyFeedback) AnswerOptionFeedback.None else feedback
     val background = when {
         visibleFeedback == AnswerOptionFeedback.Correct -> ComponentColors.successSurface
         visibleFeedback == AnswerOptionFeedback.Incorrect -> ComponentColors.dangerSurface
@@ -74,7 +76,9 @@ fun AnswerOptionItem(
     }
     Surface(
         modifier = modifier.fillMaxWidth().heightIn(min = 48.dp).then(
-            if (readOnly) Modifier.semantics(mergeDescendants = true) {}
+            if (readOnly) Modifier.semantics(mergeDescendants = true) {
+                if (visibleFeedback != AnswerOptionFeedback.None) stateDescription = stateLabel
+            }
             else (if (selectionMode == AnswerOptionSelectionMode.Multiple)
                 Modifier.toggleable(value = isSelected, enabled = enabled, role = Role.Checkbox,
                     onValueChange = { onClick() })
@@ -109,6 +113,8 @@ private fun AnswerOptionItemPreview() {
             Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 AnswerOptionItem("A", "K2", false, {})
                 AnswerOptionItem("A", "Chỉ xem — không chọn hoặc tiết lộ đáp án", false, {}, readOnly = true)
+                AnswerOptionItem("B", "Host xem đáp án đúng — không có thao tác chọn", false, {},
+                    feedback = AnswerOptionFeedback.Correct, readOnly = true, showReadOnlyFeedback = true)
                 AnswerOptionItem("B", "Đã chọn, chưa có kết quả", true, {})
                 AnswerOptionItem("B", "Chọn nhiều — chưa gửi đáp án", true, {},
                     selectionMode = AnswerOptionSelectionMode.Multiple)

@@ -77,8 +77,9 @@ internal fun JsonElement?.toAnswerKeys(): List<String> = when {
 /**
  * Đọc `stats` của `question:results`.
  *
- * Schema là object có `total` cộng thêm các khóa động theo id lựa chọn
- * (additionalProperties), nên không thể khai báo data class cứng.
+ * Backend thật gửi `{ total, correct, distribution: { ... } }`. Phân bố là các
+ * nhóm câu trả lời; chọn nhiều có thể có khóa `"0,2"` do `String(answer)` ở server.
+ * Vẫn đọc shape phẳng cũ, nhưng không coi `correct` là id lựa chọn.
  *
  * Lưu ý nghiệp vụ: khi `flow.showCorrectAnswer = false`, backend chỉ gửi `total`
  * — kể cả cho host. Phân bố rỗng KHÔNG có nghĩa là không ai trả lời.
@@ -86,11 +87,15 @@ internal fun JsonElement?.toAnswerKeys(): List<String> = when {
 internal fun JsonObject?.toAnswerStats(): AnswerStats {
     if (this == null) return AnswerStats()
     val total = (this[KEY_TOTAL] as? JsonPrimitive)?.content?.toIntOrNull() ?: 0
-    val distribution = entries.mapNotNull { (key, value) ->
-        if (key == KEY_TOTAL) return@mapNotNull null
+    // Actual game.cache.ts shape: { total, correct, distribution: { "0": 2, ... } }.
+    // Preserve a legacy flat payload, but never mistake aggregate metadata for option IDs.
+    // If distribution is explicitly present but malformed, do not fall back to outer fields.
+    val buckets = if (containsKey("distribution")) this["distribution"] as? JsonObject
+        else JsonObject(filterKeys { it != KEY_TOTAL && it != "correct" })
+    val distribution = buckets?.entries?.mapNotNull { (key, value) ->
         val count = (value as? JsonPrimitive)?.content?.toIntOrNull() ?: return@mapNotNull null
         key to count
-    }.toMap()
+    }?.toMap().orEmpty()
     return AnswerStats(total = total, distribution = distribution)
 }
 

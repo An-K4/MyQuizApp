@@ -1,6 +1,7 @@
 package android.kma.myquizzapp.feature.game_host.presentation.hostgame
 
 import android.kma.myquizzapp.core.common.model.DisconnectReason
+import android.kma.myquizzapp.core.common.model.GameMode
 import android.kma.myquizzapp.core.common.model.GameEvent
 import android.kma.myquizzapp.core.common.model.GamePhase
 import android.kma.myquizzapp.core.common.model.HostLeaderboardRow
@@ -80,6 +81,7 @@ class HostGameViewModel @Inject constructor(
      * vẽ ra màn hình.
      */
     private val answerKeysByIndex = mutableMapOf<Int, List<String>>()
+    private var connectedRosterIds: Set<Long>? = null
 
     private var socketJob: Job? = null
     private var commandGuardJob: Job? = null
@@ -100,7 +102,18 @@ class HostGameViewModel @Inject constructor(
         when (intent) {
             HostGameIntent.Retry -> connect()
             HostGameIntent.ToggleAnswerKey -> toggleAnswerKey()
+            HostGameIntent.HideAnswerKey -> _uiState.update { it.copy(isAnswerRevealed = false) }
+            is HostGameIntent.AdvanceFromResults -> {
+                val state = _uiState.value
+                if (state.canAdvanceFromResults && state.index == intent.index) advanceQuestion()
+            }
             HostGameIntent.AdvanceQuestion -> advanceQuestion()
+            is HostGameIntent.ConfirmCloseQuestion -> {
+                val state = _uiState.value
+                if (state.canCloseClassicQuestion && state.index == intent.index &&
+                    state.question?.id == intent.questionId
+                ) advanceQuestion()
+            }
             HostGameIntent.PauseOrResume -> pauseOrResume()
             HostGameIntent.RequestEndGame -> _uiState.update { it.copy(isEndDialogOpen = true) }
             HostGameIntent.DismissEndDialog -> _uiState.update { it.copy(isEndDialogOpen = false) }
@@ -113,6 +126,7 @@ class HostGameViewModel @Inject constructor(
 
     private fun connect() {
         socketJob?.cancel()
+        connectedRosterIds = null
         _uiState.update {
             it.copy(
                 connection = if (it.hasSnapshot) {
@@ -120,7 +134,10 @@ class HostGameViewModel @Inject constructor(
                 } else {
                     HostGameConnection.CONNECTING
                 },
-                errorMessage = null
+                errorMessage = null,
+                hasAnswerProgress = false,
+                hasResultsLeaderboard = false,
+                isStateSynchronized = false
             )
         }
         socketJob = viewModelScope.launch {
@@ -135,26 +152,34 @@ class HostGameViewModel @Inject constructor(
             // nhất lấy lại `game:state` để dựng lại màn hình.
             GameEvent.Connected -> {
                 tokenRefreshAttempted = false
-                _uiState.update { it.copy(connection = HostGameConnection.CONNECTED) }
+                _uiState.update { it.copy(connection = HostGameConnection.CONNECTED, isStateSynchronized = false) }
                 socketRepository.joinLobby()
             }
 
             is GameEvent.Disconnected -> onDisconnected(event.reason)
 
-            is GameEvent.LobbyUpdated -> _uiState.update {
-                it.copy(
-                    sessionStatus = event.lobby.sessionStatus,
-                    pacing = event.lobby.config.flow.pacing,
-                    autoAdvance = event.lobby.config.timing.autoAdvance,
-                    serverOffsetMs = offsetOf(event.lobby.serverTime, it.serverOffsetMs)
-                )
+            is GameEvent.LobbyUpdated -> {
+                updateConnectedRoster(event.lobby.players.filter { it.status == "connected" }.map { it.id }.toSet())
+                _uiState.update {
+                    it.copy(
+                        sessionStatus = event.lobby.sessionStatus,
+                        pacing = event.lobby.config.flow.pacing,
+                        autoAdvance = event.lobby.config.timing.autoAdvance,
+                        showCorrectAnswer = event.lobby.config.flow.showCorrectAnswer,
+                        showLeaderboard = event.lobby.config.flow.showLeaderboard,
+                        serverOffsetMs = offsetOf(event.lobby.serverTime, it.serverOffsetMs)
+                    )
+                }
             }
 
             is GameEvent.GameStarted -> _uiState.update {
                 it.copy(
                     mode = event.mode,
+                    isStateSynchronized = true,
                     pacing = event.config.flow.pacing,
                     autoAdvance = event.config.timing.autoAdvance,
+                    showCorrectAnswer = event.config.flow.showCorrectAnswer,
+                    showLeaderboard = event.config.flow.showLeaderboard,
                     totalQuestions = event.totalQuestions,
                     sessionStatus = SessionStatus.ACTIVE,
                     serverOffsetMs = offsetOf(event.serverTime, it.serverOffsetMs)
@@ -181,6 +206,10 @@ class HostGameViewModel @Inject constructor(
     }
 
     private suspend fun onDisconnected(reason: DisconnectReason) {
+        if (reason != DisconnectReason.CLIENT) {
+            connectedRosterIds = null
+            _uiState.update { it.copy(hasAnswerProgress = false, hasResultsLeaderboard = false, isStateSynchronized = false) }
+        }
         when (reason) {
             // Chủ động rời màn thì không phải sự cố.
             DisconnectReason.CLIENT -> Unit
@@ -205,6 +234,10 @@ class HostGameViewModel @Inject constructor(
         _uiState.update {
             it.copy(
                 phase = GamePhase.COUNTDOWN,
+                hasResultsLeaderboard = false,
+                isStateSynchronized = true,
+                hasAnswerProgress = false,
+                isQuestionClockKnown = false,
                 sessionStatus = it.sessionStatus ?: SessionStatus.ACTIVE,
                 countdownTargetEpochMs = target,
                 deadlineEpochMs = null,
@@ -219,6 +252,7 @@ class HostGameViewModel @Inject constructor(
     private fun onHostQuestion(event: GameEvent.HostQuestionReceived) {
         val hostQuestion = event.hostQuestion
         val index = hostQuestion.question.index
+        val deadline = hostQuestion.endsAt?.let(::epochMillisOrNull)
         if (hostQuestion.correctAnswers.isNotEmpty()) {
             answerKeysByIndex[index] = hostQuestion.correctAnswers
         }
@@ -234,9 +268,14 @@ class HostGameViewModel @Inject constructor(
                 // Câu mới thì ẩn lại đáp án: không được để trạng thái "đã mở" của câu
                 // trước làm lộ đáp án câu đang hỏi.
                 isAnswerRevealed = false,
-                deadlineEpochMs = hostQuestion.endsAt?.let(::epochMillisOrNull),
+                deadlineEpochMs = deadline,
+                isQuestionClockKnown = hostQuestion.endsAt == null || deadline != null,
+                isStateSynchronized = true,
                 countdownTargetEpochMs = null,
                 answeredCount = 0,
+                activePlayers = connectedRosterIds?.size ?: 0,
+                hasAnswerProgress = connectedRosterIds != null,
+                hasResultsLeaderboard = false,
                 results = null,
                 lockReason = null,
                 serverOffsetMs = offsetOf(event.serverTime, it.serverOffsetMs),
@@ -260,28 +299,29 @@ class HostGameViewModel @Inject constructor(
 
     private fun onQuestionResults(event: GameEvent.QuestionResultsReceived) {
         val results = event.results
-        // Đây là cơ hội thứ hai để có đáp án đúng: hữu ích đúng lúc host vừa reconnect
-        // và không được phát lại `host:question`.
+        val current = _uiState.value
+        // Results from an older question must not put Classic back into the results phase.
+        if (current.isClassic && (current.isFinished || results.index != current.index ||
+                (results.questionId != null && current.question != null && results.questionId != current.question?.id))
+        ) return
         if (results.correctAnswers.isNotEmpty()) {
             answerKeysByIndex[results.index] = results.correctAnswers
         }
-        _uiState.update {
-            val sameQuestion = results.index == it.index
-            it.copy(
+        _uiState.update { state ->
+            val sameQuestion = results.index == state.index
+            val firstResults = !state.isShowingQuestionResults || state.results == null
+            val keys = if (sameQuestion) answerKeysByIndex[results.index].orEmpty() else state.correctAnswers
+            state.copy(
                 phase = GamePhase.SHOWING_RESULTS,
                 results = results,
-                deadlineEpochMs = null,
-                correctAnswers = if (sameQuestion) {
-                    answerKeysByIndex[results.index].orEmpty()
-                } else {
-                    it.correctAnswers
-                },
-                hasAnswerKey = if (sameQuestion) {
-                    answerKeysByIndex.containsKey(results.index)
-                } else {
-                    it.hasAnswerKey
-                },
-                serverOffsetMs = offsetOf(event.serverTime, it.serverOffsetMs),
+                hasResultsLeaderboard = if (firstResults) false else state.hasResultsLeaderboard,
+                deadlineEpochMs = if (state.isClassic) results.nextQuestionAt?.let(::epochMillisOrNull) else null,
+                correctAnswers = keys,
+                hasAnswerKey = if (sameQuestion) answerKeysByIndex.containsKey(results.index) else state.hasAnswerKey,
+                isAnswerRevealed = if (state.isClassic && firstResults)
+                    state.showCorrectAnswer == true && sameQuestion && keys.isNotEmpty()
+                else state.isAnswerRevealed,
+                serverOffsetMs = offsetOf(event.serverTime, state.serverOffsetMs),
                 isSendingCommand = false
             )
         }
@@ -290,11 +330,15 @@ class HostGameViewModel @Inject constructor(
     private fun onAnswerReceived(event: GameEvent.HostAnswerReceivedEvent) {
         val answer = event.answer
         // Bỏ gói của câu khác — xem bẫy (3).
-        if (answer.index != _uiState.value.index) return
+        val current = _uiState.value
+        if (answer.index != current.index ||
+            (current.isClassic && current.phase != GamePhase.QUESTION_ACTIVE)
+        ) return
         _uiState.update {
             it.copy(
                 answeredCount = answer.answered,
                 activePlayers = answer.activePlayers,
+                hasAnswerProgress = answer.activePlayers > 0 && answer.answered in 0..answer.activePlayers,
                 serverOffsetMs = offsetOf(event.serverTime, it.serverOffsetMs)
             )
         }
@@ -339,9 +383,12 @@ class HostGameViewModel @Inject constructor(
     }
 
     private fun onLeaderboard(event: GameEvent.HostLeaderboardUpdated) {
+        updateConnectedRoster(event.leaderboard.rows.filter { it.status == "connected" }.map { it.id }.toSet())
         _uiState.update {
             it.copy(
                 leaderboard = event.leaderboard,
+                hasResultsLeaderboard = it.isShowingQuestionResults && it.isStateSynchronized &&
+                    it.connection == HostGameConnection.CONNECTED,
                 totalQuestions = if (event.leaderboard.totalQuestions > 0) {
                     event.leaderboard.totalQuestions
                 } else {
@@ -352,21 +399,42 @@ class HostGameViewModel @Inject constructor(
         }
     }
 
-    /**
-     * Dựng lại màn hình từ `game:state` sau reconnect.
-     *
-     * Với host-paced, câu hỏi ở đây là bản công khai nên đáp án phải lấy từ cache;
-     * nếu cache không có thì UI nói rõ là chưa có đáp án. Với self-paced, các field
-     * question/index/endsAt cấp session không đại diện cho từng player nên bị bỏ.
-     */
+    /** A roster change invalidates the live pair: cumulative totals cannot repair this question's count. */
+    private fun updateConnectedRoster(ids: Set<Long>) {
+        val changed = connectedRosterIds != ids
+        connectedRosterIds = ids
+        if (changed) _uiState.update { state ->
+            if (state.isClassic) state.copy(hasAnswerProgress = false) else state
+        }
+    }
+
+    /** Restore only what game:state actually provides; no live counts or answer key are invented. */
     private fun onSnapshot(event: GameEvent.StateSnapshot) {
         val snapshot = event.snapshot
         _uiState.update { state ->
             val pacing = snapshot.config?.flow?.pacing ?: state.pacing
             val selfPaced = pacing == Pacing.SELF
+            val deadline = if (selfPaced) null else snapshot.endsAt?.let(::epochMillisOrNull)
+            val question = if (selfPaced) null else snapshot.question ?: state.question?.takeIf { it.index == snapshot.index }
+            val sameQuestion = state.question?.id == question?.id && state.index == snapshot.index
+            val phase = if (snapshot.phase == GamePhase.UNKNOWN) state.phase else snapshot.phase
+            val classic = (snapshot.mode ?: state.mode) == GameMode.CLASSIC && !selfPaced
+            val showCorrect = snapshot.config?.flow?.showCorrectAnswer ?: state.showCorrectAnswer
+            val keepLocalReveal = sameQuestion && state.phase == phase && state.isStateSynchronized &&
+                state.showCorrectAnswer == showCorrect
             state.copy(
+                isStateSynchronized = true,
+                isQuestionClockKnown = !selfPaced && snapshot.question != null &&
+                    (snapshot.endsAt == null || deadline != null),
+                hasAnswerProgress = !selfPaced && sameQuestion && state.isStateSynchronized && state.hasAnswerProgress,
                 sessionStatus = snapshot.sessionStatus ?: state.sessionStatus,
-                phase = if (snapshot.phase == GamePhase.UNKNOWN) state.phase else snapshot.phase,
+                phase = phase,
+                showCorrectAnswer = showCorrect,
+                showLeaderboard = snapshot.config?.flow?.showLeaderboard ?: state.showLeaderboard,
+                results = state.results?.takeIf { !selfPaced && sameQuestion && it.index == snapshot.index &&
+                    (it.questionId == null || it.questionId == question?.id) },
+                hasResultsLeaderboard = sameQuestion && state.isStateSynchronized && state.hasResultsLeaderboard &&
+                    phase == GamePhase.SHOWING_RESULTS,
                 mode = snapshot.mode ?: state.mode,
                 pacing = pacing,
                 autoAdvance = snapshot.config?.timing?.autoAdvance ?: state.autoAdvance,
@@ -376,11 +444,12 @@ class HostGameViewModel @Inject constructor(
                 } else {
                     state.totalQuestions
                 },
-                question = if (selfPaced) null else snapshot.question ?: state.question,
+                question = question,
                 correctAnswers = if (selfPaced) emptyList() else answerKeysByIndex[snapshot.index].orEmpty(),
                 hasAnswerKey = !selfPaced && answerKeysByIndex.containsKey(snapshot.index),
-                isAnswerRevealed = false,
-                deadlineEpochMs = if (selfPaced) null else snapshot.endsAt?.let(::epochMillisOrNull),
+                isAnswerRevealed = classic && if (keepLocalReveal) state.isAnswerRevealed else
+                    phase == GamePhase.SHOWING_RESULTS && showCorrect == true && answerKeysByIndex[snapshot.index]?.isNotEmpty() == true,
+                deadlineEpochMs = deadline,
                 countdownTargetEpochMs = snapshot.countdownStartsAt?.let(::epochMillisOrNull),
                 serverOffsetMs = offsetOf(event.serverTime, state.serverOffsetMs),
                 isSendingCommand = false
@@ -450,9 +519,13 @@ class HostGameViewModel @Inject constructor(
     private suspend fun onFailure(event: GameEvent.Failed) {
         commandGuardJob?.cancel()
         if (event.code == CODE_RECONNECT_EXHAUSTED) {
+            connectedRosterIds = null
             _uiState.update {
                 it.copy(
                     connection = HostGameConnection.RECONNECT_FAILED,
+                    hasAnswerProgress = false,
+                    hasResultsLeaderboard = false,
+                    isStateSynchronized = false,
                     isSendingCommand = false
                 )
             }

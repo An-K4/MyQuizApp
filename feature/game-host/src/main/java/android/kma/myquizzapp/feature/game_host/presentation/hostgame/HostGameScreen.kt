@@ -6,6 +6,14 @@ import android.kma.myquizzapp.core.common.model.HostLeaderboardRow
 import android.kma.myquizzapp.core.common.model.PublicAnswerOption
 import android.kma.myquizzapp.core.common.model.QuestionLockReason
 import android.kma.myquizzapp.core.ui.components.QuestionImage
+import android.kma.myquizzapp.core.ui.components.AppConfirmDialog
+import android.kma.myquizzapp.core.ui.components.AppDialogVariant
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -45,10 +53,8 @@ import kotlinx.coroutines.delay
 /**
  * Màn điều khiển trận của HOST (N21 host-paced, N28.5 self-paced).
  *
- * Nguyên tắc bố cục: **câu hỏi luôn hiện, đáp án ẩn sau nút**. Màn này hay được
- * chiếu lên màn lớn hoặc đặt giữa bàn, nên hiện đáp án mặc định là hỏng trận;
- * nhưng ẩn luôn cả câu hỏi (như bản web hiện tại) thì host mất ngữ cảnh để đọc to
- * và điều phối.
+ * Classic dùng hai bố cục: tiến độ + câu hỏi khi đang chơi, biểu đồ + bảng hạng
+ * khi có kết quả. Ảnh luôn hiện trong card câu hỏi; phần trả lời có thể thu gọn.
  *
  * Toàn trang dùng ĐÚNG MỘT [LazyColumn] (quy ước 3.11): lồng danh sách cuộn trong
  * danh sách cuộn làm Compose ném lỗi đo chiều cao vô hạn.
@@ -68,37 +74,134 @@ fun HostGameScreen(
         }
     }
 
-    HostGameScreenContent(state = uiState, onIntent = viewModel::onIntent)
+    val snackbarHostState = remember { SnackbarHostState() }
+    val listState = rememberLazyListState()
+    val questionKey = hostQuestionKey(uiState)
+    var optionsExpanded by rememberSaveable(questionKey) { mutableStateOf(false) }
+    var menuExpanded by rememberSaveable { mutableStateOf(false) }
+    var pendingCloseKey by rememberSaveable { mutableStateOf<String?>(null) }
+    var showLeaveDialog by rememberSaveable { mutableStateOf(false) }
+
+    val requestLeave: () -> Unit = {
+        menuExpanded = false
+        pendingCloseKey = null
+        viewModel.onIntent(HostGameIntent.DismissEndDialog)
+        if (uiState.isClassic && !uiState.isFinished) showLeaveDialog = true
+        else viewModel.onIntent(HostGameIntent.LeaveGame)
+    }
+    BackHandler(enabled = uiState.isClassic && !uiState.isFinished) { requestLeave() }
+    LaunchedEffect(uiState.errorMessage) {
+        uiState.errorMessage?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.onIntent(HostGameIntent.ErrorShown)
+        }
+    }
+    LaunchedEffect(uiState.notice) {
+        uiState.notice?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.onIntent(HostGameIntent.NoticeShown)
+        }
+    }
+    LaunchedEffect(questionKey, uiState.isShowingQuestionResults) {
+        if (uiState.isClassic) listState.scrollToItem(0)
+    }
+    LaunchedEffect(questionKey, uiState.phase) { menuExpanded = false }
+    LaunchedEffect(questionKey, uiState.canCloseClassicQuestion) {
+        if (pendingCloseKey != questionKey || !uiState.canCloseClassicQuestion) pendingCloseKey = null
+    }
+    LaunchedEffect(uiState.isFinished) { if (uiState.isFinished) showLeaveDialog = false }
+
+    if (uiState.usesClassicRoundLayout) {
+        val answerSectionExpanded = optionsExpanded || uiState.isAnswerRevealed
+        HostClassicQuestionScreenContent(
+            state = uiState, time = rememberHostQuestionTime(uiState),
+            onIntent = { intent ->
+                // Hiding via the fill button keeps the answer section open; collapsing hides both.
+                if (intent == HostGameIntent.ToggleAnswerKey) optionsExpanded = true
+                viewModel.onIntent(intent)
+            }, listState = listState, snackbarHostState = snackbarHostState,
+            optionsExpanded = answerSectionExpanded, onToggleOptions = {
+                if (answerSectionExpanded) {
+                    optionsExpanded = false
+                    viewModel.onIntent(HostGameIntent.HideAnswerKey)
+                } else optionsExpanded = true
+            },
+            menuExpanded = menuExpanded, onMenuExpandedChange = { menuExpanded = it },
+            onRequestClose = { if (uiState.canCloseClassicQuestion) pendingCloseKey = questionKey },
+            onRequestNext = { viewModel.onIntent(HostGameIntent.AdvanceFromResults(uiState.index)) },
+            onRequestEnd = {
+                menuExpanded = false
+                pendingCloseKey = null
+                showLeaveDialog = false
+                viewModel.onIntent(HostGameIntent.RequestEndGame)
+            },
+            onRequestLeave = requestLeave,
+        )
+    } else {
+        // Pre-game countdown, final results and self-paced layouts are not redesigned here.
+        HostGameScreenContent(uiState, viewModel::onIntent, snackbarHostState, requestLeave)
+    }
+
+    if (pendingCloseKey == questionKey && uiState.canCloseClassicQuestion) {
+        val expectedIndex = uiState.index
+        val expectedId = uiState.question?.id
+        AppConfirmDialog(
+            title = "Chốt câu & hiện kết quả?",
+            message = "Câu ${expectedIndex + 1} sẽ đóng ngay. Người chơi chưa trả lời sẽ không thể gửi đáp án; máy chủ sẽ công bố kết quả theo cấu hình phòng.",
+            confirmText = "Chốt câu & hiện kết quả", dismissText = "Tiếp tục chờ",
+            onConfirm = {
+                pendingCloseKey = null
+                if (expectedId != null) viewModel.onIntent(HostGameIntent.ConfirmCloseQuestion(expectedIndex, expectedId))
+            },
+            onDismiss = { pendingCloseKey = null },
+        )
+    }
+    if (uiState.isEndDialogOpen) {
+        if (uiState.isClassic) AppConfirmDialog(
+            title = "Kết thúc trận?",
+            message = "Trận sẽ kết thúc cho tất cả người chơi và chuyển sang kết quả cuối trận. Đây không phải thao tác chỉ rời màn Host.",
+            confirmText = "Kết thúc trận", dismissText = "Tiếp tục trận", variant = AppDialogVariant.Danger,
+            onConfirm = { viewModel.onIntent(HostGameIntent.ConfirmEndGame) },
+            onDismiss = { viewModel.onIntent(HostGameIntent.DismissEndDialog) },
+        ) else EndGameDialog(
+            onConfirm = { viewModel.onIntent(HostGameIntent.ConfirmEndGame) },
+            onDismiss = { viewModel.onIntent(HostGameIntent.DismissEndDialog) },
+        )
+    }
+    if (showLeaveDialog && uiState.isClassic && !uiState.isFinished) AppConfirmDialog(
+        title = "Rời màn điều khiển?",
+        message = "Bạn sẽ ngắt kết nối Host và rời màn điều khiển. Trận không kết thúc; nếu đang chờ Host chuyển câu, trận vẫn sẽ chờ.",
+        confirmText = "Rời màn", dismissText = "Ở lại điều khiển",
+        onConfirm = { showLeaveDialog = false; viewModel.onIntent(HostGameIntent.LeaveGame) },
+        onDismiss = { showLeaveDialog = false },
+    )
+}
+
+/** The clock belongs to the stateful Screen boundary, never Preview/content. */
+@Composable
+private fun rememberHostQuestionTime(state: HostGameUiState): HostQuestionTime {
+    val time by key(hostQuestionKey(state), state.deadlineEpochMs, state.serverOffsetMs,
+        state.isPaused, state.connection, state.isStateSynchronized, state.isQuestionClockKnown, state.phase,
+        state.autoAdvance, state.results?.nextQuestionAt) {
+        produceState(initialValue = hostQuestionTime(state, System.currentTimeMillis())) {
+            do {
+                value = hostQuestionTime(state, System.currentTimeMillis())
+                if (value.seconds == null || value.seconds == 0) break
+                delay(250)
+            } while (true)
+        }
+    }
+    return time
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HostGameScreenContent(
     state: HostGameUiState,
-    onIntent: (HostGameIntent) -> Unit
+    onIntent: (HostGameIntent) -> Unit,
+    snackbarHostState: SnackbarHostState,
+    onRequestLeave: () -> Unit,
 ) {
-    val snackbarHostState = remember { SnackbarHostState() }
-
-    LaunchedEffect(state.errorMessage) {
-        state.errorMessage?.let {
-            snackbarHostState.showSnackbar(it)
-            onIntent(HostGameIntent.ErrorShown)
-        }
-    }
-    LaunchedEffect(state.notice) {
-        state.notice?.let {
-            snackbarHostState.showSnackbar(it)
-            onIntent(HostGameIntent.NoticeShown)
-        }
-    }
-
-    if (state.isEndDialogOpen) {
-        EndGameDialog(
-            onConfirm = { onIntent(HostGameIntent.ConfirmEndGame) },
-            onDismiss = { onIntent(HostGameIntent.DismissEndDialog) }
-        )
-    }
-
     Scaffold(
         topBar = {
             TopAppBar(
@@ -106,7 +209,7 @@ fun HostGameScreenContent(
                     Text(if (state.isFinished) "Kết quả trận" else state.questionNumberLabel)
                 },
                 actions = {
-                    TextButton(onClick = { onIntent(HostGameIntent.LeaveGame) }) {
+                    TextButton(onClick = onRequestLeave) {
                         Text(if (state.isFinished) "Thoát" else "Rời màn")
                     }
                 }

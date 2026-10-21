@@ -124,9 +124,11 @@ enum class QuestionLockReason {
  *
  * CẢNH BÁO: [distribution] CHỈ có dữ liệu khi `flow.showCorrectAnswer = true`.
  * Trường hợp còn lại backend chỉ gửi `{ total }` — và bóp cả với host, không riêng
- * người chơi. Muốn luôn có số liệu thì phải tự đếm từ `host:answer-received`.
+ * người chơi. Không suy đoán phân bố từ số câu đúng hay bảng điểm tích lũy.
  *
- * @param distribution khóa là [PublicAnswerOption.id] dạng chuỗi, giá trị là số lượt chọn.
+ * @param distribution các nhóm câu trả lời theo `String(answer)` của backend:
+ * id đơn, nhóm chọn nhiều như `"0,2"`, hoặc `"null"` cho timeout. Giá trị là số bài
+ * của nhóm đó; phải đối chiếu loại câu hỏi và id thực trước khi cộng thành lượt chọn.
  */
 data class AnswerStats(
     val total: Int = 0,

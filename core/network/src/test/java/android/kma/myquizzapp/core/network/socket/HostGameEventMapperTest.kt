@@ -13,9 +13,9 @@ import org.junit.Test
 /**
  * Test các nhánh gameplay của HOST trong [GameEventMapper] (N21).
  *
- * Fixture copy theo schema thật ở `docs/socket.channels.ts` và
- * `docs/components/socket.doc.ts`, không phải theo trí nhớ: naming trộn
- * snake_case/camelCase chính là chỗ đã gây lỗi ở N16/N17.
+ * Fixture đối chiếu cả implementation backend (`game.socket.ts`, `game.cache.ts`),
+ * không chỉ socket docs: schema stats thực có distribution lồng, khác ví dụ cũ.
+ * Naming trộn snake_case/camelCase cũng phải được giữ nguyên.
  *
  * Dùng ĐÚNG Json của production (NetworkModule.providePreserveCaseJson) — tự tạo
  * Json trong test sẽ cho test xanh trong khi app thật vỡ.
@@ -96,7 +96,7 @@ class HostGameEventMapperTest {
               "index": 3,
               "question_id": 88,
               "correct_answer": [1],
-              "stats": { "total": 5, "0": 2, "1": 3 },
+              "stats": { "total": 5, "correct": 3, "distribution": { "0": 2, "1": 3 } },
               "nextQuestionAt": "2026-09-10T14:01:00.000Z",
               "serverTime": "2026-09-10T14:00:58.000Z"
             }
@@ -139,6 +139,40 @@ class HostGameEventMapperTest {
         assertEquals(4, results.stats.total)
         assertNull(results.questionId)
         assertNull(results.nextQuestionAt)
+    }
+
+    @Test
+    fun `question results legacy flat stats exclude aggregate correct count`() {
+        val results = (mapper.map(GameSocketEvents.QUESTION_RESULTS,
+            """{"index":0,"stats":{"total":5,"correct":3,"0":2,"1":3}}""")
+            as GameEvent.QuestionResultsReceived).results
+        assertEquals(5, results.stats.total)
+        assertEquals(mapOf("0" to 2, "1" to 3), results.stats.distribution)
+    }
+
+    @Test
+    fun `nested stats preserve grouped multi select and timeout buckets without flattening metadata`() {
+        // game.cache.ts uses String(answer): [0,2] -> "0,2", null -> "null".
+        val results = (mapper.map(GameSocketEvents.QUESTION_RESULTS,
+            """{"index":0,"stats":{"total":4,"correct":2,"distribution":{"0,2":2,"2":1,"null":1}}}""")
+            as GameEvent.QuestionResultsReceived).results
+        assertEquals(4, results.stats.total)
+        assertEquals(mapOf("0,2" to 2, "2" to 1, "null" to 1), results.stats.distribution)
+    }
+
+    @Test
+    fun `explicit nested stats take precedence and malformed nested stats do not use outer counts`() {
+        val valid = (mapper.map(GameSocketEvents.QUESTION_RESULTS,
+            """{"index":0,"stats":{"total":2,"correct":1,"0":99,"distribution":{"1":2}}}""")
+            as GameEvent.QuestionResultsReceived).results
+        assertEquals(mapOf("1" to 2), valid.stats.distribution)
+        for (value in listOf("null", "[]", "5", "\"invalid\"")) {
+            val malformed = (mapper.map(GameSocketEvents.QUESTION_RESULTS,
+                """{"index":0,"stats":{"total":2,"correct":1,"0":2,"distribution":$value}}""")
+                as GameEvent.QuestionResultsReceived).results
+            assertEquals(2, malformed.stats.total)
+            assertTrue(malformed.stats.distribution.isEmpty())
+        }
     }
 
     @Test

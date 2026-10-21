@@ -14,11 +14,20 @@ sealed interface HostGameIntent {
     /** Bật/tắt phần đáp án đúng — thao tác thuần cục bộ, không gọi mạng. */
     data object ToggleAnswerKey : HostGameIntent
 
+    /** Collapsing the answer section must hide it, never toggle it open by accident. */
+    data object HideAnswerKey : HostGameIntent
+
     /**
      * Nút chính: `game:next`. MỘT event nhưng HAI ý nghĩa tùy phase — đang mở thì
      * chốt câu sớm, đang hiện kết quả thì sang câu mới.
      */
     data object AdvanceQuestion : HostGameIntent
+
+    /** Confirmation is bound to the exact open question, never a later results/next phase. */
+    data class ConfirmCloseQuestion(val index: Int, val questionId: Long) : HostGameIntent
+
+    /** A stale next-results callback cannot close the newly started question. */
+    data class AdvanceFromResults(val index: Int) : HostGameIntent
 
     /** Một nút cho cả `game:pause` và `game:resume`, chọn theo trạng thái phiên. */
     data object PauseOrResume : HostGameIntent

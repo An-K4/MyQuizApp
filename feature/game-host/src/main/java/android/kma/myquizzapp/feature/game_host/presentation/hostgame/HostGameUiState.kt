@@ -9,6 +9,7 @@ import android.kma.myquizzapp.core.common.model.PublicQuestion
 import android.kma.myquizzapp.core.common.model.QuestionLockReason
 import android.kma.myquizzapp.core.common.model.QuestionResults
 import android.kma.myquizzapp.core.common.model.SessionStatus
+import android.kma.myquizzapp.core.common.model.ShowLeaderboard
 
 /**
  * Trạng thái kết nối socket của màn điều khiển trận.
@@ -35,9 +36,9 @@ enum class HostGameConnection { CONNECTING, CONNECTED, RECONNECTING, RECONNECT_F
  *    bằng 409 `GAME_ADVANCE_NOT_ALLOWED` khi phòng tự chuyển câu, mà classic mặc
  *    định `autoAdvance = true` — hiện nút đó là mời host bấm để nhận lỗi.
  *
- * 4. Đáp án đúng ẨN sau nút "Xem đáp án" ([isAnswerRevealed]) trong khi câu hỏi luôn
- *    hiện. Màn host hay được chiếu lên máy chiếu nên không được để đáp án lọt ra
- *    mặc định; nhưng ẩn cả câu hỏi như bản web thì host mất ngữ cảnh điều phối.
+ * 4. Trong lúc chơi, đáp án đúng ẩn sau nút trong card câu hỏi; đề bài và ảnh luôn
+ *    hiện. Khi Classic sang kết quả, chỉ tự hiện đáp án nếu [showCorrectAnswer] = true.
+ *    Host vẫn có thể chủ động xem riêng nếu đã nhận được key; không suy đoán key.
  */
 data class HostGameUiState(
     val connection: HostGameConnection = HostGameConnection.CONNECTING,
@@ -48,6 +49,9 @@ data class HostGameUiState(
 
     /** Lấy từ `config.timing.autoAdvance`. Mặc định true đúng như backend. */
     val autoAdvance: Boolean = true,
+    /** Null until a server configuration has actually been received. */
+    val showCorrectAnswer: Boolean? = null,
+    val showLeaderboard: ShowLeaderboard? = null,
 
     val index: Int = 0,
     val totalQuestions: Int = 0,
@@ -57,7 +61,7 @@ data class HostGameUiState(
     val hasAnswerKey: Boolean = false,
     val isAnswerRevealed: Boolean = false,
 
-    /** Hạn của câu đang mở, epoch millis theo đồng hồ server. Null = không giới hạn. */
+    /** Server deadline: active question or Classic auto-results transition. Null in results means no known target. */
     val deadlineEpochMs: Long? = null,
 
     /** Mốc câu đầu tiên nổ ra khi đang ở phase đếm ngược. */
@@ -67,10 +71,15 @@ data class HostGameUiState(
 
     val answeredCount: Int = 0,
     val activePlayers: Int = 0,
+    /** Current-question counts are not recoverable from cumulative leaderboard totals. */
+    val hasAnswerProgress: Boolean = false,
+    val isStateSynchronized: Boolean = false,
+    val isQuestionClockKnown: Boolean = false,
 
     val leaderboard: HostLeaderboard = HostLeaderboard(),
     val lockReason: QuestionLockReason? = null,
     val results: QuestionResults? = null,
+    val hasResultsLeaderboard: Boolean = false,
     val ended: GameEnded? = null,
 
     val isSendingCommand: Boolean = false,
@@ -88,6 +97,21 @@ data class HostGameUiState(
     val isPaused: Boolean get() = sessionStatus == SessionStatus.PAUSED
 
     val isSelfPaced: Boolean get() = pacing == Pacing.SELF
+    val isClassic: Boolean get() = mode == GameMode.CLASSIC && !isSelfPaced
+    val usesClassicQuestionLayout: Boolean
+        get() = isClassic && !isFinished && question?.index == index && question != null &&
+            (phase == GamePhase.QUESTION_ACTIVE || phase == GamePhase.QUESTION_LOCKED)
+    /** One shell for the entire question cycle, including between-question results. */
+    val usesClassicRoundLayout: Boolean
+        get() = isClassic && !isFinished &&
+            (phase == GamePhase.QUESTION_ACTIVE || phase == GamePhase.QUESTION_LOCKED ||
+                phase == GamePhase.SHOWING_RESULTS)
+    val isShowingQuestionResults: Boolean get() = phase == GamePhase.SHOWING_RESULTS
+    val canAdvanceFromResults: Boolean
+        get() = isClassic && isShowingQuestionResults && canAdvance
+    val canCloseClassicQuestion: Boolean
+        get() = usesClassicQuestionLayout && phase == GamePhase.QUESTION_ACTIVE &&
+            sessionStatus == SessionStatus.ACTIVE && canAdvance
     val isMarathon: Boolean get() = mode == GameMode.MARATHON
     val hasSnapshot: Boolean
         get() = question != null || leaderboard.rows.isNotEmpty() || ended != null
@@ -97,7 +121,8 @@ data class HostGameUiState(
     val finishedPlayers: Int get() = leaderboard.rows.count { it.status == STATUS_FINISHED }
     val eliminatedPlayers: Int get() = leaderboard.rows.count { it.status == STATUS_ELIMINATED }
 
-    private val isOnline: Boolean get() = connection == HostGameConnection.CONNECTED
+    private val isOnline: Boolean
+        get() = connection == HostGameConnection.CONNECTED && (!isClassic || isStateSynchronized)
 
     /** Nhãn đổi theo phase: đang mở thì chốt câu, đã đóng thì sang câu mới. */
     val advanceLabel: String
