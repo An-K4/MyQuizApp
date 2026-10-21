@@ -1,13 +1,13 @@
 # N46 — UI polish theo từng mốc nhỏ (WIP)
 
-> Baseline source Android: local `main` tại `992b8c6` (Player Lobby), đã đọc git log sau user commit. Checkpoint docs trước `336aba3` dừng ở source `da0cbf3`; lượt này thêm Tạo phòng, Biệt danh khách, Host Lobby, Player Lobby và fix Compose/shared components. Không fetch/xác nhận remote mới, không coi SHA source là SHA APK/backend đã kiểm thử.
+> Baseline source Android: local `main` tại `b005df3` (countdown chung), docs trước `7b6fd82` dừng ở `992b8c6`. Lượt này đồng bộ 5 commit gameplay/IME/countdown; chi tiết mục 5b. Backend local `0c5908f` (#21) chỉ mới audit/lập kế hoạch N24.5, client chưa tích hợp. Không suy local ref thành SHA APK/backend đã deploy hoặc kiểm thử.
 > N46 được triển khai từng phần theo user duyệt, không làm một mạch toàn app. N44 vẫn PARTIAL, N45/M6 và release gates chưa đóng; xem `N44_E2E_REPORT.md`.
 
 ## 1. Cách đọc trạng thái
 
 - “Đã triển khai/commit” chỉ xác nhận source có trên main.
 - “User duyệt UI” không thay thế build, lint, unit test, Compose UI test hoặc E2E.
-- Agent không chạy Gradle/render Compose. Chưa thu thập log/XML mới gắn baseline cuối `992b8c6`; user đã review UI trên máy test và báo lỗi build Compose đã ổn, không phải evidence full assemble/lint/CI/E2E. Các XML ở mục 6 thuộc checkpoint cũ: 56 PASS history/lobby/HostGame ngày 15/10, 41 PASS app cũ ngày 11/10 và 88 PASS practice/editor ngày 11/10 giữ riêng; không cộng thành một run. Đặc biệt XML lobby 2 VM case/màn có trước test polish mới, không chứng minh các case mới PASS.
+- Agent không chạy Gradle/render Compose. Host có scoped PASS do user báo sau `d72fcf6`; Player/countdown được duyệt happy-case/UI, chưa có full run/log/XML cho `b005df3` (mục 5b). XML lịch sử mục 6: 56 PASS history/lobby/HostGame ngày 15/10, 41 PASS app cũ và 88 PASS practice/editor ngày 11/10 giữ riêng, không cộng thành một run. Lobby XML 2 VM case/màn có trước test polish mới, không chứng minh case mới PASS.
 - Dark hiện là fallback theo Material theme, chưa có mẫu dark được duyệt toàn app.
 
 ## 2. Sổ mốc triển khai
@@ -48,7 +48,12 @@
 | N46.20 | Phòng chờ Host, ảnh 17 | `f28c778`, `14aecf8`, merge `4355485` | User duyệt; header+roster cùng cuộn, footer Start, confirm back/empty room, config sheet; 6 Preview cố định |
 | Build/shared lobby | Đồng bộ Compose + track shared components | `cc3b1c4` | Bỏ pin runtime/ui-graphics, theo BOM; user báo build đã ổn, chưa có log xác nhận full suite |
 | N46.21 | Phòng chờ Player, ảnh 18 | `992b8c6` | User duyệt trên máy test; card dọc/1–2 cột, own suffix (Bạn) đậm, footer status/retry; thêm state/leave tests, chưa đối chiếu run mới |
-| N46.next | Màn tiếp theo do user chọn + ảnh mẫu | Chưa chốt | Giữ backlog retest Search/Discover/Paging và regression; không tự chuyển màn hoặc đóng N46 |
+| N46.22 | Player Classic question, 4 types + IME | `463248a` | User duyệt happy case; giữ ACK uncertainty/input lock, không tự chấm draft |
+| N46.12c | Chơi thử: sửa footer/IME câu trả lời dài | `2250b4c` | User duyệt; local timer/scoring/manual Next không đổi |
+| N46.23 | Host Classic question → results, chart/full board | `d72fcf6` | User duyệt; scoped network/Host tests + assemble xanh do user báo, không có run SHA/log |
+| N46.24 | Player Classic feedback 2s → summary, default results 5s | `9b8e0a6` | User duyệt UI sau smart-cast fix; chưa xác nhận full command PASS |
+| N46.25 | Countdown chung Host/Player/Preview + preparing shell | `b005df3` | User duyệt mắt thường; 9 test và 4 shared Preview mới chưa xác minh run |
+| N46.next | Sau N24.5: audit final-result flow Host/Player | Chưa triển khai | N24.5 là kế hoạch logic riêng; giữ backlog/regression, chưa duyệt scope UI cuối trận |
 
 Tên mốc là checkpoint nội bộ của N46, không thay đổi kế hoạch N1–N50 hoặc tạo release gate mới.
 
@@ -297,21 +302,69 @@ Gradient result từ CSS: `#21113E` tại 0%, `#4C2B8D` tại 48%, `#25144F` t�
 ### Phạm vi bàn giao và evidence cuối phiên
 
 - Tổng phiên từ baseline `7178588`: **8 màn** đã được user review/duyệt UI: Hồ sơ, Bảo mật, Hoạt động, Chi tiết trận, Tạo phòng, Biệt danh khách, Host Lobby, Player Lobby. Checkpoint docs `336aba3` đã lưu 4 màn đầu; lượt docs này cập nhật 4 màn cuối và build/shared fix.
-- Baseline **local main 992b8c6**; không fetch/xác nhận remote revision, agent không chạy Gradle/render. Review máy test và user báo build ổn không thay thế log suite/CI/E2E. Giữ evidence XML lịch sử ở mục 6, không nâng trạng thái các gate.
+- Baseline lịch sử mục 5a: **local main 992b8c6**; chưa có full run tại checkpoint đó. Baseline hiện tại và evidence mới ở mục 5b, không dùng đoạn lịch sử này làm trạng thái cuối.
 - Lệnh user có thể chạy trên main để bổ sung evidence (không chạy source Gradle trên docs):
 
 ```powershell
 .\gradlew.bat :app:checkDebugAarMetadata :app:assembleDebug :feature:lobby:testDebugUnitTest
 ```
 
-- Còn cần đối chiếu run/report baseline mới, smoke reconnect/retry/leave/game-start/config/clipboard/roster, narrow/font scale/IME/avatar và regression các consumer shared config. N44/backlog presence/session/privacy/Google-cookie vẫn giữ. Agent kế tiếp đọc prompt `N46_HANDOFF_PROMPT.md`, **hỏi user màn tiếp theo, không tự chọn**.
+- Backlog tại checkpoint 5a: reconnect/retry/leave/game-start/config/clipboard/roster, narrow/font scale/IME/avatar và regression shared config. Các mục chưa có evidence vẫn mở; thứ tự mới xem mục 5b và kế hoạch N24.5, không còn dừng ở việc hỏi màn sau Player Lobby.
+
+## 5b. Classic Host/Player và countdown — checkpoint b005df3
+
+### Source và phạm vi đã commit
+
+| Mốc | Commit | Quyết định cần giữ |
+| --- | --- | --- |
+| N46.22 | `463248a` | Player Classic question: 4 types, ảnh câu, option order/id, single tap submit; multi-select/text gửi tường minh. Input lock/ACK uncertainty giữ nguyên; IME padding ở viewport, không nhân khoảng trắng ở footer câu trả lời dài. |
+| N46.12c | `2250b4c` | Chơi thử: sửa IME tương tự Player, không đổi local scoring/manual Next hay tạo room/socket. |
+| N46.23 | `d72fcf6` | Host Classic: đúng **2 layout** (đang trả lời/đã có kết quả), không chỉ polish phần active rồi rơi về UI cũ sau câu. |
+| N46.24 | `9b8e0a6` | Player Classic: feedback inline **2 giây** rồi summary gọn trong cùng Gameplay; default showResultsSeconds **5** theo backend trước #21, explicit 0/2/giá trị khác giữ nguyên. |
+| N46.25 | `b005df3` | Shared `GameStartCountdown` cho Host/Player/Chơi thử; initial UNKNOWN/Connecting cũng dùng preparing shell mới để không flash UI cũ. |
+
+### Host: hai layout trong cùng vòng câu hỏi
+
+- Đang trả lời: live progress lên đầu; card câu hỏi phía dưới, **ảnh vẫn hiện** vì có thể là nội dung cần thiết. Phần lựa chọn thu gọn; nút fill “Xem đáp án” gộp trong cùng card, không hai card riêng. Khi reveal: lựa chọn đúng xanh + check; short/long hiện text key phía trên nút.
+- Bỏ component theo dõi người chơi tích lũy khỏi phase active: nó không phải trạng thái trả lời câu hiện tại và khó có dữ liệu hữu ích ở đây.
+- Đã có kết quả: bỏ card câu hỏi/ảnh/đáp án để không che board; lựa chọn hiện chart cột màu và **full leaderboard nếu cấu hình cho phép giữa câu**, không nút thu gọn. Short/long **ẩn chart**, không tổng hợp A–D giả.
+- Chart dùng stats thật `{total, correct, distribution}`; parser xử lý nested stats và key multi-select như `"0,2"` thành count từng option. Không suy từ cumulative board hoặc dựng zero khi thiếu dữ liệu.
+- Key riêng của Host chỉ dùng khi thật sự nhận được; results reveal tuân config. Không cam kết replay key khi reconnect thiếu payload.
+- Giữ server deadlines, pause/end/leave/manual close/next gating + confirm; không tự advance từ timer local. Self-paced và final result không được coi là đã redesign.
+
+### Player: câu hỏi → phản hồi → summary → câu mới/kết thúc
+
+- Reuse `AnswerOptionItem` feedback: key đúng xanh/check, accepted wrong đỏ, option khác trung tính; multi-select overall failure ở footer. Text readonly và key phía dưới khi được phép.
+- Summary ưu tiên wait/countdown trên đầu → outcome → rank/tổng điểm của bản thân khi có board mới đúng câu và được phép. Không lặp question/image/options, không full board/chart/Top 3 cho Player.
+- Tại `9b8e0a6`, server cũ chưa có private result: **không giả điểm câu/streak/explanation**. Khi thiếu đủ dữ liệu, giữ trạng thái trung tính. N24.5 sẽ thêm nguồn dữ liệu mới và sửa nhánh reveal=false/board-between không được chờ rank vô hạn.
+- Feedback là stage UI cục bộ, không tạo route/back stack mỗi câu và không gửi question:next Classic. Pause đóng băng; offline chờ sync; câu mới/game ended preempt; duplicate không restart; late ACK không kéo phase lùi.
+- Snapshot/question results kiểm tra identity; new question xóa rank cũ; FINISHED snapshot navigate một lần và giữ REST recovery. Không chấm draft chưa được chấp nhận.
+- Lỗi smart cast cross-module `snapshot.question` đã sửa bằng local `snapshotQuestion` ổn định trong `GameViewModel`; không nâng toolchain vì warning JDK23.
+
+### Countdown trước câu đầu
+
+- Shared component ở `core:ui/components/GameStartCountdown.kt`, Content stateless nhận state/callback/ScrollState; clock/tick ở Screen, không VM/nav/network trong component.
+- “Chuẩn bị bắt đầu”, số lớn tím; không câu hỏi/stats cũ. Server startsAt/offset hoặc seconds fallback; ceil và clamp 0. Về 0 **chờ server**, không tự bắt đầu câu; unknown/pause/offline hiện status thay số bịa. Config zero có thể đi thẳng câu.
+- Host giữ menu pause/resume/end/leave theo phase + confirm; Player back/leave confirm. Initial Host UNKNOWN và Player Connecting cùng shell mới, command chưa hợp lệ không được bật sớm.
+- Chơi thử dùng component chung nhưng giữ timer local 3 giây, không tạo phòng/history. Có 4 shared Preview và 9 test mới (core:ui 4, Host 2, Player 3), chưa được agent chạy.
+
+### Evidence: đã biết và chưa được chứng minh
+
+- **User báo scoped PASS cho Host** sau `d72fcf6`: `:core:network:testDebugUnitTest :feature:game-host:testDebugUnitTest :app:assembleDebug`. Không có XML/log/run SHA được thu thập; không suy thành full run cho `b005df3`.
+- Player: có log command common/network/host/player/app **FAIL** vì smart cast trước fix. Sau sửa user nói “ổn rồi thì phải”; ghi nhận happy-case/UI, **chưa có xác nhận rõ toàn command PASS**.
+- Countdown: user duyệt mắt thường sau fix flash UI cũ. Test/Preview mới là source đã viết, không phải evidence đã chạy. Agent không chạy Gradle/render Compose.
+- Không gộp các báo cáo này với 56/88/41 XML lịch sử. Chưa xác nhận full lint/CI/E2E/APK SHA/backend deployment tại baseline cuối; N44 PARTIAL và release gates giữ nguyên.
+
+### Việc tiếp theo: logic N24.5 trước final-result polish
+
+Backend local `0c5908f` (#21) bổ sung private `question:personal-results`, `game:state.personal_result` và che dữ liệu Player theo phase. **Android b005df3 chưa tích hợp.** Xem `N24_5_CLASSIC_PERSONAL_RESULTS_PLAN.md`: model/listener/mapper → reducer idempotent + reconnect/privacy/timing → render điểm câu/tổng điểm/current streak thật → regression Host/self-paced/Lobby. Sau review/commit docs, cần user checkout main trước source work. Hướng N46 sau đó là final-result flow; chưa coi scope/design đã duyệt triển khai. Không dùng #21 để đóng presence/Practice/public REST privacy gates.
 
 ## 6. Checklist evidence và việc còn mở
 
-- [x] Đối chiếu checkpoint N46.0–N46.21 đến local main `992b8c6`; docs trước `336aba3` dừng ở `da0cbf3`. Lượt mới chỉ targeted docs, không merge source hoặc xác nhận remote đã đồng bộ.
+- [x] Đối chiếu source đến N46.25, local main `b005df3`; docs trước `7b6fd82` dừng ở `992b8c6`. Lượt này chỉ targeted docs, không merge source/xác nhận remote đồng bộ.
 - [x] User duyệt/hiệu chỉnh UI 8 màn của phiên, đến Player Lobby. Không suy ra full visual regression/E2E PASS; các quyết định cuối ở mục 5a.
 - [x] Evidence lịch sử của lượt docs `f098826`: 10 XML local practice/editor, 88 PASS, 0 failures/errors/skipped; giữ riêng bảng dưới, không coi là run mới.
-- [ ] Thu thập full assemble/lint/CI và các suite còn lại cho baseline `992b8c6`; 56/88 PASS XML lịch sử không chứng minh toàn app/APK cùng SHA. Cần run mới cho HostLobbyUiStateTest, PlayerLobbyUiStateTest và 4 PlayerLobbyViewModelTest, không dùng report lobby 2 case/màn cũ.
+- [ ] Thu thập full assemble/lint/CI và suite mới cho `b005df3`; scoped Host PASS do user báo không thay full run. Test Player/countdown/lobby mới chưa đối chiếu log/XML; giữ evidence lịch sử đúng phạm vi.
 - [x] Đọc thêm 8 XML history/lobby/HostGame timestamp 15/10/2026: 56 PASS; 7 XML app cũ 11/10 có 41 PASS nhưng security VM không khớp source (chi tiết dưới).
 - [ ] Chạy lại app regression cho source hiện tại, đặc biệt 7 AccountSecurityViewModelTest (3 tên case dialog mới chưa có trong XML); không dùng XML cũ 5 case để đóng checkpoint.
 - [ ] Architecture debt cục bộ: SecretField ở AccountSecurityScreen hiện giữ visibility bằng remember nhưng thiếu stateless Content overload sau polish; cần rà/tách lõi theo AGENTS khi duyệt scope source, không sửa code trên docs.
@@ -322,7 +375,7 @@ Gradient result từ CSS: `#21113E` tại 0%, `#4C2B8D` tại 48%, `#25144F` t�
 - [ ] Debt editor hiện hữu: domain QuizDraft/Create–Update assets use cases còn dùng presentation QuestionDraft/toNewQuestion; chưa chuyển model/mapper qua boundary trong đợt UI này.
 - [ ] Đối chiếu schema API với DDL/runtime backend khi retest lưu: audit `7c103c8` có API description ≤500, language không enum; DDL gốc 002_quizzes.sql khai description varchar(255), language varchar(50). Chưa xác minh DB triển khai/migration tương ứng; không coi API cho phép chuỗi tự do là độ dài vô hạn hoặc tuyên bố runtime bug đã tái hiện.
 - [ ] E2E Chơi thử 4 types/skip/late/key thiếu/manual Next; Create/Edit lưu → mở lại, prefill ảnh/đáp án/custom duration, lỗi upload/retry, IME/back/rotation trong Photo Picker.
-- [ ] Chốt mẫu dark và tích hợp shared components vào các màn tiếp theo theo user chọn; màn tiếp theo chưa chốt, không tự suy đoán thứ tự.
+- [ ] Chốt mẫu dark và regression shared components. Kế tiếp ưu tiên N24.5 theo kế hoạch riêng; sau đó audit final-result flow và xin duyệt scope, không tự triển khai màn cuối.
 - [ ] Các màn khác, animation, sheet dark-mode và accessibility toàn app còn mở; N46 chưa hoàn tất.
 - [ ] N44-OFFLINE-BOOT, Practice pause/resume, N20.6/N25/N28.5/N29/N30, privacy/session và build/deployment gates giữ trong hồ sơ N44, không waived bởi UI polish.
 
@@ -369,6 +422,8 @@ Lượt docs trước ghi 29/29 List/Detail PASS tại 04:36 UTC ngày 11/10/202
 Tổng 88 PASS practice/editor ở bảng trên tiếp tục là lượt lịch sử riêng. Agent chỉ đọc report/source, không chạy Gradle, không xác minh full assemble/lint/CI, runtime tải ảnh, E2E hoặc backend deployment trong lượt docs này.
 
 ## 7. Quy trình cho các mốc tiếp theo
+
+- Với gameplay liên hoàn, audit **cả chuỗi phase/route**, gồm initial/loading/Connecting, câu cuối/reconnect/terminal, trước khi chốt từng màn. Đừng polish active frame rồi để Results/countdown quay về UI cũ. N24.5 là thay đổi logic có kế hoạch/test riêng, không áp quy tắc “UI-only” để bỏ qua contract.
 
 1. User chọn một màn và cung cấp ảnh local; đọc ảnh trước khi edit, không dùng ảnh màn khác để đoán.
 2. Đọc source mới nhất trên main; kiểm tra callback/UiState/Intent/Effect, tái sử dụng component đã duyệt; không đổi nghiệp vụ khi chỉ polish.

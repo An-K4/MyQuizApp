@@ -401,6 +401,8 @@ Chuẩn hóa một shape duy nhất cho lựa chọn và cập nhật đồng th
 
 - **Severity:** `HIGH`
 - **Mode:** Classic/host-paced
+- **Checkpoint #21 — CHƯA ĐÓNG:** backend local `0c5908f` thêm event riêng `question:personal-results` và snapshot `game:state.personal_result` ở showing_results khi reveal=true, đủ khôi phục answered/isCorrect/điểm/current streak. Android `b005df3` chưa tích hợp; kế hoạch `N24_5_CLASSIC_PERSONAL_RESULTS_PLAN.md`. Deployment/E2E chưa xác nhận; backend team báo build/lint/20 test/CI đạt, agent không chạy lại.
+- **Giới hạn:** private payload/snapshot public question không có correct_answer/accepted option keys, nên không đảm bảo replay tô đáp án inline khi reconnect thiếu key; khôi phục summary cá nhân không đồng nghĩa đáp ứng toàn Expected output bên dưới. showCorrectAnswer=false không phát private result theo contract. Không đóng presence/Practice/public REST visibility từ fix này. Các BUG khác trong file giữ evidence lịch sử, không phải toàn bộ đã re-audit tại 0c5908f.
 
 ### Điều kiện ban đầu
 
@@ -418,7 +420,7 @@ Chuẩn hóa một shape duy nhất cho lựa chọn và cập nhật đồng th
 - Player nhìn lại đúng kết quả của câu vừa trả lời.
 - Điểm câu, đúng/sai và đáp án được phép reveal phải giống trước khi mất mạng.
 
-### Actual output — kết quả backend hiện tại xác định qua audit
+### Actual output lịch sử — audit trước #21 (chưa retest client tích hợp)
 
 - Dữ liệu khôi phục không đủ để dựng lại màn kết quả.
 - Player chỉ có thể thấy trạng thái chờ câu tiếp theo.

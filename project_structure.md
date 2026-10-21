@@ -2,7 +2,7 @@
 
 > **Tài liệu cấu trúc dự án chi tiết**  
 > Mô tả vai trò, trách nhiệm và mối quan hệ giữa các module trong kiến trúc Multi-module Gradle  
-> **Version:** 2.27 | **Last Updated:** N46 WIP đến Phòng chờ Player (source local main 992b8c6; N44 PARTIAL)
+> **Version:** 2.28 | **Last Updated:** N46 WIP đến countdown chung (source local main b005df3; N24.5 PLANNED; N44 PARTIAL)
 
 ---
 
@@ -447,7 +447,7 @@ core/ui/
 └── build.gradle.kts
 ```
 
-Tree core:ui nền tảng từ main `7178588`; baseline tổng thể hiện local main `992b8c6`, source không nằm trên docs không có nghĩa chưa tồn tại. `c5ced7a` cập nhật SettingSwitchRow + gameconfig/ChoiceSettingField/NumberSettingField/GameModeConfigEditor, thêm RoomConfigTextField.kt và GameModeConfigEditorPreview.kt. Shared editor được CreateRoom và sheet Host dùng chung; dropdown choice bo góc/full width. `cc3b1c4` để runtime/ui-graphics theo BOM 2025.06.01, không nâng SDK/AGP. SearchQuizCard/LibraryQuizCard/DiscoveryQuizCard giữ đúng vai trò; ComponentColors vẫn internal core:ui. Không sửa FinalResultScreen; các XML PASS cũ giữ lịch sử, chưa có run mới gắn baseline cuối. Xem `N46_UI_PROGRESS.md`.
+Tree core:ui nền tảng từ main `7178588`; baseline tổng thể hiện local main `b005df3`, source không nằm trên docs không có nghĩa chưa tồn tại. Các thay đổi room/lobby ở `c5ced7a`/`cc3b1c4` giữ shared config controls và BOM, không nâng SDK/AGP. `d72fcf6` mở rộng AnswerOptionItem feedback; `b005df3` thêm `core/ui/src/main/java/android/kma/myquizzapp/core/ui/components/GameStartCountdown.kt`: Content stateless, convenience overload giữ ScrollState; clock/phase/navigation do Screen. Host/Player/Preview dùng chung; 4 shared Preview và 9 test tổng 3 module đã viết, chưa xác minh run. Xem `N46_UI_PROGRESS.md` mục 5b. Private result domain/event/snapshot **N24.5 mới là kế hoạch**, chưa tồn tại trong baseline client.
 
 #### UiText Pattern (minh họa, không phải inventory source)
 ```kotlin
@@ -835,6 +835,10 @@ dependencies {
 
 ### 3.4 `:feature:game-player` - Gameplay (Player Perspective)
 
+**Inventory bổ sung đã đối chiếu N46 (`b005df3`):** trong `feature/game-player/src/main/java/android/kma/myquizzapp/feature/game_player/presentation/` có `ClassicQuestionContent.kt`, `ClassicQuestionPresentation.kt`, `ClassicResultsContent.kt`, `ClassicResultsPresentation.kt`; Screen/UiState/ViewModel giữ orchestration. Classic 4 types + IME viewport, feedback inline 2s → summary gọn không route mới, default results 5s không ghi đè explicit config. Initial Connecting/Countdown dùng shared GameStartCountdown, không UI cũ. Đây là bổ sung actual-file inventory cho sơ đồ chức năng bên dưới, không suy tên component trong sơ đồ thành file mới.
+
+**Chưa triển khai:** private question:personal-results/game:state.personal_result của backend #21; kế hoạch model/mapper/reducer/UI N24.5 ở `N24_5_CLASSIC_PERSONAL_RESULTS_PLAN.md`. Không coi source hiện tại có current streak/điểm câu Classic thật. Self-paced/final-result contract hiện có giữ riêng, FinalResult UI chưa polish.
+
 **📦 Module Type:** `com.android.library`
 
 #### Mục đích
@@ -930,6 +934,8 @@ dependencies {
 ---
 
 ### 3.5 `:feature:game-host` - Host Control Console
+
+**Inventory bổ sung đã đối chiếu N46:** `feature/game-host/src/main/java/android/kma/myquizzapp/feature/game_host/presentation/hostgame/HostClassicQuestionContent.kt` và `HostClassicQuestionPresentation.kt` đi cùng HostGameScreen/UiState/ViewModel/Intent. Classic có 2 layout: active progress trước question card có ảnh/reveal gộp; results chỉ chart lựa chọn + full board theo config, bỏ question card/tracker. Text không chart. Parser ở core:network xử lý nested stats/distribution multi-select. UNKNOWN/Countdown dùng shared preparing shell mới. Không redesign self-paced/final result; #21 cần regression Host nhưng private result chỉ dành Player, chưa tích hợp Android.
 
 **📦 Module Type:** `com.android.library`
 
@@ -1673,9 +1679,9 @@ MyQuizApp được xây dựng với **14 modules** theo **Clean Architecture + 
 
 ---
 
-**Document Version:** 2.27
-**Last Updated:** N46 WIP đến Phòng chờ Player (source Android local main 992b8c6)
-**Status:** Living document — baseline local main `992b8c6`; targeted docs sau `336aba3`, không thêm module (vẫn 14). Tổng phiên 8 màn duyệt UI từ Hồ sơ đến Player Lobby; lượt này cập nhật 4 màn cuối + Compose/shared lobby fix. Chưa đối chiếu log/XML mới gắn baseline cuối: 56/88 PASS và 41 app PASS là evidence lịch sử khác lượt/phạm vi, không chứng minh test lobby mới/full CI/E2E. Discover retest, N46 dark/accessibility/animation còn mở. N44 PARTIAL, N45/M6/release và Google/cookie/backend/privacy/session/deployment gates giữ nguyên. Source/tests trên main, docs trên docs; xem N46_UI_PROGRESS.md/N44_E2E_REPORT.md/N46_HANDOFF_PROMPT.md.
+**Document Version:** 2.28
+**Last Updated:** N46 WIP đến countdown chung (source Android local main b005df3; N24.5 PLANNED)
+**Status:** Living document — baseline local main `b005df3`; targeted docs sau `7b6fd82`, không thêm module (vẫn 14). N46.22–25 + Preview IME đã commit/user duyệt UI; scoped Host PASS user báo, không có full run/log/XML gắn SHA cuối. N24.5 backend #21 (`0c5908f` local) mới là kế hoạch, client chưa tích hợp/deployment chưa xác nhận. Evidence lịch sử không cộng trùng. N44 PARTIAL, N45/M6/release và Google/cookie/backend/privacy/session/deployment gates giữ nguyên. Xem N46_UI_PROGRESS.md/N24_5_CLASSIC_PERSONAL_RESULTS_PLAN.md/N44_E2E_REPORT.md/N46_HANDOFF_PROMPT.md.
 
 ---
 

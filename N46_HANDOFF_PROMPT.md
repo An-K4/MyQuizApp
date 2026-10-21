@@ -1,6 +1,6 @@
-# Prompt bàn giao N46 — tiếp tục sau Phòng chờ Player
+# Prompt bàn giao — N46 sau countdown và kế hoạch logic N24.5
 
-> Sao chép phần từ “Bạn tiếp nhận…” bên dưới vào phiên mới. Baseline tại lúc soạn: local main `992b8c6`, tài liệu được cập nhật targeted trên docs sau checkpoint `336aba3`. Luôn kiểm tra lại git; không coi hash trong prompt là trạng thái bất biến hoặc SHA APK đã test.
+> Sao chép phần từ “Bạn tiếp nhận…” bên dưới vào phiên mới. Baseline: local main `b005df3`, docs cập nhật sau `7b6fd82`; backend local `0c5908f` (#21). Kiểm tra lại git, không coi ref local là SHA APK/deployment/test. N24.5 mới là kế hoạch, chưa tích hợp client.
 
 ---
 
@@ -23,8 +23,8 @@ Kết nối:
 
 Đọc theo thứ tự:
 1. **AGENTS.md** — quy ước, phối hợp và bài học.
-2. **N46_UI_PROGRESS.md** — nguồn bàn giao chính; đặc biệt checkpoint mới mục **5a** và evidence/backlog mục 6.
-3. **myquizz-review-backend-ke-hoach-50-ngay.md** — tóm tắt hiện tại, N44–N46 và backlog liên quan.
+2. **N46_UI_PROGRESS.md** — nguồn bàn giao chính; đặc biệt checkpoint mới mục **5b** (5a giữ lịch sử) và evidence/backlog mục 6.
+3. **N24_5_CLASSIC_PERSONAL_RESULTS_PLAN.md** — kế hoạch logic tiếp theo, chưa triển khai; rồi **myquizz-review-backend-ke-hoach-50-ngay.md** — tóm tắt hiện tại, N44–N46 và backlog liên quan.
 4. **project_structure.md** — cấu trúc/vị trí code hiện tại.
 5. **quiz-app-android-design-document-v2.md** — tham khảo, không phải contract tuyệt đối.
 
@@ -32,18 +32,18 @@ Nếu tài liệu mới nhất chưa commit/không đọc được, báo tôi. K
 
 ## 2. Điểm bàn giao
 
-Baseline source cuối phiên: **local main `992b8c6`**. Chưa fetch/xác nhận remote mới trong lượt cập nhật tài liệu; không suy local ref thành bằng chứng đã push.
+Baseline source cuối phiên: **local main `b005df3`**; docs trước `7b6fd82` dừng ở `992b8c6`. Không fetch/xác nhận remote hoặc deployment từ ref local.
 
-Các commit mới kể từ checkpoint docs `336aba3` (source `da0cbf3`):
-- `c5ced7a`: Tạo phòng + shared config controls.
-- `61f5e1c`: Nhập biệt danh khách.
-- `f28c778` và `14aecf8`: hai commit Host Lobby cùng tên trong lịch sử, đã đi qua merge `4355485`; không tự hợp nhất/xóa commit.
-- `cc3b1c4`: fix Compose dependency và track shared LobbyComponents.
-- `992b8c6`: Phòng chờ Player.
+Các commit đã thêm:
+- `463248a`: Player Classic question/4 types/IME.
+- `2250b4c`: Chơi thử sửa footer/IME câu trả lời dài, không đổi logic local.
+- `d72fcf6`: Host Classic question → results, stats chart/full board, bỏ active tracker và results question card.
+- `9b8e0a6`: Player feedback 2s → summary, default results 5s theo backend cũ (explicit config không đổi), smart-cast fix.
+- `b005df3`: Countdown chung + initial preparing shell chống flash UI cũ.
 
-Phiên trước đã polish **8 màn** kể từ baseline `7178588`: Hồ sơ, Bảo mật tài khoản, Hoạt động, Chi tiết trận đấu, Tạo phòng, Biệt danh khách, Phòng chờ Host, Phòng chờ Player. Tôi đã review/duyệt hình thức UI. Các màn trước đó và quyết định cụ thể đều trong N46_UI_PROGRESS.md; **không làm lại phần đã duyệt nếu chưa có lý do**.
+Các quyết định UI trước đó vẫn giữ theo N46_UI_PROGRESS; user duyệt mắt thường không thay thế test toàn diện. N44 PARTIAL/N46 WIP, N45/M6/release chưa chốt; privacy/presence/session/Practice và Google/cookie DEFERRED giữ nguyên.
 
-N46 vẫn **WIP**, N44 vẫn **PARTIAL**; chưa đóng N45/M6/release gates. Backend/presence/session/privacy, N44-OFFLINE-BOOT và Practice pause/resume vẫn giữ backlog; Google/cookie **DEFERRED**, chưa có transport fix được xác minh. Dark palette vẫn là fallback, không coi ảnh máy dark tôi review là đã duyệt dark toàn app.
+**Việc tiếp theo đã lập kế hoạch:** backend local `0c5908f` (#21) có private Classic results/streak + safe snapshots. Xếp **N24.5** nối tiếp N22–N24, không đổi N47–N50. Android b005df3 **chưa có listener/model/mapper/reducer mới**. Đọc kế hoạch chi tiết và xin user review/checkout main trước source work; không bắt đầu trên docs. Sau N24.5 mới quay lại audit kết quả cuối Host/Player → review/Home; chưa duyệt scope triển khai UI cuối trận.
 
 ## 3. Những quyết định cuối cần giữ
 
@@ -70,9 +70,15 @@ N46 vẫn **WIP**, N44 vẫn **PARTIAL**; chưa đóng N45/M6/release gates. Bac
 - Lỗi Preview `NoSuchMethodError getCurrentCompositeKeyHashCode` cần kiểm tra binary/runtime/tooling mismatch, không kết luận do số Preview.
 - Shared LobbyComponents từng untracked sau merge: khi đề xuất commit phải rà cả untracked, không chỉ modified files.
 
+### Classic flow và countdown mới
+- Host đúng 2 layout active/results: progress trước card câu có ảnh (ảnh có thể là nội dung câu), nút reveal fill gộp vào card; results bỏ card câu và tracker, chart lựa chọn 4 màu/stats thật + full leaderboard theo config, text không chart, board không collapse.
+- Player feedback inline 2 giây rồi summary gọn trong cùng Gameplay, không chart/full board/route mới. Server phase/deadline preempt; pause/offline/duplicate/late ACK có guard. Không fake điểm câu/streak của Classic ở baseline cũ.
+- Countdown chung core:ui có stateless Content; Screen giữ clock/offset. UNKNOWN/Connecting dùng preparing shell mới. 0 chờ server; Preview vẫn local 3 giây. Host menu và Player leave confirm giữ gating.
+- N24.5: private result authoritative, so index + question_id; restore cá nhân không đồng nghĩa replay key. reveal=false không chờ rank vô hạn. Không local tăng streak/advance hoặc thay toolchain. Chi tiết implementation/tests/evidence trong plan riêng.
+
 ## 4. Cách phối hợp với tôi
 
-Tôi giám sát theo từng màn, **không làm một mạch toàn app**.
+Tôi giám sát từng phần, **không làm một mạch toàn app**. Với gameplay, audit cả chuỗi phase/route/initial/recovery trước khi chốt từng màn; tránh lặp lỗi chỉ polish active frame rồi rơi về UI cũ ở Results.
 
 Với màn tiếp theo:
 1. Đọc đúng ảnh mẫu và audit source mới nhất trước.
@@ -83,7 +89,7 @@ Với màn tiếp theo:
 6. Sau khi ổn, đọc git status/diff rồi đề xuất commit, **liệt kê đúng tên file từng đợt**. Không tự commit/push.
 7. Khi tôi checkout docs, cập nhật targeted các tài liệu canonical; không merge toàn bộ main sang docs.
 
-**Không tự chọn màn tiếp theo. Sau khi đọc tài liệu và kiểm tra git, xác nhận ngắn gọn điểm bàn giao rồi hỏi tôi muốn làm màn nào.**
+**Ưu tiên tiếp theo là review kế hoạch N24.5, không hỏi lại như chưa có hướng sau Player Lobby.** Xác nhận status/refs và user checkout main trước source work; nếu phạm vi/contract thay đổi phải hỏi lại. Final-result polish sau N24.5 mới audit/chốt riêng, không tự triển khai một mạch.
 
 ## 5. Nguyên tắc triển khai
 
@@ -99,14 +105,14 @@ Với màn tiếp theo:
 
 ## 6. Kiểm chứng: không tự nâng trạng thái
 
-- Agent trước **không chạy Gradle/render Compose**. Tôi đã review Player Lobby trên máy test và báo lỗi build Compose đã ổn, nhưng **chưa thu thập log/XML mới gắn baseline cuối `992b8c6`**.
+- Agent **không chạy Gradle/render Compose**. User báo scoped `:core:network:testDebugUnitTest :feature:game-host:testDebugUnitTest :app:assembleDebug` xanh sau Host d72fcf6; không có run SHA/log. Player command từng FAIL smart cast, đã sửa rồi user duyệt UI nhưng chưa xác nhận toàn command PASS; countdown b005df3 chỉ được duyệt mắt thường, 9 test mới chưa đối chiếu run. Chưa có full run/log/XML gắn SHA cuối.
 - 88 PASS practice/editor (11/10) và 56 PASS history/lobby/HostGame/DTO (15/10) là evidence lịch sử **khác lượt/phạm vi**, không cộng thành full run. 41 PASS app XML cũ không đóng regression security dialog 7 case.
 - Lobby XML cũ chỉ 2 VM case/màn, có trước polish. Source đã thêm HostLobbyUiStateTest, PlayerLobbyUiStateTest (7 case) và 2 leave cases vào PlayerLobbyViewModelTest (tổng 4); **chưa xác minh run mới**.
 - XML không có SHA/run id, không chứng minh APK/backend cùng revision hoặc full assemble/lint/CI/E2E. Preview/compile sạch không phải E2E PASS.
 - Nếu cần bổ sung evidence, đề xuất user chạy trên **main** rồi đọc report, không tự đánh PASS:
 
 ```powershell
-.\gradlew.bat :app:checkDebugAarMetadata :app:assembleDebug :feature:lobby:testDebugUnitTest
+.\gradlew.bat :core:common:testDebugUnitTest :core:network:testDebugUnitTest :feature:game-player:testDebugUnitTest :feature:game-host:testDebugUnitTest :feature:lobby:testDebugUnitTest :app:assembleDebug
 ```
 
 - Giữ backlog regression shared config/CreateRoom/Host sheet, reconnect/retry/leave/game-start/clipboard/roster/avatars/narrow/IME, security dialog, Discover Paging snapshot và toàn bộ release gates. Không tự mở rộng sửa tất cả backlog khi đang nhận một màn UI.
