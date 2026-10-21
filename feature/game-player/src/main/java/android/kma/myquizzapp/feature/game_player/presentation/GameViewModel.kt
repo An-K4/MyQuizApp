@@ -97,7 +97,7 @@ class GameViewModel @Inject constructor(
         updateOffset(event.serverTimeOrNull())
         when (event) {
             GameEvent.Connected -> {
-                _uiState.update { it.copy(connection = GameConnection.CONNECTED, isSynchronizing = it.question != null) }
+                _uiState.update { it.copy(connection = GameConnection.CONNECTED, isSynchronizing = it.question != null || it.phase is GamePhaseUi.Countdown) }
                 session.joinAndSync()
             }
             is GameEvent.LobbyUpdated -> _uiState.update { state ->
@@ -128,7 +128,12 @@ class GameViewModel @Inject constructor(
                 DisconnectReason.CLIENT -> Unit
             }
             is GameEvent.Countdown -> _uiState.update {
-                it.copy(phase = GamePhaseUi.Countdown(event.countdown.startsAt), question = null, isInputLocked = true)
+                // Missing startsAt is an event fallback only, never a restarted local three-second timer.
+                val target = event.countdown.startsAt ?: Instant.ofEpochMilli(
+                    System.currentTimeMillis() + it.serverOffsetMs + event.countdown.seconds.coerceAtLeast(0) * 1_000L
+                ).toString()
+                it.copy(phase = GamePhaseUi.Countdown(target), question = null,
+                    isSynchronizing = false, isInputLocked = true)
             }
             is GameEvent.QuestionStarted -> {
                 nextTimeoutJob?.cancel()

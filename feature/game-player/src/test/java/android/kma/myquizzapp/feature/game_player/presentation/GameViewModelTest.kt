@@ -78,6 +78,58 @@ class GameViewModelTest {
     }
 
     @Test
+    fun `start layout covers join sync gap and countdown without swallowing gameplay`() {
+        val initial = GameUiState()
+        assertTrue(initial.usesStartCountdownLayout)
+        assertTrue(initial.copy(connection = GameConnection.CONNECTED,
+            isSynchronizing = true).usesStartCountdownLayout)
+        assertTrue(initial.copy(phase = GamePhaseUi.Countdown(null)).usesStartCountdownLayout)
+        assertFalse(initial.copy(phase = GamePhaseUi.Question).usesStartCountdownLayout)
+        assertFalse(initial.copy(phase = GamePhaseUi.Results()).usesStartCountdownLayout)
+        assertFalse(initial.copy(phase = GamePhaseUi.Finished).usesStartCountdownLayout)
+    }
+
+    @Test
+    fun `countdown waits for server and restores pause resume deadline`() = runTest(dispatcher) {
+        runCurrent()
+        socket.emit(GameEvent.Connected)
+        socket.emit(GameEvent.Countdown(android.kma.myquizzapp.core.common.model.GameCountdown(
+            3, "2026-10-20T04:00:03Z")))
+        runCurrent()
+        advanceTimeBy(10_000)
+        runCurrent()
+        assertTrue(viewModel.uiState.value.phase is GamePhaseUi.Countdown)
+        assertFalse(viewModel.uiState.value.canSubmit)
+        socket.emit(GameEvent.Disconnected(DisconnectReason.TRANSPORT))
+        socket.emit(GameEvent.Connected)
+        runCurrent()
+        assertTrue(viewModel.uiState.value.isSynchronizing)
+        socket.emit(GameEvent.StateSnapshot(GameSnapshot(phase = GamePhase.COUNTDOWN,
+            sessionStatus = SessionStatus.PAUSED, countdownStartsAt = null)))
+        runCurrent()
+        assertTrue(viewModel.uiState.value.isPaused)
+        assertNull((viewModel.uiState.value.phase as GamePhaseUi.Countdown).startsAt)
+        socket.emit(GameEvent.StateSnapshot(GameSnapshot(phase = GamePhase.COUNTDOWN,
+            sessionStatus = SessionStatus.ACTIVE, countdownStartsAt = "2026-10-20T04:00:20Z")))
+        runCurrent()
+        assertFalse(viewModel.uiState.value.isPaused)
+        assertFalse(viewModel.uiState.value.isSynchronizing)
+        assertEquals("2026-10-20T04:00:20Z", (viewModel.uiState.value.phase as GamePhaseUi.Countdown).startsAt)
+    }
+
+    @Test
+    fun `countdown without absolute target uses event seconds not hardcoded duration`() = runTest(dispatcher) {
+        runCurrent()
+        socket.emit(GameEvent.Countdown(android.kma.myquizzapp.core.common.model.GameCountdown(7),
+            serverTime = "2026-10-20T04:00:00Z"))
+        runCurrent()
+        val target = (viewModel.uiState.value.phase as GamePhaseUi.Countdown).startsAt
+        val delta = java.time.Instant.parse(target).toEpochMilli() - java.time.Instant.parse("2026-10-20T04:00:00Z").toEpochMilli()
+        assertTrue(delta in 7_000L..7_100L)
+        assertFalse(viewModel.uiState.value.isAnswerInputEnabled)
+    }
+
+    @Test
     fun `connected always rejoins lobby then syncs including reconnect`() = runTest(dispatcher) {
         runCurrent()
         socket.emit(GameEvent.Connected)

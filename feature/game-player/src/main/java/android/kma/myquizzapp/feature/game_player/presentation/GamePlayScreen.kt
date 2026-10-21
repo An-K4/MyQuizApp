@@ -3,6 +3,8 @@ package android.kma.myquizzapp.feature.game_player.presentation
 import android.kma.myquizzapp.core.common.model.PublicAnswerOption
 import android.kma.myquizzapp.core.common.model.PublicQuestion
 import android.kma.myquizzapp.core.ui.components.QuestionImage
+import android.kma.myquizzapp.core.ui.components.GameStartCountdownScreenContent
+import android.kma.myquizzapp.core.ui.components.gameStartCountdownSeconds
 import android.kma.myquizzapp.core.ui.components.AppConfirmDialog
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -71,10 +73,11 @@ fun GamePlayScreen(
     val focusManager = LocalFocusManager.current
     val keyboard = LocalSoftwareKeyboardController.current
     var showExitDialog by rememberSaveable { mutableStateOf(false) }
+    val needsExitConfirmation = state.isClassic || state.usesStartCountdownLayout
     val requestExit: () -> Unit = {
-        if (state.isClassic) showExitDialog = true else viewModel.onIntent(GameIntent.Leave)
+        if (needsExitConfirmation) showExitDialog = true else viewModel.onIntent(GameIntent.Leave)
     }
-    BackHandler(enabled = state.isClassic) { requestExit() }
+    BackHandler(enabled = needsExitConfirmation) { requestExit() }
     LaunchedEffect(state.errorMessage) {
         state.errorMessage?.let { snackbar.showSnackbar(it); viewModel.onIntent(GameIntent.ErrorShown) }
     }
@@ -87,7 +90,36 @@ fun GamePlayScreen(
             keyboard?.hide()
         }
     }
-    if (state.showsClassicSummary || (state.isClassic && state.phase is GamePhaseUi.Results && state.question == null)) {
+    if (state.usesStartCountdownLayout) {
+        val target = (state.phase as? GamePhaseUi.Countdown)?.startsAt
+            ?.let { runCatching { Instant.parse(it).toEpochMilli() }.getOrNull() }
+        val seconds by key(state.phase, target, state.serverOffsetMs, state.isPaused, state.connection, state.isSynchronizing) {
+            produceState<Int?>(null) {
+                if (state.phase !is GamePhaseUi.Countdown || state.isPaused || state.connection != GameConnection.CONNECTED || state.isSynchronizing) return@produceState
+                do {
+                    value = gameStartCountdownSeconds(target, state.serverOffsetMs, System.currentTimeMillis())
+                    if (value == null || value == 0) break
+                    delay(100)
+                } while (true)
+            }
+        }
+        val message = when {
+            state.connection == GameConnection.RECONNECT_FAILED -> "Không thể kết nối lại. Hãy kiểm tra mạng rồi thử lại."
+            state.connection == GameConnection.CONNECTING -> "Đang kết nối với máy chủ…"
+            state.connection != GameConnection.CONNECTED -> "Đang kết nối lại với máy chủ…"
+            state.phase == GamePhaseUi.Connecting -> "Đang đồng bộ trạng thái trận…"
+            state.isSynchronizing -> "Đang đồng bộ trạng thái trận…"
+            state.isPaused -> "Trận đang tạm dừng — chờ Host tiếp tục."
+            seconds == null -> "Đang đồng bộ thời gian bắt đầu…"
+            seconds == 0 -> "Đang chờ máy chủ mở câu hỏi đầu tiên…"
+            else -> "Câu hỏi đầu tiên sắp xuất hiện. Hãy sẵn sàng!"
+        }
+        GameStartCountdownScreenContent(seconds, message, "Chuẩn bị vào trận", modifier,
+            snackbarHost = { SnackbarHost(snackbar) },
+            actions = { TextButton(onClick = requestExit) { Text("Rời màn") } },
+            onRetry = if (state.connection == GameConnection.RECONNECT_FAILED)
+                ({ viewModel.onIntent(GameIntent.Retry) }) else null)
+    } else if (state.showsClassicSummary || (state.isClassic && state.phase is GamePhaseUi.Results && state.question == null)) {
         val waitText = rememberClassicResultsWait(state)
         ClassicResultsScreenContent(state, waitText, requestExit, { viewModel.onIntent(GameIntent.Retry) },
             listState, snackbar, modifier)
@@ -101,13 +133,13 @@ fun GamePlayScreen(
             onRequestExit = requestExit, listState = listState, snackbar = snackbar, modifier = modifier,
         )
     } else {
-        // Pre-game and non-Classic layouts keep their existing behavior.
+        // Non-Classic question layouts keep their existing behavior.
         GamePlayScreenContent(
             state = state, onIntent = viewModel::onIntent, onRequestExit = requestExit,
             snackbar = snackbar, modifier = modifier,
         )
     }
-    if (showExitDialog && state.isClassic) {
+    if (showExitDialog && needsExitConfirmation) {
         AppConfirmDialog(
             title = "Rời màn chơi?",
             message = "Bạn sẽ ngắt kết nối và rời màn chơi. Thao tác này không kết thúc trận của cả phòng.",
@@ -117,6 +149,10 @@ fun GamePlayScreen(
         )
     }
 }
+
+/** Cover the lobby-to-game join/sync gap before the countdown event or first question arrives. */
+internal val GameUiState.usesStartCountdownLayout: Boolean
+    get() = phase == GamePhaseUi.Connecting || phase is GamePhaseUi.Countdown
 
 /** Stateful clock adapter lives at the Screen boundary; the Classic content only renders values. */
 @Composable

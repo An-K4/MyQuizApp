@@ -122,7 +122,8 @@ data class HostGameUiState(
     val eliminatedPlayers: Int get() = leaderboard.rows.count { it.status == STATUS_ELIMINATED }
 
     private val isOnline: Boolean
-        get() = connection == HostGameConnection.CONNECTED && (!isClassic || isStateSynchronized)
+        get() = connection == HostGameConnection.CONNECTED &&
+            (!(isClassic || phase == GamePhase.COUNTDOWN) || isStateSynchronized)
 
     /** Nhãn đổi theo phase: đang mở thì chốt câu, đã đóng thì sang câu mới. */
     val advanceLabel: String

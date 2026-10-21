@@ -412,11 +412,12 @@ private fun Centered(modifier: Modifier, content: @Composable ColumnScope.() -> 
 
 @Composable
 private fun CountdownContent(state: QuizPreviewUiState, modifier: Modifier) {
-    Centered(modifier) {
-        Text("Chuẩn bị", style = MaterialTheme.typography.titleLarge)
-        Text("${state.countdownSeconds}", style = MaterialTheme.typography.displayLarge)
-        state.quiz?.let { Text(it.quizName, style = MaterialTheme.typography.bodyLarge) }
-    }
+    GameStartCountdownContent(
+        seconds = state.countdownSeconds,
+        message = "Câu hỏi đầu tiên sắp xuất hiện. Hãy sẵn sàng!",
+        subtitle = state.quiz?.quizName,
+        modifier = modifier,
+    )
 }
 
 @Composable

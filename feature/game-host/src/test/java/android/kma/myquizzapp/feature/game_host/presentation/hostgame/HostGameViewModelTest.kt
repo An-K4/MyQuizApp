@@ -77,6 +77,55 @@ class HostGameViewModelTest {
     fun tearDown() = Dispatchers.resetMain()
 
     @Test
+    fun `start layout covers initial unknown and countdown but not active or finished`() {
+        val initial = HostGameUiState()
+        assertTrue(initial.usesStartCountdownLayout)
+        assertTrue(initial.copy(connection = HostGameConnection.CONNECTED,
+            sessionStatus = SessionStatus.ACTIVE).usesStartCountdownLayout)
+        assertTrue(initial.copy(phase = GamePhase.COUNTDOWN).usesStartCountdownLayout)
+        assertTrue(initial.copy(phase = GamePhase.COUNTDOWN,
+            sessionStatus = SessionStatus.PAUSED).usesStartCountdownLayout)
+        assertFalse(initial.copy(phase = GamePhase.QUESTION_ACTIVE).usesStartCountdownLayout)
+        assertFalse(initial.copy(phase = GamePhase.FINISHED).usesStartCountdownLayout)
+        assertFalse(initial.copy(sessionStatus = SessionStatus.FINISHED).usesStartCountdownLayout)
+    }
+
+    @Test
+    fun `countdown supports pause resume end but never manual advance`() = runTest(dispatcher) {
+        runCurrent()
+        socket.emit(GameEvent.Connected)
+        socket.emit(GameEvent.StateSnapshot(GameSnapshot(mode = GameMode.CLASSIC,
+            sessionStatus = SessionStatus.ACTIVE, phase = GamePhase.COUNTDOWN,
+            countdownStartsAt = "2026-10-20T04:00:03Z")))
+        runCurrent()
+        assertTrue(viewModel.uiState.value.canPauseOrResume)
+        assertTrue(viewModel.uiState.value.canEndGame)
+        assertFalse(viewModel.uiState.value.canAdvance)
+        viewModel.onIntent(HostGameIntent.PauseOrResume)
+        runCurrent()
+        assertEquals(1, socket.pauseCalls)
+        socket.emit(GameEvent.StateSnapshot(GameSnapshot(mode = GameMode.CLASSIC,
+            sessionStatus = SessionStatus.PAUSED, phase = GamePhase.COUNTDOWN)))
+        runCurrent()
+        assertTrue(viewModel.uiState.value.isPaused)
+        assertEquals(null, viewModel.uiState.value.countdownTargetEpochMs)
+        viewModel.onIntent(HostGameIntent.PauseOrResume)
+        runCurrent()
+        assertEquals(1, socket.resumeCalls)
+        socket.emit(GameEvent.StateSnapshot(GameSnapshot(mode = GameMode.CLASSIC,
+            sessionStatus = SessionStatus.ACTIVE, phase = GamePhase.COUNTDOWN,
+            countdownStartsAt = "2026-10-20T04:00:20Z")))
+        runCurrent()
+        assertEquals(GamePhase.COUNTDOWN, viewModel.uiState.value.phase)
+        assertEquals(java.time.Instant.parse("2026-10-20T04:00:20Z").toEpochMilli(),
+            viewModel.uiState.value.countdownTargetEpochMs)
+        viewModel.onIntent(HostGameIntent.ConfirmEndGame)
+        runCurrent()
+        assertEquals(1, socket.endCalls)
+        assertEquals(0, socket.nextCalls)
+    }
+
+    @Test
     fun `connected rejoins host room after every reconnect`() = runTest(dispatcher) {
         runCurrent()
         socket.emit(GameEvent.Connected)

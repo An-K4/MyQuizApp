@@ -6,6 +6,14 @@ import android.kma.myquizzapp.core.common.model.HostLeaderboardRow
 import android.kma.myquizzapp.core.common.model.PublicAnswerOption
 import android.kma.myquizzapp.core.common.model.QuestionLockReason
 import android.kma.myquizzapp.core.ui.components.QuestionImage
+import android.kma.myquizzapp.core.ui.components.GameStartCountdownScreenContent
+import android.kma.myquizzapp.core.ui.components.gameStartCountdownSeconds
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import android.kma.myquizzapp.core.ui.components.AppConfirmDialog
 import android.kma.myquizzapp.core.ui.components.AppDialogVariant
 import androidx.activity.compose.BackHandler
@@ -82,14 +90,17 @@ fun HostGameScreen(
     var pendingCloseKey by rememberSaveable { mutableStateOf<String?>(null) }
     var showLeaveDialog by rememberSaveable { mutableStateOf(false) }
 
+    val isCountdown = uiState.phase == GamePhase.COUNTDOWN && !uiState.isFinished
+    val isPreparing = uiState.usesStartCountdownLayout
+    val needsLeaveConfirmation = (uiState.isClassic || isPreparing) && !uiState.isFinished
     val requestLeave: () -> Unit = {
         menuExpanded = false
         pendingCloseKey = null
         viewModel.onIntent(HostGameIntent.DismissEndDialog)
-        if (uiState.isClassic && !uiState.isFinished) showLeaveDialog = true
+        if (needsLeaveConfirmation) showLeaveDialog = true
         else viewModel.onIntent(HostGameIntent.LeaveGame)
     }
-    BackHandler(enabled = uiState.isClassic && !uiState.isFinished) { requestLeave() }
+    BackHandler(enabled = needsLeaveConfirmation) { requestLeave() }
     LaunchedEffect(uiState.errorMessage) {
         uiState.errorMessage?.let {
             snackbarHostState.showSnackbar(it)
@@ -111,7 +122,44 @@ fun HostGameScreen(
     }
     LaunchedEffect(uiState.isFinished) { if (uiState.isFinished) showLeaveDialog = false }
 
-    if (uiState.usesClassicRoundLayout) {
+    if (isPreparing) {
+        val seconds by key(uiState.phase, uiState.countdownTargetEpochMs, uiState.serverOffsetMs,
+            uiState.isPaused, uiState.connection, uiState.isStateSynchronized) {
+            produceState<Int?>(null) {
+                if (!isCountdown || uiState.isPaused || uiState.connection != HostGameConnection.CONNECTED || !uiState.isStateSynchronized) return@produceState
+                do {
+                    value = gameStartCountdownSeconds(uiState.countdownTargetEpochMs, uiState.serverOffsetMs, System.currentTimeMillis())
+                    if (value == null || value == 0) break
+                    delay(100)
+                } while (true)
+            }
+        }
+        val message = when {
+            uiState.connection == HostGameConnection.RECONNECT_FAILED -> "Không thể kết nối lại. Hãy kiểm tra mạng rồi thử lại."
+            uiState.connection == HostGameConnection.CONNECTING -> "Đang kết nối với máy chủ…"
+            uiState.connection != HostGameConnection.CONNECTED -> "Đang kết nối lại với máy chủ…"
+            !isCountdown -> "Đang đồng bộ trạng thái trận…"
+            !uiState.isStateSynchronized -> "Đang đồng bộ trạng thái trận…"
+            uiState.isPaused -> "Trận đang tạm dừng. Chọn Tiếp tục trong menu để bắt đầu đếm tiếp."
+            seconds == null -> "Đang đồng bộ thời gian bắt đầu…"
+            seconds == 0 -> "Đang chờ máy chủ mở câu hỏi đầu tiên…"
+            else -> "Câu hỏi đầu tiên sắp xuất hiện. Hãy sẵn sàng!"
+        }
+        GameStartCountdownScreenContent(seconds, message, "Chuẩn bị vào trận",
+            snackbarHost = { SnackbarHost(snackbarHostState) },
+            onRetry = if (uiState.connection == HostGameConnection.RECONNECT_FAILED)
+                ({ viewModel.onIntent(HostGameIntent.Retry) }) else null,
+            actions = {
+                IconButton(onClick = { menuExpanded = true }) { Icon(Icons.Filled.MoreVert, "Điều khiển trận") }
+                DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
+                    DropdownMenuItem(text = { Text(uiState.pauseLabel) }, enabled = isCountdown && uiState.canPauseOrResume,
+                        onClick = { menuExpanded = false; viewModel.onIntent(HostGameIntent.PauseOrResume) })
+                    DropdownMenuItem(text = { Text("Kết thúc trận") }, enabled = isCountdown && uiState.canEndGame,
+                        onClick = { menuExpanded = false; viewModel.onIntent(HostGameIntent.RequestEndGame) })
+                    DropdownMenuItem(text = { Text("Rời màn") }, onClick = requestLeave)
+                }
+            })
+    } else if (uiState.usesClassicRoundLayout) {
         val answerSectionExpanded = optionsExpanded || uiState.isAnswerRevealed
         HostClassicQuestionScreenContent(
             state = uiState, time = rememberHostQuestionTime(uiState),
@@ -138,7 +186,7 @@ fun HostGameScreen(
             onRequestLeave = requestLeave,
         )
     } else {
-        // Pre-game countdown, final results and self-paced layouts are not redesigned here.
+        // Final results and self-paced question layouts are not redesigned here.
         HostGameScreenContent(uiState, viewModel::onIntent, snackbarHostState, requestLeave)
     }
 
@@ -157,7 +205,7 @@ fun HostGameScreen(
         )
     }
     if (uiState.isEndDialogOpen) {
-        if (uiState.isClassic) AppConfirmDialog(
+        if (uiState.isClassic || isPreparing) AppConfirmDialog(
             title = "Kết thúc trận?",
             message = "Trận sẽ kết thúc cho tất cả người chơi và chuyển sang kết quả cuối trận. Đây không phải thao tác chỉ rời màn Host.",
             confirmText = "Kết thúc trận", dismissText = "Tiếp tục trận", variant = AppDialogVariant.Danger,
@@ -168,7 +216,7 @@ fun HostGameScreen(
             onDismiss = { viewModel.onIntent(HostGameIntent.DismissEndDialog) },
         )
     }
-    if (showLeaveDialog && uiState.isClassic && !uiState.isFinished) AppConfirmDialog(
+    if (showLeaveDialog && needsLeaveConfirmation) AppConfirmDialog(
         title = "Rời màn điều khiển?",
         message = "Bạn sẽ ngắt kết nối Host và rời màn điều khiển. Trận không kết thúc; nếu đang chờ Host chuyển câu, trận vẫn sẽ chờ.",
         confirmText = "Rời màn", dismissText = "Ở lại điều khiển",
@@ -176,6 +224,10 @@ fun HostGameScreen(
         onDismiss = { showLeaveDialog = false },
     )
 }
+
+/** Initial UNKNOWN is the join/snapshot gap, not a legacy gameplay screen. */
+internal val HostGameUiState.usesStartCountdownLayout: Boolean
+    get() = !isFinished && (phase == GamePhase.UNKNOWN || phase == GamePhase.COUNTDOWN)
 
 /** The clock belongs to the stateful Screen boundary, never Preview/content. */
 @Composable
