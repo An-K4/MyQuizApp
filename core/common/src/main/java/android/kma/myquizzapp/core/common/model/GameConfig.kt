@@ -32,7 +32,7 @@ data class GameConfig(
         val countdownSeconds: Int = 3,
         val perQuestionSeconds: Int? = null,  // null = dùng time_limit của từng câu
         val autoAdvance: Boolean = true,
-        val showResultsSeconds: Int = 2,
+        val showResultsSeconds: Int = 5,
         val totalMatchSeconds: Int? = null    // marathon dùng cái này
     )
 

@@ -761,6 +761,267 @@ class GameViewModelTest {
         assertEquals(1, socket.answers.size)
     }
 
+    @Test
+    fun `classic server results reveal in place for two seconds then show compact summary`() = runTest(dispatcher) {
+        startQuestion(mode = GameMode.CLASSIC)
+        viewModel.onIntent(GameIntent.SelectOption("a"))
+        runCurrent()
+        assertEquals(listOf("a"), viewModel.uiState.value.acceptedAnswerKeys)
+        assertNull(viewModel.uiState.value.outcome) // ACK is not a results event.
+        emitClassicResults()
+        assertTrue(viewModel.uiState.value.usesClassicQuestionLayout)
+        assertFalse(viewModel.uiState.value.showsClassicSummary)
+        assertEquals(QuestionOutcome.CORRECT, viewModel.uiState.value.outcome)
+        assertEquals(2_000L, viewModel.uiState.value.classicFeedbackRemainingMs)
+        advanceTimeBy(1_999)
+        runCurrent()
+        assertFalse(viewModel.uiState.value.showsClassicSummary)
+        advanceTimeBy(1)
+        runCurrent()
+        assertTrue(viewModel.uiState.value.showsClassicSummary)
+        assertFalse(viewModel.uiState.value.usesClassicQuestionLayout)
+        // Even after the configured five-second window, only the server can advance.
+        advanceTimeBy(3_000)
+        runCurrent()
+        assertTrue(viewModel.uiState.value.phase is GamePhaseUi.Results)
+        assertTrue(viewModel.uiState.value.showsClassicSummary)
+        assertEquals(0, socket.nextCalls)
+    }
+
+    @Test
+    fun `classic hidden answers go directly to rank summary and both hidden skip it`() = runTest(dispatcher) {
+        startQuestion(mode = GameMode.CLASSIC, showCorrectAnswer = false)
+        emitClassicResults()
+        assertTrue(viewModel.uiState.value.showsClassicSummary)
+        assertFalse(viewModel.uiState.value.revealsClassicFeedback)
+        assertEquals(0L, viewModel.uiState.value.classicFeedbackRemainingMs)
+        socket.emit(configEvent(SessionStatus.ACTIVE, showCorrectAnswer = false, showLeaderboard = ShowLeaderboard.NEVER))
+        runCurrent()
+        assertTrue(viewModel.uiState.value.skipsClassicSummary)
+        assertFalse(viewModel.uiState.value.showsClassicSummary)
+        assertTrue(viewModel.uiState.value.usesClassicQuestionLayout)
+        assertTrue(viewModel.uiState.value.isInputLocked)
+        assertTrue(viewModel.uiState.value.results!!.correctAnswers.isEmpty())
+    }
+
+    @Test
+    fun `classic feedback pause retains remaining time and resume uses new server deadline`() = runTest(dispatcher) {
+        startQuestion(mode = GameMode.CLASSIC)
+        emitClassicResults()
+        advanceTimeBy(400)
+        runCurrent()
+        assertEquals(1_600L, viewModel.uiState.value.classicFeedbackRemainingMs)
+        socket.emit(classicResultsSnapshot(SessionStatus.PAUSED, endsAt = null))
+        runCurrent()
+        advanceTimeBy(5_000)
+        runCurrent()
+        assertEquals(1_600L, viewModel.uiState.value.classicFeedbackRemainingMs)
+        assertFalse(viewModel.uiState.value.showsClassicSummary)
+        val resumedDeadline = "2026-10-20T04:00:10Z"
+        socket.emit(classicResultsSnapshot(SessionStatus.ACTIVE, endsAt = resumedDeadline))
+        runCurrent()
+        assertEquals(resumedDeadline, viewModel.uiState.value.endsAt)
+        advanceTimeBy(1_599)
+        runCurrent()
+        assertFalse(viewModel.uiState.value.showsClassicSummary)
+        advanceTimeBy(1)
+        runCurrent()
+        assertTrue(viewModel.uiState.value.showsClassicSummary)
+    }
+
+    @Test
+    fun `classic reconnect does not resume feedback timer until snapshot arrives`() = runTest(dispatcher) {
+        startQuestion(mode = GameMode.CLASSIC)
+        emitClassicResults()
+        advanceTimeBy(400)
+        runCurrent()
+        socket.emit(GameEvent.Disconnected(DisconnectReason.TRANSPORT))
+        runCurrent()
+        advanceTimeBy(3_000)
+        runCurrent()
+        socket.emit(GameEvent.Connected)
+        runCurrent()
+        assertTrue(viewModel.uiState.value.isSynchronizing)
+        advanceTimeBy(3_000)
+        runCurrent()
+        assertEquals(1_600L, viewModel.uiState.value.classicFeedbackRemainingMs)
+        socket.emit(classicResultsSnapshot())
+        runCurrent()
+        advanceTimeBy(1_600)
+        runCurrent()
+        assertTrue(viewModel.uiState.value.showsClassicSummary)
+        assertFalse(viewModel.uiState.value.isSynchronizing)
+    }
+
+    @Test
+    fun `classic next question cancels pending feedback and clears previous result state`() = runTest(dispatcher) {
+        startQuestion(mode = GameMode.CLASSIC)
+        viewModel.onIntent(GameIntent.SelectOption("a"))
+        runCurrent()
+        emitClassicResults()
+        advanceTimeBy(400)
+        runCurrent()
+        socket.emit(GameEvent.QuestionStarted(PlayerQuestionStarted(question().copy(index = 1, id = 11))))
+        runCurrent()
+        advanceTimeBy(2_000)
+        runCurrent()
+        val state = viewModel.uiState.value
+        assertEquals(GamePhaseUi.Question, state.phase)
+        assertEquals(11L, state.question?.id)
+        assertFalse(state.showsClassicSummary)
+        assertEquals(0L, state.classicFeedbackRemainingMs)
+        assertNull(state.results)
+        assertNull(state.acceptedAnswerKeys)
+        assertNull(state.selectedOptionId)
+        assertFalse(state.isResultsLeaderboardFresh)
+    }
+
+    @Test
+    fun `classic results cannot grade pending submission but late accepted ack can confirm without rewinding phase`() = runTest(dispatcher) {
+        val gate = CompletableDeferred<Result<AnswerAck>>()
+        socket.submitGate = gate
+        startQuestion(mode = GameMode.CLASSIC)
+        viewModel.onIntent(GameIntent.SelectOption("a"))
+        runCurrent()
+        emitClassicResults()
+        assertEquals(QuestionOutcome.HIDDEN, viewModel.uiState.value.outcome)
+        assertEquals(ClassicResultKind.UNKNOWN, classicResultKind(viewModel.uiState.value))
+        advanceTimeBy(2_000)
+        runCurrent()
+        assertTrue(viewModel.uiState.value.showsClassicSummary)
+        gate.complete(Result.Success(AnswerAck(accepted = true)))
+        runCurrent()
+        assertEquals(QuestionOutcome.CORRECT, viewModel.uiState.value.outcome)
+        assertTrue(viewModel.uiState.value.showsClassicSummary)
+        assertFalse(viewModel.uiState.value.isConfirming)
+    }
+
+    @Test
+    fun `classic editable draft is not a confirmed answer`() = runTest(dispatcher) {
+        startQuestion(mode = GameMode.CLASSIC, questionType = "multiple_select")
+        viewModel.onIntent(GameIntent.ToggleOption("a"))
+        emitClassicResults()
+        assertTrue(socket.answers.isEmpty())
+        assertNull(viewModel.uiState.value.acceptedAnswerKeys)
+        assertEquals(QuestionOutcome.HIDDEN, viewModel.uiState.value.outcome)
+        assertEquals(ClassicResultKind.UNANSWERED, classicResultKind(viewModel.uiState.value))
+    }
+
+    @Test
+    fun `classic summary waits for current result leaderboard instead of reusing previous rank`() = runTest(dispatcher) {
+        startQuestion(mode = GameMode.CLASSIC)
+        val oldRows = listOf(LeaderboardRow(1, PLAYER_ID, "Kiro", 100))
+        socket.emit(GameEvent.PlayerLeaderboardUpdated(oldRows)) // Before results is not current evidence.
+        runCurrent()
+        emitClassicResults()
+        assertFalse(viewModel.uiState.value.isResultsLeaderboardFresh)
+        assertNull(viewModel.uiState.value.playerRank)
+        val currentRows = listOf(LeaderboardRow(2, PLAYER_ID, "Kiro", 200))
+        socket.emit(GameEvent.PlayerLeaderboardUpdated(currentRows))
+        runCurrent()
+        assertTrue(viewModel.uiState.value.isResultsLeaderboardFresh)
+        assertEquals(2, viewModel.uiState.value.playerRank)
+        socket.emit(GameEvent.QuestionStarted(PlayerQuestionStarted(question().copy(index = 1, id = 11))))
+        socket.emit(GameEvent.QuestionResultsReceived(QuestionResults(1, questionId = 11, correctAnswers = listOf("a"))))
+        runCurrent()
+        assertFalse(viewModel.uiState.value.isResultsLeaderboardFresh)
+        assertTrue(viewModel.uiState.value.leaderboard.isEmpty())
+        assertNull(viewModel.uiState.value.playerScore)
+    }
+
+    @Test
+    fun `classic fresh reconnect to results does not invent missing grading details`() = runTest(dispatcher) {
+        runCurrent()
+        socket.emit(classicResultsSnapshot().let { it.copy(snapshot = it.snapshot.copy(mode = GameMode.CLASSIC,
+            leaderboard = listOf(LeaderboardRow(2, PLAYER_ID, "Kiro", 200)))) })
+        runCurrent()
+        val state = viewModel.uiState.value
+        assertTrue(state.showsClassicSummary)
+        assertTrue((state.phase as GamePhaseUi.Results).restoredWithoutDetails)
+        assertEquals(ClassicResultKind.UNKNOWN, classicResultKind(state))
+        assertNull(state.results)
+        assertTrue(state.isResultsLeaderboardFresh)
+        assertEquals(200, state.playerScore)
+    }
+
+    @Test
+    fun `classic snapshot for unseen next question clears draft accepted keys and old results`() = runTest(dispatcher) {
+        startQuestion(mode = GameMode.CLASSIC, questionType = "long_answer")
+        viewModel.onIntent(GameIntent.ChangeText("previous answer"))
+        viewModel.onIntent(GameIntent.Submit)
+        runCurrent()
+        emitClassicResults()
+        socket.emit(GameEvent.StateSnapshot(GameSnapshot(sessionStatus = SessionStatus.ACTIVE,
+            phase = GamePhase.QUESTION_ACTIVE, index = 1, question = question().copy(index = 1, id = 11))))
+        runCurrent()
+        val state = viewModel.uiState.value
+        assertEquals(GamePhaseUi.Question, state.phase)
+        assertEquals("", state.textAnswer)
+        assertTrue(state.selectedOptionIds.isEmpty())
+        assertNull(state.selectedOptionId)
+        assertNull(state.acceptedAnswerKeys)
+        assertFalse(state.hasAnswerAttempt)
+        assertNull(state.results)
+        assertNull(state.outcome)
+    }
+
+    @Test
+    fun `classic wrong question id result cannot start feedback or expose keys`() = runTest(dispatcher) {
+        startQuestion(mode = GameMode.CLASSIC)
+        socket.emit(GameEvent.QuestionResultsReceived(QuestionResults(0, questionId = 999, correctAnswers = listOf("a"))))
+        runCurrent()
+        assertEquals(GamePhaseUi.Question, viewModel.uiState.value.phase)
+        assertNull(viewModel.uiState.value.results)
+        assertEquals(0L, viewModel.uiState.value.classicFeedbackRemainingMs)
+    }
+
+    @Test
+    fun `classic game ended preempts inline feedback and navigates immediately`() = runTest(dispatcher) {
+        startQuestion(mode = GameMode.CLASSIC)
+        emitClassicResults()
+        advanceTimeBy(200)
+        runCurrent()
+        viewModel.effect.test {
+            socket.emit(GameEvent.GameEndedEvent(GameEnded(leaderboard = emptyList())))
+            runCurrent()
+            assertEquals(GameEffect.NavigateToFinalResult(GAME_ID, PLAYER_ID), awaitItem())
+            advanceTimeBy(2_000)
+            runCurrent()
+            assertEquals(GamePhaseUi.Finished, viewModel.uiState.value.phase)
+            assertFalse(viewModel.uiState.value.showsClassicSummary)
+            expectNoEvents()
+        }
+    }
+
+    @Test
+    fun `finished reconnect snapshot navigates once for REST recovery`() = runTest(dispatcher) {
+        runCurrent()
+        viewModel.effect.test {
+            val finished = GameEvent.StateSnapshot(GameSnapshot(phase = GamePhase.FINISHED))
+            socket.emit(finished)
+            runCurrent()
+            assertEquals(GameEffect.NavigateToFinalResult(GAME_ID, PLAYER_ID), awaitItem())
+            socket.emit(finished)
+            runCurrent()
+            expectNoEvents()
+        }
+    }
+
+    private suspend fun TestScope.emitClassicResults() {
+        socket.emit(GameEvent.QuestionResultsReceived(QuestionResults(0, questionId = 10,
+            correctAnswers = listOf("a"), nextQuestionAt = "2026-10-20T04:00:05Z")))
+        runCurrent()
+    }
+
+    private fun classicResultsSnapshot(
+        status: SessionStatus = SessionStatus.ACTIVE,
+        endsAt: String? = "2026-10-20T04:00:05Z"
+    ): GameEvent.StateSnapshot {
+        val base = configEvent(status)
+        return base.copy(snapshot = base.snapshot.copy(phase = GamePhase.SHOWING_RESULTS,
+            endsAt = endsAt, remainingSeconds = 5))
+    }
+
     private suspend fun TestScope.startQuestion(
         showCorrectAnswer: Boolean = true,
         showLeaderboard: ShowLeaderboard = ShowLeaderboard.BETWEEN_QUESTIONS,

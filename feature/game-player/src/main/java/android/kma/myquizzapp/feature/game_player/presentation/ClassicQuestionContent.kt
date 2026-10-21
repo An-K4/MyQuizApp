@@ -5,6 +5,7 @@ import android.kma.myquizzapp.core.common.model.GameMode
 import android.kma.myquizzapp.core.common.model.PublicAnswerOption
 import android.kma.myquizzapp.core.common.model.PublicQuestion
 import android.kma.myquizzapp.core.common.model.SessionStatus
+import android.kma.myquizzapp.core.ui.components.AnswerOptionFeedback
 import android.kma.myquizzapp.core.ui.components.AnswerOptionItem
 import android.kma.myquizzapp.core.ui.components.AnswerOptionSelectionMode
 import android.kma.myquizzapp.core.ui.components.QuestionImage
@@ -101,7 +102,8 @@ internal fun ClassicQuestionScreenContent(
                     HorizontalDivider(color = border)
                     Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Text(classicQuestionStatus(state), style = MaterialTheme.typography.bodyMedium,
+                        Text(if (state.revealsClassicFeedback) "${classicResultTitle(state)} · ${classicResultsFooter(state)}"
+                            else if (state.phase is GamePhaseUi.Results) classicResultsFooter(state) else classicQuestionStatus(state), style = MaterialTheme.typography.bodyMedium,
                             color = classicMutedColor(), modifier = Modifier.semantics {
                                 liveRegion = LiveRegionMode.Polite
                             })
@@ -147,6 +149,7 @@ internal fun ClassicQuestionScreenContent(
             if (!question.questionImage.isNullOrBlank()) item {
                 QuestionImage(question.questionImage, "Ảnh minh họa câu hỏi")
             }
+
             when (question.questionType) {
                 "multiple_choice", "multiple_select" -> itemsIndexed(question.answerOptions, key = { _, option -> option.id }) { index, option ->
                     AnswerOptionItem(
@@ -159,7 +162,12 @@ internal fun ClassicQuestionScreenContent(
                                 else GameIntent.SelectOption(option.id))
                         },
                         enabled = state.isAnswerInputEnabled && state.phase == GamePhaseUi.Question,
-                        // Selected is never Correct: feedback belongs to the results milestone.
+                        feedback = when {
+                            !state.revealsClassicFeedback -> AnswerOptionFeedback.None
+                            option.id in state.results!!.correctAnswers -> AnswerOptionFeedback.Correct
+                            option.id in state.acceptedAnswerKeys.orEmpty() -> AnswerOptionFeedback.Incorrect
+                            else -> AnswerOptionFeedback.None
+                        },
                         selectionMode = if (question.questionType == "multiple_select") AnswerOptionSelectionMode.Multiple
                             else AnswerOptionSelectionMode.Single,
                     )
@@ -177,7 +185,13 @@ internal fun ClassicQuestionScreenContent(
                     )
                 }
             }
-            question.questionHint?.takeIf { it.isNotBlank() }?.let { hint -> item {
+            if (state.revealsClassicFeedback && question.questionType in listOf("short_answer", "long_answer")) item {
+                Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = RoundedCornerShape(16.dp)) {
+                    Text("Đáp án được chấp nhận: ${state.results!!.correctAnswers.joinToString(" · ")}",
+                        Modifier.fillMaxWidth().padding(16.dp), style = MaterialTheme.typography.bodyMedium)
+                }
+            }
+            question.questionHint?.takeIf { it.isNotBlank() && state.phase !is GamePhaseUi.Results }?.let { hint -> item {
                 val dark = isSystemInDarkTheme()
                 val accent = if (dark) MaterialTheme.colorScheme.onSecondaryContainer else FrontendColors.Info
                 Surface(color = if (dark) MaterialTheme.colorScheme.secondaryContainer else FrontendColors.InfoBackground,
@@ -251,3 +265,22 @@ private fun ClassicQuestionFixture(state: GameUiState, time: ClassicQuestionTime
 @Preview(name = "Classic - Reconnect thiếu thời lượng gốc", showBackground = true, widthDp = 390)
 @Composable private fun ClassicReconnectPreview() = ClassicQuestionFixture(classicQuestionFixture().copy(
     connection = GameConnection.RECONNECT_FAILED, timeLimitSeconds = null, isInputLocked = true), ClassicQuestionTime(8))
+@Preview(name = "Classic - Phản hồi sai tại chỗ", showBackground = true, widthDp = 390)
+@Composable private fun ClassicInlineFeedbackPreview() = ClassicQuestionFixture(classicQuestionFixture().copy(
+    phase = GamePhaseUi.Results(), isInputLocked = true, showCorrectAnswer = true,
+    results = android.kma.myquizzapp.core.common.model.QuestionResults(0, correctAnswers = listOf("1")),
+    outcome = QuestionOutcome.INCORRECT, selectedOptionId = "0", acceptedAnswerKeys = listOf("0"),
+    hasAnswerAttempt = true, classicFeedbackRemainingMs = CLASSIC_FEEDBACK_DURATION_MS), ClassicQuestionTime())
+@Preview(name = "Classic - Phản hồi chọn thiếu", showBackground = true, widthDp = 390)
+@Composable private fun ClassicPartialFeedbackPreview() = ClassicQuestionFixture(classicQuestionFixture("multiple_select").copy(
+    phase = GamePhaseUi.Results(), isInputLocked = true, showCorrectAnswer = true,
+    results = android.kma.myquizzapp.core.common.model.QuestionResults(0, correctAnswers = listOf("0", "1")),
+    outcome = QuestionOutcome.INCORRECT, selectedOptionIds = setOf("0"), acceptedAnswerKeys = listOf("0"),
+    hasAnswerAttempt = true, classicFeedbackRemainingMs = CLASSIC_FEEDBACK_DURATION_MS), ClassicQuestionTime())
+@Preview(name = "Classic - Phản hồi trả lời dài", showBackground = true, widthDp = 320, fontScale = 1.3f)
+@Composable private fun ClassicTextFeedbackPreview() = ClassicQuestionFixture(classicQuestionFixture("long_answer").copy(
+    phase = GamePhaseUi.Results(), isInputLocked = true, showCorrectAnswer = true, textAnswer = "Nga",
+    results = android.kma.myquizzapp.core.common.model.QuestionResults(0, correctAnswers = listOf("Nga", "Liên bang Nga")),
+    outcome = QuestionOutcome.CORRECT, acceptedAnswerKeys = listOf("Nga"), hasAnswerAttempt = true,
+    classicFeedbackRemainingMs = CLASSIC_FEEDBACK_DURATION_MS), ClassicQuestionTime())
+

@@ -10,6 +10,9 @@ import android.kma.myquizzapp.core.common.model.ShowLeaderboard
 
 enum class GameConnection { CONNECTING, CONNECTED, RECONNECTING, RECONNECT_FAILED }
 
+/** Local feedback within the server's results window; never delays a server transition. */
+internal const val CLASSIC_FEEDBACK_DURATION_MS = 2_000L
+
 enum class QuestionOutcome { CORRECT, INCORRECT, HIDDEN }
 
 sealed interface GamePhaseUi {
@@ -26,6 +29,7 @@ sealed interface GamePhaseUi {
 
 data class GameUiState(
     val connection: GameConnection = GameConnection.CONNECTING,
+    val isSynchronizing: Boolean = false,
     val playerId: Long? = null,
     val sessionStatus: SessionStatus? = null,
     val mode: GameMode? = null,
@@ -50,6 +54,11 @@ data class GameUiState(
     val isConfirming: Boolean = false,
     val canRequestNext: Boolean = false,
     val isRequestingNext: Boolean = false,
+    /** Only ACK/snapshot evidence, never an editable draft, may be graded. */
+    val acceptedAnswerKeys: List<String>? = null,
+    val hasAnswerAttempt: Boolean = false,
+    val classicFeedbackRemainingMs: Long = 0L,
+    val isResultsLeaderboardFresh: Boolean = false,
     val results: QuestionResults? = null,
     val outcome: QuestionOutcome? = null,
     val answeredCount: Int? = null,
@@ -69,7 +78,18 @@ data class GameUiState(
     val isClassic: Boolean get() = mode == GameMode.CLASSIC && pacing == Pacing.HOST
     val usesClassicQuestionLayout: Boolean
         get() = isClassic && question != null &&
-            (phase == GamePhaseUi.Question || phase == GamePhaseUi.Submitted || phase == GamePhaseUi.Locked)
+            (phase == GamePhaseUi.Question || phase == GamePhaseUi.Submitted || phase == GamePhaseUi.Locked ||
+                (phase is GamePhaseUi.Results && !showsClassicSummary))
+    val skipsClassicSummary: Boolean
+        get() = showCorrectAnswer == false && showLeaderboard != null &&
+            showLeaderboard != ShowLeaderboard.BETWEEN_QUESTIONS
+    val showsClassicSummary: Boolean
+        get() = isClassic && phase is GamePhaseUi.Results && !skipsClassicSummary &&
+            (classicFeedbackRemainingMs <= 0L || showCorrectAnswer != true ||
+                results?.correctAnswers.isNullOrEmpty() || question == null)
+    val revealsClassicFeedback: Boolean
+        get() = isClassic && phase is GamePhaseUi.Results && showCorrectAnswer == true &&
+            !results?.correctAnswers.isNullOrEmpty()
     val isPaused: Boolean get() = sessionStatus == SessionStatus.PAUSED
     val isSelfPaced: Boolean get() = pacing == Pacing.SELF
     val isAnswerInputEnabled: Boolean get() = !isInputLocked && !isPaused

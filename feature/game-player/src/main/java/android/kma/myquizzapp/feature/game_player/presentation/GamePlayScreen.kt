@@ -78,7 +78,7 @@ fun GamePlayScreen(
     LaunchedEffect(state.errorMessage) {
         state.errorMessage?.let { snackbar.showSnackbar(it); viewModel.onIntent(GameIntent.ErrorShown) }
     }
-    LaunchedEffect(state.question?.id, state.question?.index) {
+    LaunchedEffect(state.question?.id, state.question?.index, state.showsClassicSummary) {
         if (state.isClassic) listState.scrollToItem(0)
     }
     LaunchedEffect(state.isClassic, state.phase, state.isAnswerInputEnabled) {
@@ -87,8 +87,12 @@ fun GamePlayScreen(
             keyboard?.hide()
         }
     }
-    if (state.usesClassicQuestionLayout) {
-        val time = rememberClassicQuestionTime(state)
+    if (state.showsClassicSummary || (state.isClassic && state.phase is GamePhaseUi.Results && state.question == null)) {
+        val waitText = rememberClassicResultsWait(state)
+        ClassicResultsScreenContent(state, waitText, requestExit, { viewModel.onIntent(GameIntent.Retry) },
+            listState, snackbar, modifier)
+    } else if (state.usesClassicQuestionLayout) {
+        val time = if (state.phase is GamePhaseUi.Results) ClassicQuestionTime() else rememberClassicQuestionTime(state)
         LaunchedEffect(state.question?.id, state.question?.index, state.endsAt, time.expired, state.isPaused) {
             if (time.expired && !state.isPaused) viewModel.onIntent(GameIntent.DeadlineReached)
         }
@@ -97,7 +101,7 @@ fun GamePlayScreen(
             onRequestExit = requestExit, listState = listState, snackbar = snackbar, modifier = modifier,
         )
     } else {
-        // Countdown, results and non-Classic layouts are intentionally unchanged in this milestone.
+        // Pre-game and non-Classic layouts keep their existing behavior.
         GamePlayScreenContent(
             state = state, onIntent = viewModel::onIntent, onRequestExit = requestExit,
             snackbar = snackbar, modifier = modifier,
@@ -128,6 +132,21 @@ private fun rememberClassicQuestionTime(state: GameUiState): ClassicQuestionTime
         }
     }
     return time
+}
+
+@Composable
+private fun rememberClassicResultsWait(state: GameUiState): String {
+    val text by key(state.endsAt, state.serverOffsetMs, state.isPaused, state.remainingSeconds,
+        state.connection, state.isSynchronizing, state.autoAdvance, state.question?.id, state.question?.index) {
+        produceState(initialValue = classicResultsWaitText(state, System.currentTimeMillis())) {
+            do {
+                value = classicResultsWaitText(state, System.currentTimeMillis())
+                if (state.isPaused || state.connection != GameConnection.CONNECTED || state.isSynchronizing || !state.autoAdvance || state.endsAt == null) break
+                delay(200)
+            } while (true)
+        }
+    }
+    return text
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
