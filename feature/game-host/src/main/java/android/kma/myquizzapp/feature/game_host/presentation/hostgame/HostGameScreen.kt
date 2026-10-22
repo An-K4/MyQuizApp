@@ -84,6 +84,7 @@ fun HostGameScreen(
 
     val snackbarHostState = remember { SnackbarHostState() }
     val listState = rememberLazyListState()
+    val monitorListState = rememberLazyListState()
     val finalListState = rememberLazyListState()
     var finalBoardExpanded by rememberSaveable { mutableStateOf(true) }
     var finalStatsExpanded by rememberSaveable { mutableStateOf(false) }
@@ -95,7 +96,7 @@ fun HostGameScreen(
 
     val isCountdown = uiState.phase == GamePhase.COUNTDOWN && !uiState.isFinished
     val isPreparing = uiState.usesStartCountdownLayout
-    val needsLeaveConfirmation = (uiState.isClassic || isPreparing) && !uiState.isFinished
+    val needsLeaveConfirmation = (uiState.isClassic || uiState.isSelfPaced || isPreparing) && !uiState.isFinished
     val requestLeave: () -> Unit = {
         menuExpanded = false
         pendingCloseKey = null
@@ -198,8 +199,20 @@ fun HostGameScreen(
             },
             onRequestLeave = requestLeave,
         )
+    } else if (uiState.usesSelfPacedMonitorLayout) {
+        HostSelfPacedScreenContent(
+            state = uiState, onIntent = viewModel::onIntent,
+            onRequestLeave = requestLeave,
+            onRequestEnd = {
+                menuExpanded = false
+                showLeaveDialog = false
+                viewModel.onIntent(HostGameIntent.RequestEndGame)
+            },
+            listState = monitorListState, snackbarHostState = snackbarHostState,
+            menuExpanded = menuExpanded, onMenuExpandedChange = { menuExpanded = it },
+        )
     } else {
-        // Legacy self-paced/other active-game layouts stay unchanged.
+        // Unknown/unsupported active-game pacing retains a conservative fallback.
         HostGameScreenContent(uiState, viewModel::onIntent, snackbarHostState, requestLeave)
     }
 
@@ -218,7 +231,7 @@ fun HostGameScreen(
         )
     }
     if (uiState.isEndDialogOpen) {
-        if (uiState.isClassic || isPreparing) AppConfirmDialog(
+        if (uiState.isClassic || uiState.isSelfPaced || isPreparing) AppConfirmDialog(
             title = "Kết thúc trận?",
             message = "Trận sẽ kết thúc cho tất cả người chơi và chuyển sang kết quả cuối trận. Đây không phải thao tác chỉ rời màn Host.",
             confirmText = "Kết thúc trận", dismissText = "Tiếp tục trận", variant = AppDialogVariant.Danger,
@@ -231,7 +244,9 @@ fun HostGameScreen(
     }
     if (showLeaveDialog && needsLeaveConfirmation) AppConfirmDialog(
         title = "Rời màn điều khiển?",
-        message = "Bạn sẽ ngắt kết nối Host và rời màn điều khiển. Trận không kết thúc; nếu đang chờ Host chuyển câu, trận vẫn sẽ chờ.",
+        message = if (uiState.isSelfPaced)
+            "Bạn sẽ ngắt kết nối Host và rời màn điều khiển. Trận vẫn tiếp tục theo cấu hình hiện tại."
+        else "Bạn sẽ ngắt kết nối Host và rời màn điều khiển. Trận không kết thúc; nếu đang chờ Host chuyển câu, trận vẫn sẽ chờ.",
         confirmText = "Rời màn", dismissText = "Ở lại điều khiển",
         onConfirm = { showLeaveDialog = false; viewModel.onIntent(HostGameIntent.LeaveGame) },
         onDismiss = { showLeaveDialog = false },

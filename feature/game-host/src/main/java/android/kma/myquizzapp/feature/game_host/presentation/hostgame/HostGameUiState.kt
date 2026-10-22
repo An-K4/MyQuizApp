@@ -74,6 +74,8 @@ data class HostGameUiState(
     /** Current-question counts are not recoverable from cumulative leaderboard totals. */
     val hasAnswerProgress: Boolean = false,
     val isStateSynchronized: Boolean = false,
+    /** A full leaderboard:host has arrived; an empty table is still valid monitoring data. */
+    val hasMonitoringData: Boolean = false,
     val isQuestionClockKnown: Boolean = false,
 
     val leaderboard: HostLeaderboard = HostLeaderboard(),
@@ -125,8 +127,7 @@ data class HostGameUiState(
     val eliminatedPlayers: Int get() = leaderboard.rows.count { it.status == STATUS_ELIMINATED }
 
     private val isOnline: Boolean
-        get() = connection == HostGameConnection.CONNECTED &&
-            (!(isClassic || phase == GamePhase.COUNTDOWN) || isStateSynchronized)
+        get() = connection == HostGameConnection.CONNECTED && isStateSynchronized
 
     /** Nhãn đổi theo phase: đang mở thì chốt câu, đã đóng thì sang câu mới. */
     val advanceLabel: String

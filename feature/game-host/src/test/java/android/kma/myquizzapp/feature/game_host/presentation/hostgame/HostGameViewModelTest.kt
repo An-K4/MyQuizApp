@@ -942,6 +942,63 @@ class HostGameViewModelTest {
         totalQuestions = 3,
     ))
 
+    @Test
+    fun `monitor distinguishes missing data from a valid empty host table`() = runTest(dispatcher) {
+        runCurrent()
+        socket.emit(GameEvent.Connected)
+        socket.emit(selfPacedStartSnapshot(phase = GamePhase.QUESTION_ACTIVE))
+        runCurrent()
+        assertFalse(viewModel.uiState.value.hasMonitoringData)
+        assertFalse(viewModel.uiState.value.hasFreshMonitoringData)
+        socket.emit(GameEvent.HostLeaderboardUpdated(HostLeaderboard()))
+        runCurrent()
+        assertTrue(viewModel.uiState.value.hasMonitoringData)
+        assertTrue(viewModel.uiState.value.hasFreshMonitoringData)
+        assertTrue(viewModel.uiState.value.leaderboard.rows.isEmpty())
+        assertEquals(listOf(0, 0, 0), hostMonitorMetrics(viewModel.uiState.value).map { it.value })
+    }
+
+    @Test
+    fun `monitor reconnect preserves cards but withholds freshness and commands until synchronized`() = runTest(dispatcher) {
+        runCurrent()
+        socket.emit(GameEvent.Connected)
+        socket.emit(selfPacedStartSnapshot(phase = GamePhase.QUESTION_ACTIVE))
+        val table = HostLeaderboard(rows = listOf(HostLeaderboardRow(1, 8, "Player", 100)))
+        socket.emit(GameEvent.HostLeaderboardUpdated(table))
+        runCurrent()
+        assertTrue(viewModel.uiState.value.hasFreshMonitoringData)
+        socket.emit(GameEvent.Disconnected(DisconnectReason.TRANSPORT))
+        runCurrent()
+        assertFalse(viewModel.uiState.value.hasMonitoringData)
+        assertEquals(table.rows, viewModel.uiState.value.leaderboard.rows)
+        socket.emit(GameEvent.Connected)
+        runCurrent()
+        assertFalse(viewModel.uiState.value.canEndGame)
+        assertFalse(viewModel.uiState.value.canPauseOrResume)
+        socket.emit(selfPacedStartSnapshot(phase = GamePhase.QUESTION_ACTIVE))
+        runCurrent()
+        assertTrue(viewModel.uiState.value.canEndGame)
+        assertFalse(viewModel.uiState.value.hasFreshMonitoringData)
+        socket.emit(GameEvent.HostLeaderboardUpdated(table))
+        runCurrent()
+        assertTrue(viewModel.uiState.value.hasFreshMonitoringData)
+    }
+
+    @Test
+    fun `one incremental progress event is not treated as a full monitoring table`() = runTest(dispatcher) {
+        runCurrent()
+        socket.emit(GameEvent.Connected)
+        socket.emit(selfPacedStartSnapshot(phase = GamePhase.QUESTION_ACTIVE))
+        socket.emit(GameEvent.HostPlayerProgressUpdated(HostPlayerProgress(
+            id = 8, playerName = "Player", currentQuestionIndex = 1, playerScore = 100,
+            correctAnswersCount = 1, status = "connected", totalQuestions = 3)))
+        runCurrent()
+        assertEquals(1, viewModel.uiState.value.leaderboard.rows.size)
+        assertEquals(1, viewModel.uiState.value.leaderboard.rows.single().answeredCount)
+        assertFalse(viewModel.uiState.value.hasMonitoringData)
+        assertTrue(hostMonitorMetrics(viewModel.uiState.value).all { it.value == null })
+    }
+
     private suspend fun TestScope.startClassic() {
         runCurrent()
         socket.emit(GameEvent.Connected)

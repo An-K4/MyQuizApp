@@ -147,6 +147,7 @@ class HostGameViewModel @Inject constructor(
                 errorMessage = null,
                 hasAnswerProgress = false,
                 hasResultsLeaderboard = false,
+                hasMonitoringData = false,
                 isStateSynchronized = false
             )
         }
@@ -162,7 +163,8 @@ class HostGameViewModel @Inject constructor(
             // nhất lấy lại `game:state` để dựng lại màn hình.
             GameEvent.Connected -> {
                 tokenRefreshAttempted = false
-                _uiState.update { it.copy(connection = HostGameConnection.CONNECTED, isStateSynchronized = false) }
+                _uiState.update { it.copy(connection = HostGameConnection.CONNECTED,
+                    isStateSynchronized = false, hasMonitoringData = false) }
                 socketRepository.joinLobby()
             }
 
@@ -260,7 +262,8 @@ class HostGameViewModel @Inject constructor(
     private suspend fun onDisconnected(reason: DisconnectReason) {
         if (reason != DisconnectReason.CLIENT) {
             connectedRosterIds = null
-            _uiState.update { it.copy(hasAnswerProgress = false, hasResultsLeaderboard = false, isStateSynchronized = false) }
+            _uiState.update { it.copy(hasAnswerProgress = false, hasResultsLeaderboard = false,
+                isStateSynchronized = false, hasMonitoringData = false) }
         }
         when (reason) {
             // Chủ động rời màn thì không phải sự cố.
@@ -439,6 +442,7 @@ class HostGameViewModel @Inject constructor(
         _uiState.update {
             it.copy(
                 leaderboard = event.leaderboard,
+                hasMonitoringData = true,
                 hasResultsLeaderboard = it.isShowingQuestionResults && it.isStateSynchronized &&
                     it.connection == HostGameConnection.CONNECTED,
                 totalQuestions = if (event.leaderboard.totalQuestions > 0) {
@@ -613,6 +617,7 @@ class HostGameViewModel @Inject constructor(
             _uiState.update {
                 it.copy(
                     connection = HostGameConnection.RECONNECT_FAILED,
+                    hasMonitoringData = false,
                     hasAnswerProgress = false,
                     hasResultsLeaderboard = false,
                     isStateSynchronized = false,
