@@ -1,9 +1,11 @@
 # N46 — UI polish theo từng mốc nhỏ (WIP)
 
-> **Checkpoint hiện tại:** N24.5 đã tích hợp Android tại local main `14fb62f` (sau baseline N46 countdown `b005df3`): model/event/snapshot/mapper, reducer idempotent và binding dữ liệu thật vào summary Classic hiện có; không UI polish hoặc mở rộng final-result flow. User báo test xanh sau sửa fixture text-answer và happy case thủ công bước đầu ổn; chưa có log/XML của lượt chạy xanh được agent đối chiếu, không suy thành full lint/CI/E2E PASS. Backend local đã audit `0c5908f` (#21), deployment chưa xác minh. BUG-13 chưa đóng; lỗi max streak (N24.5 mục 9) mới ghi nhận chuỗi cao nhất 3 nhưng tổng kết/lịch sử hiện 0, chưa xác định tầng gây lỗi và ngoài scope N24.5. N44 PARTIAL, N46 WIP, N45/M6/release và privacy/presence/session/Practice/Google-cookie gates giữ nguyên. Tiếp theo verify phần còn mở, rồi audit final-result flow và xin duyệt scope UI riêng; không tự triển khai. Chi tiết mới ở mục 5c; mục 5a/5b giữ lịch sử N46 trước N24.5.
+> **Checkpoint hiện tại — local main `8844666`:** logic N24.5 tại `14fb62f`; sau đó đã commit UI streak/điểm câu Classic `fc70509`, chung cuộc Player `eb5b754`, chung cuộc Host + REST recovery `da248c8`, loại trùng podium khỏi bảng hạng mở rộng Host/Player `fb6e123`, và tổng kết/review Chơi thử local `8844666`. Luồng chơi online mới chỉ được polish riêng cho Classic; Solo/Survival/Marathon/Practice chưa audit/polish UI riêng đầy đủ, dù có dùng component chung. Chơi thử local không phải Solo/Practice online. User báo GitHub CI xanh sau đợt bảng hạng, trước đợt Chơi thử; chưa đối chiếu run SHA/log, không suy thành CI xanh của `8844666` hoặc E2E/release PASS. Agent chưa chạy Gradle/render Compose. N44 PARTIAL, N46 WIP; N45/M6/release, BUG-13, lỗi max streak và các gate cũ giữ mở. Tiếp theo: user commit docs rồi checkout main; audit chung 4 mode còn lại, báo bảng khác biệt/kế hoạch trước khi sửa source. Chi tiết ở `N46_UI_PROGRESS.md` mục 5d và `N46_HANDOFF_PROMPT.md`.
 > N46 được triển khai từng phần theo user duyệt, không làm một mạch toàn app. N44 vẫn PARTIAL, N45/M6 và release gates chưa đóng; xem `N44_E2E_REPORT.md`.
 
 ## 1. Cách đọc trạng thái
+
+- Trạng thái hiện hành ở mục **5d**; các mục 5a–5c và mô tả mốc cũ là lịch sử, không dùng câu “chưa polish/chưa có edit removal” tại đó để ghi đè checkpoint `8844666`.
 
 - “Đã triển khai/commit” chỉ xác nhận source có trên main.
 - “User duyệt UI” không thay thế build, lint, unit test, Compose UI test hoặc E2E.
@@ -53,7 +55,12 @@
 | N46.23 | Host Classic question → results, chart/full board | `d72fcf6` | User duyệt; scoped network/Host tests + assemble xanh do user báo, không có run SHA/log |
 | N46.24 | Player Classic feedback 2s → summary, default results 5s | `9b8e0a6` | User duyệt UI sau smart-cast fix; chưa xác nhận full command PASS |
 | N46.25 | Countdown chung Host/Player/Preview + preparing shell | `b005df3` | User duyệt mắt thường; 9 test và 4 shared Preview mới chưa xác minh run |
-| N46.next | Sau N24.5 `14fb62f`: verify phần còn mở, audit final-result flow Host/Player | Chưa triển khai UI cuối trận | N24.5 logic đã tích hợp; lỗi max streak (N24.5 mục 9) ghi backlog, scope UI/fix tiếp theo phải duyệt riêng |
+| N46.26 | Classic summary: badge current streak + điểm câu | `fc70509` | Dữ liệu private authoritative; không đổi Host chart/logic timing |
+| N46.27 | Chung cuộc Player, podium luôn hiện + metric card responsive | `eb5b754` | Không room per-question stats; không bịa total/accuracy/max streak thiếu nguồn |
+| N46.28 | Chung cuộc Host + REST recovery | `da248c8` | Bảng hạng mặc định mở, thống kê câu thu gọn, footer Home |
+| N46.29 | Host/Player: bảng hạng chỉ phần chưa có trên podium | `fb6e123` | Lọc bằng ID thực trên podium; không có phần còn lại thì ẩn toggle |
+| N46.30 | Tổng kết và review Chơi thử local | `8844666` | Bỏ edit quiz, fixed actions, card responsive, reuse question UI; không phải Practice online |
+| N46.next | Audit/polish riêng Solo, Survival, Marathon, Practice | Chưa triển khai polish riêng đầy đủ | Audit chung 4 mode → bảng so sánh/kế hoạch → user duyệt → triển khai theo cụm kiểm soát |
 
 Tên mốc là checkpoint nội bộ của N46, không thay đổi kế hoạch N1–N50 hoặc tạo release gate mới.
 
@@ -202,7 +209,7 @@ Gradient result từ CSS: `#21113E` tại 0%, `#4C2B8D` tại 48%, `#25144F` t�
 - Nhãn luyện tập/không tính xếp hạng và nhãn điểm ước tính riêng. Một lựa chọn chấm ngay khi chọn; nhiều lựa chọn/trả lời ngắn/trả lời dài dùng **Gửi đáp án** → feedback → **Câu tiếp theo** (câu cuối **Xem tổng kết**). Không tự chuyển sau 2/4 giây nữa; skip cũng có feedback rồi chuyển thủ công. Không quay lại câu trước.
 - Đáp án đúng luôn xanh, kể cả không được user chọn; chỉ lựa chọn sai mà user đã chọn mới đỏ với icon X. Multiple-select chấm exact set, không biến một lựa chọn đúng thành đỏ chỉ vì thiếu đáp án khác; answer key thiếu cho trạng thái không thể chấm.
 - Trước trả lời: Gợi ý nếu có; sau trả lời/skip: Giải thích nếu có, giữ icon bóng đèn. Timer progress theo thời gian, **đỏ khi còn ≤30%**, sau user yêu cầu tăng từ 10% lên gấp ba; dùng milliseconds cho ngưỡng ngắn. Time limit ≤0 ẩn timer, không tự thay bằng 30s. Đây là phòng thủ khi đọc dữ liệu, **không cho editor gửi time_limit=0** vì API tạo/sửa yêu cầu 5–600s.
-- Hết thời gian không tự gửi/chuyển câu; có thể trả lời muộn theo rule cũ (đúng muộn 900, không bonus). Countdown 3 giây/tổng kết/chơi lại/edit owner-only giữ nguyên. Không room/socket/history/play-count, không đổi multiplayer scoring hoặc sửa Practice pause/resume blocker N29.
+- Hết thời gian không tự gửi/chuyển câu; có thể trả lời muộn theo rule cũ (đúng muộn 900, không bonus). Tại mốc này countdown 3 giây/tổng kết/chơi lại/edit owner-only giữ nguyên; edit action đã bỏ ở checkpoint mới `8844666` (mục 5d). Không room/socket/history/play-count, không đổi multiplayer scoring hoặc sửa Practice pause/resume blocker N29.
 - LoadQuizPreviewUseCase sở hữu đọc quiz + kiểm tra owner qua Repository interfaces; ViewModel chỉ inject Use case/SavedStateHandle. Screen giữ effects/navigation/focus/scroll/dialog, Content stateless; thêm QuizPreviewPresentation.kt và Preview đại diện. User đã duyệt UI. XML local: 8 scoring + 8 presentation + 12 ViewModel = 28 PASS; không coi đó là E2E.
 
 ### Tạo và Sửa quiz dùng chung — N46.13
@@ -357,7 +364,7 @@ Gradient result từ CSS: `#21113E` tại 0%, `#4C2B8D` tại 48%, `#25144F` t�
 
 ### Chuyển tiếp N24.5 — checkpoint mới xem mục 5c
 
-Backend local `0c5908f` (#21) đã được tích hợp client tại `14fb62f`. Chi tiết implementation/evidence/giới hạn xem mục 5c và `N24_5_CLASSIC_PERSONAL_RESULTS_PLAN.md` mục 8. Final-result flow vẫn chưa duyệt scope triển khai; không dùng #21 để đóng presence/Practice/public REST privacy gates.
+Backend local `0c5908f` (#21) đã được tích hợp client tại `14fb62f`. Chi tiết implementation/evidence/giới hạn xem mục 5c và `N24_5_CLASSIC_PERSONAL_RESULTS_PLAN.md` mục 8. Tại checkpoint lịch sử này final-result chưa duyệt; trạng thái triển khai mới xem mục 5d. Không dùng #21 hoặc UI polish để đóng presence/Practice/public REST privacy gates.
 
 ## 5c. N24.5 — logic Classic private results, source `14fb62f`
 
@@ -365,7 +372,43 @@ Backend local `0c5908f` (#21) đã được tích hợp client tại `14fb62f`. 
 - User báo test xanh sau fix fixture text-answer và happy case thủ công bước đầu ổn. Agent đã đối chiếu XML lượt FAIL trước fix, chưa đối chiếu log/XML lượt xanh; không suy ra full lint/CI/E2E hoặc deployment PASS. Evidence cũ ở mục 5b/bảng lịch sử không cộng thành run mới.
 - Còn verify reconnect/pause/ACK/privacy/config/terminal và smoke Host/Lobby/self-paced. BUG-13 và N44/release gates giữ mở; khôi phục summary không hứa replay key khi payload không có key.
 - **Lỗi phát hiện thêm — chưa xác định nguyên nhân:** user đạt max streak 3 nhưng tổng kết cuối/lịch sử hiển thị 0. Ghi `OPEN` tại `N24_5_CLASSIC_PERSONAL_RESULTS_PLAN.md` mục 9, ngoài scope current-streak N24.5; chưa kết luận frontend hay backend, không xếp vào báo cáo lỗi backend.
-- Bước tiếp: verify logic còn mở, audit toàn final-result flow → review/Home và xin duyệt scope UI/fix riêng. Không tự triển khai lỗi max streak (N24.5 mục 9) hoặc polish trong lượt docs.
+- Checkpoint lịch sử `14fb62f` chỉ gồm logic; UI riêng đã được user duyệt và commit sau đó, xem mục 5d. Verification còn mở và lỗi max streak (N24.5 mục 9) không được đóng bởi các commit UI.
+
+## 5d. Classic summary + ba chung cuộc đã polish — checkpoint `8844666`
+
+### Source và quyết định đã chốt
+
+| Source | Phạm vi/điều cần giữ |
+|---|---|
+| `fc70509` | Player Classic summary (ảnh 20): badge streak căn giữa dưới thẻ kết quả, chỉ hiện streak dương được reveal; điểm câu `+N`/`0` lấy private result thật. Không tự tăng streak, không suy điểm từ bảng hạng; không làm lại chart Host đã hoạt động. |
+| `eb5b754` | Chung cuộc Player (ảnh **23**, không phải 24): gradient tím, podium luôn hiện kể cả màn hẹp/ít người; chỉ render người thật, metric card ngang chỉ stack khi đo chữ thực sự tràn. Review cá nhân/Home cố định. Đã bỏ thống kê từng câu của cả phòng khỏi Player; UI ẩn không đồng nghĩa backend đã sửa phân quyền. Không bịa totalQuestions/accuracy/max streak khi model chưa có nguồn authoritative. |
+| `da248c8` | Chung cuộc Host: nhánh finished riêng, podium, bảng hạng mặc định mở nhưng thu gọn được, thống kê từng câu mặc định đóng, Home cố định; không personal card hoặc answer review của Player. Thống kê card dài `[số câu] correct/answer lượt trả lời đúng · %` + progress. Counts là lượt trả lời, không phải unique Player; Marathon có thể gộp cùng questionId. Payload stats không có question text/image/options/key. |
+| `da248c8` | Host terminal socket-first; REST results chỉ recovery khi thiếu ended, loading/error/retry tường minh; tránh trùng request, socket mới thắng REST muộn, bỏ active REST response, cleanup khi rời. Không thay active question flow. |
+| `fb6e123` | Host/Player dùng full standings làm nguồn; bảng mở rộng lọc bỏ **ID người thực đang trên podium**, không cắt mù `drop(3)`/rank>3. Giữ tie/missing-rank/identity; không còn row thì không render toggle (thường 1–3 người). Personal card vẫn đọc full standings. |
+| `8844666` | Chơi thử **local**: hero không podium/bảng hạng giả; card Điểm ước tính/Câu đúng/Tổng thời gian responsive, số đã trả lời và tỷ lệ trên tổng câu; ghi chú ngắn “Điểm ước tính, có thể khác trận thật.”; review mặc định thu gọn; Chơi lại/Thoát cố định, Exit quay màn trước chứ không Home. |
+| `8844666` | Bỏ nút Edit Quiz và toàn bộ intent/effect/callback/nav/ownership chỉ phục vụ nút này, không xoá chức năng editor nơi khác. Review dùng chung heading/QuestionImage/AnswerOptionItem/PreviewTextAnswer/giải thích với màn đang chơi; read-only, giữ số câu gốc; sai → đỏ, đúng → xanh, skip/ungradable → nền trung tính. Một lựa chọn bỏ text “Bạn trả lời”; nhiều lựa chọn giữ để thể hiện toàn bộ bộ đáp án đã gửi. |
+| `8844666` | Snapshot `selectedOptionIds` khi gửi; skip lưu tập rỗng, không suy ID từ label có thể trùng. Không đổi scoring/timer/Next/restart hoặc gọi API lưu kết quả. Thêm 4 presentation test + 2 VM regression về snapshot/skip và Preview light/dark/narrow/review. Shared summary card thêm supportingContent optional, caller Host/Player cũ giữ mặc định. |
+
+### Evidence và giới hạn
+
+- Đã kiểm tra lịch sử local main đến `8844666`; không suy remote/APK/deployment revision từ local ref. Source đã commit, user duyệt các lượt UI/hiệu chỉnh qua Preview hoặc máy thật; mức độ phủ không phải full visual/E2E regression.
+- User báo **GitHub CI xanh sau đợt bảng hạng Host/Player**, trước commit Chơi thử. Agent chưa đối chiếu workflow/run SHA/log; không gán PASS đó cho `8844666`.
+- Lượt Chơi thử: `git diff --check` sạch trước commit; 6 test bổ sung là test source, chưa xác minh run. Agent không chạy Gradle/render Compose; không tự tick lint/build/CI mới, dark/large-font/TalkBack hoặc E2E toàn mode.
+- BUG-13, max streak ở tổng kết/lịch sử (plan N24.5 mục 9), Practice pause/resume, presence/public REST privacy/session/token/deployment và N25/N44/N45/M6/release vẫn mở.
+
+### Bước tiếp: audit/polish 4 mode online còn lại trong một đợt
+
+| Mode | Cần audit trước khi chốt UI |
+|---|---|
+| Solo | Player self-paced: answer/ACK → feedback/awaiting_next → Next → câu kế/cuối; Host dashboard theo tiến độ Player, không dùng nhầm question/deadline session Classic. |
+| Survival / Sinh tồn | Lives/status/eliminated/timeout và trạng thái chờ/kết thúc; chỉ dùng dữ liệu server thật, thiếu payload thì báo gap, không bịa lives hoặc workaround backend. |
+| Marathon | Tiến độ/deadline theo mode, câu lặp/thứ tự Player, feedback/manual next và terminal; không nhầm thống kê lượt với số người hay sequence canonical. |
+| Practice / Luyện tập | Luồng self-paced, feedback/review, config hiển thị, không dựng điểm/bảng hạng cạnh tranh; audit pause/resume/reconnect với blocker N29 đang mở. |
+
+- Đây là **polish riêng chưa hoàn tất**, không phải các mode chưa có implementation: nền feature N26–N29 đã tồn tại, một số shell/component chung đã mới.
+- User muốn xử lý cả 4 mode trong một đợt; trước hết đọc source/contract đúng revision và ảnh phù hợp, audit đủ Host + Player từ initial/loading tới reconnect/pause/terminal/review/exit. Báo bảng “hiện tại → hướng polish”, phần dùng chung/đặc thù, gap backend và quyết định cần chốt; sau khi user duyệt mới sửa theo cụm có Preview/regression.
+- Không bê Classic 2s/summary/manual-next/rank/score/streak rules sang mode khác; không biến Chơi thử local thành Solo/Practice online. Giữ stateful Screen/stateless Content và không feature → feature.
+- Không đổi số N47–N50; không đóng N46 tổng thể hoặc release gates. Sau docs, user commit rồi checkout main; agent không tự checkout/commit/push/merge.
 
 ## 6. Checklist evidence và việc còn mở
 
@@ -383,7 +426,7 @@ Backend local `0c5908f` (#21) đã được tích hợp client tại `14fb62f`. 
 - [ ] Debt editor hiện hữu: domain QuizDraft/Create–Update assets use cases còn dùng presentation QuestionDraft/toNewQuestion; chưa chuyển model/mapper qua boundary trong đợt UI này.
 - [ ] Đối chiếu schema API với DDL/runtime backend khi retest lưu: audit `7c103c8` có API description ≤500, language không enum; DDL gốc 002_quizzes.sql khai description varchar(255), language varchar(50). Chưa xác minh DB triển khai/migration tương ứng; không coi API cho phép chuỗi tự do là độ dài vô hạn hoặc tuyên bố runtime bug đã tái hiện.
 - [ ] E2E Chơi thử 4 types/skip/late/key thiếu/manual Next; Create/Edit lưu → mở lại, prefill ảnh/đáp án/custom duration, lỗi upload/retry, IME/back/rotation trong Photo Picker.
-- [ ] Chốt mẫu dark và regression shared components. N24.5 đã tích hợp `14fb62f`, còn verify phần mở; tiếp đó audit final-result flow/lỗi max streak (N24.5 mục 9) và xin duyệt scope riêng, không tự triển khai màn cuối.
+- [ ] Chốt dark/accessibility và regression shared components; ba chung cuộc đã polish tới `8844666` (mục 5d), không audit lại như chưa làm. Tiếp theo audit 4 mode ngoài Classic; max streak vẫn backlog riêng.
 - [ ] Các màn khác, animation, sheet dark-mode và accessibility toàn app còn mở; N46 chưa hoàn tất.
 - [ ] N44-OFFLINE-BOOT, Practice pause/resume, N20.6/N25/N28.5/N29/N30, privacy/session và build/deployment gates giữ trong hồ sơ N44, không waived bởi UI polish.
 

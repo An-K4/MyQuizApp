@@ -179,6 +179,13 @@ Nếu chạm shared countdown/preview/core:ui thì thêm `:core:ui:testDebugUnit
 - **Lỗi phát hiện thêm:** tổng kết/lịch sử hiển thị sai chuỗi đúng cao nhất; ghi riêng ở mục 9, chưa xác định nguyên nhân hoặc tầng gây lỗi, không kết luận là lỗi backend.
 - Phiên sau đọc checkpoint này, verify đúng source hiện tại và ghi evidence thực; nếu làm UI polish/final-result hoặc lỗi max streak (N24.5 mục 9) phải audit, báo khoảng trống và xin duyệt scope trước. Không coi việc có bug này là cho phép mở rộng commit logic hiện tại.
 
+### 8.1. Cập nhật sau checkpoint logic — UI đã được duyệt và commit riêng
+
+- Logic gốc `14fb62f` vẫn không gồm UI polish. Sau đó user duyệt riêng: `fc70509` badge current streak và điểm câu ở summary Player Classic; `eb5b754` chung cuộc Player; `da248c8` chung cuộc Host/recovery; `fb6e123` bảng hạng không lặp podium; `8844666` tổng kết/review Chơi thử local. Chi tiết và giới hạn ở `N46_UI_PROGRESS.md` mục 5d.
+- Bước UI cuối của N24.5 đã triển khai tại `fc70509`; không đọc checkpoint cũ thành “chưa làm badge/điểm câu” hoặc cần làm lại logic. Không đổi private-result/ACK/reveal/timing/current-streak semantics.
+- Đây không phải xác nhận toàn bộ verification matrix mục 5/8 PASS. User báo CI xanh ở đợt trước Chơi thử; chưa đối chiếu run SHA/log, không gán cho `8844666`. Agent không chạy Gradle/render Compose.
+- Lỗi max streak mục 9 và BUG-13 vẫn mở; UI không suy current streak thành max streak. Bước tiếp của N46 là audit/polish riêng 4 mode ngoài Classic, không phải tự fix lỗi này.
+
 ## 9. Lỗi phát hiện thêm — chuỗi đúng cao nhất ở tổng kết/lịch sử hiển thị 0
 
 - **Trạng thái:** `OPEN` — user báo khi kiểm thử happy case Classic sau N24.5; agent chưa tái hiện độc lập hoặc audit nguyên nhân.

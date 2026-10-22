@@ -1,10 +1,10 @@
-# Prompt bàn giao — sau logic N24.5, verify và audit N46 final-result flow
+# Prompt bàn giao — sau chung cuộc Classic/Chơi thử, audit UI 4 mode còn lại
 
-> Sao chép phần từ “Bạn tiếp nhận…” bên dưới vào phiên mới. Local main `14fb62f` đã tích hợp N24.5, baseline N46 countdown `b005df3`; backend local đã audit `0c5908f` (#21). User báo test xanh/happy case bước đầu ổn, chưa có artifact rerun xanh được agent đối chiếu hoặc deployment/E2E evidence. Đọc plan mục 8 và progress mục 5c; kiểm tra lại refs.
+> Sao chép phần từ “Bạn tiếp nhận…” bên dưới vào phiên mới. Local main `8844666` đã commit tổng kết/review Chơi thử sau Classic summary và chung cuộc Host/Player. Trạng thái hiện hành ở progress mục 5d; kiểm tra lại refs, không tự checkout/commit. CI xanh do user báo ở đợt trước Chơi thử, chưa đối chiếu run SHA/log hoặc xác nhận CI của `8844666`.
 
 ---
 
-Bạn tiếp nhận công việc **verify logic N24.5 và chuẩn bị audit N46 final-result flow của MyQuizApp** từ agent trước. Không mặc định đã được duyệt sửa UI hoặc fix lỗi max streak (N24.5 mục 9).
+Bạn tiếp nhận công việc **audit và lập kế hoạch polish UI cho 4 mode online còn lại: Solo, Survival, Marathon, Practice** của MyQuizApp. Classic và ba màn chung cuộc đã polish; không triển khai lại. User muốn xử lý 4 mode trong một đợt: audit đủ Host/Player, báo bảng so sánh và kế hoạch trước khi sửa source; không mặc định mọi khác biệt nghiệp vụ phải giống Classic. Lỗi max streak và backend blockers vẫn scope riêng.
 
 Dự án local:
 `E:\Adr_Projects\MyQuizApp`
@@ -23,7 +23,7 @@ Kết nối:
 
 Đọc theo thứ tự:
 1. **AGENTS.md** — quy ước, phối hợp và bài học.
-2. **N46_UI_PROGRESS.md** — nguồn bàn giao chính; checkpoint mới mục **5c**, mục 5a/5b giữ lịch sử, evidence/backlog mục 6.
+2. **N46_UI_PROGRESS.md** — nguồn bàn giao chính; checkpoint mới mục **5d**, mục 5a/5b giữ lịch sử, evidence/backlog mục 6.
 3. **N24_5_CLASSIC_PERSONAL_RESULTS_PLAN.md** — contract/phạm vi, checkpoint thực tế mục 8 và lỗi phát hiện thêm chưa rõ nguyên nhân ở mục 9; rồi **myquizz-review-backend-ke-hoach-50-ngay.md** — trạng thái N24.5/N44–N46 và backlog; **BACKEND_BUG_REPORT.md** — BUG-13 còn mở, không phân loại lỗi max streak là lỗi backend.
 4. **project_structure.md** — cấu trúc/vị trí code hiện tại.
 5. **quiz-app-android-design-document-v2.md** — tham khảo, không phải contract tuyệt đối.
@@ -32,7 +32,7 @@ Nếu tài liệu mới nhất chưa commit/không đọc được, báo tôi. K
 
 ## 2. Điểm bàn giao
 
-Baseline source mới: **local main `14fb62f`** (N24.5), sau N46 countdown `b005df3`. Đã kiểm tra commit local; không suy thành remote/APK/backend deployment revision.
+Baseline source mới: **local main `8844666`**. N24.5 logic `14fb62f` đã có; UI kế tiếp `fc70509` → `eb5b754` → `da248c8` → `fb6e123` → `8844666`. Không suy remote/APK/backend deployment revision từ local ref.
 
 Các commit đã thêm:
 - `463248a`: Player Classic question/4 types/IME.
@@ -41,10 +41,15 @@ Các commit đã thêm:
 - `9b8e0a6`: Player feedback 2s → summary, default results 5s theo backend cũ (explicit config không đổi), smart-cast fix.
 - `b005df3`: Countdown chung + initial preparing shell chống flash UI cũ.
 - `14fb62f`: N24.5 model/event/snapshot/mapper, reducer idempotent/restore/privacy/timing, binding personal summary thật, regression tests; không UI polish/final-result changes.
+- `fc70509`: Player Classic summary thêm current-streak badge + điểm câu private authoritative.
+- `eb5b754`: Player final theo ảnh 23, podium luôn có khi có người thật, metric card responsive, review/Home; bỏ room per-question stats.
+- `da248c8`: Host final + REST recovery-only; bảng hạng mặc định mở, stats dài gọn mặc định thu gọn, Home cố định.
+- `fb6e123`: Host/Player mở rộng bảng hạng chỉ row chưa có trên podium (lọc ID thực), không còn row thì ẩn toggle.
+- `8844666`: Chơi thử local summary/review, reuse bộ UI câu/ảnh/answer feedback/text/explanation, selectedOptionIds snapshot; màu card theo trạng thái, text “Bạn trả lời” chỉ giữ cho multi-select; bỏ edit quiz flow. Chơi lại/Thoát quay màn trước, không room/history/server scoring.
 
 Các quyết định UI trước đó vẫn giữ theo N46_UI_PROGRESS; user duyệt mắt thường không thay thế test toàn diện. N44 PARTIAL/N46 WIP, N45/M6/release chưa chốt; privacy/presence/session/Practice và Google/cookie DEFERRED giữ nguyên.
 
-**Trạng thái mới:** N24.5 đã tích hợp `14fb62f`; không triển khai lại từ kế hoạch cũ. User báo test xanh sau fix fixture và happy case bước đầu ổn. Ưu tiên verify phần còn mở theo plan mục 5/8; sau đó audit kết quả cuối Host/Player → review/Home và xin duyệt scope riêng. lỗi max streak (N24.5 mục 9) (max streak 3 nhưng tổng kết/lịch sử 0) ngoài scope N24.5, chưa xác định tầng gây lỗi; không tự fix hoặc coi là backend đã xác nhận. BUG-13 và deployment/privacy/E2E/release gates vẫn mở.
+**Trạng thái mới:** các phần trên đã commit; không quay lại xin duyệt final-result như chưa triển khai. Bước tiếp là audit 4 mode ngoài Classic theo progress mục 5d. Verification còn mở của N24.5 và lỗi max streak mục 9 giữ riêng; không tự coi đã sửa. BUG-13/deployment/privacy/E2E/release gates giữ mở.
 
 ## 3. Những quyết định cuối cần giữ
 
@@ -90,14 +95,14 @@ Với màn tiếp theo:
 6. Sau khi ổn, đọc git status/diff rồi đề xuất commit, **liệt kê đúng tên file từng đợt**. Không tự commit/push.
 7. Khi tôi checkout docs, cập nhật targeted các tài liệu canonical; không merge toàn bộ main sang docs.
 
-**Ưu tiên tiếp theo: verify N24.5 còn mở, không quay lại lập kế hoạch/triển khai như chưa có source.** Kiểm tra status/refs và user checkout main trước mọi source work. Final-result polish/lỗi max streak (N24.5 mục 9) cần audit, báo evidence/khoảng trống rồi xin duyệt scope; không tự triển khai một mạch.
+**Ưu tiên tiếp theo: audit chung 4 mode Solo/Survival/Marathon/Practice, báo components/bảng khác biệt/kế hoạch và phần cần user chốt.** Kiểm tra user đã checkout main trước source work; khi còn ở docs chỉ cập nhật tài liệu hoặc đọc source qua `git show main:<path>`. Sau user duyệt scope mới triển khai theo cụm có kiểm soát; không làm lại Classic/final-result, không tự fix backend blockers.
 
 ## 5. Nguyên tắc triển khai
 
 - Giữ stateful Screen / stateless Content và component, mẫu AnswerOptionItem.kt. State xuống/callback lên; Screen xử lý Hilt/Flow/effects/navigation/platform/UI state cần thiết.
 - ViewModel → UseCase → Repository; không dependency feature → feature.
 - Reuse Inter/palette/QuizButtons/AppConfirmDialog và component đã duyệt, không dựng lại style riêng mỗi màn.
-- SearchQuizCard/LibraryQuizCard/DiscoveryQuizCard đúng vai trò; QuestionEditorCard là soạn, QuestionPreviewCard là xem. History-review card riêng, **FinalResultScreen chưa polish**, không tự xem đã hoàn tất.
+- SearchQuizCard/LibraryQuizCard/DiscoveryQuizCard đúng vai trò; QuestionEditorCard là soạn, QuestionPreviewCard là xem. History-review card riêng; FinalResultScreen đã polish tại `eb5b754`, Host final tại `da248c8`; local-preview review dùng bộ UI câu đang chơi. Reuse đúng vai trò, không kéo dependency feature → feature.
 - Preview dữ liệu mẫu/no-op, không mạng/VM thật; số case gọn, trạng thái đại diện, cân nhắc narrow/font scale. Không mặc định tách Preview ra file riêng nếu không có lý do.
 - Không bịa rating/lượt chơi/progress/status/contract/chức năng từ ảnh. UI-only giữ nghiệp vụ hiện có.
 - Khi đụng API/socket, đọc backend thật trước, kiểm tra revision; design doc không phải contract. Không workaround client che backend presence/privacy/session bug.
@@ -105,6 +110,8 @@ Với màn tiếp theo:
 - Nếu tool trả output dài, lưu/đọc đoạn cần thiết, không yêu cầu tôi copy output khổng lồ. Không vượt allowlist MCP bằng đường vòng để chạy lệnh bị chặn.
 
 ## 6. Kiểm chứng: không tự nâng trạng thái
+
+- Checkpoint mới `8844666`: user đã duyệt UI; 6 test Chơi thử mới chưa xác minh run, agent không chạy Gradle/render. User báo GitHub CI xanh **trước đợt Chơi thử**; chưa đối chiếu run SHA/log và không gán PASS cho `8844666`. `git diff --check` sạch trước commit. Evidence N24.5 cũ dưới đây giữ lịch sử, không thay thế gate hiện tại.
 
 - Agent **không chạy Gradle/render Compose**. Checkpoint mới N24.5 `14fb62f`: user báo test xanh sau fix fixture text-answer (không nới guard production) và happy case bước đầu ổn. XML lượt FAIL trước fix đã đọc (Player 99 tests/1 failure); chưa đọc log/XML rerun xanh. Không khẳng định số PASS sau rerun, full lint/CI/E2E hoặc deployed revision. Lượt Host scoped PASS/countdown duyệt mắt thường ở `b005df3` là evidence lịch sử, không phải run mới.
 - 88 PASS practice/editor (11/10) và 56 PASS history/lobby/HostGame/DTO (15/10) là evidence lịch sử **khác lượt/phạm vi**, không cộng thành full run. 41 PASS app XML cũ không đóng regression security dialog 7 case.

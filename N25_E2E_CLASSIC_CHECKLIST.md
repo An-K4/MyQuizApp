@@ -5,6 +5,8 @@
 >
 > **Tạm gác N25 — 26/09/2026:** Android đã sửa treo reconnect, bổ sung reconnect theo mạng đã `VALIDATED`, trạng thái thất bại và nút thử lại. Tuy nhiên E2E phát hiện race phía backend: `onLeave` của socket cũ có thể ghi đè trạng thái sau khi socket mới `lobby:join`, khiến Player đã reconnect vẫn bị tính là `disconnected`; Host báo thiếu người và có thể chuyển câu sớm. Android giữ contract `Connected → lobby:join → player:sync`, không thêm delay/double-join workaround. Chờ backend sửa presence theo socket identity/generation rồi retest trước khi chốt N25/M4.
 
+> **Baseline UI mới:** local main `8844666` đã gồm N24.5 logic + Classic summary và chung cuộc Host/Player/Chơi thử polish; xem `N46_UI_PROGRESS.md` mục 5d. Các thay đổi này không đóng N25/M4 hoặc presence/privacy/E2E gates. CI xanh do user báo trước Chơi thử chưa có run SHA/log được đối chiếu; không gán PASS cho `8844666`, không dùng để tick checklist dưới đây. Chơi thử local không phải mode Solo/Practice online; 4 mode ngoài Classic còn audit/polish riêng.
+
 ## 1. Chuẩn bị
 
 - [x] Cả ba thiết bị cài cùng một build từ cùng commit.
