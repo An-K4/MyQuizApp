@@ -81,6 +81,9 @@ data class HostGameUiState(
     val results: QuestionResults? = null,
     val hasResultsLeaderboard: Boolean = false,
     val ended: GameEnded? = null,
+    /** REST recovery only when the finished snapshot has no game:ended payload. */
+    val isFinalResultLoading: Boolean = false,
+    val finalResultError: String? = null,
 
     val isSendingCommand: Boolean = false,
     val isEndDialogOpen: Boolean = false,

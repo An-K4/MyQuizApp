@@ -1,5 +1,10 @@
 package android.kma.myquizzapp.feature.game_host.presentation.hostgame
 
+import android.kma.myquizzapp.core.common.error.AppError
+import android.kma.myquizzapp.core.common.model.GameEnded
+import android.kma.myquizzapp.core.common.model.LeaderboardRow
+import android.kma.myquizzapp.core.common.model.QuestionStat
+import kotlinx.coroutines.CompletableDeferred
 import android.kma.myquizzapp.core.common.model.ConfigUpdateAck
 import android.kma.myquizzapp.core.common.model.CreateGameSessionParams
 import android.kma.myquizzapp.core.common.model.CreateGameSessionResult
@@ -733,6 +738,91 @@ class HostGameViewModelTest {
         }
     }
 
+    @Test
+    fun `socket final result skips REST and final retry cannot restart socket`() = runTest(dispatcher) {
+        runCurrent()
+        val ended = GameEnded(leaderboard = listOf(LeaderboardRow(1, 1, "Winner", 900)))
+        socket.emit(GameEvent.GameEndedEvent(ended = ended))
+        runCurrent()
+        viewModel.onIntent(HostGameIntent.RetryFinalResults)
+        runCurrent()
+        assertEquals(0, sessions.resultsCalls)
+        assertEquals(ended, viewModel.uiState.value.ended)
+        assertEquals(1, socket.tokens.size)
+    }
+
+    @Test
+    fun `finished snapshot recovers full host board even when players board is hidden`() = runTest(dispatcher) {
+        runCurrent()
+        val rows = listOf(LeaderboardRow(1, 7, "Winner", 900))
+        val stats = listOf(QuestionStat(10, 0, 20, 15))
+        sessions.resultsResult = Result.Success(GameResults(mode = GameMode.CLASSIC,
+            sessionStatus = SessionStatus.FINISHED, showLeaderboard = ShowLeaderboard.NEVER,
+            leaderboard = rows, perQuestion = stats))
+        socket.emit(classicSnapshot(status = SessionStatus.FINISHED, phase = GamePhase.FINISHED))
+        runCurrent()
+        assertEquals(1, sessions.resultsCalls)
+        assertEquals(rows, viewModel.uiState.value.ended?.leaderboard)
+        assertEquals(stats, viewModel.uiState.value.ended?.perQuestion)
+        assertFalse(viewModel.uiState.value.isFinalResultLoading)
+        socket.emit(classicSnapshot(status = SessionStatus.FINISHED, phase = GamePhase.FINISHED))
+        runCurrent()
+        assertEquals(1, sessions.resultsCalls)
+    }
+
+    @Test
+    fun `final recovery error waits for explicit retry without reconnecting`() = runTest(dispatcher) {
+        runCurrent()
+        sessions.resultsResult = Result.Error(AppError.Network)
+        socket.emit(classicSnapshot(status = SessionStatus.FINISHED, phase = GamePhase.FINISHED))
+        runCurrent()
+        assertEquals("Không có kết nối mạng", viewModel.uiState.value.finalResultError)
+        socket.emit(classicSnapshot(status = SessionStatus.FINISHED, phase = GamePhase.FINISHED))
+        runCurrent()
+        assertEquals(1, sessions.resultsCalls)
+        sessions.resultsResult = Result.Success(GameResults(sessionStatus = SessionStatus.FINISHED))
+        viewModel.onIntent(HostGameIntent.RetryFinalResults)
+        runCurrent()
+        assertEquals(2, sessions.resultsCalls)
+        assertEquals(null, viewModel.uiState.value.finalResultError)
+        assertTrue(viewModel.uiState.value.ended != null)
+        assertEquals(1, socket.tokens.size)
+    }
+
+    @Test
+    fun `final recovery deduplicates requests and socket payload wins in flight`() = runTest(dispatcher) {
+        runCurrent()
+        val gate = CompletableDeferred<Result<GameResults>>()
+        sessions.resultsGate = gate
+        socket.emit(classicSnapshot(status = SessionStatus.FINISHED, phase = GamePhase.FINISHED))
+        runCurrent()
+        assertTrue(viewModel.uiState.value.isFinalResultLoading)
+        viewModel.onIntent(HostGameIntent.RetryFinalResults)
+        socket.emit(classicSnapshot(status = SessionStatus.FINISHED, phase = GamePhase.FINISHED))
+        runCurrent()
+        assertEquals(1, sessions.resultsCalls)
+        val ended = GameEnded(leaderboard = listOf(LeaderboardRow(1, 8, "Socket winner", 1000)))
+        socket.emit(GameEvent.GameEndedEvent(ended = ended))
+        runCurrent()
+        gate.complete(Result.Success(GameResults(leaderboard = listOf(LeaderboardRow(1, 99, "Old", 1)))))
+        runCurrent()
+        assertEquals(ended, viewModel.uiState.value.ended)
+        assertFalse(viewModel.uiState.value.isFinalResultLoading)
+    }
+
+    @Test
+    fun `active match cannot request final results and unfinished REST response is rejected`() = runTest(dispatcher) {
+        startClassic()
+        viewModel.onIntent(HostGameIntent.RetryFinalResults)
+        runCurrent()
+        assertEquals(0, sessions.resultsCalls)
+        sessions.resultsResult = Result.Success(GameResults(sessionStatus = SessionStatus.ACTIVE))
+        socket.emit(classicSnapshot(status = SessionStatus.FINISHED, phase = GamePhase.FINISHED))
+        runCurrent()
+        assertEquals(null, viewModel.uiState.value.ended)
+        assertTrue(viewModel.uiState.value.finalResultError != null)
+    }
+
     private suspend fun TestScope.startClassic() {
         runCurrent()
         socket.emit(GameEvent.Connected)
@@ -802,6 +892,9 @@ private class FakeHostGameSocketRepository : HostGameSocketRepository {
 
 private class FakeGameSessionRepository : GameSessionRepository {
     var hostTokenCalls = 0
+    var resultsCalls = 0
+    var resultsResult: Result<GameResults> = Result.Success(GameResults(sessionStatus = SessionStatus.FINISHED))
+    var resultsGate: CompletableDeferred<Result<GameResults>>? = null
 
     override suspend fun getHostToken(gameId: Long): Result<String> {
         hostTokenCalls++
@@ -827,7 +920,10 @@ private class FakeGameSessionRepository : GameSessionRepository {
     ): Result<List<android.kma.myquizzapp.core.common.model.GameHistoryItem>> = error("Not used")
     override suspend fun getGameHistorySummary(gameId: Long, guestId: String?): Result<android.kma.myquizzapp.core.common.model.GameHistorySummary> = error("Not used")
     override suspend fun getGameHistoryAnswers(gameId: Long, guestId: String?): Result<GameReview> = error("Not used")
-    override suspend fun getGameResults(gameId: Long): Result<GameResults> = error("Not used")
+    override suspend fun getGameResults(gameId: Long): Result<GameResults> {
+        resultsCalls++
+        return resultsGate?.await() ?: resultsResult
+    }
     override suspend fun getGameReview(
         gameId: Long,
         socketToken: String

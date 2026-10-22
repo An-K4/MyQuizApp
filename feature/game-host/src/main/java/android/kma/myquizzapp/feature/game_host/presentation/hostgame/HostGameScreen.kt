@@ -84,6 +84,9 @@ fun HostGameScreen(
 
     val snackbarHostState = remember { SnackbarHostState() }
     val listState = rememberLazyListState()
+    val finalListState = rememberLazyListState()
+    var finalBoardExpanded by rememberSaveable { mutableStateOf(true) }
+    var finalStatsExpanded by rememberSaveable { mutableStateOf(false) }
     val questionKey = hostQuestionKey(uiState)
     var optionsExpanded by rememberSaveable(questionKey) { mutableStateOf(false) }
     var menuExpanded by rememberSaveable { mutableStateOf(false) }
@@ -100,7 +103,7 @@ fun HostGameScreen(
         if (needsLeaveConfirmation) showLeaveDialog = true
         else viewModel.onIntent(HostGameIntent.LeaveGame)
     }
-    BackHandler(enabled = needsLeaveConfirmation) { requestLeave() }
+    BackHandler(enabled = needsLeaveConfirmation || uiState.isFinished) { requestLeave() }
     LaunchedEffect(uiState.errorMessage) {
         uiState.errorMessage?.let {
             snackbarHostState.showSnackbar(it)
@@ -122,7 +125,15 @@ fun HostGameScreen(
     }
     LaunchedEffect(uiState.isFinished) { if (uiState.isFinished) showLeaveDialog = false }
 
-    if (isPreparing) {
+    if (uiState.isFinished) {
+        HostFinalResultScreenContent(
+            state = uiState, listState = finalListState,
+            boardExpanded = finalBoardExpanded, onToggleBoard = { finalBoardExpanded = !finalBoardExpanded },
+            statsExpanded = finalStatsExpanded, onToggleStats = { finalStatsExpanded = !finalStatsExpanded },
+            onRetry = { viewModel.onIntent(HostGameIntent.RetryFinalResults) },
+            onHome = requestLeave, snackbarHostState = snackbarHostState,
+        )
+    } else if (isPreparing) {
         val seconds by key(uiState.phase, uiState.countdownTargetEpochMs, uiState.serverOffsetMs,
             uiState.isPaused, uiState.connection, uiState.isStateSynchronized) {
             produceState<Int?>(null) {
@@ -186,7 +197,7 @@ fun HostGameScreen(
             onRequestLeave = requestLeave,
         )
     } else {
-        // Final results and self-paced question layouts are not redesigned here.
+        // Legacy self-paced/other active-game layouts stay unchanged.
         HostGameScreenContent(uiState, viewModel::onIntent, snackbarHostState, requestLeave)
     }
 
@@ -258,11 +269,11 @@ fun HostGameScreenContent(
         topBar = {
             TopAppBar(
                 title = {
-                    Text(if (state.isFinished) "Kết quả trận" else state.questionNumberLabel)
+                    Text(state.questionNumberLabel)
                 },
                 actions = {
                     TextButton(onClick = onRequestLeave) {
-                        Text(if (state.isFinished) "Thoát" else "Rời màn")
+                        Text("Rời màn")
                     }
                 }
             )
@@ -278,9 +289,7 @@ fun HostGameScreenContent(
         ) {
             item { ConnectionBanner(state = state, onIntent = onIntent) }
 
-            if (state.isFinished) {
-                item { FinishedCard(state) }
-            } else if (state.isSelfPaced) {
+            if (state.isSelfPaced) {
                 item { SelfPacedOverviewCard(state) }
                 item { ControlRow(state = state, onIntent = onIntent) }
             } else {
@@ -666,40 +675,6 @@ private fun HostLeaderboardRowItem(row: HostLeaderboardRow) {
         )
     }
 }
-
-/**
- * Trận xong. `game:ended` đã mang sẵn bảng xếp hạng cuối nên không gọi thêm REST.
- * Màn kết quả đầy đủ thuộc N24; ở đây chỉ hiện gọn rồi để host tự thoát.
- */
-@Composable
-private fun FinishedCard(state: HostGameUiState) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp)) {
-            Text(text = "Trận đã kết thúc", style = MaterialTheme.typography.titleLarge)
-            Spacer(Modifier.height(8.dp))
-            val ended = state.ended
-            if (ended == null || ended.leaderboard.isEmpty()) {
-                Text(
-                    text = "Không có kết quả nào để hiện",
-                    style = MaterialTheme.typography.bodyMedium
-                )
-            } else {
-                ended.leaderboard.take(TOP_ROWS).forEach { row ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 4.dp)
-                    ) {
-                        Text(text = "${row.rank}. ${row.playerName}", modifier = Modifier.weight(1f))
-                        Text(text = "${row.playerScore}", fontWeight = FontWeight.Bold)
-                    }
-                }
-            }
-        }
-    }
-}
-
-private const val TOP_ROWS = 10
 
 @Composable
 private fun EndGameDialog(

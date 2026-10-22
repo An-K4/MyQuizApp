@@ -11,6 +11,9 @@ sealed interface HostGameIntent {
     /** Mở lại kết nối sau khi mất mạng. */
     data object Retry : HostGameIntent
 
+    /** Reload the final report without restarting the socket or sending game commands. */
+    data object RetryFinalResults : HostGameIntent
+
     /** Bật/tắt phần đáp án đúng — thao tác thuần cục bộ, không gọi mạng. */
     data object ToggleAnswerKey : HostGameIntent
 

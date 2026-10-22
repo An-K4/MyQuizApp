@@ -1,5 +1,7 @@
 package android.kma.myquizzapp.feature.game_host.presentation.hostgame
 
+import android.kma.myquizzapp.core.common.error.toUserMessage
+import android.kma.myquizzapp.core.common.model.GameEnded
 import android.kma.myquizzapp.core.common.model.DisconnectReason
 import android.kma.myquizzapp.core.common.model.GameMode
 import android.kma.myquizzapp.core.common.model.GameEvent
@@ -83,6 +85,8 @@ class HostGameViewModel @Inject constructor(
     private val answerKeysByIndex = mutableMapOf<Int, List<String>>()
     private var connectedRosterIds: Set<Long>? = null
 
+    private var finalResultJob: Job? = null
+    private var finalResultGeneration = 0
     private var socketJob: Job? = null
     private var commandGuardJob: Job? = null
     private var tokenRefreshAttempted = false
@@ -101,6 +105,7 @@ class HostGameViewModel @Inject constructor(
     fun onIntent(intent: HostGameIntent) {
         when (intent) {
             HostGameIntent.Retry -> connect()
+            HostGameIntent.RetryFinalResults -> loadFinalResults()
             HostGameIntent.ToggleAnswerKey -> toggleAnswerKey()
             HostGameIntent.HideAnswerKey -> _uiState.update { it.copy(isAnswerRevealed = false) }
             is HostGameIntent.AdvanceFromResults -> {
@@ -455,14 +460,52 @@ class HostGameViewModel @Inject constructor(
                 isSendingCommand = false
             )
         }
+        if (_uiState.value.isFinished && _uiState.value.ended == null && _uiState.value.finalResultError == null) {
+            loadFinalResults()
+        }
+    }
+
+    /** Socket wins; REST only fills a missing final report after a finished snapshot. */
+    private fun loadFinalResults() {
+        val state = _uiState.value
+        if (!state.isFinished || state.ended != null || finalResultJob?.isActive == true) return
+        val generation = ++finalResultGeneration
+        _uiState.update { it.copy(isFinalResultLoading = true, finalResultError = null) }
+        finalResultJob = viewModelScope.launch {
+            val response = gameSessionRepository.getGameResults(gameId)
+            if (generation != finalResultGeneration || _uiState.value.ended != null) return@launch
+            when (response) {
+                is Result.Success -> {
+                    val result = response.data
+                    if (result.sessionStatus != null && result.sessionStatus != SessionStatus.FINISHED &&
+                        result.sessionStatus != SessionStatus.CANCELLED) {
+                        _uiState.update { it.copy(isFinalResultLoading = false,
+                            finalResultError = "Máy chủ chưa có kết quả cuối trận. Vui lòng thử lại.") }
+                    } else {
+                        _uiState.update { it.copy(
+                            ended = GameEnded(result.leaderboard, result.perQuestion, result.reviewEnabled),
+                            mode = result.mode ?: it.mode,
+                            sessionStatus = result.sessionStatus ?: it.sessionStatus,
+                            isFinalResultLoading = false, finalResultError = null,
+                        ) }
+                    }
+                }
+                is Result.Error -> _uiState.update { it.copy(isFinalResultLoading = false,
+                    finalResultError = response.error.toUserMessage()) }
+            }
+        }
     }
 
     private fun onGameEnded(event: GameEvent.GameEndedEvent) {
+        ++finalResultGeneration
+        finalResultJob?.cancel()
         _uiState.update {
             it.copy(
                 phase = GamePhase.FINISHED,
                 sessionStatus = SessionStatus.FINISHED,
                 ended = event.ended,
+                isFinalResultLoading = false,
+                finalResultError = null,
                 deadlineEpochMs = null,
                 countdownTargetEpochMs = null,
                 isEndDialogOpen = false,
@@ -604,6 +647,8 @@ class HostGameViewModel @Inject constructor(
     }
 
     private fun leaveGame() {
+        ++finalResultGeneration
+        finalResultJob?.cancel()
         viewModelScope.launch {
             socketRepository.disconnect()
             _effects.emit(HostGameEffect.ExitGame())
@@ -629,6 +674,7 @@ class HostGameViewModel @Inject constructor(
     override fun onCleared() {
         super.onCleared()
         socketJob?.cancel()
+        finalResultJob?.cancel()
         commandGuardJob?.cancel()
     }
 
