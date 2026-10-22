@@ -401,7 +401,7 @@ Chuẩn hóa một shape duy nhất cho lựa chọn và cập nhật đồng th
 
 - **Severity:** `HIGH`
 - **Mode:** Classic/host-paced
-- **Checkpoint #21 — CHƯA ĐÓNG:** backend local `0c5908f` thêm event riêng `question:personal-results` và snapshot `game:state.personal_result` ở showing_results khi reveal=true, đủ khôi phục answered/isCorrect/điểm/current streak. Android `b005df3` chưa tích hợp; kế hoạch `N24_5_CLASSIC_PERSONAL_RESULTS_PLAN.md`. Deployment/E2E chưa xác nhận; backend team báo build/lint/20 test/CI đạt, agent không chạy lại.
+- **Checkpoint #21 / N24.5 — CHƯA ĐÓNG:** backend local `0c5908f` thêm private `question:personal-results` và snapshot `game:state.personal_result` ở showing_results khi reveal=true. Android `14fb62f` đã tích hợp model/mapper/reducer/restore và binding summary; xem `N24_5_CLASSIC_PERSONAL_RESULTS_PLAN.md` mục 8. User báo test xanh và happy case bước đầu ổn, nhưng reconnect không nằm trong lượt happy-case verify đã báo; chưa có artifact rerun xanh được agent đối chiếu hoặc deployment/E2E evidence. Chưa đóng BUG-13; backend build/lint/20 test/CI là báo cáo team trước đó, không phải agent chạy lại.
 - **Giới hạn:** private payload/snapshot public question không có correct_answer/accepted option keys, nên không đảm bảo replay tô đáp án inline khi reconnect thiếu key; khôi phục summary cá nhân không đồng nghĩa đáp ứng toàn Expected output bên dưới. showCorrectAnswer=false không phát private result theo contract. Không đóng presence/Practice/public REST visibility từ fix này. Các BUG khác trong file giữ evidence lịch sử, không phải toàn bộ đã re-audit tại 0c5908f.
 
 ### Điều kiện ban đầu

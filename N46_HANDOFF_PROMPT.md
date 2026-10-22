@@ -1,10 +1,10 @@
-# Prompt bàn giao — N46 sau countdown và kế hoạch logic N24.5
+# Prompt bàn giao — sau logic N24.5, verify và audit N46 final-result flow
 
-> Sao chép phần từ “Bạn tiếp nhận…” bên dưới vào phiên mới. Baseline: local main `b005df3`, docs cập nhật sau `7b6fd82`; backend local `0c5908f` (#21). Kiểm tra lại git, không coi ref local là SHA APK/deployment/test. N24.5 mới là kế hoạch, chưa tích hợp client.
+> Sao chép phần từ “Bạn tiếp nhận…” bên dưới vào phiên mới. Local main `14fb62f` đã tích hợp N24.5, baseline N46 countdown `b005df3`; backend local đã audit `0c5908f` (#21). User báo test xanh/happy case bước đầu ổn, chưa có artifact rerun xanh được agent đối chiếu hoặc deployment/E2E evidence. Đọc plan mục 8 và progress mục 5c; kiểm tra lại refs.
 
 ---
 
-Bạn tiếp nhận công việc **N46 — polish UI Android của dự án MyQuizApp** từ agent trước.
+Bạn tiếp nhận công việc **verify logic N24.5 và chuẩn bị audit N46 final-result flow của MyQuizApp** từ agent trước. Không mặc định đã được duyệt sửa UI hoặc fix lỗi max streak (N24.5 mục 9).
 
 Dự án local:
 `E:\Adr_Projects\MyQuizApp`
@@ -23,8 +23,8 @@ Kết nối:
 
 Đọc theo thứ tự:
 1. **AGENTS.md** — quy ước, phối hợp và bài học.
-2. **N46_UI_PROGRESS.md** — nguồn bàn giao chính; đặc biệt checkpoint mới mục **5b** (5a giữ lịch sử) và evidence/backlog mục 6.
-3. **N24_5_CLASSIC_PERSONAL_RESULTS_PLAN.md** — kế hoạch logic tiếp theo, chưa triển khai; rồi **myquizz-review-backend-ke-hoach-50-ngay.md** — tóm tắt hiện tại, N44–N46 và backlog liên quan.
+2. **N46_UI_PROGRESS.md** — nguồn bàn giao chính; checkpoint mới mục **5c**, mục 5a/5b giữ lịch sử, evidence/backlog mục 6.
+3. **N24_5_CLASSIC_PERSONAL_RESULTS_PLAN.md** — contract/phạm vi, checkpoint thực tế mục 8 và lỗi phát hiện thêm chưa rõ nguyên nhân ở mục 9; rồi **myquizz-review-backend-ke-hoach-50-ngay.md** — trạng thái N24.5/N44–N46 và backlog; **BACKEND_BUG_REPORT.md** — BUG-13 còn mở, không phân loại lỗi max streak là lỗi backend.
 4. **project_structure.md** — cấu trúc/vị trí code hiện tại.
 5. **quiz-app-android-design-document-v2.md** — tham khảo, không phải contract tuyệt đối.
 
@@ -32,7 +32,7 @@ Nếu tài liệu mới nhất chưa commit/không đọc được, báo tôi. K
 
 ## 2. Điểm bàn giao
 
-Baseline source cuối phiên: **local main `b005df3`**; docs trước `7b6fd82` dừng ở `992b8c6`. Không fetch/xác nhận remote hoặc deployment từ ref local.
+Baseline source mới: **local main `14fb62f`** (N24.5), sau N46 countdown `b005df3`. Đã kiểm tra commit local; không suy thành remote/APK/backend deployment revision.
 
 Các commit đã thêm:
 - `463248a`: Player Classic question/4 types/IME.
@@ -40,10 +40,11 @@ Các commit đã thêm:
 - `d72fcf6`: Host Classic question → results, stats chart/full board, bỏ active tracker và results question card.
 - `9b8e0a6`: Player feedback 2s → summary, default results 5s theo backend cũ (explicit config không đổi), smart-cast fix.
 - `b005df3`: Countdown chung + initial preparing shell chống flash UI cũ.
+- `14fb62f`: N24.5 model/event/snapshot/mapper, reducer idempotent/restore/privacy/timing, binding personal summary thật, regression tests; không UI polish/final-result changes.
 
 Các quyết định UI trước đó vẫn giữ theo N46_UI_PROGRESS; user duyệt mắt thường không thay thế test toàn diện. N44 PARTIAL/N46 WIP, N45/M6/release chưa chốt; privacy/presence/session/Practice và Google/cookie DEFERRED giữ nguyên.
 
-**Việc tiếp theo đã lập kế hoạch:** backend local `0c5908f` (#21) có private Classic results/streak + safe snapshots. Xếp **N24.5** nối tiếp N22–N24, không đổi N47–N50. Android b005df3 **chưa có listener/model/mapper/reducer mới**. Đọc kế hoạch chi tiết và xin user review/checkout main trước source work; không bắt đầu trên docs. Sau N24.5 mới quay lại audit kết quả cuối Host/Player → review/Home; chưa duyệt scope triển khai UI cuối trận.
+**Trạng thái mới:** N24.5 đã tích hợp `14fb62f`; không triển khai lại từ kế hoạch cũ. User báo test xanh sau fix fixture và happy case bước đầu ổn. Ưu tiên verify phần còn mở theo plan mục 5/8; sau đó audit kết quả cuối Host/Player → review/Home và xin duyệt scope riêng. lỗi max streak (N24.5 mục 9) (max streak 3 nhưng tổng kết/lịch sử 0) ngoài scope N24.5, chưa xác định tầng gây lỗi; không tự fix hoặc coi là backend đã xác nhận. BUG-13 và deployment/privacy/E2E/release gates vẫn mở.
 
 ## 3. Những quyết định cuối cần giữ
 
@@ -89,7 +90,7 @@ Với màn tiếp theo:
 6. Sau khi ổn, đọc git status/diff rồi đề xuất commit, **liệt kê đúng tên file từng đợt**. Không tự commit/push.
 7. Khi tôi checkout docs, cập nhật targeted các tài liệu canonical; không merge toàn bộ main sang docs.
 
-**Ưu tiên tiếp theo là review kế hoạch N24.5, không hỏi lại như chưa có hướng sau Player Lobby.** Xác nhận status/refs và user checkout main trước source work; nếu phạm vi/contract thay đổi phải hỏi lại. Final-result polish sau N24.5 mới audit/chốt riêng, không tự triển khai một mạch.
+**Ưu tiên tiếp theo: verify N24.5 còn mở, không quay lại lập kế hoạch/triển khai như chưa có source.** Kiểm tra status/refs và user checkout main trước mọi source work. Final-result polish/lỗi max streak (N24.5 mục 9) cần audit, báo evidence/khoảng trống rồi xin duyệt scope; không tự triển khai một mạch.
 
 ## 5. Nguyên tắc triển khai
 
@@ -105,9 +106,9 @@ Với màn tiếp theo:
 
 ## 6. Kiểm chứng: không tự nâng trạng thái
 
-- Agent **không chạy Gradle/render Compose**. User báo scoped `:core:network:testDebugUnitTest :feature:game-host:testDebugUnitTest :app:assembleDebug` xanh sau Host d72fcf6; không có run SHA/log. Player command từng FAIL smart cast, đã sửa rồi user duyệt UI nhưng chưa xác nhận toàn command PASS; countdown b005df3 chỉ được duyệt mắt thường, 9 test mới chưa đối chiếu run. Chưa có full run/log/XML gắn SHA cuối.
+- Agent **không chạy Gradle/render Compose**. Checkpoint mới N24.5 `14fb62f`: user báo test xanh sau fix fixture text-answer (không nới guard production) và happy case bước đầu ổn. XML lượt FAIL trước fix đã đọc (Player 99 tests/1 failure); chưa đọc log/XML rerun xanh. Không khẳng định số PASS sau rerun, full lint/CI/E2E hoặc deployed revision. Lượt Host scoped PASS/countdown duyệt mắt thường ở `b005df3` là evidence lịch sử, không phải run mới.
 - 88 PASS practice/editor (11/10) và 56 PASS history/lobby/HostGame/DTO (15/10) là evidence lịch sử **khác lượt/phạm vi**, không cộng thành full run. 41 PASS app XML cũ không đóng regression security dialog 7 case.
-- Lobby XML cũ chỉ 2 VM case/màn, có trước polish. Source đã thêm HostLobbyUiStateTest, PlayerLobbyUiStateTest (7 case) và 2 leave cases vào PlayerLobbyViewModelTest (tổng 4); **chưa xác minh run mới**.
+- Lobby XML cũ chỉ 2 VM case/màn trước polish; các test source bổ sung không tự là bằng chứng chạy. Lượt command N24.5 có lobby nhưng rerun xanh chỉ được user xác nhận tổng quát, chưa đối chiếu XML mới; smoke thiết bị còn mở.
 - XML không có SHA/run id, không chứng minh APK/backend cùng revision hoặc full assemble/lint/CI/E2E. Preview/compile sạch không phải E2E PASS.
 - Nếu cần bổ sung evidence, đề xuất user chạy trên **main** rồi đọc report, không tự đánh PASS:
 

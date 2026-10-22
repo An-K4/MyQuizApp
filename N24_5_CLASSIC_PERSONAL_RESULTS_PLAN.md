@@ -1,24 +1,24 @@
 # N24.5 — Classic private personal results và safe reconnect (#21)
 
-> **Trạng thái: PLANNED — chưa triển khai Android.** Checkpoint Android local `main`: `b005df3`; tài liệu soạn trên `docs` sau `7b6fd82`. Backend local `server/myquizz`: `0c5908f` — `Add private Classic streak results and safe reconnect snapshots (#21)`. Đây là source đã kiểm tra ở local, **không phải bằng chứng server đã deploy hoặc APK đã tương thích**.
-> User yêu cầu lập kế hoạch chi tiết trước vì thay đổi logic. Lượt này chỉ cập nhật tài liệu; không sửa source, không chạy Gradle, không commit/push/chuyển nhánh.
+> **Trạng thái: IMPLEMENTED — còn mở verification/gates.** Android local `main`: `14fb62f`; baseline trước triển khai `b005df3`. Backend local đã audit `server/myquizz` `0c5908f` (#21), không phải bằng chứng deployment. User báo test xanh và happy case bước đầu ổn; evidence/giới hạn hiện tại ở mục 8.
+> Mục 1–7 giữ contract, phạm vi và ma trận đã duyệt; không xem mọi case trong kế hoạch là đã chạy. Lượt cập nhật này chỉ sửa docs trên nhánh `docs`, không chạy Gradle hoặc commit/push/checkout.
 
 ## 1. Phân loại trong kế hoạch N1–N50
 
 - **N24.5** là bổ sung contract/state machine cho **N22–N24 (Player Classic/host-paced)**. Không đổi tên hoặc mở lại toàn bộ các mốc lịch sử đã hoàn thành; không thêm N51 hay dồn thay đổi nghiệp vụ vào một checkpoint UI-only.
 - N46.22–N46.25 đã polish câu hỏi/feedback/tổng kết giữa câu và countdown. N24.5 tận dụng layout này để nhận dữ liệu thật, không thiết kế lại toàn luồng.
 - Liên quan **N21** (Host), **N26–N29** (self-paced), **N25/N44/N47** (regression/E2E). Sự liên quan không có nghĩa mọi blocker của các N này đã được sửa.
-- Thứ tự dự kiến: review/commit docs → user checkout main → triển khai N24.5 theo kế hoạch → user chạy test/review/commit riêng → quay lại N46 audit/polish **câu cuối → game ended → kết quả cuối Host/Player → entry xem lại/Home**. Scope/design kết quả cuối chưa được coi là duyệt triển khai.
+- Tiến trình: đã triển khai/commit N24.5 `14fb62f`, user báo test xanh và happy case bước đầu ổn. Còn verify ma trận ngoài happy case; sau đó audit **câu cuối → game ended → kết quả cuối Host/Player → entry xem lại/Home**, xin duyệt scope UI riêng. lỗi max streak (N24.5 mục 9) được ghi backlog, không tự gộp fix vào N24.5.
 
 ## 2. Baseline và bằng chứng
 
 | Nguồn | Đã xác minh / giới hạn |
 | --- | --- |
-| Android `b005df3` | Source countdown chung sau `9b8e0a6` Player feedback và `d72fcf6` Host. Chưa có listener/domain/snapshot cho private results #21. |
+| Android `b005df3` → `14fb62f` | Baseline cũ chưa có private result; `14fb62f` đã tích hợp model/event/snapshot/mapper/reducer và binding summary Classic, 15 file source/test. |
 | Backend `0c5908f` | Đã audit source socket, AsyncAPI và test. Diff có 8 file, không thấy migration DB/đổi REST schema; không đổi mặc định 5 giây từ bản trước. |
 | Thư backend | Team báo build, lint, 20 test và CI đạt. Đây là **báo cáo của team**, agent không chạy lại hoặc xác minh deployment. Thư viết PR chờ review/merge; local hiện có commit #21, không dùng thư để suy trạng thái upstream/deploy hiện tại. |
 | Tài liệu contract | `backend/CLASSIC_PLAYER_RESULTS.md` được nhắc trong thư nhưng **không tồn tại tại HEAD local đã kiểm tra**. Kế hoạch dựa trên implementation + AsyncAPI + tests, không báo đã đọc file này. |
-| Kiểm thử Android trước đó | User báo scoped command Host xanh; Player/countdown được duyệt mắt thường, chưa có bằng chứng full suite tại SHA cuối. Chi tiết ở `N46_UI_PROGRESS.md` mục 5b. |
+| Kiểm thử Android | Các lượt cũ giữ nguyên evidence lịch sử. Lượt N24.5: user báo test xanh sau fix fixture và happy case bước đầu ổn; agent chưa đối chiếu log/XML lượt xanh, chi tiết mục 8. |
 
 Tham chiếu backend: [commit #21](https://github.com/Ntd1411/myquizz/commit/0c5908f), [PR #21](https://github.com/Ntd1411/myquizz/pull/21). Kiểm tra lại ref trước khi triển khai; không giả định local mirror luôn mới nhất.
 
@@ -145,3 +145,60 @@ Nếu chạm shared countdown/preview/core:ui thì thêm `:core:ui:testDebugUnit
 - Không tự nâng Compose/Kotlin/JDK/AGP để chữa Preview; lỗi compile smart cast đã xử lý bằng biến local ổn định, không phải lý do nâng toolchain.
 - Nếu muốn replay key khi reconnect, đổi quy tắc reveal=false, đưa maxStreak vào cuối trận hoặc sửa backend leaderboard self-paced khác contract hiện có: cần xác nhận contract/phạm vi mới trước.
 - Kết quả cuối Host/Player và màn review là hướng N46 tiếp theo **sau N24.5**, phải audit rộng cả route/initial/loading/final recovery, không chỉ sửa một frame.
+
+## 8. Checkpoint triển khai thực tế — Android `14fb62f`
+
+### Đã triển khai, không UI polish
+
+- Commit `14fb62f` — `feat(game-player): support Classic private personal results (N24.5)`, đã kiểm tra local main; 15 file source/test. Không suy local commit thành APK/backend deployed revision.
+- Model `PersonalQuestionResult`, private event và optional snapshot dùng chung parser; validate field bắt buộc/mixed-case/zero/unanswered, malformed private field không làm mất snapshot bao ngoài. Không log raw private payload.
+- Reducer dùng server grading/điểm/current streak, identity index + questionId, idempotent khi duplicate/đảo thứ tự common-private/late ACK; restore giữ cache cùng câu khi shared snapshot thiếu/null. Config/reveal, câu mới và terminal chặn hoặc xóa dữ liệu cũ.
+- Snapshot timing/pause/resume ưu tiên; không tự advance, tính điểm hoặc tăng streak; không thêm polling/double join. Reconnect thiếu key chỉ khôi phục personal summary, không tự tạo đáp án để highlight.
+- Summary hiện có nhận điểm câu/tổng điểm/current streak độc lập rank; reveal=false/unknown không lộ grading và không chờ hạng vô hạn. Không redesign/final-result polish, không sửa backend/shared countdown/Preview/toolchain.
+- Đã rà consumer Host/Lobby và đường repository/use case; không cần sửa source Host/Lobby, nhưng regression thiết bị vẫn cần verify.
+
+### File source/test đã thay đổi
+
+- `core/common/.../model/`: `GameEvent.kt`, `HostGameModels.kt`, **mới** `PersonalQuestionResult.kt`.
+- `core/network/.../socket/`: `GameSocketEvents.kt`, `GameEventMapper.kt`, `dto/HostSocketDtos.kt`, **mới** `dto/PersonalQuestionResultDto.kt`; **mới** test `ClassicPersonalResultMapperTest.kt`.
+- `feature/game-player/.../presentation/`: `GameUiState.kt`, `GameViewModel.kt`, `ClassicResultsPresentation.kt`, `ClassicResultsContent.kt`, **mới** `ClassicPersonalResultsReducer.kt`; test `GameViewModelTest.kt` và **mới** `ClassicPersonalResultsReducerTest.kt`.
+- Tổng cộng **10 file sửa + 5 file mới**. Danh sách đầy đủ/path chính xác có trong diff commit `14fb62f`; các dấu `...` ở trên chỉ rút gọn package Android.
+
+### Evidence kiểm thử — tách rõ báo cáo và xác minh
+
+- Đã bổ sung mapper/reducer/ViewModel regression tests cho contract, identity/order, authority, cache restore, privacy/config, deadline/pause, terminal và self-paced isolation. Có test không đồng nghĩa mọi case thiết bị đã PASS.
+- Lượt command common/network/player/host/lobby/assemble đầu tiên FAIL tại Player: **99 tests, 1 failure**, test `classic text answers require submit and never send blank values`. XML đã đối chiếu: fixture lặp short/long trên cùng ViewModel và cùng identity sau Submitted, bị duplicate-start guard chặn đúng. Đã tách fixture thành hai test độc lập, giữ assertion và thêm regression duplicate `question:started`; không nới guard production.
+- Sau fix, user xác nhận **“test đã xanh”** và happy case thủ công **“có vẻ ổn”**. Ghi nhận là **user-reported**, chưa có log/XML rerun xanh hoặc CI/run/APK SHA để agent kiểm tra; không tự khẳng định số test PASS sau rerun hoặc full lint/CI.
+- Happy-case checklist đã giao: 1 Host + 2 Player Classic, reveal/leaderboard bật, 3 câu; kiểm tra đúng/sai, điểm/tổng điểm/current streak, chuyển câu, leaderboard và kết thúc. User xác nhận tổng quát, chưa có biên bản tick từng mục/config/deployment revision.
+- `git diff --check` source sau fix sạch. Agent không chạy Gradle. Warning JDK/SDK không được dùng làm lý do nâng toolchain.
+
+### Còn mở / bàn giao verify rồi UI polish
+
+- Chưa có evidence manual riêng cho unanswered, ACK mất/trễ, duplicate event, reconnect sớm/muộn/đổi câu, pause/resume, reveal × leaderboard/privacy, terminal recovery và smoke Host/Lobby/self-paced. Ma trận mục 5 vẫn là checklist phải verify, không tự tick PASS.
+- Backend deployment/APK revision, full lint/CI/E2E/release chưa xác minh. Không đóng BUG-13, N25/N44/N45/M6 hay presence/Practice/public REST privacy/token gates.
+- **Lỗi phát hiện thêm:** tổng kết/lịch sử hiển thị sai chuỗi đúng cao nhất; ghi riêng ở mục 9, chưa xác định nguyên nhân hoặc tầng gây lỗi, không kết luận là lỗi backend.
+- Phiên sau đọc checkpoint này, verify đúng source hiện tại và ghi evidence thực; nếu làm UI polish/final-result hoặc lỗi max streak (N24.5 mục 9) phải audit, báo khoảng trống và xin duyệt scope trước. Không coi việc có bug này là cho phép mở rộng commit logic hiện tại.
+
+## 9. Lỗi phát hiện thêm — chuỗi đúng cao nhất ở tổng kết/lịch sử hiển thị 0
+
+- **Trạng thái:** `OPEN` — user báo khi kiểm thử happy case Classic sau N24.5; agent chưa tái hiện độc lập hoặc audit nguyên nhân.
+- **Phân loại:** sai thống kê hiển thị, **chưa xác định frontend hay backend**. Không đưa vào danh sách lỗi backend khi chưa có bằng chứng.
+- **Scope:** ngoài phần current-streak/private personal results sau mỗi câu của N24.5; ghi nhận để audit/fix ở lượt được duyệt tiếp theo. Không kèm UI polish và không tự mở rộng scope hiện tại.
+
+### Cách tái hiện / quan sát do user báo
+
+1. Chơi một lượt Classic, đạt chuỗi đúng cao nhất **3** trong game.
+2. Hoàn tất game, xem chỉ số chuỗi đúng ở màn tổng kết cuối.
+3. Mở lịch sử chơi của cùng lượt và đối chiếu chỉ số này.
+
+**Mong đợi:** cả hai màn hiển thị chuỗi đúng cao nhất **3** của cả lượt, kể cả khi chuỗi hiện tại ở câu cuối thấp hơn.
+
+**Thực tế:** cả hai màn hiển thị **0** dù trong game đạt chuỗi cao nhất **3**.
+
+### Bằng chứng còn thiếu và hướng kiểm tra lần tới
+
+- Chưa đối chiếu payload/log, tính toán/lưu trữ, response, DTO/domain/mapper hoặc binding UI; chưa quy trách nhiệm cho tầng nào. Chưa có bằng chứng ảnh hưởng điểm hoặc xếp hạng, chưa kiểm chứng các mode khác.
+- Khi được duyệt audit, kiểm tra end-to-end source/contract thật: giá trị chuỗi cao nhất của cả lượt → dữ liệu kết quả/lịch sử → mapper → UI hai màn; chỉ phân loại nguyên nhân sau khi có bằng chứng.
+- Không dùng `streak` hiện tại của câu cuối trong private result để thay cho chuỗi cao nhất, không hard-code hoặc tự dựng số liệu UI che lỗi.
+- Tiêu chí verify sau fix: cùng lượt đạt cao nhất 3 thì cả tổng kết/lịch sử đều là 3; thêm regression khi chuỗi cuối thấp hơn chuỗi cao nhất.
+- Test xanh và happy case N24.5 do user xác nhận không đóng phát hiện này hoặc các gate deployment/privacy/E2E/release. Lượt cập nhật này chỉ chuyển/sửa tài liệu, không sửa code hoặc chạy test.
