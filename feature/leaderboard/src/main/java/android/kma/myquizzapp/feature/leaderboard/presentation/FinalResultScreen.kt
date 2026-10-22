@@ -103,7 +103,7 @@ fun FinalResultScreenContent(
     onToggleBoard: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val standings = finalResultStandings(state)
+    val standings = finalResultRemainingStandings(state)
     val player = finalResultPlayer(state)
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -186,7 +186,7 @@ fun FinalResultScreenContent(
                 }
                 if (standings.isNotEmpty()) {
                     item(key = "board-toggle") {
-                        ResultDisclosure("Bảng xếp hạng đầy đủ", boardExpanded, onToggleBoard)
+                        ResultDisclosure("Bảng xếp hạng", boardExpanded, onToggleBoard)
                     }
                     if (boardExpanded) {
                         items(standings, key = { "player-${it.id}" }) { row ->

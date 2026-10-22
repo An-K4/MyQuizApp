@@ -72,7 +72,7 @@ internal fun HostFinalResultScreenContent(
     snackbarHostState: SnackbarHostState,
     modifier: Modifier = Modifier,
 ) {
-    val standings = hostFinalStandings(state)
+    val standings = hostFinalRemainingStandings(state)
     val stats = hostFinalQuestionStats(state)
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -110,14 +110,11 @@ internal fun HostFinalResultScreenContent(
                     else -> {
                         if (state.mode == GameMode.PRACTICE) {
                             item(key = "final-practice") { HostFinalNotice("Chế độ luyện tập không tính điểm và không có bảng xếp hạng.") }
-                        } else {
+                        } else if (standings.isNotEmpty()) {
                             item(key = "final-board-toggle") {
                                 HostFinalDisclosure("Bảng xếp hạng", boardExpanded, onToggleBoard)
                             }
                             if (boardExpanded) {
-                                if (standings.isEmpty()) {
-                                    item(key = "final-board-empty") { HostFinalNotice("Không có dữ liệu bảng xếp hạng cho trận này.") }
-                                }
                                 items(standings, key = { "final-player-${it.id}" }) { row ->
                                     LeaderboardPlayerCard(
                                         rankLabel = "#${row.rank}", playerName = row.playerName,
@@ -128,6 +125,8 @@ internal fun HostFinalResultScreenContent(
                                     )
                                 }
                             }
+                        } else if (hostFinalStandings(state).isEmpty()) {
+                            item(key = "final-board-empty") { HostFinalNotice("Không có dữ liệu bảng xếp hạng cho trận này.") }
                         }
                         item(key = "final-stats-toggle") {
                             HostFinalDisclosure("Thống kê từng câu", statsExpanded, onToggleStats)

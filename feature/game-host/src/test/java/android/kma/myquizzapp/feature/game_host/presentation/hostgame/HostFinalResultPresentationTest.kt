@@ -26,6 +26,7 @@ class HostFinalResultPresentationTest {
         val state = state().copy(ended = null,
             leaderboard = HostLeaderboard(rows = listOf(HostLeaderboardRow(1, 99, "Stale", 99999))))
         assertTrue(hostFinalStandings(state).isEmpty())
+        assertTrue(hostFinalRemainingStandings(state).isEmpty())
         assertTrue(hostFinalPodium(state).isEmpty())
         assertTrue(hostFinalQuestionStats(state).isEmpty())
     }
@@ -34,6 +35,7 @@ class HostFinalResultPresentationTest {
         for (state in listOf(state().copy(isFinalResultLoading = true),
             state().copy(finalResultError = "error"), state().copy(mode = GameMode.PRACTICE))) {
             assertTrue(hostFinalStandings(state).isEmpty())
+            assertTrue(hostFinalRemainingStandings(state).isEmpty())
             assertTrue(hostFinalPodium(state).isEmpty())
         }
     }
@@ -76,5 +78,43 @@ class HostFinalResultPresentationTest {
         val summary = hostFinalQuestionSummary(QuestionStat(10, 0, Int.MAX_VALUE, Int.MAX_VALUE))
         assertTrue(summary.text.endsWith("100%"))
         assertEquals(1f, summary.progress, 0f)
+    }
+
+    @Test fun `zero to three players have no remaining board rows`() {
+        val source = state()
+        for (size in 0..3) {
+            val state = source.copy(ended = GameEnded(leaderboard = source.ended!!.leaderboard.take(size)))
+            assertTrue(hostFinalRemainingStandings(state).isEmpty())
+        }
+    }
+
+    @Test fun `remaining board keeps fourth through last rank with no top ten limit`() {
+        val source = state().copy(showLeaderboard = ShowLeaderboard.NEVER)
+        assertEquals(source.ended!!.leaderboard.drop(3), hostFinalRemainingStandings(source))
+        assertEquals((4..12).toList(), hostFinalRemainingStandings(source).map { it.rank })
+        assertEquals(12, hostFinalStandings(source).size)
+        assertEquals(3, hostFinalPodium(source).size)
+    }
+
+    @Test fun `remaining board excludes podium ids not shared player names`() {
+        val source = state()
+        val state = source.copy(ended = GameEnded(leaderboard = source.ended!!.leaderboard.take(4).map { it.copy(playerName = "Same name") }))
+        assertEquals(listOf(4L), hostFinalRemainingStandings(state).map { it.id })
+    }
+
+    @Test fun `four tied podium ranks preserve the fourth player and original rank`() {
+        val source = state()
+        val state = source.copy(ended = GameEnded(leaderboard = source.ended!!.leaderboard.take(4).map { it.copy(rank = 1) }))
+        assertEquals(3, hostFinalPodium(state).size)
+        assertEquals(listOf(4L), hostFinalRemainingStandings(state).map { it.id })
+        assertEquals(listOf(1), hostFinalRemainingStandings(state).map { it.rank })
+    }
+
+    @Test fun `missing podium ranks do not discard actual lower rank rows`() {
+        val source = state()
+        val rows = source.ended!!.leaderboard
+        val state = source.copy(ended = GameEnded(leaderboard = listOf(rows[3], rows[1], rows[5])))
+        assertEquals(listOf(2), hostFinalPodium(state).map { it.rank })
+        assertEquals(listOf(4, 6), hostFinalRemainingStandings(state).map { it.rank })
     }
 }

@@ -15,8 +15,17 @@ internal fun finalResultStandings(state: FinalResultUiState): List<LeaderboardRo
 internal fun finalResultPlayer(state: FinalResultUiState): LeaderboardRow? =
     finalResultStandings(state).firstOrNull { it.id == state.playerId }
 
+private fun finalResultPodiumPlayers(state: FinalResultUiState): List<LeaderboardRow> =
+    finalResultStandings(state).filter { it.rank in 1..3 }.sortedBy { it.rank }.take(3)
+
+/** Exclude only the exact people displayed on the podium; keep server order and ties. */
+internal fun finalResultRemainingStandings(state: FinalResultUiState): List<LeaderboardRow> {
+    val podiumIds = finalResultPodiumPlayers(state).map { it.id }.toSet()
+    return finalResultStandings(state).filterNot { it.id in podiumIds }
+}
+
 internal fun finalResultPodium(state: FinalResultUiState): List<FinalResultPodiumEntry> =
-    finalResultStandings(state).filter { it.rank in 1..3 }.sortedBy { it.rank }.take(3).map {
+    finalResultPodiumPlayers(state).map {
         FinalResultPodiumEntry(it.rank, it.playerName, "${formatFinalResultScore(it.playerScore)} điểm")
     }
 

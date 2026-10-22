@@ -19,6 +19,7 @@ class FinalResultPresentationTest {
 
     private fun assertNoStandings(state: FinalResultUiState) {
         assertTrue(finalResultStandings(state).isEmpty())
+        assertTrue(finalResultRemainingStandings(state).isEmpty())
         assertTrue(finalResultPodium(state).isEmpty())
         assertNull(finalResultPlayer(state))
         assertTrue(finalResultMetrics(state).isEmpty())
@@ -85,5 +86,46 @@ class FinalResultPresentationTest {
         )))
         assertEquals(listOf(1, 1, 2), finalResultPodium(state).map { it.rank })
         assertEquals(listOf("First", "Tied first", "Second"), finalResultPodium(state).map { it.name })
+    }
+
+    @Test fun `zero to three players have no remaining board rows`() {
+        val source = state()
+        for (size in 0..3) {
+            val state = source.copy(result = GameEnded(leaderboard = source.leaderboard.take(size)))
+            assertTrue(finalResultRemainingStandings(state).isEmpty())
+        }
+    }
+
+    @Test fun `expanded board starts at fourth rank without modifying personal metrics`() {
+        val source = state()
+        val before = finalResultMetrics(source)
+        assertEquals(listOf(source.leaderboard[3]), finalResultRemainingStandings(source))
+        assertEquals(listOf(4), finalResultRemainingStandings(source).map { it.rank })
+        assertEquals(before, finalResultMetrics(source))
+        assertEquals(4L, finalResultPlayer(source)?.id)
+        val winner = source.copy(playerId = 1)
+        assertEquals(1L, finalResultPlayer(winner)?.id)
+        assertTrue(finalResultMetrics(winner).isNotEmpty())
+    }
+
+    @Test fun `remaining board excludes podium identities not duplicate display names`() {
+        val source = state()
+        val state = source.copy(result = GameEnded(leaderboard = source.leaderboard.map { it.copy(playerName = "Same name") }))
+        assertEquals(listOf(4L), finalResultRemainingStandings(state).map { it.id })
+    }
+
+    @Test fun `four tied podium ranks keep the fourth identity outside podium with its real rank`() {
+        val source = state()
+        val state = source.copy(result = GameEnded(leaderboard = source.leaderboard.map { it.copy(rank = 1) }))
+        assertEquals(3, finalResultPodium(state).size)
+        assertEquals(listOf(4L), finalResultRemainingStandings(state).map { it.id })
+        assertEquals(listOf(1), finalResultRemainingStandings(state).map { it.rank })
+    }
+
+    @Test fun `missing podium ranks do not discard real lower rank rows`() {
+        val source = state()
+        val state = source.copy(result = GameEnded(leaderboard = listOf(source.leaderboard[3], source.leaderboard[1])))
+        assertEquals(listOf(2), finalResultPodium(state).map { it.rank })
+        assertEquals(listOf(4), finalResultRemainingStandings(state).map { it.rank })
     }
 }

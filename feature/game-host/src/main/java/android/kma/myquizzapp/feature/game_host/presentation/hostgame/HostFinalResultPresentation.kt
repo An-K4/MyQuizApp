@@ -13,8 +13,17 @@ internal fun hostFinalStandings(state: HostGameUiState): List<LeaderboardRow> =
             state.mode != GameMode.PRACTICE
     }.orEmpty()
 
+private fun hostFinalPodiumPlayers(state: HostGameUiState): List<LeaderboardRow> =
+    hostFinalStandings(state).filter { it.rank in 1..3 }.sortedBy { it.rank }.take(3)
+
+/** Exclude only the exact people displayed on the podium; keep server order and ties. */
+internal fun hostFinalRemainingStandings(state: HostGameUiState): List<LeaderboardRow> {
+    val podiumIds = hostFinalPodiumPlayers(state).map { it.id }.toSet()
+    return hostFinalStandings(state).filterNot { it.id in podiumIds }
+}
+
 internal fun hostFinalPodium(state: HostGameUiState): List<FinalResultPodiumEntry> =
-    hostFinalStandings(state).filter { it.rank in 1..3 }.sortedBy { it.rank }.take(3).map {
+    hostFinalPodiumPlayers(state).map {
         FinalResultPodiumEntry(it.rank, it.playerName, "${hostFinalScore(it.playerScore)} điểm")
     }
 
