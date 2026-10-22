@@ -158,7 +158,9 @@ fun HostGameScreen(
         }
         GameStartCountdownScreenContent(seconds, message, "Chuẩn bị vào trận",
             snackbarHost = { SnackbarHost(snackbarHostState) },
-            onRetry = if (uiState.connection == HostGameConnection.RECONNECT_FAILED)
+            onRetry = if (uiState.connection == HostGameConnection.RECONNECT_FAILED ||
+                (uiState.isSelfPaced && uiState.connection == HostGameConnection.CONNECTED &&
+                    uiState.isStateSynchronized && !uiState.isPaused && (!isCountdown || seconds == 0)))
                 ({ viewModel.onIntent(HostGameIntent.Retry) }) else null,
             actions = {
                 IconButton(onClick = { menuExpanded = true }) { Icon(Icons.Filled.MoreVert, "Điều khiển trận") }

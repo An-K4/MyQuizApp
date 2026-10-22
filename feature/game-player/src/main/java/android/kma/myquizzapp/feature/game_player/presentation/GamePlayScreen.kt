@@ -73,7 +73,7 @@ fun GamePlayScreen(
     val focusManager = LocalFocusManager.current
     val keyboard = LocalSoftwareKeyboardController.current
     var showExitDialog by rememberSaveable { mutableStateOf(false) }
-    val needsExitConfirmation = state.isClassic || state.usesStartCountdownLayout
+    val needsExitConfirmation = state.isClassic || state.usesSelfPacedLayout || state.usesStartCountdownLayout
     val requestExit: () -> Unit = {
         if (needsExitConfirmation) showExitDialog = true else viewModel.onIntent(GameIntent.Leave)
     }
@@ -84,8 +84,14 @@ fun GamePlayScreen(
     LaunchedEffect(state.question?.id, state.question?.index, state.showsClassicSummary) {
         if (state.isClassic) listState.scrollToItem(0)
     }
-    LaunchedEffect(state.isClassic, state.phase, state.isAnswerInputEnabled) {
-        if (state.isClassic && (state.phase != GamePhaseUi.Question || !state.isAnswerInputEnabled)) {
+    LaunchedEffect(state.question?.id, state.question?.index, state.phase is GamePhaseUi.Results, state.isPersonallyDone) {
+        if (state.usesSelfPacedLayout) listState.scrollToItem(0)
+    }
+    LaunchedEffect(state.isClassic, state.usesSelfPacedLayout, state.phase, state.isAnswerInputEnabled,
+        state.connection, state.isSynchronizing) {
+        if ((state.isClassic || state.usesSelfPacedLayout) &&
+            (state.phase != GamePhaseUi.Question || !state.isAnswerInputEnabled ||
+                (state.usesSelfPacedLayout && !state.selfPacedCanAnswer))) {
             focusManager.clearFocus()
             keyboard?.hide()
         }
@@ -132,8 +138,21 @@ fun GamePlayScreen(
             state = state, time = time, onIntent = viewModel::onIntent,
             onRequestExit = requestExit, listState = listState, snackbar = snackbar, modifier = modifier,
         )
+    } else if (state.usesSelfPacedLayout) {
+        val time = rememberSelfPacedTime(state)
+        LaunchedEffect(state.question?.id, state.question?.index, state.endsAt, time.question.expired,
+            state.isPaused, state.connection, state.isSynchronizing) {
+            if (time.question.expired && state.selfPacedIsOnline && !state.isPaused)
+                viewModel.onIntent(GameIntent.DeadlineReached)
+        }
+        LaunchedEffect(state.matchEndsAt, time.matchExpired, state.isPaused, state.connection, state.isSynchronizing) {
+            if (time.matchExpired && state.selfPacedIsOnline && !state.isPaused && !state.isPersonallyDone)
+                viewModel.onIntent(GameIntent.MatchDeadlineReached)
+        }
+        SelfPacedQuestionScreenContent(state, time, viewModel::onIntent, requestExit,
+            listState, snackbar, modifier)
     } else {
-        // Non-Classic question layouts keep their existing behavior.
+        // Unknown/unsupported pacing keeps the legacy fallback; Classic is unchanged.
         GamePlayScreenContent(
             state = state, onIntent = viewModel::onIntent, onRequestExit = requestExit,
             snackbar = snackbar, modifier = modifier,
@@ -153,6 +172,24 @@ fun GamePlayScreen(
 /** Cover the lobby-to-game join/sync gap before the countdown event or first question arrives. */
 internal val GameUiState.usesStartCountdownLayout: Boolean
     get() = phase == GamePhaseUi.Connecting || phase is GamePhaseUi.Countdown
+
+/** Stateful clock adapter; no clock/effect belongs in the pure self-paced Content. */
+@Composable
+private fun rememberSelfPacedTime(state: GameUiState): SelfPacedTime {
+    val time by key(state.question?.id, state.question?.index, state.phase, state.endsAt, state.matchEndsAt,
+        state.serverOffsetMs, state.timeLimitSeconds, state.isPaused, state.connection, state.isSynchronizing) {
+        produceState(initialValue = selfPacedTime(state, System.currentTimeMillis())) {
+            do {
+                value = selfPacedTime(state, System.currentTimeMillis())
+                val questionStopped = value.question.seconds == null || value.question.expired
+                val matchStopped = value.matchSeconds == null || value.matchExpired
+                if (questionStopped && matchStopped) break
+                delay(200)
+            } while (true)
+        }
+    }
+    return time
+}
 
 /** Stateful clock adapter lives at the Screen boundary; the Classic content only renders values. */
 @Composable

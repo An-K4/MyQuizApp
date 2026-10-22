@@ -89,6 +89,9 @@ class HostGameViewModel @Inject constructor(
     private var finalResultGeneration = 0
     private var socketJob: Job? = null
     private var commandGuardJob: Job? = null
+    private var startStateRefreshJob: Job? = null
+    /** Retain the attempted target after retries finish; do not restart on every roster event. */
+    private var startStateRefreshTarget: Long? = null
     private var tokenRefreshAttempted = false
 
     init {
@@ -130,6 +133,8 @@ class HostGameViewModel @Inject constructor(
     }
 
     private fun connect() {
+        startStateRefreshJob?.cancel()
+        startStateRefreshTarget = null
         socketJob?.cancel()
         connectedRosterIds = null
         _uiState.update {
@@ -207,6 +212,48 @@ class HostGameViewModel @Inject constructor(
             // `question:started`, `answer:received`, `leaderboard:updated`... là bản dành
             // cho người chơi. Bỏ qua CÓ Ý THỨC: xem bẫy (1).
             else -> Unit
+        }
+        refreshSelfPacedStartIfNeeded()
+    }
+
+    /**
+     * Self-paced beginFirstQuestion does not broadcast a new phase to the Host.
+     * Ask for authoritative game:state through the existing, idempotent Host lobby:join.
+     * Never advance the phase locally; bounded retries cover a snapshot/countdown-timer race.
+     */
+    private fun selfPacedStartRefreshTarget(state: HostGameUiState): Long? {
+        if (!state.isSelfPaced || state.isFinished || state.sessionStatus != SessionStatus.ACTIVE ||
+            state.connection != HostGameConnection.CONNECTED || !state.isStateSynchronized) return null
+        return when (state.phase) {
+            GamePhase.COUNTDOWN -> state.countdownTargetEpochMs
+            GamePhase.UNKNOWN -> 0L // e.g. Practice: no countdown event at all
+            else -> null
+        }
+    }
+
+    private fun refreshSelfPacedStartIfNeeded() {
+        val target = selfPacedStartRefreshTarget(_uiState.value)
+        if (target == null) {
+            startStateRefreshJob?.cancel()
+            startStateRefreshTarget = null
+            return
+        }
+        if (startStateRefreshTarget == target) return
+        startStateRefreshJob?.cancel()
+        startStateRefreshTarget = target
+        startStateRefreshJob = viewModelScope.launch {
+            val wait = if (target == 0L) 0L else
+                (target - System.currentTimeMillis() - _uiState.value.serverOffsetMs).coerceAtLeast(0L)
+            delay(wait + 100L)
+            repeat(4) {
+                if (selfPacedStartRefreshTarget(_uiState.value) != target) return@launch
+                socketRepository.joinLobby()
+                delay(500L)
+            }
+            if (selfPacedStartRefreshTarget(_uiState.value) == target) {
+                _uiState.update { it.copy(errorMessage =
+                    "Máy chủ chưa xác nhận bắt đầu. Hãy bấm Kết nối lại để đồng bộ.") }
+            }
         }
     }
 
@@ -647,6 +694,7 @@ class HostGameViewModel @Inject constructor(
     }
 
     private fun leaveGame() {
+        startStateRefreshJob?.cancel()
         ++finalResultGeneration
         finalResultJob?.cancel()
         viewModelScope.launch {
@@ -676,6 +724,7 @@ class HostGameViewModel @Inject constructor(
         socketJob?.cancel()
         finalResultJob?.cancel()
         commandGuardJob?.cancel()
+        startStateRefreshJob?.cancel()
     }
 
     private companion object {

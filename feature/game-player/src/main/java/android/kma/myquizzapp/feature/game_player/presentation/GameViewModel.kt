@@ -523,14 +523,14 @@ class GameViewModel @Inject constructor(
             ) return@launch
             if (current.phase != GamePhaseUi.Submitted) {
                 // Results can beat the ACK coroutine. Keep the phase, but retain accepted evidence.
-                if (current.isClassic && result is Result.Success && result.data.accepted) {
-                    acceptClassicAnswer(submittedKeys)
+                if (result is Result.Success && result.data.accepted) {
+                    retainAcceptedAnswer(submittedKeys)
                 }
                 return@launch
             }
             when (result) {
                 is Result.Success -> {
-                    if (current.isClassic && result.data.accepted) acceptClassicAnswer(submittedKeys)
+                    if (result.data.accepted) retainAcceptedAnswer(submittedKeys)
                     applyAnswerAck(result.data)
                 }
                 is Result.Error -> {
@@ -542,6 +542,14 @@ class GameViewModel @Inject constructor(
                     }
                 }
             }
+        }
+    }
+
+    private fun retainAcceptedAnswer(keys: List<String>) {
+        if (_uiState.value.isClassic) acceptClassicAnswer(keys)
+        else if (_uiState.value.isSelfPaced) _uiState.update {
+            // Selection evidence comes from an accepted ACK, never from feedback inference.
+            it.copy(acceptedAnswerKeys = keys, hasAnswerAttempt = true)
         }
     }
 
@@ -643,7 +651,8 @@ class GameViewModel @Inject constructor(
                 canRequestNext = false,
                 isRequestingNext = false,
                 totalScore = finished.playerScore,
-                matchTimeExpired = state.matchTimeExpired || state.hasMatchBudget,
+                // player:finished has no reason field. A budget alone is not proof of expiry.
+                matchTimeExpired = state.matchTimeExpired,
                 leaderboard = rows,
                 playerRank = me?.rank,
                 playerScore = me?.playerScore ?: finished.playerScore
@@ -681,6 +690,8 @@ class GameViewModel @Inject constructor(
                 outcome = feedback.outcome,
                 totalScore = awaiting.playerScore.takeIf { canReveal } ?: state.totalScore,
                 scoreEarned = awaiting.scoreEarned.takeIf { canReveal },
+                // awaiting_next does not carry a streak; do not reuse another question's value.
+                streak = null,
                 wasLate = false,
                 timedOut = false,
                 lives = awaiting.lives ?: state.lives

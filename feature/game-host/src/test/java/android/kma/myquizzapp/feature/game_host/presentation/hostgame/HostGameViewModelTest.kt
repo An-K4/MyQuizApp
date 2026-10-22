@@ -823,6 +823,125 @@ class HostGameViewModelTest {
         assertTrue(viewModel.uiState.value.finalResultError != null)
     }
 
+    @Test
+    fun `Solo countdown refreshes server state and never advances locally`() = runTest(dispatcher) {
+        runCurrent()
+        socket.emit(GameEvent.Connected)
+        socket.emit(selfPacedStartSnapshot())
+        runCurrent()
+        val initialJoins = socket.joinCalls
+        advanceTimeBy(100)
+        runCurrent()
+        assertEquals(initialJoins + 1, socket.joinCalls)
+        assertEquals(GamePhase.COUNTDOWN, viewModel.uiState.value.phase)
+        assertTrue(viewModel.uiState.value.usesStartCountdownLayout)
+        socket.emit(selfPacedStartSnapshot(phase = GamePhase.QUESTION_ACTIVE))
+        runCurrent()
+        assertFalse(viewModel.uiState.value.usesStartCountdownLayout)
+        assertTrue(viewModel.uiState.value.isSelfPaced)
+        val refreshedJoins = socket.joinCalls
+        advanceTimeBy(5_000)
+        runCurrent()
+        assertEquals(refreshedJoins, socket.joinCalls)
+    }
+
+    @Test
+    fun `self paced countdown retries are bounded and duplicate snapshots do not restart them`() = runTest(dispatcher) {
+        runCurrent()
+        socket.emit(GameEvent.Connected)
+        socket.emit(selfPacedStartSnapshot())
+        runCurrent()
+        val initialJoins = socket.joinCalls
+        advanceTimeBy(3_000)
+        runCurrent()
+        assertEquals(initialJoins + 4, socket.joinCalls)
+        assertEquals(GamePhase.COUNTDOWN, viewModel.uiState.value.phase)
+        assertTrue(viewModel.uiState.value.errorMessage != null)
+        socket.emit(selfPacedStartSnapshot())
+        runCurrent()
+        advanceTimeBy(3_000)
+        runCurrent()
+        assertEquals(initialJoins + 4, socket.joinCalls)
+    }
+
+    @Test
+    fun `paused self paced countdown does not refresh until resumed and stops on disconnect`() = runTest(dispatcher) {
+        runCurrent()
+        socket.emit(GameEvent.Connected)
+        socket.emit(selfPacedStartSnapshot(status = SessionStatus.PAUSED))
+        runCurrent()
+        val initialJoins = socket.joinCalls
+        advanceTimeBy(1_000)
+        runCurrent()
+        assertEquals(initialJoins, socket.joinCalls)
+        socket.emit(selfPacedStartSnapshot())
+        runCurrent()
+        advanceTimeBy(100)
+        runCurrent()
+        assertEquals(initialJoins + 1, socket.joinCalls)
+        socket.emit(GameEvent.Disconnected(DisconnectReason.TRANSPORT))
+        runCurrent()
+        advanceTimeBy(3_000)
+        runCurrent()
+        assertEquals(initialJoins + 1, socket.joinCalls)
+    }
+
+    @Test
+    fun `Classic countdown is not polled by self paced start recovery`() = runTest(dispatcher) {
+        runCurrent()
+        socket.emit(GameEvent.Connected)
+        socket.emit(classicSnapshot(phase = GamePhase.COUNTDOWN))
+        runCurrent()
+        val initialJoins = socket.joinCalls
+        advanceTimeBy(5_000)
+        runCurrent()
+        assertEquals(initialJoins, socket.joinCalls)
+        assertEquals(GamePhase.COUNTDOWN, viewModel.uiState.value.phase)
+    }
+
+    @Test
+    fun `Practice without countdown requests snapshot but still waits for active phase`() = runTest(dispatcher) {
+        runCurrent()
+        socket.emit(GameEvent.Connected)
+        socket.emit(selfPacedStartSnapshot(mode = GameMode.PRACTICE, phase = GamePhase.UNKNOWN))
+        runCurrent()
+        val initialJoins = socket.joinCalls
+        advanceTimeBy(100)
+        runCurrent()
+        assertEquals(initialJoins + 1, socket.joinCalls)
+        assertTrue(viewModel.uiState.value.usesStartCountdownLayout)
+        socket.emit(selfPacedStartSnapshot(mode = GameMode.PRACTICE, phase = GamePhase.QUESTION_ACTIVE))
+        runCurrent()
+        assertFalse(viewModel.uiState.value.usesStartCountdownLayout)
+    }
+
+    @Test
+    fun `self paced start refresh does not run before server countdown deadline`() = runTest(dispatcher) {
+        runCurrent()
+        socket.emit(GameEvent.Connected)
+        val snapshot = selfPacedStartSnapshot()
+        socket.emit(snapshot.copy(snapshot = snapshot.snapshot.copy(countdownStartsAt = "2099-01-01T00:00:00Z")))
+        runCurrent()
+        val initialJoins = socket.joinCalls
+        advanceTimeBy(1_000)
+        runCurrent()
+        assertEquals(initialJoins, socket.joinCalls)
+        // Cancel the far-future timer so no scheduled recovery leaks beyond this test.
+        socket.emit(selfPacedStartSnapshot(phase = GamePhase.QUESTION_ACTIVE))
+        runCurrent()
+    }
+
+    private fun selfPacedStartSnapshot(
+        mode: GameMode = GameMode.SOLO,
+        phase: GamePhase = GamePhase.COUNTDOWN,
+        status: SessionStatus = SessionStatus.ACTIVE,
+    ) = GameEvent.StateSnapshot(GameSnapshot(
+        mode = mode, sessionStatus = status, phase = phase,
+        config = GameConfig(flow = GameConfig.Flow(pacing = Pacing.SELF)),
+        countdownStartsAt = if (phase == GamePhase.COUNTDOWN) "1970-01-01T00:00:00.001Z" else null,
+        totalQuestions = 3,
+    ))
+
     private suspend fun TestScope.startClassic() {
         runCurrent()
         socket.emit(GameEvent.Connected)

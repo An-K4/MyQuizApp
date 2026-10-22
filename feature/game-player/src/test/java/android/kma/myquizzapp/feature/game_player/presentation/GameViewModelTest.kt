@@ -1311,6 +1311,60 @@ class GameViewModelTest {
             endsAt = endsAt, remainingSeconds = 5))
     }
 
+    @Test
+    fun `self paced selection stays explicit and accepted ACK stores choice evidence`() = runTest(dispatcher) {
+        startQuestion(pacing = Pacing.SELF, mode = GameMode.SOLO)
+        socket.submitResult = Result.Success(AnswerAck(true, isCorrect = true, correctAnswers = listOf("a")))
+        viewModel.onIntent(GameIntent.SelectOption("a"))
+        runCurrent()
+        assertTrue(socket.answers.isEmpty())
+        assertNull(viewModel.uiState.value.acceptedAnswerKeys)
+        viewModel.onIntent(GameIntent.Submit)
+        runCurrent()
+        assertEquals(listOf("a"), viewModel.uiState.value.acceptedAnswerKeys)
+        assertTrue(viewModel.uiState.value.phase is GamePhaseUi.Results)
+    }
+
+    @Test
+    fun `self paced late ACK retains selection without reverting terminal phase`() = runTest(dispatcher) {
+        startQuestion(pacing = Pacing.SELF, mode = GameMode.SOLO)
+        socket.submitGate = CompletableDeferred()
+        viewModel.onIntent(GameIntent.SelectOption("a"))
+        viewModel.onIntent(GameIntent.Submit)
+        runCurrent()
+        socket.emit(GameEvent.PlayerFinishedEvent(PlayerFinished(PLAYER_ID, 100, 1, "finished")))
+        runCurrent()
+        socket.submitGate!!.complete(Result.Success(AnswerAck(true, isCorrect = true, correctAnswers = listOf("a"))))
+        runCurrent()
+        assertEquals(GamePhaseUi.PlayerFinished, viewModel.uiState.value.phase)
+        assertEquals(listOf("a"), viewModel.uiState.value.acceptedAnswerKeys)
+        assertTrue(viewModel.uiState.value.isInputLocked)
+    }
+
+    @Test
+    fun `Marathon finish without deadline evidence does not invent expiration reason`() = runTest(dispatcher) {
+        startQuestion(pacing = Pacing.SELF, mode = GameMode.MARATHON)
+        socket.emit(GameEvent.QuestionStarted(PlayerQuestionStarted(question(), matchEndsAt = "2099-01-01T00:00:00Z")))
+        socket.emit(GameEvent.PlayerFinishedEvent(PlayerFinished(PLAYER_ID, 100, 1, "finished")))
+        runCurrent()
+        assertEquals(GamePhaseUi.PlayerFinished, viewModel.uiState.value.phase)
+        assertFalse(viewModel.uiState.value.matchTimeExpired)
+    }
+
+    @Test
+    fun `awaiting next does not reuse streak absent from server event`() = runTest(dispatcher) {
+        startQuestion(pacing = Pacing.SELF, mode = GameMode.SOLO, autoAdvance = false)
+        socket.submitResult = Result.Success(AnswerAck(true, isCorrect = true, streak = 3, correctAnswers = listOf("a")))
+        viewModel.onIntent(GameIntent.SelectOption("a"))
+        viewModel.onIntent(GameIntent.Submit)
+        runCurrent()
+        assertEquals(3, viewModel.uiState.value.streak)
+        socket.emit(GameEvent.QuestionAwaitingNext(PlayerAwaitingNext(0, true, 800, listOf("a"), 1200)))
+        runCurrent()
+        assertNull(viewModel.uiState.value.streak)
+        assertTrue(viewModel.uiState.value.shouldShowNextAction)
+    }
+
     private suspend fun TestScope.startQuestion(
         showCorrectAnswer: Boolean = true,
         showLeaderboard: ShowLeaderboard = ShowLeaderboard.BETWEEN_QUESTIONS,
