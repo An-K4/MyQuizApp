@@ -2,6 +2,16 @@ package android.kma.myquizzapp.feature.game_player.presentation
 
 import java.time.Instant
 
+/** Display server-settled points only; zero differs from a missing result. */
+internal fun classicQuestionScoreLabel(state: GameUiState): String? =
+    state.visiblePersonalResult?.scoreEarned?.let { points ->
+        if (points > 0) "+$points điểm" else "$points điểm"
+    }
+
+/** Current streak, never a locally incremented value or the match maximum. */
+internal fun classicStreakBadgeLabel(state: GameUiState): String? =
+    state.visiblePersonalResult?.streak?.takeIf { it > 0 }?.let { "Chuỗi $it câu đúng liên tiếp!" }
+
 internal enum class ClassicResultKind { CORRECT, INCORRECT, UNANSWERED, UNKNOWN, HIDDEN }
 
 internal fun classicResultKind(state: GameUiState): ClassicResultKind = when {

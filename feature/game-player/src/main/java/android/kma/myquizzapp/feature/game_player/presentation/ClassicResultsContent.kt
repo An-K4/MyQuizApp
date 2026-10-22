@@ -2,6 +2,7 @@ package android.kma.myquizzapp.feature.game_player.presentation
 
 import android.content.res.Configuration
 import android.kma.myquizzapp.core.common.model.GameMode
+import android.kma.myquizzapp.core.common.model.PersonalQuestionResult
 import android.kma.myquizzapp.core.common.model.PublicQuestion
 import android.kma.myquizzapp.core.common.model.QuestionResults
 import android.kma.myquizzapp.core.common.model.ShowLeaderboard
@@ -76,15 +77,16 @@ internal fun ClassicResultsScreenContent(
             }
             if (!state.skipsClassicSummary) {
                 item { ClassicOutcomeCard(state) }
+                classicStreakBadgeLabel(state)?.let { label ->
+                    item(key = "current-streak") { ClassicStreakBadge(label) }
+                }
                 if (state.visiblePersonalResult != null || state.canShowClassicRank) item {
                     Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surface,
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
                         Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             Text("Thành tích của bạn", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                             state.visiblePersonalResult?.let { result ->
-                                Text("Điểm câu: ${result.scoreEarned}", style = MaterialTheme.typography.titleMedium)
                                 Text("Tổng điểm: ${result.totalScore}", style = MaterialTheme.typography.titleMedium)
-                                Text("Chuỗi đúng hiện tại: ${result.streak}", style = MaterialTheme.typography.bodyLarge)
                             }
                             if (state.canShowClassicRank) {
                                 if (state.isResultsLeaderboardFresh && state.playerRank != null) {
@@ -103,6 +105,22 @@ internal fun ClassicResultsScreenContent(
             }
             // No explanation/max streak or grading inferred from leaderboard/answer drafts.
         }
+    }
+}
+
+/** Compact celebration only for a positive, authorized current streak. Long labels may wrap. */
+@Composable
+private fun ClassicStreakBadge(label: String) {
+    val dark = isSystemInDarkTheme()
+    Surface(
+        modifier = Modifier.fillMaxWidth().wrapContentWidth(Alignment.CenterHorizontally).clearAndSetSemantics { contentDescription = label },
+        shape = RoundedCornerShape(50),
+        color = if (dark) Color(0xFF3F2E13) else Color(0xFFFFF7DF),
+        contentColor = if (dark) Color(0xFFFFD98A) else Color(0xFF8A4B00),
+    ) {
+        Text("$label 🔥", Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold,
+            fontSize = 14.sp, lineHeight = 20.sp)
     }
 }
 
@@ -133,6 +151,13 @@ internal fun ClassicOutcomeCard(state: GameUiState, compact: Boolean = false) {
             if (!compact) Icon(icon, null, Modifier.size(52.dp))
             Text(classicResultTitle(state), style = if (compact) MaterialTheme.typography.titleMedium
                 else MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+            if (!compact) classicQuestionScoreLabel(state)?.let { scoreLabel ->
+                Surface(color = foreground.copy(alpha = 0.12f), contentColor = foreground,
+                    shape = RoundedCornerShape(50)) {
+                    Text(scoreLabel, Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+                }
+            }
             Text(classicResultDescription(state), style = MaterialTheme.typography.bodyMedium)
         }
     }
@@ -144,7 +169,14 @@ private fun classicResultFixture() = GameUiState(connection = GameConnection.CON
     question = PublicQuestion(3, 15, 4, "multiple_choice", "Không lặp lại câu hỏi trong tổng kết"),
     results = QuestionResults(3, 4, correctAnswers = listOf("b")), outcome = QuestionOutcome.CORRECT,
     acceptedAnswerKeys = listOf("b"), hasAnswerAttempt = true,
-    isResultsLeaderboardFresh = true, playerRank = 4, playerScore = 3420)
+    isResultsLeaderboardFresh = true, playerRank = 4, playerScore = 3420,
+    personalResult = classicPersonalResultFixture())
+
+private fun classicPersonalResultFixture() = PersonalQuestionResult(
+    index = 3, questionId = 4, answered = true, isCorrect = true,
+    scoreEarned = 950, totalScore = 3420, streak = 3,
+    nextQuestionAt = null, serverTime = "2026-10-20T04:00:00Z",
+)
 
 @Composable
 private fun ClassicResultFixture(state: GameUiState) {
@@ -153,15 +185,24 @@ private fun ClassicResultFixture(state: GameUiState) {
 }
 @Preview(name = "Kết quả - Đúng", widthDp = 390, showBackground = true)
 @Preview(name = "Kết quả - Đúng dark", widthDp = 390, showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(name = "Kết quả - Streak, hẹp, chữ lớn", widthDp = 320, fontScale = 1.3f, showBackground = true)
 @Composable private fun ClassicCorrectResultPreview() = ClassicResultFixture(classicResultFixture())
 @Preview(name = "Kết quả - Sai, hẹp, chữ lớn", widthDp = 320, fontScale = 1.3f, showBackground = true)
-@Composable private fun ClassicIncorrectResultPreview() = ClassicResultFixture(classicResultFixture().copy(outcome = QuestionOutcome.INCORRECT))
+@Composable private fun ClassicIncorrectResultPreview() = ClassicResultFixture(classicResultFixture().copy(
+    outcome = QuestionOutcome.INCORRECT, acceptedAnswerKeys = listOf("a"),
+    personalResult = classicPersonalResultFixture().copy(isCorrect = false, scoreEarned = 0, streak = 0)))
 @Preview(name = "Kết quả - Chưa trả lời", widthDp = 390, showBackground = true)
 @Composable private fun ClassicUnansweredResultPreview() = ClassicResultFixture(classicResultFixture().copy(
-    acceptedAnswerKeys = null, hasAnswerAttempt = false, outcome = QuestionOutcome.HIDDEN))
+    acceptedAnswerKeys = null, hasAnswerAttempt = false, outcome = QuestionOutcome.HIDDEN,
+    personalResult = classicPersonalResultFixture().copy(answered = false, isCorrect = null, scoreEarned = 0, streak = 0)))
 @Preview(name = "Kết quả - Ẩn đáp án, chờ hạng", widthDp = 390, showBackground = true)
 @Composable private fun ClassicHiddenResultPreview() = ClassicResultFixture(classicResultFixture().copy(
     showCorrectAnswer = false, outcome = QuestionOutcome.HIDDEN, results = QuestionResults(3), isResultsLeaderboardFresh = false))
-@Preview(name = "Kết quả - Reconnect thiếu chi tiết", widthDp = 390, showBackground = true)
+@Preview(name = "Kết quả - Reconnect có kết quả riêng", widthDp = 390, showBackground = true)
 @Composable private fun ClassicRestoredResultPreview() = ClassicResultFixture(classicResultFixture().copy(
-    phase = GamePhaseUi.Results(restoredWithoutDetails = true), results = null, outcome = null))
+    phase = GamePhaseUi.Results(restoredWithoutDetails = true), results = null, outcome = null,
+    acceptedAnswerKeys = null))
+@Preview(name = "Kết quả - Thiếu kết quả riêng", widthDp = 390, showBackground = true)
+@Composable private fun ClassicMissingPersonalResultPreview() = ClassicResultFixture(classicResultFixture().copy(
+    phase = GamePhaseUi.Results(restoredWithoutDetails = true), results = null, outcome = null,
+    acceptedAnswerKeys = null, personalResult = null))

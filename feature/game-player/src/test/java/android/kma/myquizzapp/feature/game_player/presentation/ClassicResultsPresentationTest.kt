@@ -1,6 +1,7 @@
 package android.kma.myquizzapp.feature.game_player.presentation
 
 import android.kma.myquizzapp.core.common.model.GameMode
+import android.kma.myquizzapp.core.common.model.PersonalQuestionResult
 import android.kma.myquizzapp.core.common.model.PublicQuestion
 import android.kma.myquizzapp.core.common.model.QuestionResults
 import android.kma.myquizzapp.core.common.model.SessionStatus
@@ -18,6 +19,69 @@ class ClassicResultsPresentationTest {
         results = QuestionResults(0, 10, correctAnswers = listOf("a")),
         acceptedAnswerKeys = listOf("a"), hasAnswerAttempt = true, outcome = QuestionOutcome.CORRECT,
         endsAt = "2026-10-20T04:00:02Z")
+
+    private fun personalResult() = PersonalQuestionResult(
+        index = 0, questionId = 10, answered = true, isCorrect = true,
+        scoreEarned = 950, totalScore = 3420, streak = 3,
+        nextQuestionAt = null, serverTime = "2026-10-20T04:00:00Z",
+    )
+
+    @Test fun `score label uses authoritative signed points and preserves zero`() {
+        val state = state().copy(personalResult = personalResult())
+        assertEquals("+950 điểm", classicQuestionScoreLabel(state))
+        assertEquals("0 điểm", classicQuestionScoreLabel(state.copy(personalResult = personalResult().copy(scoreEarned = 0))))
+        assertEquals("-50 điểm", classicQuestionScoreLabel(state.copy(personalResult = personalResult().copy(scoreEarned = -50))))
+        assertEquals("+950 điểm", classicQuestionScoreLabel(state.copy(playerScore = 99999)))
+    }
+
+    @Test fun `streak badge celebrates only a positive current server streak`() {
+        val state = state().copy(personalResult = personalResult())
+        assertEquals("Chuỗi 3 câu đúng liên tiếp!", classicStreakBadgeLabel(state))
+        assertNull(classicStreakBadgeLabel(state.copy(personalResult = personalResult().copy(streak = 0))))
+        assertNull(classicStreakBadgeLabel(state.copy(personalResult = personalResult().copy(streak = -1))))
+    }
+
+    @Test fun `missing result or hidden unknown reveal never creates score or streak labels`() {
+        for (state in listOf(state(),
+            state().copy(personalResult = personalResult(), showCorrectAnswer = false),
+            state().copy(personalResult = personalResult(), showCorrectAnswer = null))) {
+            assertNull(classicQuestionScoreLabel(state))
+            assertNull(classicStreakBadgeLabel(state))
+        }
+    }
+
+    @Test fun `another question result cannot render points or streak`() {
+        for (result in listOf(personalResult().copy(index = 1), personalResult().copy(questionId = 99))) {
+            val state = state().copy(personalResult = result)
+            assertNull(classicQuestionScoreLabel(state))
+            assertNull(classicStreakBadgeLabel(state))
+        }
+    }
+
+    @Test fun `labels are scoped to Classic results and disappear on a new phase`() {
+        val state = state().copy(personalResult = personalResult())
+        for (phase in listOf(GamePhaseUi.Question, GamePhaseUi.Submitted, GamePhaseUi.Finished)) {
+            assertNull(classicQuestionScoreLabel(state.copy(phase = phase)))
+            assertNull(classicStreakBadgeLabel(state.copy(phase = phase)))
+        }
+        assertNull(classicQuestionScoreLabel(state.copy(mode = null)))
+        assertNull(classicStreakBadgeLabel(state.copy(mode = null)))
+    }
+
+    @Test fun `restored private result can render labels without common answer details`() {
+        val state = state().copy(personalResult = personalResult(), results = null,
+            acceptedAnswerKeys = null, phase = GamePhaseUi.Results(restoredWithoutDetails = true))
+        assertEquals("+950 điểm", classicQuestionScoreLabel(state))
+        assertEquals("Chuỗi 3 câu đúng liên tiếp!", classicStreakBadgeLabel(state))
+    }
+
+    @Test fun `leaderboard hidden does not hide an authorized personal result`() {
+        for (board in listOf(ShowLeaderboard.END_ONLY, ShowLeaderboard.NEVER)) {
+            val state = state().copy(personalResult = personalResult(), showLeaderboard = board)
+            assertEquals("+950 điểm", classicQuestionScoreLabel(state))
+            assertEquals("Chuỗi 3 câu đúng liên tiếp!", classicStreakBadgeLabel(state))
+        }
+    }
 
     @Test fun `auto wait uses phase deadline offset ceil and never navigates at zero`() {
         assertEquals("Câu tiếp theo sẽ bắt đầu sau: 2s", classicResultsWaitText(state(), now + 1))
