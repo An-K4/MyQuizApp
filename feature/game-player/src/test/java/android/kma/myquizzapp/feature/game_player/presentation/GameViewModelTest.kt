@@ -706,21 +706,47 @@ class GameViewModelTest {
 
     @Test
     fun `classic text answers require submit and never send blank values`() = runTest(dispatcher) {
-        for (type in listOf("short_answer", "long_answer")) {
-            startQuestion(mode = GameMode.CLASSIC, questionType = type)
-            val before = socket.answers.size
-            viewModel.onIntent(GameIntent.ChangeText("   "))
-            viewModel.onIntent(GameIntent.Submit)
-            runCurrent()
-            assertEquals(before, socket.answers.size)
-            viewModel.onIntent(GameIntent.ChangeText("  câu trả lời  "))
-            runCurrent()
-            assertEquals(before, socket.answers.size)
-            viewModel.onIntent(GameIntent.Submit)
-            runCurrent()
-            assertEquals(PlayerAnswer.Text("câu trả lời"), socket.answers.last())
-            assertEquals(before + 1, socket.answers.size)
-        }
+        assertClassicTextSubmission("short_answer")
+    }
+
+    @Test
+    fun `classic long text answers require submit and never send blank values`() = runTest(dispatcher) {
+        assertClassicTextSubmission("long_answer")
+    }
+
+    /** Each type needs a fresh session: a submitted question identity may not reopen. */
+    private suspend fun TestScope.assertClassicTextSubmission(type: String) {
+        startQuestion(mode = GameMode.CLASSIC, questionType = type)
+        val before = socket.answers.size
+        viewModel.onIntent(GameIntent.ChangeText("   "))
+        viewModel.onIntent(GameIntent.Submit)
+        runCurrent()
+        assertEquals(before, socket.answers.size)
+        viewModel.onIntent(GameIntent.ChangeText("  câu trả lời  "))
+        runCurrent()
+        assertEquals(before, socket.answers.size)
+        viewModel.onIntent(GameIntent.Submit)
+        runCurrent()
+        assertEquals(PlayerAnswer.Text("câu trả lời"), socket.answers.last())
+        assertEquals(before + 1, socket.answers.size)
+    }
+
+    @Test
+    fun `classic duplicate question started cannot reopen submitted text question`() = runTest(dispatcher) {
+        startQuestion(mode = GameMode.CLASSIC, questionType = "short_answer")
+        viewModel.onIntent(GameIntent.ChangeText("câu trả lời"))
+        viewModel.onIntent(GameIntent.Submit)
+        runCurrent()
+        assertEquals(GamePhaseUi.Submitted, viewModel.uiState.value.phase)
+        socket.emit(GameEvent.QuestionStarted(PlayerQuestionStarted(question().copy(questionType = "short_answer"))))
+        runCurrent()
+        assertEquals(GamePhaseUi.Submitted, viewModel.uiState.value.phase)
+        assertTrue(viewModel.uiState.value.isInputLocked)
+        assertEquals(listOf("câu trả lời"), viewModel.uiState.value.acceptedAnswerKeys)
+        viewModel.onIntent(GameIntent.ChangeText("gửi lại"))
+        viewModel.onIntent(GameIntent.Submit)
+        runCurrent()
+        assertEquals(listOf(PlayerAnswer.Text("câu trả lời")), socket.answers)
     }
 
     @Test
@@ -1058,6 +1084,217 @@ class GameViewModelTest {
             expectNoEvents()
         }
     }
+
+    @Test
+    fun `N24_5 private result overrides lost ACK inference and survives late accepted ACK`() = runTest(dispatcher) {
+        startQuestion(mode = GameMode.CLASSIC)
+        socket.submitGate = CompletableDeferred()
+        viewModel.onIntent(GameIntent.SelectOption("a"))
+        runCurrent()
+        emitClassicResults()
+        socket.emit(personalEvent().copy(result = personalEvent().result.copy(isCorrect = false, scoreEarned = 0, streak = 0)))
+        runCurrent()
+        assertEquals(ClassicResultKind.INCORRECT, classicResultKind(viewModel.uiState.value))
+        val remaining = viewModel.uiState.value.classicFeedbackRemainingMs
+        socket.submitGate!!.complete(Result.Success(AnswerAck(accepted = true, isCorrect = true, scoreEarned = 9999, streak = 99)))
+        runCurrent()
+        assertEquals(ClassicResultKind.INCORRECT, classicResultKind(viewModel.uiState.value))
+        assertEquals(0, viewModel.uiState.value.scoreEarned)
+        assertEquals(0, viewModel.uiState.value.streak)
+        assertEquals(remaining, viewModel.uiState.value.classicFeedbackRemainingMs)
+        assertTrue(viewModel.uiState.value.phase is GamePhaseUi.Results)
+    }
+
+    @Test
+    fun `N24_5 private before common survives locked and duplicate events`() = runTest(dispatcher) {
+        startQuestion(mode = GameMode.CLASSIC)
+        socket.emit(personalEvent())
+        socket.emit(GameEvent.QuestionLocked(0, QuestionLockReason.ALL_ANSWERED))
+        runCurrent()
+        assertTrue(viewModel.uiState.value.phase is GamePhaseUi.Results)
+        emitClassicResults()
+        socket.emit(personalEvent())
+        runCurrent()
+        assertEquals(3, viewModel.uiState.value.streak)
+        assertEquals(3420, viewModel.uiState.value.totalScore)
+        assertEquals(0L, viewModel.uiState.value.classicFeedbackRemainingMs)
+        assertEquals(0, socket.nextCalls)
+        assertEquals(0, socket.syncCalls)
+    }
+
+    @Test
+    fun `N24_5 reconnect private snapshot restores summary without keys and shared null keeps it`() = runTest(dispatcher) {
+        startQuestion(mode = GameMode.CLASSIC)
+        socket.emit(GameEvent.Disconnected(DisconnectReason.TRANSPORT))
+        socket.emit(GameEvent.Connected)
+        runCurrent()
+        val syncCount = socket.syncCalls
+        val restored = classicResultsSnapshot().let { it.copy(snapshot = it.snapshot.copy(personalResult = personalEvent().result)) }
+        socket.emit(restored)
+        runCurrent()
+        assertEquals(ClassicResultKind.CORRECT, classicResultKind(viewModel.uiState.value))
+        assertTrue(viewModel.uiState.value.showsClassicSummary)
+        assertNull(viewModel.uiState.value.results)
+        assertNull(viewModel.uiState.value.acceptedAnswerKeys)
+        socket.emit(classicResultsSnapshot(SessionStatus.PAUSED, endsAt = null))
+        runCurrent()
+        assertEquals(3, viewModel.uiState.value.streak)
+        assertNull(viewModel.uiState.value.endsAt)
+        assertEquals(syncCount, socket.syncCalls)
+        socket.emit(personalEvent())
+        runCurrent()
+        assertNull(viewModel.uiState.value.endsAt)
+        assertTrue(viewModel.uiState.value.isPaused)
+    }
+
+    @Test
+    fun `N24_5 snapshot resume timing cannot be overwritten by old private or common event`() = runTest(dispatcher) {
+        startQuestion(mode = GameMode.CLASSIC)
+        emitClassicResults()
+        socket.emit(personalEvent())
+        socket.emit(classicResultsSnapshot(SessionStatus.PAUSED, null).copy(serverTime = "2026-10-20T04:00:02Z"))
+        socket.emit(classicResultsSnapshot(endsAt = "2026-10-20T04:00:12Z").copy(serverTime = "2026-10-20T04:00:03Z"))
+        runCurrent()
+        socket.emit(personalEvent())
+        emitClassicResults()
+        assertEquals("2026-10-20T04:00:12Z", viewModel.uiState.value.endsAt)
+        assertFalse(viewModel.uiState.value.isPaused)
+        assertEquals(3, viewModel.uiState.value.streak)
+    }
+
+    @Test
+    fun `N24_5 reveal disabled clears personal cache and cannot resurrect it on reenable`() = runTest(dispatcher) {
+        startQuestion(mode = GameMode.CLASSIC)
+        socket.emit(personalEvent())
+        runCurrent()
+        socket.emit(classicResultsSnapshot().let { it.copy(snapshot = it.snapshot.copy(config = GameConfig(
+            flow = GameConfig.Flow(showCorrectAnswer = false)))) })
+        socket.emit(personalEvent())
+        socket.emit(GameEvent.PlayerLeaderboardUpdated(listOf(LeaderboardRow(id = PLAYER_ID, playerName = "Player", playerScore = 999, rank = 1))))
+        runCurrent()
+        val hidden = viewModel.uiState.value
+        assertNull(hidden.personalResult)
+        assertNull(hidden.scoreEarned)
+        assertNull(hidden.totalScore)
+        assertNull(hidden.streak)
+        assertNull(hidden.playerRank)
+        assertFalse(hidden.canShowClassicRank)
+        socket.emit(classicResultsSnapshot())
+        runCurrent()
+        assertNull(viewModel.uiState.value.visiblePersonalResult)
+    }
+
+    @Test
+    fun `N24_5 wrong identity ignored and unseen new question clears all personal grading`() = runTest(dispatcher) {
+        startQuestion(mode = GameMode.CLASSIC)
+        socket.emit(personalEvent().copy(result = personalEvent().result.copy(questionId = 999)))
+        socket.emit(personalEvent().copy(result = personalEvent().result.copy(index = 1)))
+        runCurrent()
+        assertNull(viewModel.uiState.value.personalResult)
+        socket.emit(personalEvent())
+        runCurrent()
+        socket.emit(configEvent(SessionStatus.ACTIVE).let { it.copy(snapshot = it.snapshot.copy(index = 1,
+            question = question().copy(index = 1, id = 11))) })
+        runCurrent()
+        assertNull(viewModel.uiState.value.personalResult)
+        assertNull(viewModel.uiState.value.streak)
+        assertNull(viewModel.uiState.value.totalScore)
+        socket.emit(personalEvent())
+        socket.emit(classicResultsSnapshot())
+        runCurrent()
+        assertEquals(11L, viewModel.uiState.value.question!!.id)
+        assertNull(viewModel.uiState.value.personalResult)
+    }
+
+    @Test
+    fun `N24_5 personal summary is independent of hidden board but never affects self paced ACK`() = runTest(dispatcher) {
+        startQuestion(mode = GameMode.CLASSIC, showLeaderboard = ShowLeaderboard.NEVER)
+        socket.emit(personalEvent())
+        runCurrent()
+        assertEquals(3420, viewModel.uiState.value.totalScore)
+        assertTrue(viewModel.uiState.value.showsClassicSummary)
+        assertFalse(viewModel.uiState.value.canShowClassicRank)
+        assertEquals(0, socket.nextCalls)
+        startQuestion(mode = GameMode.SOLO, pacing = Pacing.SELF)
+        socket.emit(personalEvent())
+        runCurrent()
+        assertNull(viewModel.uiState.value.personalResult)
+        socket.submitResult = Result.Success(AnswerAck(true, isCorrect = true, scoreEarned = 100, totalScore = 100, streak = 1))
+        viewModel.onIntent(GameIntent.SelectOption("a"))
+        viewModel.onIntent(GameIntent.Submit)
+        runCurrent()
+        assertEquals(100, viewModel.uiState.value.scoreEarned)
+        assertEquals(1, viewModel.uiState.value.streak)
+    }
+
+    @Test
+    fun `N24_5 finished snapshot preempts private summary and stale events cannot navigate twice`() = runTest(dispatcher) {
+        startQuestion(mode = GameMode.CLASSIC)
+        socket.emit(personalEvent())
+        runCurrent()
+        viewModel.effect.test {
+            socket.emit(GameEvent.StateSnapshot(GameSnapshot(phase = GamePhase.FINISHED)))
+            runCurrent()
+            assertEquals(GameEffect.NavigateToFinalResult(GAME_ID, PLAYER_ID), awaitItem())
+            socket.emit(personalEvent())
+            socket.emit(classicResultsSnapshot())
+            socket.emit(GameEvent.StateSnapshot(GameSnapshot(phase = GamePhase.FINISHED)))
+            runCurrent()
+            assertEquals(GamePhaseUi.Finished, viewModel.uiState.value.phase)
+            assertNull(viewModel.uiState.value.personalResult)
+            assertNull(viewModel.uiState.value.totalScore)
+            expectNoEvents()
+        }
+    }
+
+    @Test
+    fun `N24_5 server unanswered defeats late ACK and never creates accepted selection`() = runTest(dispatcher) {
+        startQuestion(mode = GameMode.CLASSIC)
+        socket.submitGate = CompletableDeferred()
+        viewModel.onIntent(GameIntent.SelectOption("a"))
+        runCurrent()
+        socket.emit(personalEvent().copy(result = personalEvent().result.copy(answered = false,
+            isCorrect = null, scoreEarned = 0, totalScore = 0, streak = 0)))
+        runCurrent()
+        socket.submitGate!!.complete(Result.Success(AnswerAck(accepted = true)))
+        runCurrent()
+        assertEquals(ClassicResultKind.UNANSWERED, classicResultKind(viewModel.uiState.value))
+        assertFalse(viewModel.uiState.value.hasAnswerAttempt)
+        assertNull(viewModel.uiState.value.acceptedAnswerKeys)
+        assertEquals(0, viewModel.uiState.value.totalScore)
+        assertEquals(0, socket.nextCalls)
+    }
+
+    @Test
+    fun `N24_5 stale leaderboard cannot replace current personal total or provide current rank`() = runTest(dispatcher) {
+        startQuestion(mode = GameMode.CLASSIC)
+        socket.emit(personalEvent())
+        socket.emit(GameEvent.PlayerLeaderboardUpdated(
+            listOf(LeaderboardRow(1, PLAYER_ID, "Player", 999)), "2026-10-20T03:59:59Z"))
+        runCurrent()
+        assertNull(viewModel.uiState.value.playerRank)
+        assertEquals(3420, viewModel.uiState.value.totalScore)
+        socket.emit(GameEvent.PlayerLeaderboardUpdated(
+            listOf(LeaderboardRow(2, PLAYER_ID, "Player", 3500)), "2026-10-20T04:00:01Z"))
+        runCurrent()
+        assertEquals(2, viewModel.uiState.value.playerRank)
+        assertEquals(3420, viewModel.uiState.value.visiblePersonalResult!!.totalScore)
+    }
+
+    @Test
+    fun `N24_5 snapshot private result must also match the enclosing snapshot index`() = runTest(dispatcher) {
+        runCurrent()
+        val malformed = classicResultsSnapshot().let { it.copy(snapshot = it.snapshot.copy(mode = GameMode.CLASSIC,
+            index = 1, personalResult = personalEvent().result)) }
+        socket.emit(malformed)
+        runCurrent()
+        assertNull(viewModel.uiState.value.personalResult)
+        assertNull(viewModel.uiState.value.streak)
+    }
+
+    private fun personalEvent() = GameEvent.PersonalQuestionResultsReceived(
+        android.kma.myquizzapp.core.common.model.PersonalQuestionResult(0, 10, true, true, 950, 3420, 3,
+            "2026-10-20T04:00:05Z", "2026-10-20T04:00:00Z"))
 
     private suspend fun TestScope.emitClassicResults() {
         socket.emit(GameEvent.QuestionResultsReceived(QuestionResults(0, questionId = 10,

@@ -6,6 +6,13 @@ internal enum class ClassicResultKind { CORRECT, INCORRECT, UNANSWERED, UNKNOWN,
 
 internal fun classicResultKind(state: GameUiState): ClassicResultKind = when {
     state.showCorrectAnswer == false -> ClassicResultKind.HIDDEN
+    state.visiblePersonalResult != null -> state.visiblePersonalResult!!.let {
+        when {
+            !it.answered -> ClassicResultKind.UNANSWERED
+            it.isCorrect == true -> ClassicResultKind.CORRECT
+            else -> ClassicResultKind.INCORRECT
+        }
+    }
     state.showCorrectAnswer == null || state.results == null ||
         (state.phase as? GamePhaseUi.Results)?.restoredWithoutDetails == true ->
         ClassicResultKind.UNKNOWN

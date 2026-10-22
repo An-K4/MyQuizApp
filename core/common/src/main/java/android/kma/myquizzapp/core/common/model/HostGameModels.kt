@@ -262,7 +262,8 @@ data class GameSnapshot(
     val allowAnswerLate: Boolean = false,
     val remainingSeconds: Int? = null,
     val player: PlayerStateSnapshot? = null,
-    val leaderboard: List<LeaderboardRow> = emptyList()
+    val leaderboard: List<LeaderboardRow> = emptyList(),
+    val personalResult: PersonalQuestionResult? = null
 )
 
 /**

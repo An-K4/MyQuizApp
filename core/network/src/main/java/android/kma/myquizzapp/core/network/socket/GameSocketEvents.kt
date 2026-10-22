@@ -62,6 +62,7 @@ internal object GameSocketEvents {
 
     const val QUESTION_LOCKED = "question:locked"
     const val QUESTION_RESULTS = "question:results"
+    const val QUESTION_PERSONAL_RESULTS = "question:personal-results"
     const val QUESTION_AWAITING_NEXT = "question:awaiting_next"
     const val QUESTION_TIMEOUT = "question:timeout"
 
@@ -102,6 +103,7 @@ internal object GameSocketEvents {
         QUESTION_STARTED,
         QUESTION_LOCKED,
         QUESTION_RESULTS,
+        QUESTION_PERSONAL_RESULTS,
         QUESTION_AWAITING_NEXT,
         QUESTION_TIMEOUT,
         ANSWER_RECEIVED,

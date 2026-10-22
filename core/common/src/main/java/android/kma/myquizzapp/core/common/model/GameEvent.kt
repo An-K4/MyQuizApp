@@ -84,7 +84,10 @@ sealed interface GameEvent {
         val serverTime: String? = null
     ) : GameEvent
 
-    /** `question:results` — thời điểm đầu tiên được phép công bố đáp án. */
+    /** Private grading after Classic closure; never an answer-acceptance ACK. */
+    data class PersonalQuestionResultsReceived(val result: PersonalQuestionResult) : GameEvent
+
+    /** `question:results` — shared key/stats, never personal score/streak. */
     data class QuestionResultsReceived(
         val results: QuestionResults,
         val serverTime: String? = null

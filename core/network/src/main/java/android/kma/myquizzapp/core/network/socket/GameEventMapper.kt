@@ -22,6 +22,7 @@ import android.kma.myquizzapp.core.network.socket.dto.QuestionStartedDto
 import android.kma.myquizzapp.core.network.socket.dto.QuestionResultsDto
 import android.kma.myquizzapp.core.network.socket.dto.QuestionTimeoutDto
 import android.kma.myquizzapp.core.network.socket.dto.SocketErrorDto
+import android.kma.myquizzapp.core.network.socket.dto.toPersonalQuestionResult
 import kotlinx.serialization.json.Json
 import timber.log.Timber
 import javax.inject.Inject
@@ -59,6 +60,7 @@ class GameEventMapper @Inject constructor(
         GameSocketEvents.QUESTION_TIMEOUT -> mapQuestionTimeout(payload)
         GameSocketEvents.QUESTION_LOCKED -> mapQuestionLocked(payload)
         GameSocketEvents.QUESTION_RESULTS -> mapQuestionResults(payload)
+        GameSocketEvents.QUESTION_PERSONAL_RESULTS -> mapPersonalQuestionResults(payload)
         GameSocketEvents.ANSWER_RECEIVED -> mapAnswerProgress(payload)
         GameSocketEvents.LEADERBOARD_UPDATED -> mapPlayerLeaderboard(payload)
         GameSocketEvents.HOST_ANSWER_RECEIVED -> mapHostAnswerReceived(payload)
@@ -176,6 +178,15 @@ class GameEventMapper @Inject constructor(
         } ?: GameEvent.Failed(GameSocketEvents.QUESTION_RESULTS, CODE_CLIENT_PARSE_ERROR)
     }
 
+    private fun mapPersonalQuestionResults(payload: Any?): GameEvent {
+        // Do not log private grading/raw payload when rejecting a malformed event.
+        val result = runCatching {
+            payload?.toString()?.let { json.parseToJsonElement(it).toPersonalQuestionResult() }
+        }.getOrNull()
+        return result?.let { GameEvent.PersonalQuestionResultsReceived(it) }
+            ?: GameEvent.Failed(GameSocketEvents.QUESTION_PERSONAL_RESULTS, CODE_CLIENT_PARSE_ERROR)
+    }
+
     private fun mapAnswerProgress(payload: Any?): GameEvent {
         val dto = decode(payload, GameSocketEvents.ANSWER_RECEIVED) {
             json.decodeFromString(AnswerProgressDto.serializer(), it)
@@ -266,7 +277,7 @@ class GameEventMapper @Inject constructor(
             return null
         }
         return runCatching { block(raw) }
-            .onFailure { Timber.e(it, "Parse socket event %s thất bại: %s", event, raw) }
+            .onFailure { Timber.e("Parse socket event %s thất bại (%s)", event, it.javaClass.simpleName) }
             .getOrNull()
     }
 

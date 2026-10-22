@@ -76,35 +76,32 @@ internal fun ClassicResultsScreenContent(
             }
             if (!state.skipsClassicSummary) {
                 item { ClassicOutcomeCard(state) }
-                if (state.showLeaderboard == ShowLeaderboard.BETWEEN_QUESTIONS) item {
+                if (state.visiblePersonalResult != null || state.canShowClassicRank) item {
                     Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surface,
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
                         Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             Text("Thành tích của bạn", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                            if (!state.isResultsLeaderboardFresh) {
-                                Text("Đang chờ máy chủ cập nhật thứ hạng và tổng điểm…",
-                                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            } else if (state.playerRank == null || state.playerScore == null) {
-                                Text("Chưa có thứ hạng của bạn trong dữ liệu vừa nhận.",
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            } else {
-                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                        Text("#${state.playerRank}", fontSize = 28.sp, fontWeight = FontWeight.Bold,
-                                            color = MaterialTheme.colorScheme.primary)
-                                        Text("Thứ hạng", style = MaterialTheme.typography.bodySmall)
+                            state.visiblePersonalResult?.let { result ->
+                                Text("Điểm câu: ${result.scoreEarned}", style = MaterialTheme.typography.titleMedium)
+                                Text("Tổng điểm: ${result.totalScore}", style = MaterialTheme.typography.titleMedium)
+                                Text("Chuỗi đúng hiện tại: ${result.streak}", style = MaterialTheme.typography.bodyLarge)
+                            }
+                            if (state.canShowClassicRank) {
+                                if (state.isResultsLeaderboardFresh && state.playerRank != null) {
+                                    Text("Thứ hạng: #${state.playerRank}", style = MaterialTheme.typography.titleMedium)
+                                    if (state.visiblePersonalResult == null && state.playerScore != null) {
+                                        Text("Tổng điểm: ${state.playerScore}", style = MaterialTheme.typography.titleMedium)
                                     }
-                                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                        Text("${state.playerScore}", fontSize = 28.sp, fontWeight = FontWeight.Bold)
-                                        Text("Tổng điểm", style = MaterialTheme.typography.bodySmall)
-                                    }
+                                } else {
+                                    Text("Chưa có thứ hạng của bạn trong dữ liệu vừa nhận.",
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                             }
                         }
                     }
                 }
             }
-            // Gameplay does not supply explanation, score delta or streak. Do not invent them.
+            // No explanation/max streak or grading inferred from leaderboard/answer drafts.
         }
     }
 }

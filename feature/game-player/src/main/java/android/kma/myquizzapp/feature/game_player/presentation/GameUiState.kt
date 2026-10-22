@@ -3,6 +3,7 @@ package android.kma.myquizzapp.feature.game_player.presentation
 import android.kma.myquizzapp.core.common.model.GameMode
 import android.kma.myquizzapp.core.common.model.LeaderboardRow
 import android.kma.myquizzapp.core.common.model.Pacing
+import android.kma.myquizzapp.core.common.model.PersonalQuestionResult
 import android.kma.myquizzapp.core.common.model.PublicQuestion
 import android.kma.myquizzapp.core.common.model.QuestionResults
 import android.kma.myquizzapp.core.common.model.SessionStatus
@@ -60,6 +61,10 @@ data class GameUiState(
     val classicFeedbackRemainingMs: Long = 0L,
     val isResultsLeaderboardFresh: Boolean = false,
     val results: QuestionResults? = null,
+    val personalResult: PersonalQuestionResult? = null,
+    /** Latest authoritative phase time, not a locally invented results deadline. */
+    val classicPhaseServerTime: String? = null,
+    val classicTimingFromSnapshot: Boolean = false,
     val outcome: QuestionOutcome? = null,
     val answeredCount: Int? = null,
     val activePlayers: Int? = null,
@@ -90,6 +95,12 @@ data class GameUiState(
     val revealsClassicFeedback: Boolean
         get() = isClassic && phase is GamePhaseUi.Results && showCorrectAnswer == true &&
             !results?.correctAnswers.isNullOrEmpty()
+    val visiblePersonalResult: PersonalQuestionResult?
+        get() = personalResult?.takeIf { isClassic && phase is GamePhaseUi.Results &&
+            showCorrectAnswer == true && it.index == question?.index && it.questionId == question?.id }
+    val canShowClassicRank: Boolean
+        get() = isClassic && phase is GamePhaseUi.Results && showCorrectAnswer == true &&
+            showLeaderboard == ShowLeaderboard.BETWEEN_QUESTIONS
     val isPaused: Boolean get() = sessionStatus == SessionStatus.PAUSED
     val isSelfPaced: Boolean get() = pacing == Pacing.SELF
     val isAnswerInputEnabled: Boolean get() = !isInputLocked && !isPaused
@@ -102,7 +113,8 @@ data class GameUiState(
         get() = leaderboard.isNotEmpty() && when {
             showLeaderboard == ShowLeaderboard.NEVER -> false
             isPersonallyDone -> true
-            else -> showLeaderboard == ShowLeaderboard.BETWEEN_QUESTIONS && phase is GamePhaseUi.Results
+            else -> showLeaderboard == ShowLeaderboard.BETWEEN_QUESTIONS && phase is GamePhaseUi.Results &&
+                (!isClassic || showCorrectAnswer == true)
         }
 
     val canSubmit: Boolean get() = isAnswerInputEnabled && when (question?.questionType) {

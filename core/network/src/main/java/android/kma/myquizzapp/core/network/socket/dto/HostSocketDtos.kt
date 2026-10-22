@@ -499,6 +499,7 @@ data class GameStateDto(
     @SerialName("allow_answer_late") val allowAnswerLate: Boolean = false,
     val remainingSeconds: Int? = null,
     val player: PlayerStateDto? = null,
+    @SerialName("personal_result") val personalResult: JsonElement? = null,
     val leaderboard: List<LeaderboardRowDto> = emptyList(),
     val serverTime: String? = null
 ) {
@@ -516,6 +517,7 @@ data class GameStateDto(
         allowAnswerLate = allowAnswerLate,
         remainingSeconds = remainingSeconds,
         player = player?.toDomain(),
+        personalResult = personalResult.toPersonalQuestionResult(),
         leaderboard = leaderboard.map { it.toDomain() }
     )
 }
