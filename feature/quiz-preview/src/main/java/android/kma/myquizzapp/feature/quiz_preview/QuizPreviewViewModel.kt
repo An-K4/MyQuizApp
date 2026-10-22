@@ -65,7 +65,6 @@ class QuizPreviewViewModel internal constructor(
             QuizPreviewIntent.Next -> advance()
             QuizPreviewIntent.Restart -> startRun()
             QuizPreviewIntent.Exit -> viewModelScope.launch { _effect.send(QuizPreviewEffect.Exit) }
-            QuizPreviewIntent.EditQuiz -> editQuiz()
         }
     }
 
@@ -81,10 +80,9 @@ class QuizPreviewViewModel internal constructor(
                     is Result.Success -> {
                         _uiState.value = QuizPreviewUiState(
                             isLoading = false,
-                            quiz = result.data.quiz,
-                            isOwner = result.data.isOwner,
+                            quiz = result.data,
                         )
-                        if (result.data.quiz.questions.isNotEmpty()) startRun()
+                        if (result.data.questions.isNotEmpty()) startRun()
                     }
                     is Result.Error -> _uiState.value = QuizPreviewUiState(
                         isLoading = false, errorMessage = result.error.toUserMessage(),
@@ -224,7 +222,8 @@ class QuizPreviewViewModel internal constructor(
             isAnswered = answered,
             isLate = late,
             scoreEarned = earned,
-            timeTakenSeconds = timeTaken
+            timeTakenSeconds = timeTaken,
+            selectedOptionIds = if (answered) state.selectedOptionIds.toSet() else emptySet(),
         )
         _uiState.update {
             it.copy(
@@ -254,13 +253,6 @@ class QuizPreviewViewModel internal constructor(
         val elapsed = if (runStartedAtMs == 0L) 0
         else ((monotonicMillis() - runStartedAtMs) / 1_000L).toInt()
         _uiState.update { it.copy(phase = PreviewPhase.FINISHED, elapsedSeconds = elapsed) }
-    }
-
-    private fun editQuiz() {
-        val state = _uiState.value
-        val quiz = state.quiz ?: return
-        if (!state.isOwner || !loadQuizPreview.isOwner(quiz)) return
-        viewModelScope.launch { _effect.send(QuizPreviewEffect.EditQuiz(quizId)) }
     }
 
     private fun android.kma.myquizzapp.core.common.model.Quiz?.orEmptyQuestionCount(): Int =

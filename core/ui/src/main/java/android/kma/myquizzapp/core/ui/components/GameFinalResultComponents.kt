@@ -105,6 +105,7 @@ fun GameFinalResultSummaryCard(
     title: String,
     metrics: List<FinalResultMetric>,
     modifier: Modifier = Modifier,
+    supportingContent: (@Composable () -> Unit)? = null,
 ) {
     Surface(modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.surface) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -153,6 +154,7 @@ fun GameFinalResultSummaryCard(
                     }
                 }
             }
+            supportingContent?.invoke()
         }
     }
 }

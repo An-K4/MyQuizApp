@@ -53,3 +53,26 @@ internal fun previewPrimaryLabel(state: QuizPreviewUiState): String = when {
 
 private fun android.kma.myquizzapp.core.common.model.Quiz?.orEmptyQuestionCount(): Int =
     this?.questions?.size ?: 0
+
+/** Preserve review priority without changing original question identities or numbering. */
+internal fun previewOrderedResults(results: List<PreviewQuestionResult>): List<PreviewQuestionResult> =
+    results.sortedBy {
+        when {
+            it.isCorrect == false && it.isAnswered -> 0
+            !it.isAnswered -> 1
+            it.isCorrect == null -> 2
+            else -> 3
+        }
+    }
+
+internal fun previewElapsedLabel(seconds: Int): String {
+    val safe = seconds.coerceAtLeast(0)
+    return "${safe / 60}:${(safe % 60).toString().padStart(2, '0')}"
+}
+
+internal fun previewResultStatus(result: PreviewQuestionResult): String = when {
+    !result.isAnswered -> "Bỏ qua"
+    result.isCorrect == null -> "Không thể chấm"
+    result.isCorrect -> "Đúng · +${result.scoreEarned} điểm"
+    else -> "Sai"
+}

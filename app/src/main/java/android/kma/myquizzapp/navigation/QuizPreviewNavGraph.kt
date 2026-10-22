@@ -9,11 +9,6 @@ fun NavGraphBuilder.quizPreviewGraph(navController: NavHostController) {
     composable<Route.QuizPreview> {
         QuizPreviewScreen(
             onNavigateBack = { navController.popBackStack() },
-            onNavigateToEditQuiz = { quizId ->
-                navController.navigate(Route.EditQuiz(quizId)) {
-                    popUpTo<Route.QuizPreview> { inclusive = true }
-                }
-            }
         )
     }
 }

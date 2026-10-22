@@ -4,18 +4,15 @@ import android.kma.myquizzapp.feature.quiz_preview.domain.usecase.LoadQuizPrevie
 
 import android.kma.myquizzapp.core.common.model.*
 import android.kma.myquizzapp.core.common.repository.QuizRepository
-import android.kma.myquizzapp.core.common.repository.SessionRepository
 import android.kma.myquizzapp.core.common.result.Result
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import io.mockk.coEvery
 import io.mockk.coVerify
-import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.*
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonPrimitive
@@ -28,12 +25,10 @@ import org.junit.Test
 class QuizPreviewViewModelTest {
     private val dispatcher = StandardTestDispatcher()
     private val repository = mockk<QuizRepository>()
-    private val sessionRepository = mockk<SessionRepository>()
 
     @Before
     fun setUp() {
         Dispatchers.setMain(dispatcher)
-        every { sessionRepository.state } returns MutableStateFlow(SessionState.Guest)
     }
 
     @After
@@ -219,6 +214,36 @@ class QuizPreviewViewModelTest {
         }
     }
 
+    @Test
+    fun `review preserves exact selected ids across next question and restart`() = runTest(dispatcher) {
+        withPreview(listOf(question(type = QuestionType.MULTIPLE_SELECT), question(id = 2))) { vm ->
+            begin(vm)
+            vm.onIntent(QuizPreviewIntent.ToggleOption(0L))
+            vm.onIntent(QuizPreviewIntent.ToggleOption(1L))
+            vm.onIntent(QuizPreviewIntent.Submit)
+            val first = vm.uiState.value.results.first()
+            assertEquals(setOf(0L, 1L), first.selectedOptionIds)
+            vm.onIntent(QuizPreviewIntent.Next)
+            vm.onIntent(QuizPreviewIntent.SelectOption(1L))
+            assertEquals(setOf(0L, 1L), vm.uiState.value.results[0].selectedOptionIds)
+            assertEquals(setOf(1L), vm.uiState.value.results[1].selectedOptionIds)
+            vm.onIntent(QuizPreviewIntent.Next)
+            vm.onIntent(QuizPreviewIntent.Restart)
+            assertTrue(vm.uiState.value.results.isEmpty())
+            assertEquals(setOf(0L, 1L), first.selectedOptionIds)
+        }
+    }
+
+    @Test
+    fun `skip does not preserve abandoned choices for review`() = runTest(dispatcher) {
+        withPreview(listOf(question(type = QuestionType.MULTIPLE_SELECT))) { vm ->
+            begin(vm)
+            vm.onIntent(QuizPreviewIntent.ToggleOption(0L))
+            vm.onIntent(QuizPreviewIntent.Skip)
+            assertTrue(vm.uiState.value.results.single().selectedOptionIds.isEmpty())
+        }
+    }
+
     private fun TestScope.begin(vm: QuizPreviewViewModel) {
         runCurrent()
         advanceTimeBy(3_000)
@@ -232,7 +257,7 @@ class QuizPreviewViewModelTest {
     ) {
         coEvery { repository.getQuizDetail(1L) } returns Result.Success(quiz(questions))
         val vm = QuizPreviewViewModel(
-            LoadQuizPreviewUseCase(repository, sessionRepository),
+            LoadQuizPreviewUseCase(repository),
             SavedStateHandle(mapOf("quizId" to 1L)),
             monotonicMillis = { testScheduler.currentTime + 1_000L },
         )

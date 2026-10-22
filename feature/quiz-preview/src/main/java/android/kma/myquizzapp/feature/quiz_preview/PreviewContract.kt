@@ -15,14 +15,15 @@ data class PreviewQuestionResult(
     val isAnswered: Boolean,
     val isLate: Boolean,
     val scoreEarned: Int,
-    val timeTakenSeconds: Double
+    val timeTakenSeconds: Double,
+    // Snapshot option IDs at submission; labels are not unique and must not be parsed for review.
+    val selectedOptionIds: Set<Long> = emptySet(),
 )
 
 data class QuizPreviewUiState(
     val isLoading: Boolean = true,
     val errorMessage: String? = null,
     val quiz: Quiz? = null,
-    val isOwner: Boolean = false,
     val phase: PreviewPhase = PreviewPhase.COUNTDOWN,
     val currentIndex: Int = 0,
     val countdownSeconds: Int = 3,
@@ -63,11 +64,9 @@ sealed interface QuizPreviewIntent {
     data object Next : QuizPreviewIntent
     data object Restart : QuizPreviewIntent
     data object Exit : QuizPreviewIntent
-    data object EditQuiz : QuizPreviewIntent
 }
 
 sealed interface QuizPreviewEffect {
     data object Exit : QuizPreviewEffect
-    data class EditQuiz(val quizId: Long) : QuizPreviewEffect
 }
 

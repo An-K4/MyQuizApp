@@ -82,6 +82,45 @@ class QuizPreviewPresentationTest {
         assertEquals("Xem tổng kết", previewPrimaryLabel(state(QuestionType.MULTIPLE_CHOICE, PreviewPhase.FEEDBACK, 1)))
     }
 
+    @Test
+    fun `summary duration formats minutes and clamps negative input`() {
+        assertEquals("0:00", previewElapsedLabel(-1))
+        assertEquals("0:09", previewElapsedLabel(9))
+        assertEquals("2:05", previewElapsedLabel(125))
+        assertEquals("60:00", previewElapsedLabel(3600))
+    }
+
+    @Test
+    fun `review priority preserves question identity and stable order`() {
+        val correct = result(question().copy(id = 1), true)
+        val wrong = result(question().copy(id = 2), false)
+        val skipped = result(question().copy(id = 3), false).copy(isAnswered = false)
+        val ungradable = result(question().copy(id = 4), null)
+        val anotherWrong = wrong.copy(question = question().copy(id = 5))
+        assertEquals(listOf(2L, 5L, 3L, 4L, 1L),
+            previewOrderedResults(listOf(correct, wrong, skipped, ungradable, anotherWrong)).map { it.question.id })
+    }
+
+    @Test
+    fun `summary distinguishes skip from ungradable wrong and correct`() {
+        assertEquals("Bỏ qua", previewResultStatus(result(question(), null).copy(isAnswered = false)))
+        assertEquals("Không thể chấm", previewResultStatus(result(question(), null)))
+        assertEquals("Sai", previewResultStatus(result(question(), false)))
+        assertEquals("Đúng · +950 điểm", previewResultStatus(result(question(), true).copy(scoreEarned = 950)))
+    }
+
+    @Test
+    fun `summary accuracy keeps total question denominator including ungradable and skipped`() {
+        val q = question()
+        val state = QuizPreviewUiState(quiz = Quiz(1, 10, quizName = "Test", quizLanguage = "vi", isPublic = true,
+            createdAt = "", updatedAt = "", questions = List(4) { q.copy(id = it + 1L) }),
+            results = listOf(result(q, true), result(q.copy(id = 2), false),
+                result(q.copy(id = 3), null), result(q.copy(id = 4), false).copy(isAnswered = false)))
+        assertEquals(1, state.correctCount)
+        assertEquals(3, state.answeredCount)
+        assertEquals(25, state.accuracy)
+    }
+
     private fun question() = Question(1, 1, QuestionType.MULTIPLE_CHOICE, "Chọn một", 30,
         answerOptions = listOf(AnswerOption(0, "Sai"), AnswerOption(1, "Đúng"), AnswerOption(2, "Khác")),
         correctAnswer = JsonArray(listOf(JsonPrimitive(1))))

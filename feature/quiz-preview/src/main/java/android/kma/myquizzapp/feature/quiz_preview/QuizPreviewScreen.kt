@@ -29,11 +29,15 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.compositeOver
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -46,12 +50,13 @@ import kotlinx.serialization.json.JsonPrimitive
 @Composable
 fun QuizPreviewScreen(
     onNavigateBack: () -> Unit,
-    onNavigateToEditQuiz: (Long) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: QuizPreviewViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
+    val summaryListState = rememberLazyListState()
+    var summaryReviewExpanded by rememberSaveable { mutableStateOf(false) }
     val focusManager = LocalFocusManager.current
     val keyboard = LocalSoftwareKeyboardController.current
     var showExitDialog by rememberSaveable { mutableStateOf(false) }
@@ -65,12 +70,13 @@ fun QuizPreviewScreen(
         viewModel.effect.collect { effect ->
             when (effect) {
                 QuizPreviewEffect.Exit -> onNavigateBack()
-                is QuizPreviewEffect.EditQuiz -> onNavigateToEditQuiz(effect.quizId)
             }
         }
     }
     LaunchedEffect(state.currentIndex) { listState.scrollToItem(0) }
     LaunchedEffect(state.phase) {
+        if (state.phase == PreviewPhase.COUNTDOWN) summaryReviewExpanded = false
+        if (state.phase == PreviewPhase.FINISHED) summaryListState.scrollToItem(0)
         if (state.phase != PreviewPhase.QUESTION) {
             focusManager.clearFocus()
             keyboard?.hide()
@@ -78,7 +84,10 @@ fun QuizPreviewScreen(
     }
     QuizPreviewScreenContent(
         state = state, onIntent = viewModel::onIntent,
-        onRequestExit = requestExit, listState = listState, modifier = modifier,
+        onRequestExit = requestExit,
+        listState = if (state.phase == PreviewPhase.FINISHED) summaryListState else listState,
+        modifier = modifier, summaryReviewExpanded = summaryReviewExpanded,
+        onToggleSummaryReview = { summaryReviewExpanded = !summaryReviewExpanded },
     )
     if (showExitDialog && activeRun) {
         AppConfirmDialog(
@@ -103,7 +112,15 @@ fun QuizPreviewScreenContent(
     onRequestExit: () -> Unit,
     listState: LazyListState,
     modifier: Modifier = Modifier,
+    summaryReviewExpanded: Boolean = false,
+    onToggleSummaryReview: () -> Unit = {},
 ) {
+    if (!state.isLoading && state.errorMessage == null &&
+        state.quiz?.questions?.isNotEmpty() == true && state.phase == PreviewPhase.FINISHED
+    ) {
+        PreviewFinalResultContent(state, onIntent, listState, summaryReviewExpanded, onToggleSummaryReview, modifier)
+        return
+    }
     val showQuestion = !state.isLoading && state.currentQuestion != null &&
         state.phase in setOf(PreviewPhase.QUESTION, PreviewPhase.FEEDBACK)
     Scaffold(
@@ -188,7 +205,7 @@ fun QuizPreviewScreenContent(
                 PreviewPhase.QUESTION, PreviewPhase.FEEDBACK -> PreviewQuestionContent(
                     state, onIntent, listState, contentModifier,
                 )
-                PreviewPhase.FINISHED -> SummaryContent(state, onIntent, listState, contentModifier)
+                PreviewPhase.FINISHED -> Unit // Rendered by the dedicated final-result scaffold above.
             }
         }
     }
@@ -269,30 +286,17 @@ private fun PreviewQuestionContent(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item { PreviewBadges(state.totalScore) }
-        item {
-            Text(question.questionText, style = MaterialTheme.typography.titleLarge.copy(
-                fontWeight = FontWeight.Bold, fontSize = 20.sp, lineHeight = 28.sp,
-            ), modifier = Modifier.semantics { heading() })
-        }
-        if (!question.questionImage.isNullOrBlank()) item {
-            QuestionImage(question.questionImage, "Ảnh minh họa câu hỏi")
-        }
+        item { PreviewQuestionHeading(question) }
         when (question.questionType) {
             QuestionType.MULTIPLE_CHOICE, QuestionType.MULTIPLE_SELECT -> {
-                val options = question.answerOptions.orEmpty()
-                items(options.size, key = { options[it].id }) { index ->
-                    val option = options[index]
-                    AnswerOptionItem(
-                        label = if (index < 26) ('A'.code + index).toChar().toString() else (index + 1).toString(),
-                        text = option.optionText, selected = option.id in selectedIds,
-                        onClick = {
-                            onIntent(if (question.questionType == QuestionType.MULTIPLE_SELECT)
-                                QuizPreviewIntent.ToggleOption(option.id) else QuizPreviewIntent.SelectOption(option.id))
-                        },
+                item {
+                    PreviewChoiceAnswers(
+                        question = question, selectedIds = selectedIds, result = result,
                         enabled = !feedback,
-                        feedback = previewOptionFeedback(question, option.id, selectedIds, result),
-                        selectionMode = if (question.questionType == QuestionType.MULTIPLE_SELECT)
-                            AnswerOptionSelectionMode.Multiple else AnswerOptionSelectionMode.Single,
+                        onSelectOption = { optionId ->
+                            onIntent(if (question.questionType == QuestionType.MULTIPLE_SELECT)
+                                QuizPreviewIntent.ToggleOption(optionId) else QuizPreviewIntent.SelectOption(optionId))
+                        },
                     )
                 }
             }
@@ -325,6 +329,46 @@ private fun PreviewQuestionContent(
         val supportingText = if (feedback) question.explanation else question.questionHint
         if (!supportingText.isNullOrBlank()) item {
             PreviewSupportingCard(if (feedback) "Giải thích" else "Gợi ý", supportingText)
+        }
+    }
+}
+
+/** Same question/answer UI for the active run and the read-only final review. */
+@Composable
+private fun PreviewQuestionHeading(question: Question) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(question.questionText, style = MaterialTheme.typography.titleLarge.copy(
+            fontWeight = FontWeight.Bold, fontSize = 20.sp, lineHeight = 28.sp,
+        ), modifier = Modifier.semantics { heading() })
+        if (!question.questionImage.isNullOrBlank()) {
+            QuestionImage(question.questionImage, "Ảnh minh họa câu hỏi")
+        }
+    }
+}
+
+@Composable
+private fun PreviewChoiceAnswers(
+    question: Question,
+    selectedIds: Set<Long>,
+    result: PreviewQuestionResult?,
+    onSelectOption: (Long) -> Unit = {},
+    enabled: Boolean = false,
+    readOnly: Boolean = false,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        question.answerOptions.orEmpty().forEachIndexed { index, option ->
+            AnswerOptionItem(
+                label = if (index < 26) ('A'.code + index).toChar().toString() else (index + 1).toString(),
+                text = option.optionText,
+                selected = option.id in selectedIds,
+                onClick = { onSelectOption(option.id) },
+                enabled = enabled,
+                feedback = previewOptionFeedback(question, option.id, selectedIds, result),
+                readOnly = readOnly,
+                showReadOnlyFeedback = readOnly && result != null,
+                selectionMode = if (question.questionType == QuestionType.MULTIPLE_SELECT)
+                    AnswerOptionSelectionMode.Multiple else AnswerOptionSelectionMode.Single,
+            )
         }
     }
 }
@@ -420,86 +464,147 @@ private fun CountdownContent(state: QuizPreviewUiState, modifier: Modifier) {
     )
 }
 
+/** Stateless local summary. Screen owns disclosure and scroll state. */
 @Composable
-private fun SummaryContent(
+private fun PreviewFinalResultContent(
     state: QuizPreviewUiState,
     onIntent: (QuizPreviewIntent) -> Unit,
     listState: LazyListState,
-    modifier: Modifier
+    reviewExpanded: Boolean,
+    onToggleReview: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    val ordered = state.results.sortedBy {
-        when {
-            it.isCorrect == false && it.isAnswered -> 0
-            !it.isAnswered -> 1
-            it.isCorrect == null -> 2
-            else -> 3
-        }
-    }
-    LazyColumn(
-        state = listState,
+    val total = state.quiz?.questions?.size ?: 0
+    val ordered = previewOrderedResults(state.results)
+    Scaffold(
         modifier = modifier.fillMaxSize(),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        item {
-            Text("Hoàn thành lượt chơi thử", style = MaterialTheme.typography.headlineSmall)
-            Text("Không có phòng hoặc kết quả nào được lưu lên máy chủ.")
-        }
-        item {
-            Card(Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("Điểm ước tính: ${state.totalScore}", style = MaterialTheme.typography.titleLarge)
-                    Text("Đúng: ${state.correctCount}/${state.quiz?.questions?.size}")
-                    Text("Đã trả lời: ${state.answeredCount}/${state.quiz?.questions?.size}")
-                    Text("Độ chính xác: ${state.accuracy}%")
-                    Text("Thời gian: ${state.elapsedSeconds}s")
+        containerColor = Color.Transparent,
+        bottomBar = {
+            Surface(color = MaterialTheme.colorScheme.surface) {
+                Column(
+                    Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 20.dp, vertical = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    QuizPrimaryButton("Chơi lại", { onIntent(QuizPreviewIntent.Restart) }, Modifier.fillMaxWidth())
+                    TextButton({ onIntent(QuizPreviewIntent.Exit) }, Modifier.fillMaxWidth()) {
+                        Text("Thoát chơi thử")
+                    }
+                }
+            }
+        },
+    ) { padding ->
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.fillMaxSize()
+                .background(Brush.verticalGradient(listOf(Color(0xFF211238), Color(0xFF51318A), Color(0xFF34205F))))
+                .padding(padding).consumeWindowInsets(padding),
+            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp),
+        ) {
+            item(key = "hero") {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    GameFinalResultHero(
+                        entries = emptyList(), title = "Hoàn thành chơi thử",
+                        subtitle = state.quiz?.quizName.orEmpty(),
+                    )
                     Text(
-                        "Điểm được tính cục bộ theo cấu hình Classic mặc định và có thể khác trận thật.",
-                        style = MaterialTheme.typography.bodySmall
+                        "Chơi thử · Không lưu kết quả lên máy chủ",
+                        Modifier.fillMaxWidth(), color = Color(0xFFE6DDF5),
+                        style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center,
                     )
                 }
             }
-        }
-        item { Text("Xem lại câu trả lời", style = MaterialTheme.typography.titleMedium) }
-        items(ordered, key = { it.question.id }) { result -> PreviewReviewItem(result) }
-        item {
-            Button(
-                onClick = { onIntent(QuizPreviewIntent.Restart) },
-                modifier = Modifier.fillMaxWidth()
-            ) { Text("Chơi lại") }
-        }
-        if (state.isOwner) {
-            item {
-                OutlinedButton(
-                    onClick = { onIntent(QuizPreviewIntent.EditQuiz) },
-                    modifier = Modifier.fillMaxWidth()
-                ) { Text("Chỉnh sửa quiz") }
+            item(key = "summary") {
+                GameFinalResultSummaryCard(
+                    title = "Tổng kết của bạn",
+                    metrics = listOf(
+                        FinalResultMetric("Điểm ước tính", state.totalScore.toString()),
+                        FinalResultMetric("Câu đúng", "${state.correctCount}/$total"),
+                        FinalResultMetric("Thời gian", previewElapsedLabel(state.elapsedSeconds)),
+                    ),
+                    supportingContent = {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("Đã trả lời ${state.answeredCount}/$total · Tỷ lệ đúng ${state.accuracy}%",
+                                style = MaterialTheme.typography.bodyMedium)
+                            Text("Điểm ước tính, có thể khác trận thật.",
+                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    },
+                )
             }
-        }
-        item {
-            TextButton(
-                onClick = { onIntent(QuizPreviewIntent.Exit) },
-                modifier = Modifier.fillMaxWidth()
-            ) { Text("Thoát chơi thử") }
+            item(key = "review-toggle") {
+                QuizSecondaryButton(
+                    text = if (reviewExpanded) "Thu gọn câu trả lời −" else "Xem lại câu trả lời +",
+                    onClick = onToggleReview,
+                    modifier = Modifier.fillMaxWidth().semantics {
+                        stateDescription = if (reviewExpanded) "Đã mở rộng" else "Đã thu gọn"
+                    },
+                )
+            }
+            if (reviewExpanded) {
+                items(ordered, key = { it.question.id }) { result ->
+                    val originalIndex = state.quiz?.questions?.indexOfFirst { it.id == result.question.id } ?: -1
+                    PreviewReviewItem(result, originalIndex.takeIf { it >= 0 }?.plus(1))
+                }
+            }
         }
     }
 }
 
 @Composable
-private fun PreviewReviewItem(result: PreviewQuestionResult) {
-    Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(result.question.questionText, style = MaterialTheme.typography.titleSmall)
+private fun PreviewReviewItem(result: PreviewQuestionResult, questionNumber: Int?) {
+    val colors = MaterialTheme.colorScheme
+    val isCorrect = result.isAnswered && result.isCorrect == true
+    val isIncorrect = result.isAnswered && result.isCorrect == false
+    val dark = colors.background.luminance() < 0.5f
+    val cardColor = when {
+        isCorrect -> if (dark) FrontendColors.Success.copy(alpha = 0.12f).compositeOver(colors.surface)
+            else FrontendColors.CorrectAnswerBackground
+        isIncorrect -> colors.errorContainer
+        else -> colors.surface // Skipped and ungradable answers stay neutral.
+    }
+    val foreground = if (isIncorrect) colors.onErrorContainer else colors.onSurface
+    val muted = if (isCorrect || isIncorrect) foreground.copy(alpha = 0.8f) else colors.onSurfaceVariant
+    val statusColor = when {
+        isCorrect -> if (dark) FrontendColors.Success else FrontendColors.SuccessForeground
+        isIncorrect -> colors.onErrorContainer
+        else -> colors.onSurface
+    }
+    Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp), color = cardColor, contentColor = foreground) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(
-                when (result.isCorrect) {
-                    true -> "Đúng • +${result.scoreEarned} điểm"
-                    false -> if (result.isAnswered) "Sai" else "Bỏ qua"
-                    null -> "Không thể chấm"
-                }
+                text = questionNumber?.let { "Câu $it" } ?: "Câu hỏi",
+                style = MaterialTheme.typography.labelLarge, color = muted,
             )
-            result.submittedAnswer?.let { Text("Bạn trả lời: $it") }
-            result.correctAnswer?.let { Text("Đáp án đúng: $it") }
-            result.question.explanation?.takeIf(String::isNotBlank)?.let { Text(it) }
+            PreviewQuestionHeading(result.question)
+            Text(previewResultStatus(result), style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold, color = statusColor)
+            when (result.question.questionType) {
+                QuestionType.MULTIPLE_CHOICE, QuestionType.MULTIPLE_SELECT -> {
+                    PreviewChoiceAnswers(
+                        question = result.question,
+                        selectedIds = if (result.isAnswered) result.selectedOptionIds else emptySet(),
+                        result = result, readOnly = true,
+                    )
+                    // Multiple-choice feedback alone cannot identify the full submitted set.
+                    if (result.question.questionType == QuestionType.MULTIPLE_SELECT) {
+                        result.submittedAnswer?.let { Text("Bạn trả lời: $it") }
+                    }
+                }
+                QuestionType.SHORT_ANSWER, QuestionType.LONG_ANSWER -> PreviewTextAnswer(
+                    value = result.submittedAnswer.orEmpty(), onChange = {},
+                    longAnswer = result.question.questionType == QuestionType.LONG_ANSWER,
+                    feedback = true, result = result,
+                )
+            }
+            Text(
+                "Thời gian trả lời: ${String.format(java.util.Locale.ROOT, "%.1f", result.timeTakenSeconds.coerceAtLeast(0.0))} giây" +
+                    if (result.isLate) " · Quá giờ" else "",
+                style = MaterialTheme.typography.bodySmall, color = muted,
+            )
+            result.question.explanation?.takeIf(String::isNotBlank)?.let {
+                PreviewSupportingCard("Giải thích", it)
+            }
         }
     }
 }
@@ -533,7 +638,7 @@ private fun previewFixture(
         question = question, submittedAnswer = if (!answered) null else if (correct == true) "Everest" else "K2",
         correctAnswer = "Everest", isCorrect = correct, isAnswered = answered,
         isLate = seconds == 0 && limit > 0, scoreEarned = if (correct == true && answered) 1_250 else 0,
-        timeTakenSeconds = 15.0,
+        timeTakenSeconds = 15.0, selectedOptionIds = if (answered) selected else emptySet(),
     ) else null
     return QuizPreviewUiState(
         isLoading = false,
@@ -638,6 +743,58 @@ private fun PreviewCountdown() = PreviewScreenFixture(previewFixture(phase = Pre
 @Preview(name = "Preview Summary", showBackground = true, widthDp = 390, heightDp = 844)
 @Composable
 private fun PreviewSummary() = PreviewScreenFixture(previewFixture(phase = PreviewPhase.FINISHED, selected = setOf(1L)))
+
+@Preview(name = "Preview Summary · Narrow Large Font", widthDp = 320, heightDp = 844, fontScale = 1.5f)
+@Composable
+private fun PreviewSummaryNarrow() = PreviewScreenFixture(previewFixture(phase = PreviewPhase.FINISHED))
+
+@Preview(name = "Preview Summary · Review Expanded", widthDp = 390, heightDp = 1100)
+@Preview(name = "Preview Summary · Review Dark", widthDp = 390, heightDp = 1100, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun PreviewSummaryExpanded() {
+    val base = previewFixture(phase = PreviewPhase.FINISHED, selected = setOf(1L))
+    val original = base.results.first()
+    val results = listOf(
+        original,
+        original.copy(question = original.question.copy(id = 2), isCorrect = false, scoreEarned = 0, submittedAnswer = "K2", selectedOptionIds = setOf(0L)),
+        original.copy(question = original.question.copy(id = 3), isCorrect = false, isAnswered = false, submittedAnswer = null, scoreEarned = 0, selectedOptionIds = emptySet()),
+        original.copy(question = original.question.copy(id = 4), isCorrect = null, scoreEarned = 0, isLate = true),
+    )
+    MyQuizAppTheme {
+        val listState = rememberLazyListState()
+        QuizPreviewScreenContent(
+            state = base.copy(quiz = base.quiz?.copy(questions = results.map { it.question }), results = results, elapsedSeconds = 125),
+            onIntent = {}, onRequestExit = {}, listState = listState, summaryReviewExpanded = true,
+        )
+    }
+}
+
+@Preview(name = "Preview Review · Single Choice", widthDp = 390)
+@Preview(name = "Preview Review · Single Choice Dark", widthDp = 390, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun PreviewReviewChoice() {
+    MyQuizAppTheme {
+        PreviewReviewItem(previewFixture(phase = PreviewPhase.FINISHED, selected = setOf(0L), correct = false).results.first(), 1)
+    }
+}
+
+@Preview(name = "Preview Review · Multiple Choice", widthDp = 390)
+@Composable
+private fun PreviewReviewMultiple() {
+    MyQuizAppTheme {
+        PreviewReviewItem(previewFixture(type = QuestionType.MULTIPLE_SELECT,
+            phase = PreviewPhase.FINISHED, selected = setOf(0L, 1L), correct = false).results.first(), 2)
+    }
+}
+
+@Preview(name = "Preview Review · Text Answer", widthDp = 390)
+@Composable
+private fun PreviewReviewText() {
+    MyQuizAppTheme {
+        PreviewReviewItem(previewFixture(type = QuestionType.LONG_ANSWER,
+            phase = PreviewPhase.FINISHED, correct = false, image = false).results.first(), 3)
+    }
+}
 
 @Preview(name = "Preview Loading", showBackground = true, widthDp = 390, heightDp = 844)
 @Composable
