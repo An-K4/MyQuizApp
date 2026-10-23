@@ -9,7 +9,6 @@ import android.kma.myquizzapp.core.common.model.PublicAnswerOption
 import android.kma.myquizzapp.core.ui.components.GameFinalResultHero
 import android.kma.myquizzapp.core.ui.components.GameFinalResultSummaryCard
 import android.kma.myquizzapp.core.ui.components.LeaderboardPlayerCard
-import android.kma.myquizzapp.core.ui.components.QuestionImage
 import android.kma.myquizzapp.core.ui.components.QuizPrimaryButton
 import android.kma.myquizzapp.core.ui.components.QuizSecondaryButton
 import android.kma.myquizzapp.core.ui.theme.MyQuizAppTheme
@@ -18,7 +17,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -28,8 +26,6 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -51,7 +47,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import java.util.Locale
 
 @Composable
 fun FinalResultScreen(
@@ -170,14 +165,13 @@ fun FinalResultScreenContent(
                         }
                         state.review != null -> {
                             item(key = "review-summary") {
-                                ResultNotice("${state.review.correctAnswersCount}/${state.review.totalQuestions} câu đúng • " +
-                                    "${state.review.answeredCount} lượt trả lời")
+                                ResultNotice(onlineReviewSummary(state.review, state.mode))
                             }
                             if (state.reviewItems.isEmpty()) {
                                 item(key = "review-empty") { ResultNotice("Không có chi tiết câu trả lời để hiển thị.") }
                             }
                             items(state.reviewItems, key = { "review-${it.questionIndex}-${it.questionId}" }) {
-                                ReviewItemCard(it)
+                                OnlineReviewItemCard(it, state.mode)
                             }
                         }
                     }
@@ -227,73 +221,6 @@ private fun ResultDisclosure(title: String, expanded: Boolean, onClick: () -> Un
         trailingIcon = { Text(if (expanded) "−" else "+", style = MaterialTheme.typography.titleLarge) }
     )
 }
-
-@Composable
-internal fun ReviewItemCard(item: GameReviewItem) {
-    val status = when {
-        !item.answered -> "Bỏ qua"
-        item.isCorrect -> "Đúng"
-        else -> "Sai"
-    }
-    val statusColor = when {
-        item.isCorrect -> MaterialTheme.colorScheme.primaryContainer
-        !item.answered -> MaterialTheme.colorScheme.surfaceVariant
-        else -> MaterialTheme.colorScheme.errorContainer
-    }
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = statusColor)
-    ) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Câu ${item.questionIndex + 1}", style = MaterialTheme.typography.titleMedium)
-                Text(status)
-            }
-            Text(item.questionText ?: "Nội dung câu hỏi không còn khả dụng")
-            QuestionImage(
-                imageUrl = item.questionImage,
-                contentDescription = "Hình minh họa câu hỏi",
-            )
-            if (item.answerOptions.isNotEmpty()) {
-                item.answerOptions.forEach { option -> ReviewOptionRow(item, option) }
-            } else {
-                Text("Bạn trả lời: ${displayKeys(item.yourAnswers)}")
-                if (!item.isCorrect) Text("Đáp án đúng: ${displayKeys(item.correctAnswers)}")
-            }
-            item.explanation?.takeIf { it.isNotBlank() }?.let {
-                Text("Giải thích: $it", style = MaterialTheme.typography.bodyMedium)
-            }
-            val details = buildList {
-                add("Điểm: ${item.scoreEarned}")
-                if (item.isLate) add("Trả lời muộn")
-                item.timeTakenSeconds?.let {
-                    add("${String.format(Locale.getDefault(), "%.2f", it)} giây")
-                }
-            }.joinToString(" • ")
-            Text(details, style = MaterialTheme.typography.bodySmall)
-        }
-    }
-}
-
-@Composable
-internal fun ReviewOptionRow(item: GameReviewItem, option: PublicAnswerOption) {
-    val key = option.id.normalized()
-    val isMine = item.yourAnswers.any { it.normalized() == key }
-    val isCorrect = item.correctAnswers.any { it.normalized() == key }
-    val marker = when {
-        isCorrect && isMine -> "✓ Bạn chọn • Đáp án đúng"
-        isCorrect -> "✓ Đáp án đúng"
-        isMine -> "✕ Bạn chọn"
-        else -> ""
-    }
-    Text("${option.text ?: option.id}${if (marker.isBlank()) "" else " — $marker"}")
-}
-
-private fun displayKeys(values: List<String>): String =
-    values.takeIf { it.isNotEmpty() }?.joinToString(", ") ?: "Không có"
-
-private fun String.normalized(): String = trim().lowercase()
-
 
 // Preview-only fixtures; never used by the runtime result/review flow.
 private fun previewFinalResult() = FinalResultUiState(
