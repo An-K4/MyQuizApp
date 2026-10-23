@@ -8,7 +8,7 @@
 - **N24.5** là bổ sung contract/state machine cho **N22–N24 (Player Classic/host-paced)**. Không đổi tên hoặc mở lại toàn bộ các mốc lịch sử đã hoàn thành; không thêm N51 hay dồn thay đổi nghiệp vụ vào một checkpoint UI-only.
 - N46.22–N46.25 đã polish câu hỏi/feedback/tổng kết giữa câu và countdown. N24.5 tận dụng layout này để nhận dữ liệu thật, không thiết kế lại toàn luồng.
 - Liên quan **N21** (Host), **N26–N29** (self-paced), **N25/N44/N47** (regression/E2E). Sự liên quan không có nghĩa mọi blocker của các N này đã được sửa.
-- Tiến trình: đã triển khai/commit N24.5 `14fb62f`, user báo test xanh và happy case bước đầu ổn. Còn verify ma trận ngoài happy case; sau đó audit **câu cuối → game ended → kết quả cuối Host/Player → entry xem lại/Home**, xin duyệt scope UI riêng. lỗi max streak (N24.5 mục 9) được ghi backlog, không tự gộp fix vào N24.5.
+- Tiến trình: N24.5 logic đã commit `14fb62f`, UI badge/điểm câu `fc70509`; chung cuộc Host/Player và Chơi thử local đã polish, sau đó Player/Host 4 mode và review online hoàn tất phần triển khai tới `346230b` (N46_UI_PROGRESS mục 5e). Không audit lại final/4 mode như chưa làm. Verification ngoài happy case và lỗi max streak mục 9 vẫn riêng/mở; handoff docs mới là Code_Walkthrough, không mở rộng N24.5.
 
 ## 2. Baseline và bằng chứng
 

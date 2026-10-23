@@ -2,7 +2,7 @@
 
 > **Tài liệu cấu trúc dự án chi tiết**  
 > Mô tả vai trò, trách nhiệm và mối quan hệ giữa các module trong kiến trúc Multi-module Gradle  
-> **Version:** 2.28 | **Last Updated:** N46 WIP đến countdown chung (source local main b005df3; N24.5 PLANNED; N44 PARTIAL)
+> **Version:** 2.29 | **Last Updated:** checkpoint gameplay/review Android local main `346230b`; N24.5 IMPLEMENTED, N44 PARTIAL/N46 WIP
 
 ---
 
@@ -23,6 +23,8 @@
 7. [Best Practices](#7-best-practices)
 
 ---
+
+> **Cách dùng cho onboarding:** đây là bản đồ module/kiến trúc và repository lookup, chưa phải walkthrough toàn app đã đối chiếu từng symbol. Một số tree/example/dependency table bên dưới giữ lịch sử hoặc minh họa; không xem tên file trong sơ đồ là inventory chắc chắn. Source tại local main đã xác minh là chuẩn; đọc AGENTS trước, progress 5e cho trạng thái. Nhiệm vụ tạo Code_Walkthrough.md nằm ở CODE_WALKTHROUGH_HANDOFF_PROMPT.md (file walkthrough chưa được tạo trong đợt này).
 
 ## 1. Tổng quan dự án
 
@@ -447,7 +449,7 @@ core/ui/
 └── build.gradle.kts
 ```
 
-Tree core:ui nền tảng từ main `7178588`; baseline tổng thể hiện local main `b005df3`, source không nằm trên docs không có nghĩa chưa tồn tại. Các thay đổi room/lobby ở `c5ced7a`/`cc3b1c4` giữ shared config controls và BOM, không nâng SDK/AGP. `d72fcf6` mở rộng AnswerOptionItem feedback; `b005df3` thêm `core/ui/src/main/java/android/kma/myquizzapp/core/ui/components/GameStartCountdown.kt`: Content stateless, convenience overload giữ ScrollState; clock/phase/navigation do Screen. Host/Player/Preview dùng chung; 4 shared Preview và 9 test tổng 3 module đã viết, chưa xác minh run. Xem `N46_UI_PROGRESS.md` mục 5b. Private result domain/event/snapshot **N24.5 mới là kế hoạch**, chưa tồn tại trong baseline client.
+Tree core:ui nền tảng từ main `7178588`, countdown `b005df3`; checkpoint mới `346230b` không thêm module. `GameStartCountdown.kt` dùng chung Host/Player/Preview; Screen giữ clock/phase/navigation. N24.5 đã tích hợp tại `14fb62f`/`fc70509`, không còn PLANNED. `1e89275`: RemoteImage overlay fallback Compose trắng/logo app giữa, Avatar person fallback, QuestionImage ẩn khi không có URL; logo gốc core:ui quiz_brand_logo + app app_logo alias. ComponentColors internal không import xuyên module; dùng public token hoặc màu cùng feature. Evidence lịch sử riêng, không mặc định visual/build PASS hiện tại.
 
 #### UiText Pattern (minh họa, không phải inventory source)
 ```kotlin
@@ -837,7 +839,7 @@ dependencies {
 
 **Inventory bổ sung đã đối chiếu N46 (`b005df3`):** trong `feature/game-player/src/main/java/android/kma/myquizzapp/feature/game_player/presentation/` có `ClassicQuestionContent.kt`, `ClassicQuestionPresentation.kt`, `ClassicResultsContent.kt`, `ClassicResultsPresentation.kt`; Screen/UiState/ViewModel giữ orchestration. Classic 4 types + IME viewport, feedback inline 2s → summary gọn không route mới, default results 5s không ghi đè explicit config. Initial Connecting/Countdown dùng shared GameStartCountdown, không UI cũ. Đây là bổ sung actual-file inventory cho sơ đồ chức năng bên dưới, không suy tên component trong sơ đồ thành file mới.
 
-**Chưa triển khai:** private question:personal-results/game:state.personal_result của backend #21; kế hoạch model/mapper/reducer/UI N24.5 ở `N24_5_CLASSIC_PERSONAL_RESULTS_PLAN.md`. Không coi source hiện tại có current streak/điểm câu Classic thật. Self-paced/final-result contract hiện có giữ riêng, FinalResult UI chưa polish.
+**Đã triển khai sau sơ đồ baseline:** N24.5 private question:personal-results/game:state.personal_result tại `14fb62f`, badge current streak/điểm câu `fc70509`; Player self-paced `97d3da1` thêm SelfPacedQuestionContent.kt/Presentation.kt. `346230b`: GameViewModel.selectOption → submit ngay cho multiple_choice ở Classic/self-paced; multi/text vẫn explicit, ACK uncertainty không resend, Next không đổi. GameViewModel ghi reviewQuestionTypes từ QuestionStarted/restore → PlayerGameSessionUseCase.saveResult → StoredGameResult trong RAM để review không đoán type. FinalResult UI đã polish ở các commit sau, xem progress 5d/5e.
 
 **📦 Module Type:** `com.android.library`
 
@@ -935,7 +937,7 @@ dependencies {
 
 ### 3.5 `:feature:game-host` - Host Control Console
 
-**Inventory bổ sung đã đối chiếu N46:** `feature/game-host/src/main/java/android/kma/myquizzapp/feature/game_host/presentation/hostgame/HostClassicQuestionContent.kt` và `HostClassicQuestionPresentation.kt` đi cùng HostGameScreen/UiState/ViewModel/Intent. Classic có 2 layout: active progress trước question card có ảnh/reveal gộp; results chỉ chart lựa chọn + full board theo config, bỏ question card/tracker. Text không chart. Parser ở core:network xử lý nested stats/distribution multi-select. UNKNOWN/Countdown dùng shared preparing shell mới. Không redesign self-paced/final result; #21 cần regression Host nhưng private result chỉ dành Player, chưa tích hợp Android.
+**Inventory bổ sung:** HostClassicQuestionContent.kt/Presentation.kt vẫn nhánh Classic active/results. `97d3da1` sửa countdown self-paced sang theo phase/progress thật; `79cca21` thêm HostSelfPacedContent.kt/Presentation.kt trong presentation/hostgame cho cả Solo/Survival/Marathon/Practice, HostGameScreen/UiState/ViewModel giữ orchestration. `da248c8` đã polish finished branch + REST recovery-only. Không dựng 4 route độc lập hoặc dùng deadline câu Classic cho self-paced. Private N24.5 chỉ dành Player, Host không đọc private payload.
 
 **📦 Module Type:** `com.android.library`
 
@@ -1004,6 +1006,8 @@ dependencies {
 ---
 
 ### 3.6 `:feature:leaderboard` - Rankings & Results
+
+**Bổ sung tới `346230b`:** chung cuộc Player `eb5b754`, bảng mở rộng bỏ ID đang trên podium `fb6e123`; `76b8585` thêm OnlineReviewContent.kt/OnlineReviewPresentation.kt trong presentation (ảnh/answer card read-only/text/explanation/màu trạng thái), FinalResultScreen mở review inline. `346230b`: FinalResultContract/VM nhận reviewQuestionTypes từ StoredGameResult; card mapper chỉ bỏ nhãn “Bạn đã chọn” khi biết single-choice thật và đủ feedback, multi/unknown vẫn giữ. API review không trả type. Review cá nhân có token/gate/loading riêng, không room stats và không cùng endpoint lịch sử. Không gọi REST results nếu còn transient ended.
 
 **📦 Module Type:** `com.android.library`
 
@@ -1176,8 +1180,8 @@ dependencies {
 - Namespace/package: `android.kma.myquizzapp.feature.quiz_preview`. Contract/scoring/presentation/Screen/ViewModel nằm trực tiếp trong package; **domain/usecase/LoadQuizPreviewUseCase.kt đã có thật từ N46.12**, không dựng data/presentation tree giả.
 - `PreviewContract.kt`: `PreviewPhase`, `QuizPreviewUiState`, intent/effect, `PreviewQuestionResult`.
 - `PreviewScoring.kt`: evaluator thuần Kotlin cho 4 types; multiple-select exact set, text trim/case-insensitive, key thiếu không crash; điểm ước tính Classic mặc định, đúng muộn chỉ 900 không bonus.
-- `domain/usecase/LoadQuizPreviewUseCase.kt`: đọc quiz và owner qua QuizRepository/SessionRepository interfaces; không room/submission/result mutation. `QuizPreviewViewModel.kt` inject Use case + SavedStateHandle, countdown 3 giây, timer monotonic, local grade, skip/late và **Next thủ công**, restart/exit/edit; không còn direct Repository injection hoặc auto-next 2/4s.
-- `QuizPreviewScreen.kt`: Screen wrapper giữ navigation/focus/scroll/dialog, Content stateless; top bar Chơi thử, X Skip/back Exit, score badge, 4 loại inputs, hint→explanation, timer progress đỏ ≤30%/ẩn khi untimed. Correct key xanh, sai đã chọn đỏ; Edit owner-only pop Preview trước editor. `QuizPreviewPresentation.kt` chứa feedback/time/primary-label helpers thuần.
+- `domain/usecase/LoadQuizPreviewUseCase.kt`: đọc quiz qua repository boundary; `QuizPreviewViewModel.kt` giữ countdown, timer monotonic, local grade, skip/late, Next thủ công, restart/exit. `8844666` đã bỏ nút Edit Quiz và ownership/edit intent/effect/nav chỉ phục vụ nó; không ảnh hưởng editor nơi khác.
+- `QuizPreviewScreen.kt`: wrapper giữ navigation/focus/scroll/dialog, Content stateless; `8844666` summary/review tái dùng question/answer/ảnh/explanation UI mới, màu correct/incorrect/skip và selectedOptionIds snapshot. Single-choice không lặp “Bạn trả lời”; multi-select giữ bộ đã gửi. Chơi lại/Thoát, không edit; local scoring khác điểm trận server.
 - Tests: `PreviewScoringTest.kt` (8), `QuizPreviewPresentationTest.kt` (8), `QuizPreviewViewModelTest.kt` (12) = **28 XML PASS local**; scoring/key/types/late/untimed/critical threshold/manual Next/skip/load guards. Không thay E2E multiplayer Practice pause/resume.
 - Không room/host/socket/history/play-count; không dùng nguyên `GamePlayScreen`. Không thay đổi server-authoritative của multiplayer; điểm preview không phải kết quả trận thật.
 
@@ -1679,9 +1683,9 @@ MyQuizApp được xây dựng với **14 modules** theo **Clean Architecture + 
 
 ---
 
-**Document Version:** 2.28
-**Last Updated:** N46 WIP đến countdown chung (source Android local main b005df3; N24.5 PLANNED)
-**Status:** Living document — baseline local main `b005df3`; targeted docs sau `7b6fd82`, không thêm module (vẫn 14). N46.22–25 + Preview IME đã commit/user duyệt UI; scoped Host PASS user báo, không có full run/log/XML gắn SHA cuối. N24.5 backend #21 (`0c5908f` local) mới là kế hoạch, client chưa tích hợp/deployment chưa xác nhận. Evidence lịch sử không cộng trùng. N44 PARTIAL, N45/M6/release và Google/cookie/backend/privacy/session/deployment gates giữ nguyên. Xem N46_UI_PROGRESS.md/N24_5_CLASSIC_PERSONAL_RESULTS_PLAN.md/N44_E2E_REPORT.md/N46_HANDOFF_PROMPT.md.
+**Document Version:** 2.29
+**Last Updated:** Android local main `346230b`; targeted cập nhật gameplay/review, không tái-audit mọi tree/example cũ.
+**Status:** Living document — N24.5 và gameplay/final/review polish đã triển khai/commit tới `346230b`; module count giữ nguyên. User báo ổn rồi commit, agent chưa xác minh XML rerun xanh/full lint/CI/E2E hoặc backend deployment. N44 PARTIAL/N46 WIP và các backend/privacy/session/release gates giữ mở. Xem progress 5e; prompt tạo walkthrough ở CODE_WALKTHROUGH_HANDOFF_PROMPT.md. Các section lịch sử chưa refresh không được dùng để phủ định checkpoint này.
 
 ---
 

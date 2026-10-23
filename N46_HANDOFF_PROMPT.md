@@ -1,10 +1,10 @@
-# Prompt bàn giao — sau chung cuộc Classic/Chơi thử, audit UI 4 mode còn lại
+# Prompt bàn giao — sau polish gameplay 5 mode và review online
 
-> Sao chép phần từ “Bạn tiếp nhận…” bên dưới vào phiên mới. Local main `8844666` đã commit tổng kết/review Chơi thử sau Classic summary và chung cuộc Host/Player. Trạng thái hiện hành ở progress mục 5d; kiểm tra lại refs, không tự checkout/commit. CI xanh do user báo ở đợt trước Chơi thử, chưa đối chiếu run SHA/log hoặc xác nhận CI của `8844666`.
+> Checkpoint local main `346230b`; progress hiện hành mục 5e. Đây là ngữ cảnh để tiếp tục source khi user giao scope mới, không lệnh audit lại 4 mode. Nhiệm vụ mới nhất là tạo tài liệu onboarding theo CODE_WALKTHROUGH_HANDOFF_PROMPT.md trên docs; không tự checkout/commit hoặc sửa source.
 
 ---
 
-Bạn tiếp nhận công việc **audit và lập kế hoạch polish UI cho 4 mode online còn lại: Solo, Survival, Marathon, Practice** của MyQuizApp. Classic và ba màn chung cuộc đã polish; không triển khai lại. User muốn xử lý 4 mode trong một đợt: audit đủ Host/Player, báo bảng so sánh và kế hoạch trước khi sửa source; không mặc định mọi khác biệt nghiệp vụ phải giống Classic. Lỗi max streak và backend blockers vẫn scope riêng.
+Bạn tiếp nhận MyQuizApp sau đợt polish Classic, chung cuộc Host/Player/Chơi thử local, Player và Host self-paced Solo/Survival/Marathon/Practice, ảnh fallback và review cá nhân online. Các phần này đã commit, không lập kế hoạch lại như chưa triển khai. Hiện user muốn agent mới đọc docs + code thật và tạo Code_Walkthrough.md: dùng prompt chuyên trách CODE_WALKTHROUGH_HANDOFF_PROMPT.md. Nếu user giao source mới, audit đúng phạm vi rồi xin duyệt; backend fixes đang deferred, không workaround bằng client. Max streak và verification/release gates còn riêng.
 
 Dự án local:
 `E:\Adr_Projects\MyQuizApp`
@@ -23,7 +23,7 @@ Kết nối:
 
 Đọc theo thứ tự:
 1. **AGENTS.md** — quy ước, phối hợp và bài học.
-2. **N46_UI_PROGRESS.md** — nguồn bàn giao chính; checkpoint mới mục **5d**, mục 5a/5b giữ lịch sử, evidence/backlog mục 6.
+2. **N46_UI_PROGRESS.md** — nguồn bàn giao chính; checkpoint mới mục **5e**, mục 5a–5d giữ lịch sử, evidence/backlog mục 6. **CODE_WALKTHROUGH_HANDOFF_PROMPT.md** — yêu cầu tài liệu onboarding hiện tại.
 3. **N24_5_CLASSIC_PERSONAL_RESULTS_PLAN.md** — contract/phạm vi, checkpoint thực tế mục 8 và lỗi phát hiện thêm chưa rõ nguyên nhân ở mục 9; rồi **myquizz-review-backend-ke-hoach-50-ngay.md** — trạng thái N24.5/N44–N46 và backlog; **BACKEND_BUG_REPORT.md** — BUG-13 còn mở, không phân loại lỗi max streak là lỗi backend.
 4. **project_structure.md** — cấu trúc/vị trí code hiện tại.
 5. **quiz-app-android-design-document-v2.md** — tham khảo, không phải contract tuyệt đối.
@@ -32,7 +32,7 @@ Nếu tài liệu mới nhất chưa commit/không đọc được, báo tôi. K
 
 ## 2. Điểm bàn giao
 
-Baseline source mới: **local main `8844666`**. N24.5 logic `14fb62f` đã có; UI kế tiếp `fc70509` → `eb5b754` → `da248c8` → `fb6e123` → `8844666`. Không suy remote/APK/backend deployment revision từ local ref.
+Baseline source mới: **local main `346230b`**; docs base trước đợt cập nhật `f4d829e`. N24.5/final/local preview bên dưới giữ lịch sử; sau đó `97d3da1` → `79cca21` → `1e89275` → `76b8585` → `346230b`. Không suy remote/APK/backend deployment revision từ local ref.
 
 Các commit đã thêm:
 - `463248a`: Player Classic question/4 types/IME.
@@ -49,7 +49,7 @@ Các commit đã thêm:
 
 Các quyết định UI trước đó vẫn giữ theo N46_UI_PROGRESS; user duyệt mắt thường không thay thế test toàn diện. N44 PARTIAL/N46 WIP, N45/M6/release chưa chốt; privacy/presence/session/Practice và Google/cookie DEFERRED giữ nguyên.
 
-**Trạng thái mới:** các phần trên đã commit; không quay lại xin duyệt final-result như chưa triển khai. Bước tiếp là audit 4 mode ngoài Classic theo progress mục 5d. Verification còn mở của N24.5 và lỗi max streak mục 9 giữ riêng; không tự coi đã sửa. BUG-13/deployment/privacy/E2E/release gates giữ mở.
+**Trạng thái mới:** 4 mode không còn chờ audit/polish lần đầu. Single-choice chạm-là-gửi, multi/text explicit; manual Next giữ server; review known single bỏ nhãn thừa, unknown/multi giữ. Host không nhận private result của Player; review online khác history/local Preview. Việc tiếp theo là Code_Walkthrough, không sửa source. Verification N24.5/max streak/BUG-13/deployment/privacy/E2E/release giữ mở.
 
 ## 3. Những quyết định cuối cần giữ
 
@@ -111,7 +111,7 @@ Với màn tiếp theo:
 
 ## 6. Kiểm chứng: không tự nâng trạng thái
 
-- Checkpoint mới `8844666`: user đã duyệt UI; 6 test Chơi thử mới chưa xác minh run, agent không chạy Gradle/render. User báo GitHub CI xanh **trước đợt Chơi thử**; chưa đối chiếu run SHA/log và không gán PASS cho `8844666`. `git diff --check` sạch trước commit. Evidence N24.5 cũ dưới đây giữ lịch sử, không thay thế gate hiện tại.
+- Checkpoint mới `346230b`: user báo ổn sau sửa 2 test rồi commit và về docs; local main ref đã xác minh. Agent không đọc XML rerun xanh/không chạy Gradle/render, không khẳng định full command/CI/E2E PASS. Hai test sửa kỳ vọng auto-submit và timing Submitted/Results qua deferred ACK, không nới production guards. Evidence `8844666` và trước đó dưới đây là lịch sử.
 
 - Agent **không chạy Gradle/render Compose**. Checkpoint mới N24.5 `14fb62f`: user báo test xanh sau fix fixture text-answer (không nới guard production) và happy case bước đầu ổn. XML lượt FAIL trước fix đã đọc (Player 99 tests/1 failure); chưa đọc log/XML rerun xanh. Không khẳng định số PASS sau rerun, full lint/CI/E2E hoặc deployed revision. Lượt Host scoped PASS/countdown duyệt mắt thường ở `b005df3` là evidence lịch sử, không phải run mới.
 - 88 PASS practice/editor (11/10) và 56 PASS history/lobby/HostGame/DTO (15/10) là evidence lịch sử **khác lượt/phạm vi**, không cộng thành full run. 41 PASS app XML cũ không đóng regression security dialog 7 case.
@@ -120,7 +120,7 @@ Với màn tiếp theo:
 - Nếu cần bổ sung evidence, đề xuất user chạy trên **main** rồi đọc report, không tự đánh PASS:
 
 ```powershell
-.\gradlew.bat :core:common:testDebugUnitTest :core:network:testDebugUnitTest :feature:game-player:testDebugUnitTest :feature:game-host:testDebugUnitTest :feature:lobby:testDebugUnitTest :app:assembleDebug
+.\gradlew.bat :core:common:testDebugUnitTest :core:network:testDebugUnitTest :feature:game-player:testDebugUnitTest :feature:leaderboard:testDebugUnitTest :feature:game-host:testDebugUnitTest :feature:lobby:testDebugUnitTest :app:assembleDebug
 ```
 
 - Giữ backlog regression shared config/CreateRoom/Host sheet, reconnect/retry/leave/game-start/clipboard/roster/avatars/narrow/IME, security dialog, Discover Paging snapshot và toàn bộ release gates. Không tự mở rộng sửa tất cả backlog khi đang nhận một màn UI.

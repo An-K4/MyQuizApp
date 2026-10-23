@@ -1,11 +1,11 @@
 # N46 — UI polish theo từng mốc nhỏ (WIP)
 
-> **Checkpoint hiện tại — local main `8844666`:** logic N24.5 tại `14fb62f`; sau đó đã commit UI streak/điểm câu Classic `fc70509`, chung cuộc Player `eb5b754`, chung cuộc Host + REST recovery `da248c8`, loại trùng podium khỏi bảng hạng mở rộng Host/Player `fb6e123`, và tổng kết/review Chơi thử local `8844666`. Luồng chơi online mới chỉ được polish riêng cho Classic; Solo/Survival/Marathon/Practice chưa audit/polish UI riêng đầy đủ, dù có dùng component chung. Chơi thử local không phải Solo/Practice online. User báo GitHub CI xanh sau đợt bảng hạng, trước đợt Chơi thử; chưa đối chiếu run SHA/log, không suy thành CI xanh của `8844666` hoặc E2E/release PASS. Agent chưa chạy Gradle/render Compose. N44 PARTIAL, N46 WIP; N45/M6/release, BUG-13, lỗi max streak và các gate cũ giữ mở. Tiếp theo: user commit docs rồi checkout main; audit chung 4 mode còn lại, báo bảng khác biệt/kế hoạch trước khi sửa source. Chi tiết ở `N46_UI_PROGRESS.md` mục 5d và `N46_HANDOFF_PROMPT.md`.
+> **Checkpoint hiện tại — local main `346230b`:** đã commit Player self-paced 4 mode `97d3da1`, Host monitoring 4 mode `79cca21`, fallback ảnh có logo app + Discovery card `1e89275`, review cá nhân online dùng answer card mới `76b8585`, và single-choice chạm-là-gửi + bỏ nhãn thừa trong review `346230b`. Classic/chung cuộc Host–Player/Chơi thử local trước đó vẫn giữ. User báo ổn sau sửa 2 test rồi commit/checkout docs; agent đã xác minh local main ref, không tự chạy Gradle/render hoặc xác nhận full CI/E2E. N44 PARTIAL, N46 WIP; backend/privacy/session/deployment, BUG-13, max streak và release gates vẫn mở. Không audit lại 4 mode như chưa polish; bước bàn giao mới là tài liệu onboarding/code walkthrough, xem mục 5e và CODE_WALKTHROUGH_HANDOFF_PROMPT.md.
 > N46 được triển khai từng phần theo user duyệt, không làm một mạch toàn app. N44 vẫn PARTIAL, N45/M6 và release gates chưa đóng; xem `N44_E2E_REPORT.md`.
 
 ## 1. Cách đọc trạng thái
 
-- Trạng thái hiện hành ở mục **5d**; các mục 5a–5c và mô tả mốc cũ là lịch sử, không dùng câu “chưa polish/chưa có edit removal” tại đó để ghi đè checkpoint `8844666`.
+- Trạng thái hiện hành ở mục **5e**, checkpoint `346230b`; các mục 5a–5d và mô tả mốc cũ là lịch sử. Không dùng câu “chưa polish/chưa có edit removal” tại đó để phủ định source đã commit hoặc mở lại kế hoạch 4 mode.
 
 - “Đã triển khai/commit” chỉ xác nhận source có trên main.
 - “User duyệt UI” không thay thế build, lint, unit test, Compose UI test hoặc E2E.
@@ -396,7 +396,7 @@ Backend local `0c5908f` (#21) đã được tích hợp client tại `14fb62f`. 
 - Lượt Chơi thử: `git diff --check` sạch trước commit; 6 test bổ sung là test source, chưa xác minh run. Agent không chạy Gradle/render Compose; không tự tick lint/build/CI mới, dark/large-font/TalkBack hoặc E2E toàn mode.
 - BUG-13, max streak ở tổng kết/lịch sử (plan N24.5 mục 9), Practice pause/resume, presence/public REST privacy/session/token/deployment và N25/N44/N45/M6/release vẫn mở.
 
-### Bước tiếp: audit/polish 4 mode online còn lại trong một đợt
+### Kế hoạch lịch sử sau `8844666` — đã triển khai ở mục 5e
 
 | Mode | Cần audit trước khi chốt UI |
 |---|---|
@@ -405,10 +405,42 @@ Backend local `0c5908f` (#21) đã được tích hợp client tại `14fb62f`. 
 | Marathon | Tiến độ/deadline theo mode, câu lặp/thứ tự Player, feedback/manual next và terminal; không nhầm thống kê lượt với số người hay sequence canonical. |
 | Practice / Luyện tập | Luồng self-paced, feedback/review, config hiển thị, không dựng điểm/bảng hạng cạnh tranh; audit pause/resume/reconnect với blocker N29 đang mở. |
 
-- Đây là **polish riêng chưa hoàn tất**, không phải các mode chưa có implementation: nền feature N26–N29 đã tồn tại, một số shell/component chung đã mới.
-- User muốn xử lý cả 4 mode trong một đợt; trước hết đọc source/contract đúng revision và ảnh phù hợp, audit đủ Host + Player từ initial/loading tới reconnect/pause/terminal/review/exit. Báo bảng “hiện tại → hướng polish”, phần dùng chung/đặc thù, gap backend và quyết định cần chốt; sau khi user duyệt mới sửa theo cụm có Preview/regression.
+- Tại checkpoint `8844666`, đây là polish riêng chưa hoàn tất. Kế hoạch dưới đây giữ làm lịch sử; Player/Host 4 mode đã triển khai ở mục 5e, không dùng nó để mở lại công việc đã xong.
+- Kế hoạch lúc đó: xử lý 4 mode trong một đợt, đọc source/contract và ảnh đúng revision, audit cả Host/Player rồi xin duyệt trước khi sửa. Đợt triển khai đã hoàn thành/commit ở 5e; backlog backend và verification không tự đóng.
 - Không bê Classic 2s/summary/manual-next/rank/score/streak rules sang mode khác; không biến Chơi thử local thành Solo/Practice online. Giữ stateful Screen/stateless Content và không feature → feature.
 - Không đổi số N47–N50; không đóng N46 tổng thể hoặc release gates. Sau docs, user commit rồi checkout main; agent không tự checkout/commit/push/merge.
+
+## 5e. Self-paced 4 mode, ảnh fallback và review online — checkpoint `346230b`
+
+### Source đã commit và scope
+
+| Local main | Phạm vi đã làm / điều cần giữ |
+|---|---|
+| `97d3da1` | Player Solo/Survival/Marathon/Practice dùng SelfPacedQuestionContent/Presentation mới: câu/ảnh/4 inputs, feedback/điểm/streak theo server, Next theo config, confirm exit; Survival lives/terminal, Marathon deadline cá nhân và tiến độ lượt không kiểu 11/10, Practice không score/rank cạnh tranh. Đã sửa crash text input Solo và Host countdown self-paced bị kẹt bằng phase/progress thật. Không đổi backend. |
+| `79cca21` | HostSelfPacedContent/Presentation: dashboard theo tiến độ Player cho cả 4 mode trong HostGameScreen hiện có; không copy question-loop Classic. Config/controls/reconnect/terminal giữ authority server; lives/streak chỉ hiện khi có dữ liệu thật. |
+| `1e89275` | RemoteImage missing/loading/error fallback trắng + logo app gốc ở giữa, AsyncImage nằm trong Box; Avatar person fallback; QuestionImage thiếu URL không tạo block, có URL giữ tỉ lệ. Logo chuyển sang core:ui quiz_brand_logo, app_logo alias giữ tương thích. Discovery card chừa chỗ tag chủ đề khi thiếu, title 1 dòng ellipsis để đều chiều cao. |
+| `76b8585` | Review cá nhân online sau FinalResult mở inline bằng nút “Xem lại chi tiết từng câu trả lời”, không route mới/không room stats. OnlineReviewContent + Presentation dùng bộ answer card read-only, màu đúng/sai/bỏ qua, ảnh và giải thích, nội dung text riêng; Practice không điểm, Marathon không dùng finite bank denominator. Đã sửa import màu internal xuyên module, dùng historyDetailColors cùng feature. |
+| `346230b` | Câu single-choice Classic + 4 mode self-paced chạm-là-gửi; khóa đồng bộ trước coroutine, không double send. Multi-select/text giữ Gửi. Manual/auto Next vẫn theo server; ACK timeout sync, không tự resend. Review bỏ “Bạn đã chọn” chỉ với loại single-choice thật và đủ feedback; multi/unknown/thiếu key giữ caption. |
+| `346230b` | Type thực từ QuestionStarted/snapshot lưu vào RAM reviewQuestionTypes qua PlayerGameSessionUseCase/StoredGameResult → FinalResult state → mapper/card. API review hiện không trả type; không đoán từ số selected/correct keys, không sửa DTO giả/backend. Chỉ nhớ các câu đã nhận trong VM; câu thiếu metadata sau restore vẫn giữ caption. |
+
+### Luồng file tra nhanh (đã đối chiếu đợt này, không phải walkthrough toàn app)
+
+- Player: `feature/game-player/.../presentation/GamePlayScreen.kt` → `SelfPacedQuestionContent.kt` + `SelfPacedQuestionPresentation.kt`; Intent → `GameViewModel.kt` (selectOption/submit/restore/finish) → `domain/PlayerGameSessionUseCase.kt` → repository interfaces ở core:common, impl ở core:network.
+- Host: `feature/game-host/.../presentation/hostgame/HostGameScreen.kt` → Classic hoặc `HostSelfPacedContent.kt` + `HostSelfPacedPresentation.kt`; `HostGameViewModel.kt`/UiState giữ lifecycle, socket và terminal/recovery.
+- Review: `core/common/.../repository/GameResultRepository.kt` (StoredGameResult) → `feature/leaderboard/.../presentation/FinalResultViewModel.kt`/Contract → `FinalResultScreen.kt` → `OnlineReviewContent.kt` → `OnlineReviewPresentation.kt`; loading/gate/token vẫn luồng cũ. Đây là review cá nhân sau trận, khác lịch sử mở lại bằng danh tính bền vững và khác Chơi thử local.
+
+### Evidence / việc vẫn mở
+
+- User đã review các lượt UI, báo các mode còn lại ổn; sau sửa 2 test báo “ổn”, commit và checkout docs. Đã xác minh local main `346230b`, docs working tree sạch trước cập nhật. Không suy remote/push/deployment/APK từ local refs.
+- Lượt test user gửi trước fix: game-player 136 tests, 2 fail do expectation test cũ/sai thời điểm ACK. Đã đọc XML: một test còn đợi explicit submit, một test đợi Submitted sau ACK trong khi reducer sang Results. Fix trong `346230b` dùng deferred ACK, kiểm tra trước/sau ACK, single send và không auto Next. Agent chưa đọc XML rerun xanh; không đánh dấu toàn command/CI PASS chỉ từ user báo ổn.
+- Tests đã bổ sung cho mapping review, metadata handoff, tap-submit/double tap, uncertain ACK và multi/text explicit submit. Agent không chạy Gradle, render Compose, lint hoặc E2E đầy đủ. Git diff --check trước source commit sạch; không cộng test-source thành số PASS.
+- Backend sửa deferred theo user; không đụng backend trong đợt UI. Practice pause/resume, self-paced timeout/progress, Marathon timeout/loop, presence, public REST privacy, token/deployment, BUG-13, max streak, N44/N45/M6/release giữ mở; đối chiếu bug report/plan trước khi retest, không hứa đã sửa.
+- Dark/font scale/narrow/IME/TalkBack/contrast/shared-component regression còn cần evidence theo mục 6. Không đóng toàn N46 chỉ vì gameplay đã polish.
+
+### Việc bàn giao tiếp theo
+
+- Tài liệu onboarding hiện gần nhất là project_structure.md (module/dependency/repository lookup), AGENTS.md (quy ước/traps), roadmap/progress (trạng thái), knowledgement (giải thích theo mốc). Chưa có file Code_Walkthrough.md hoặc tài liệu toàn app đồng nhất feature → file → symbol/block → dữ liệu → tests.
+- Dùng `CODE_WALKTHROUGH_HANDOFF_PROMPT.md` cho agent mới audit docs + main thực tế và tạo root `Code_Walkthrough.md` trên docs. Không tự sửa source hoặc mở lại UI; các sơ đồ cũ trong project_structure/design phải được xác minh, không copy thành inventory hiện hành.
 
 ## 6. Checklist evidence và việc còn mở
 
@@ -426,7 +458,7 @@ Backend local `0c5908f` (#21) đã được tích hợp client tại `14fb62f`. 
 - [ ] Debt editor hiện hữu: domain QuizDraft/Create–Update assets use cases còn dùng presentation QuestionDraft/toNewQuestion; chưa chuyển model/mapper qua boundary trong đợt UI này.
 - [ ] Đối chiếu schema API với DDL/runtime backend khi retest lưu: audit `7c103c8` có API description ≤500, language không enum; DDL gốc 002_quizzes.sql khai description varchar(255), language varchar(50). Chưa xác minh DB triển khai/migration tương ứng; không coi API cho phép chuỗi tự do là độ dài vô hạn hoặc tuyên bố runtime bug đã tái hiện.
 - [ ] E2E Chơi thử 4 types/skip/late/key thiếu/manual Next; Create/Edit lưu → mở lại, prefill ảnh/đáp án/custom duration, lỗi upload/retry, IME/back/rotation trong Photo Picker.
-- [ ] Chốt dark/accessibility và regression shared components; ba chung cuộc đã polish tới `8844666` (mục 5d), không audit lại như chưa làm. Tiếp theo audit 4 mode ngoài Classic; max streak vẫn backlog riêng.
+- [ ] Chốt dark/accessibility và regression shared components; gameplay/final/review đã polish tới `346230b` (mục 5e), không audit lại như chưa làm. Backend/max streak và verification vẫn backlog riêng; nhiệm vụ docs tiếp theo là Code_Walkthrough.
 - [ ] Các màn khác, animation, sheet dark-mode và accessibility toàn app còn mở; N46 chưa hoàn tất.
 - [ ] N44-OFFLINE-BOOT, Practice pause/resume, N20.6/N25/N28.5/N29/N30, privacy/session và build/deployment gates giữ trong hồ sơ N44, không waived bởi UI polish.
 
