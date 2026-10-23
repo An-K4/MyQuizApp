@@ -179,6 +179,20 @@ class FinalResultViewModelTest {
         assertNotNull(viewModel.uiState.value.result)
     }
 
+    @Test
+    fun `review keeps exact server question types from the transient game result`() = runTest(dispatcher) {
+        val types = mapOf(10L to "multiple_choice", 11L to "multiple_select")
+        val stored = StoredGameResult(7, 9, GameEnded(reviewEnabled = true), GameMode.SOLO, "token",
+            reviewQuestionTypes = types)
+        val vm = viewModel(FakeResultRepository(stored), FakeGameSessionRepository())
+        assertEquals(types, vm.uiState.value.reviewQuestionTypes)
+        vm.handleIntent(FinalResultIntent.ToggleReview)
+        runCurrent()
+        assertEquals(types, vm.uiState.value.reviewQuestionTypes)
+        assertNull(vm.uiState.value.reviewQuestionTypes[99L])
+    }
+
+
     private fun viewModel(results: GameResultRepository, games: GameSessionRepository) =
         FinalResultViewModel(
             results = results,

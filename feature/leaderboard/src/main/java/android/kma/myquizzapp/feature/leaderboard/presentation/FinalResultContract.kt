@@ -22,7 +22,9 @@ data class FinalResultUiState(
     val review: GameReview? = null,
     val isReviewVisible: Boolean = false,
     val isReviewLoading: Boolean = false,
-    val reviewError: String? = null
+    val reviewError: String? = null,
+    /** Known types from this Player's server questions, not inferred from review keys. */
+    val reviewQuestionTypes: Map<Long, String> = emptyMap()
 ) {
     val leaderboard: List<LeaderboardRow> get() = result?.leaderboard.orEmpty()
     val currentPlayer: LeaderboardRow? get() = leaderboard.firstOrNull { it.id == playerId }

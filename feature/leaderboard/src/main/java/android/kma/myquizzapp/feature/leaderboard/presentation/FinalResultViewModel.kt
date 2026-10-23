@@ -36,7 +36,8 @@ class FinalResultViewModel @Inject constructor(
             playerId = checkNotNull(savedStateHandle["playerId"]),
             mode = stored?.mode,
             result = stored?.result,
-            isResultLoading = stored == null
+            isResultLoading = stored == null,
+            reviewQuestionTypes = stored?.reviewQuestionTypes.orEmpty()
         )
     )
     val uiState = _uiState.asStateFlow()

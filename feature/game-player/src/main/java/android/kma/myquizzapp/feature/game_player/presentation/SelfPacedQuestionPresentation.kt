@@ -13,6 +13,10 @@ internal val GameUiState.selfPacedIsOnline: Boolean
 internal val GameUiState.selfPacedCanAnswer: Boolean
     get() = selfPacedIsOnline && !isPaused && !matchTimeExpired && isAnswerInputEnabled &&
         phase == GamePhaseUi.Question && !isSubmitting && !isConfirming
+internal val GameUiState.selfPacedShowsSubmitAction: Boolean
+    get() = isSelfPaced && question?.questionType in setOf("multiple_select", "short_answer", "long_answer") &&
+        (phase == GamePhaseUi.Question || phase == GamePhaseUi.Submitted)
+
 internal val GameUiState.selfPacedCanRequestNext: Boolean
     get() = shouldShowNextAction && selfPacedIsOnline && !isPaused && !matchTimeExpired && !isRequestingNext
 
@@ -96,7 +100,7 @@ internal fun selfPacedFooterText(state: GameUiState): String = when {
     state.phase == GamePhaseUi.Submitted -> "Đã gửi đáp án. Đang chờ kết quả…"
     state.phase == GamePhaseUi.Locked -> "Câu hỏi đã đóng. Đang chờ kết quả…"
     !state.isAnswerInputEnabled -> "Đã hết thời gian trả lời. Đang chờ máy chủ…"
-    state.question?.questionType == "multiple_choice" -> "Chọn một đáp án rồi bấm Gửi đáp án."
+    state.question?.questionType == "multiple_choice" -> "Chạm một đáp án để gửi ngay."
     state.question?.questionType == "multiple_select" -> "Chọn các đáp án rồi bấm Gửi đáp án."
     else -> "Nhập câu trả lời rồi bấm Gửi đáp án."
 }

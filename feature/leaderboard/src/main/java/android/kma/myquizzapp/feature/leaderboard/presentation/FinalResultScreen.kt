@@ -171,7 +171,8 @@ fun FinalResultScreenContent(
                                 item(key = "review-empty") { ResultNotice("Không có chi tiết câu trả lời để hiển thị.") }
                             }
                             items(state.reviewItems, key = { "review-${it.questionIndex}-${it.questionId}" }) {
-                                OnlineReviewItemCard(it, state.mode)
+                                OnlineReviewItemCard(it, state.mode,
+                                    questionType = it.questionId?.let(state.reviewQuestionTypes::get))
                             }
                         }
                     }
@@ -284,6 +285,7 @@ private fun PlayerFinalErrorPreview() = FinalResultPreview(previewFinalResult().
 @Composable
 private fun PlayerFinalReviewPreview() = FinalResultPreview(previewFinalResult().copy(
     isReviewVisible = true,
+    reviewQuestionTypes = mapOf(10L to "multiple_choice"),
     review = GameReview(playerScore = 9650, correctAnswersCount = 13, totalQuestions = 15, answeredCount = 15,
         items = listOf(GameReviewItem(questionIndex = 0, questionId = 10, questionText = "Quốc gia có diện tích lớn nhất thế giới?",
             answerOptions = listOf(PublicAnswerOption("A", "Canada"), PublicAnswerOption("B", "Liên bang Nga")),

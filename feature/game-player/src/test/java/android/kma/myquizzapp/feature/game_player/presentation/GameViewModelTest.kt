@@ -828,15 +828,25 @@ class GameViewModelTest {
     }
 
     @Test
-    fun `non classic single choice still waits for explicit submit`() = runTest(dispatcher) {
-        startQuestion(pacing = Pacing.SELF, mode = GameMode.SOLO)
+    fun `self paced single tap sends once and does not request the next question`() = runTest(dispatcher) {
+        startQuestion(pacing = Pacing.SELF, mode = GameMode.SOLO, autoAdvance = false)
+        socket.submitGate = CompletableDeferred()
         viewModel.onIntent(GameIntent.SelectOption("a"))
-        runCurrent()
-        assertTrue(socket.answers.isEmpty())
-        assertEquals(GamePhaseUi.Question, viewModel.uiState.value.phase)
+        viewModel.onIntent(GameIntent.SelectOption("b"))
         viewModel.onIntent(GameIntent.Submit)
         runCurrent()
-        assertEquals(1, socket.answers.size)
+        assertEquals(listOf(PlayerAnswer.SingleChoice("a")), socket.answers)
+        assertEquals(GamePhaseUi.Submitted, viewModel.uiState.value.phase)
+        assertTrue(viewModel.uiState.value.isInputLocked)
+        assertEquals(0, socket.nextCalls)
+
+        socket.submitGate!!.complete(Result.Success(AnswerAck(true, isCorrect = true, correctAnswers = listOf("a"))))
+        runCurrent()
+        assertTrue(viewModel.uiState.value.phase is GamePhaseUi.Results)
+        assertTrue(viewModel.uiState.value.isInputLocked)
+        assertTrue(viewModel.uiState.value.shouldShowNextAction)
+        assertEquals(listOf(PlayerAnswer.SingleChoice("a")), socket.answers)
+        assertEquals(0, socket.nextCalls)
     }
 
     @Test
@@ -1312,17 +1322,21 @@ class GameViewModelTest {
     }
 
     @Test
-    fun `self paced selection stays explicit and accepted ACK stores choice evidence`() = runTest(dispatcher) {
+    fun `self paced single tap sends immediately but choice evidence waits for accepted ACK`() = runTest(dispatcher) {
         startQuestion(pacing = Pacing.SELF, mode = GameMode.SOLO)
-        socket.submitResult = Result.Success(AnswerAck(true, isCorrect = true, correctAnswers = listOf("a")))
+        socket.submitGate = CompletableDeferred()
         viewModel.onIntent(GameIntent.SelectOption("a"))
         runCurrent()
-        assertTrue(socket.answers.isEmpty())
+        assertEquals(listOf(PlayerAnswer.SingleChoice("a")), socket.answers)
+        assertEquals(GamePhaseUi.Submitted, viewModel.uiState.value.phase)
+        assertTrue(viewModel.uiState.value.isInputLocked)
         assertNull(viewModel.uiState.value.acceptedAnswerKeys)
-        viewModel.onIntent(GameIntent.Submit)
+
+        socket.submitGate!!.complete(Result.Success(AnswerAck(true, isCorrect = true, correctAnswers = listOf("a"))))
         runCurrent()
         assertEquals(listOf("a"), viewModel.uiState.value.acceptedAnswerKeys)
         assertTrue(viewModel.uiState.value.phase is GamePhaseUi.Results)
+        assertEquals(1, socket.answers.size)
     }
 
     @Test
@@ -1364,6 +1378,84 @@ class GameViewModelTest {
         assertNull(viewModel.uiState.value.streak)
         assertTrue(viewModel.uiState.value.shouldShowNextAction)
     }
+
+    @Test
+    fun `all four self paced modes submit a single choice immediately`() = runTest(dispatcher) {
+        for (mode in listOf(GameMode.SOLO, GameMode.SURVIVAL, GameMode.MARATHON, GameMode.PRACTICE)) {
+            startQuestion(pacing = Pacing.SELF, mode = mode)
+            val before = socket.answers.size
+            viewModel.onIntent(GameIntent.SelectOption("a"))
+            assertTrue(viewModel.uiState.value.isInputLocked) // before coroutine or ACK
+            viewModel.onIntent(GameIntent.SelectOption("b"))
+            runCurrent()
+            assertEquals(before + 1, socket.answers.size)
+            assertEquals(PlayerAnswer.SingleChoice("a"), socket.answers.last())
+        }
+    }
+
+    @Test
+    fun `self paced multi select and text still require explicit submit`() = runTest(dispatcher) {
+        for (type in listOf("multiple_select", "short_answer", "long_answer")) {
+            startQuestion(pacing = Pacing.SELF, mode = GameMode.SOLO, questionType = type)
+            val before = socket.answers.size
+            if (type == "multiple_select") viewModel.onIntent(GameIntent.ToggleOption("a"))
+            else viewModel.onIntent(GameIntent.ChangeText("answer"))
+            runCurrent()
+            assertEquals(before, socket.answers.size)
+            viewModel.onIntent(GameIntent.Submit)
+            runCurrent()
+            assertEquals(before + 1, socket.answers.size)
+        }
+    }
+
+    @Test
+    fun `self paced single taps are ignored for invalid id paused and disconnected states`() = runTest(dispatcher) {
+        startQuestion(pacing = Pacing.SELF, mode = GameMode.SOLO)
+        viewModel.onIntent(GameIntent.SelectOption("missing"))
+        runCurrent()
+        assertTrue(socket.answers.isEmpty())
+        socket.emit(configEvent(SessionStatus.PAUSED, pacing = Pacing.SELF))
+        runCurrent()
+        viewModel.onIntent(GameIntent.SelectOption("a"))
+        runCurrent()
+        assertTrue(socket.answers.isEmpty())
+        socket.emit(GameEvent.Disconnected(DisconnectReason.TRANSPORT))
+        runCurrent()
+        viewModel.onIntent(GameIntent.SelectOption("a"))
+        runCurrent()
+        assertTrue(socket.answers.isEmpty())
+    }
+
+    @Test
+    fun `self paced uncertain single tap syncs without resending or advancing`() = runTest(dispatcher) {
+        socket.submitResult = Result.Error(AppError.Api("CLIENT_ACK_TIMEOUT"))
+        startQuestion(pacing = Pacing.SELF, mode = GameMode.SOLO, autoAdvance = false)
+        val syncBefore = socket.syncCalls
+        viewModel.onIntent(GameIntent.SelectOption("a"))
+        runCurrent()
+        viewModel.onIntent(GameIntent.SelectOption("b"))
+        runCurrent()
+        assertEquals(1, socket.answers.size)
+        assertTrue(viewModel.uiState.value.isConfirming)
+        assertEquals(syncBefore + 1, socket.syncCalls)
+        assertEquals(0, socket.nextCalls)
+    }
+
+    @Test
+    fun `final result carries observed server types including restored question types`() = runTest(dispatcher) {
+        startQuestion(pacing = Pacing.SELF, mode = GameMode.SOLO)
+        socket.emit(GameEvent.QuestionStarted(PlayerQuestionStarted(question().copy(id = 11, index = 1,
+            questionType = "multiple_select"))))
+        socket.emit(GameEvent.StateSnapshot(GameSnapshot(mode = GameMode.SOLO, phase = GamePhase.QUESTION_ACTIVE,
+            index = 2, question = question().copy(id = 12, index = 2, questionType = "long_answer"))))
+        runCurrent()
+        socket.emit(GameEvent.GameEndedEvent(GameEnded()))
+        runCurrent()
+        assertEquals(mapOf(10L to "multiple_choice", 11L to "multiple_select", 12L to "long_answer"),
+            results.get(GAME_ID)?.reviewQuestionTypes)
+        assertNull(results.get(GAME_ID)?.reviewQuestionTypes?.get(99L))
+    }
+
 
     private suspend fun TestScope.startQuestion(
         showCorrectAnswer: Boolean = true,

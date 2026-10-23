@@ -32,8 +32,18 @@ class SelfPacedQuestionPresentationTest {
         assertFalse(state().copy(mode = null).usesSelfPacedLayout)
         assertFalse(state().copy(pacing = Pacing.HOST).usesSelfPacedLayout)
     }
-    @Test fun `single choice keeps explicit send instruction`() {
-        assertEquals("Chọn một đáp án rồi bấm Gửi đáp án.", selfPacedFooterText(state()))
+    @Test fun `single choice instructs tap to send and has no manual submit button`() {
+        assertEquals("Chạm một đáp án để gửi ngay.", selfPacedFooterText(state()))
+        assertFalse(state().selfPacedShowsSubmitAction)
+        assertFalse(state().copy(phase = GamePhaseUi.Submitted).selfPacedShowsSubmitAction)
+    }
+    @Test fun `only multi select and text retain a submit action before feedback`() {
+        for (type in listOf("multiple_select", "short_answer", "long_answer")) {
+            val state = state().let { it.copy(question = it.question!!.copy(questionType = type)) }
+            assertTrue(state.selfPacedShowsSubmitAction)
+            assertTrue(state.copy(phase = GamePhaseUi.Submitted).selfPacedShowsSubmitAction)
+            assertFalse(state.copy(phase = GamePhaseUi.Results()).selfPacedShowsSubmitAction)
+        }
     }
     @Test fun `results show accepted choice never an unsent draft`() {
         val pending = feedback().copy(acceptedAnswerKeys = null, selectedOptionId = "b")

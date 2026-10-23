@@ -15,10 +15,10 @@ internal data class OnlineReviewOptionUi(
     val text: String,
     val selected: Boolean,
     val tone: OnlineReviewTone,
+    val showSelectionCaption: Boolean = true,
 ) {
-    // readOnly answer cards deliberately have no selection/radio semantics.
-    // Keep the exact submitted set visible in words, including a partially correct set.
-    val displayText: String get() = if (selected) "$text\nBạn đã chọn" else text
+    // Keep the exact submitted set explicit unless a known single-choice has clear feedback.
+    val displayText: String get() = if (selected && showSelectionCaption) "$text\nBạn đã chọn" else text
 }
 
 internal data class OnlineReviewResponseUi(val label: String, val text: String, val tone: OnlineReviewTone)
@@ -37,7 +37,7 @@ internal data class OnlineReviewCardUi(
 )
 
 /** Presentation only: no question-type inference, local grading or invented answer content. */
-internal fun GameReviewItem.toOnlineReviewCardUi(mode: GameMode?): OnlineReviewCardUi {
+internal fun GameReviewItem.toOnlineReviewCardUi(mode: GameMode?, questionType: String? = null): OnlineReviewCardUi {
     val tone = when {
         !answered -> OnlineReviewTone.Skipped
         isCorrect -> OnlineReviewTone.Correct
@@ -56,6 +56,8 @@ internal fun GameReviewItem.toOnlineReviewCardUi(mode: GameMode?): OnlineReviewC
                 ?: option.id.takeIf(String::isNotBlank)?.let { "Đáp án $it" }
                 ?: "Nội dung đáp án không còn khả dụng",
             selected = selected,
+            showSelectionCaption = !(questionType == "multiple_choice" && selectedKeys.size == 1 &&
+                correctKeys.size == 1 && correctKeys.all { it in optionKeys }),
             tone = when {
                 key.isNotEmpty() && key in correctKeys -> OnlineReviewTone.Correct
                 selected && correctKeys.isNotEmpty() -> OnlineReviewTone.Incorrect

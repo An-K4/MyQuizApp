@@ -43,6 +43,8 @@ class GameViewModel @Inject constructor(
     private var nextTimeoutJob: Job? = null
     private var classicFeedbackJob: Job? = null
     private var finalResultRequested = false
+    // Do not infer review question types from the number of chosen/correct answers.
+    private val reviewQuestionTypes = mutableMapOf<Long, String>()
     private var latestOffsetServerMs: Long? = null
     private val _uiState = MutableStateFlow(GameUiState(playerId = playerId))
     val uiState = _uiState.asStateFlow()
@@ -146,6 +148,7 @@ class GameViewModel @Inject constructor(
                     (incoming.index < currentQuestion.index ||
                         (incoming.index == currentQuestion.index && incoming.id == currentQuestion.id &&
                             current.phase != GamePhaseUi.Question && current.phase != GamePhaseUi.Connecting))) return
+                if (incoming.questionType.isNotBlank()) reviewQuestionTypes[incoming.id] = incoming.questionType
                 nextTimeoutJob?.cancel()
                 _uiState.update {
                     it.copy(
@@ -334,6 +337,9 @@ class GameViewModel @Inject constructor(
             (serverTime.serverMillis() ?: Long.MAX_VALUE) < (current.classicPhaseServerTime.serverMillis() ?: Long.MIN_VALUE)) return
         // Snapshot models live in core:common; capture the public property for a stable smart cast.
         val snapshotQuestion = snapshot.question
+        snapshotQuestion?.takeIf { it.questionType.isNotBlank() }?.let {
+            reviewQuestionTypes[it.id] = it.questionType
+        }
         val answered = snapshot.player?.answerFor(snapshot.index)?.takeIf {
             snapshotQuestion == null || it.questionId == snapshotQuestion.id
         }
@@ -492,13 +498,14 @@ class GameViewModel @Inject constructor(
     private fun selectOption(id: String) {
         val state = _uiState.value
         val question = state.question ?: return
-        if (!state.isAnswerInputEnabled || question.questionType != "multiple_choice" ||
-            question.answerOptions.none { it.id == id }
+        if (!state.isAnswerInputEnabled || state.phase != GamePhaseUi.Question ||
+            question.questionType != "multiple_choice" || question.answerOptions.none { it.id == id } ||
+            (state.isSelfPaced && !state.selfPacedCanAnswer)
         ) return
         _uiState.update { it.copy(selectedOptionId = id) }
-        // Classic follows local Preview's tap-to-submit UX, not its local grading.
-        // submit() locks synchronously before launch, so a second tap cannot send again.
-        if (state.isClassic) submit()
+        // Single choice uses tap-to-submit in Classic and self-paced modes.
+        // submit() locks synchronously before launch; grading/advance remain server-driven.
+        if (state.isClassic || state.isSelfPaced) submit()
     }
 
     private fun submit() {
@@ -720,7 +727,8 @@ class GameViewModel @Inject constructor(
     }
 
     private suspend fun finish(event: GameEvent.GameEndedEvent) {
-        session.saveResult(gameId, playerId, event.ended, _uiState.value.mode, socketToken)
+        session.saveResult(gameId, playerId, event.ended, _uiState.value.mode, socketToken,
+            reviewQuestionTypes = reviewQuestionTypes)
         _uiState.update { it.copy(phase = GamePhaseUi.Finished, isInputLocked = true,
             personalResult = null, results = null, outcome = null, totalScore = null,
             scoreEarned = null, streak = null, classicFeedbackRemainingMs = 0L) }

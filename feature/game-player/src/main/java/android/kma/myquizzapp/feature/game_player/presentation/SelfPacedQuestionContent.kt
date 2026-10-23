@@ -98,7 +98,7 @@ internal fun SelfPacedQuestionScreenContent(
                                 if (state.isRequestingNext) "Đang tải câu tiếp theo…" else "Câu tiếp theo",
                                 { onIntent(GameIntent.NextQuestion) }, enabled = state.selfPacedCanRequestNext,
                                 modifier = Modifier.fillMaxWidth())
-                            state.phase == GamePhaseUi.Question || state.phase == GamePhaseUi.Submitted ->
+                            state.selfPacedShowsSubmitAction ->
                                 QuizPrimaryButton(if (state.isSubmitting) "Đang gửi…" else if (state.isConfirming)
                                     "Đang xác nhận…" else if (state.phase == GamePhaseUi.Submitted) "Đã gửi đáp án" else "Gửi đáp án",
                                     { onIntent(GameIntent.Submit) }, enabled = state.selfPacedCanAnswer && state.canSubmit,

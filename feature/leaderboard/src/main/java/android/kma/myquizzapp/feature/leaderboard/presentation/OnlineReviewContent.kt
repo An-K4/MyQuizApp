@@ -39,8 +39,13 @@ import androidx.compose.ui.unit.dp
 
 /** Stateless Player-only review; the final-result screen retains permissions/loading/scroll. */
 @Composable
-internal fun OnlineReviewItemCard(item: GameReviewItem, mode: GameMode?, modifier: Modifier = Modifier) {
-    val review = item.toOnlineReviewCardUi(mode)
+internal fun OnlineReviewItemCard(
+    item: GameReviewItem,
+    mode: GameMode?,
+    modifier: Modifier = Modifier,
+    questionType: String? = null,
+) {
+    val review = item.toOnlineReviewCardUi(mode, questionType)
     val foreground = historyDetailColors().foreground
     val statusColor = review.tone.foreground()
     Card(
@@ -139,10 +144,11 @@ private fun reviewFixture() = GameReviewItem(
 )
 
 @Composable
-private fun ReviewCardPreview(item: GameReviewItem = reviewFixture(), mode: GameMode = GameMode.CLASSIC) {
+private fun ReviewCardPreview(item: GameReviewItem = reviewFixture(), mode: GameMode = GameMode.CLASSIC,
+    questionType: String? = "multiple_choice") {
     MyQuizAppTheme {
         Surface {
-            OnlineReviewItemCard(item, mode, Modifier.padding(20.dp))
+            OnlineReviewItemCard(item, mode, Modifier.padding(20.dp), questionType)
         }
     }
 }
@@ -160,7 +166,7 @@ private fun OnlineReviewIncorrectPreview() = ReviewCardPreview(reviewFixture().c
 @Composable
 private fun OnlineReviewPartialPreview() = ReviewCardPreview(reviewFixture().copy(
     questionText = "Chọn tất cả các đáp án đúng", correctAnswers = listOf("a", "b"),
-    yourAnswers = listOf("a"), isCorrect = false, scoreEarned = 0, explanation = null))
+    yourAnswers = listOf("a"), isCorrect = false, scoreEarned = 0, explanation = null), questionType = "multiple_select")
 
 @Preview(name = "Online Review · Bỏ qua", widthDp = 390, showBackground = true)
 @Composable

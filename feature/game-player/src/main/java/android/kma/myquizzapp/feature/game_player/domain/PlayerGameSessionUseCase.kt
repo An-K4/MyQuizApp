@@ -25,9 +25,11 @@ class PlayerGameSessionUseCase @Inject constructor(
         playerId: Long,
         result: GameEnded,
         mode: GameMode?,
-        socketToken: String
+        socketToken: String,
+        reviewQuestionTypes: Map<Long, String> = emptyMap()
     ) {
-        gameResults.save(StoredGameResult(gameId, playerId, result, mode, socketToken))
+        gameResults.save(StoredGameResult(gameId, playerId, result, mode, socketToken,
+            reviewQuestionTypes = reviewQuestionTypes.toMap()))
     }
     suspend fun sync() = repository.sync()
     suspend fun disconnect() = repository.disconnect()

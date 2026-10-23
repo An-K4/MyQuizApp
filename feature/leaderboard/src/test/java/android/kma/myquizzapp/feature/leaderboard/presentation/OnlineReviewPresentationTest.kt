@@ -180,4 +180,28 @@ class OnlineReviewPresentationTest {
         assertEquals(listOf(5, 3, 0), state.reviewItems.map { it.questionIndex })
         assertEquals(listOf(0, 3, 5), review.items.map { it.questionIndex })
     }
+    @Test fun `known single choice omits the redundant chosen caption but keeps selection evidence`() {
+        val ui = item().toOnlineReviewCardUi(GameMode.CLASSIC, "multiple_choice")
+        assertTrue(ui.options[1].selected)
+        assertEquals("Second", ui.options[1].displayText)
+        val wrong = item().copy(yourAnswers = listOf("a"), isCorrect = false)
+            .toOnlineReviewCardUi(GameMode.SOLO, "multiple_choice")
+        assertEquals("First", wrong.options[0].displayText)
+        assertEquals(OnlineReviewTone.Incorrect, wrong.options[0].tone)
+    }
+    @Test fun `known multiple select with one chosen option still keeps caption`() {
+        val ui = item().toOnlineReviewCardUi(GameMode.SOLO, "multiple_select")
+        assertEquals("Second\nBạn đã chọn", ui.options[1].displayText)
+    }
+    @Test fun `unknown type is never inferred from one selected and one correct key`() {
+        val ui = item().toOnlineReviewCardUi(GameMode.CLASSIC)
+        assertEquals("Second\nBạn đã chọn", ui.options[1].displayText)
+    }
+    @Test fun `single choice missing correct answer evidence retains chosen caption`() {
+        val ui = item().copy(correctAnswers = emptyList()).toOnlineReviewCardUi(GameMode.SOLO, "multiple_choice")
+        assertEquals("Second\nBạn đã chọn", ui.options[1].displayText)
+        assertEquals(OnlineReviewTone.Neutral, ui.options[1].tone)
+    }
+
+
 }

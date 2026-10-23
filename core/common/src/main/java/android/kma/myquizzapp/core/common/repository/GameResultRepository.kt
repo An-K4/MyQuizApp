@@ -10,7 +10,9 @@ data class StoredGameResult(
     val result: GameEnded,
     val mode: GameMode?,
     /** Chỉ giữ trong RAM để gọi REST review; không đưa token vào route, Bundle hay log. */
-    val socketToken: String
+    val socketToken: String,
+    /** Actual question types observed from server questions; RAM-only, scoped to this game. */
+    val reviewQuestionTypes: Map<Long, String> = emptyMap()
 )
 
 /**
