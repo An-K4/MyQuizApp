@@ -9,6 +9,7 @@ import android.kma.myquizzapp.core.common.model.PublicAnswerOption
 import android.kma.myquizzapp.core.ui.components.GameFinalResultHero
 import android.kma.myquizzapp.core.ui.components.GameFinalResultSummaryCard
 import android.kma.myquizzapp.core.ui.components.LeaderboardPlayerCard
+import android.kma.myquizzapp.core.ui.components.QuestionImage
 import android.kma.myquizzapp.core.ui.components.QuizPrimaryButton
 import android.kma.myquizzapp.core.ui.components.QuizSecondaryButton
 import android.kma.myquizzapp.core.ui.theme.MyQuizAppTheme
@@ -20,7 +21,6 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -44,7 +44,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
@@ -52,7 +51,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import coil.compose.AsyncImage
 import java.util.Locale
 
 @Composable
@@ -252,14 +250,10 @@ internal fun ReviewItemCard(item: GameReviewItem) {
                 Text(status)
             }
             Text(item.questionText ?: "Nội dung câu hỏi không còn khả dụng")
-            item.questionImage?.let { image ->
-                AsyncImage(
-                    model = image,
-                    contentDescription = "Hình minh họa câu hỏi",
-                    modifier = Modifier.fillMaxWidth().heightIn(max = 240.dp),
-                    contentScale = ContentScale.Fit
-                )
-            }
+            QuestionImage(
+                imageUrl = item.questionImage,
+                contentDescription = "Hình minh họa câu hỏi",
+            )
             if (item.answerOptions.isNotEmpty()) {
                 item.answerOptions.forEach { option -> ReviewOptionRow(item, option) }
             } else {

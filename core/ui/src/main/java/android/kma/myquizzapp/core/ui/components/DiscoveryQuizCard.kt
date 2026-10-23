@@ -8,8 +8,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -28,6 +29,7 @@ fun DiscoveryQuizCard(
     enabled: Boolean = true,
     uniformGrid: Boolean = false,
 ) {
+    val hasCategory = !categoryText.isNullOrBlank()
     Surface(
         onClick = onClick, enabled = enabled, modifier = modifier,
         shape = RoundedCornerShape(20.dp), color = ComponentColors.softSurface,
@@ -40,21 +42,24 @@ fun DiscoveryQuizCard(
                     .clip(RoundedCornerShape(20.dp)),
             )
             Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (!categoryText.isNullOrBlank()) {
-                    Surface(shape = RoundedCornerShape(50), color = ComponentColors.selectedSurface) {
-                        Text(
-                            categoryText, color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontSize = 11.sp, lineHeight = 16.sp, letterSpacing = 0.sp,
-                                fontWeight = FontWeight.SemiBold,
-                            ),
-                            maxLines = 1, overflow = TextOverflow.Ellipsis,
-                        )
-                    }
-                } else if (uniformGrid) {
-                    // Reserve the badge line even for uncategorized cards; follows font scaling.
-                    Spacer(Modifier.height(with(LocalDensity.current) { 16.sp.toDp() } + 12.dp))
+                // Measure the same badge in both cases, including font padding/scaling.
+                // An absent category reserves space only: no visible or accessible fake label.
+                Surface(
+                    modifier = if (hasCategory) Modifier
+                        else Modifier.alpha(0f).clearAndSetSemantics {},
+                    shape = RoundedCornerShape(50),
+                    color = ComponentColors.selectedSurface,
+                ) {
+                    Text(
+                        categoryText?.takeIf { hasCategory } ?: "Chủ đề",
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontSize = 11.sp, lineHeight = 16.sp, letterSpacing = 0.sp,
+                            fontWeight = FontWeight.SemiBold,
+                        ),
+                        maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    )
                 }
                 Text(
                     title, color = ComponentColors.foreground,
@@ -62,8 +67,8 @@ fun DiscoveryQuizCard(
                         fontSize = 14.sp, lineHeight = 20.sp, letterSpacing = 0.sp,
                         fontWeight = FontWeight.Bold,
                     ),
-                    minLines = if (uniformGrid) 2 else 1,
-                    maxLines = 2, overflow = TextOverflow.Ellipsis,
+                    minLines = 1,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis,
                 )
                 Text(
                     metadataText, color = ComponentColors.muted,
@@ -79,6 +84,7 @@ fun DiscoveryQuizCard(
 
 @Preview(name = "Discovery Quiz Light", showBackground = true, widthDp = 390)
 @Preview(name = "Discovery Quiz Dark", showBackground = true, widthDp = 390, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(name = "Discovery Equal Cards Large Text", showBackground = true, widthDp = 480, fontScale = 1.5f)
 @Composable
 private fun DiscoveryQuizCardPreview() {
     MyQuizAppTheme {

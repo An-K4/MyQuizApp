@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Keep existing app R.drawable.app_logo references; the asset is shared by core:ui. -->
+    <item name="app_logo" type="drawable">@drawable/quiz_brand_logo</item>
+</resources>
