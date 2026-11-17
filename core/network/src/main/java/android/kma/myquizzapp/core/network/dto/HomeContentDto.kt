@@ -28,12 +28,12 @@ data class HomeContentDto(
 data class HomeSectionDto(
     @SerialName("section_key")
     val sectionKey: String,
-    
+
     val title: String,
-    
+
     @SerialName("section_type")
     val sectionType: SectionType,
-    
+
     val items: List<QuizCardDto>
 )
 
@@ -43,36 +43,36 @@ data class HomeSectionDto(
 @Serializable
 data class QuizCardDto(
     val id: Long,
-    
+
     @SerialName("quiz_name")
     val quizName: String,
-    
+
     @SerialName("quiz_description")
     val quizDescription: String? = null,
-    
+
     @SerialName("quiz_image")
     val quizImage: String? = null,
-    
+
     @SerialName("quiz_category")
     val quizCategory: String? = null,
-    
+
     @SerialName("quiz_language")
     val quizLanguage: String,
-    
+
     @SerialName("quiz_owner")
     val quizOwnerId: Long,
-    
+
     val owner: QuizOwnerDto? = null,
-    
+
     @SerialName("question_count")
     val questionCount: Int,
-    
+
     @SerialName("play_count")
     val playCount: Int,
-    
+
     @SerialName("completion_rate")
     val completionRate: Double,
-    
+
     @SerialName("created_at")
     val createdAt: String
 )
@@ -89,11 +89,16 @@ data class QuizOwnerDto(
  */
 @Serializable
 enum class SectionType {
-    @SerialName("featured") FEATURED,
-    @SerialName("continue") CONTINUE,
-    @SerialName("trending") TRENDING,
-    @SerialName("newest") NEWEST,
-    @SerialName("category") CATEGORY
+    @SerialName("featured")
+    FEATURED,
+    @SerialName("continue")
+    CONTINUE,
+    @SerialName("trending")
+    TRENDING,
+    @SerialName("newest")
+    NEWEST,
+    @SerialName("category")
+    CATEGORY
 }
 
 // === Mapper extensions: DTO → Domain ===

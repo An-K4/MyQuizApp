@@ -12,7 +12,10 @@ sealed interface SecurityMutationResult {
     data object CleanupPending : SecurityMutationResult
     data class Rejected(val error: AppError) : SecurityMutationResult
 }
+
 internal val AppError.securitySessionTerminal: Boolean
     get() = isSessionTerminal || hasApiCode("USER_NOT_FOUND")
 internal val AppError.mutationUncertain: Boolean
-    get() = this is AppError.Network || this is AppError.Server || this is AppError.Unknown || hasApiCode("SERVER_ERROR")
+    get() = this is AppError.Network || this is AppError.Server || this is AppError.Unknown || hasApiCode(
+        "SERVER_ERROR"
+    )

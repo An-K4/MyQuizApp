@@ -47,11 +47,13 @@ fun CustomClickableText(
             append(" ")
         }
         if (enabled) {
-            withLink(LinkAnnotation.Clickable(
-                tag = clickableTextTag,
-                styles = TextLinkStyles(style = linkStyle),
-                linkInteractionListener = { onTextClicked() },
-            )) { append(clickableText) }
+            withLink(
+                LinkAnnotation.Clickable(
+                    tag = clickableTextTag,
+                    styles = TextLinkStyles(style = linkStyle),
+                    linkInteractionListener = { onTextClicked() },
+                )
+            ) { append(clickableText) }
         } else {
             pushStyle(linkStyle)
             append(clickableText)
@@ -71,14 +73,30 @@ fun CustomClickableText(
 }
 
 @Preview(name = "Inline Action Light", showBackground = true, widthDp = 390)
-@Preview(name = "Inline Action Dark", showBackground = true, widthDp = 390, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(
+    name = "Inline Action Dark",
+    showBackground = true,
+    widthDp = 390,
+    uiMode = Configuration.UI_MODE_NIGHT_YES
+)
 @Composable
 private fun CustomClickableTextPreview() {
     MyQuizAppTheme {
         Surface(color = MaterialTheme.colorScheme.background) {
             Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                CustomClickableText("Đăng ký ngay", {}, startText = "Chưa có tài khoản?", textSize = 12.sp)
-                CustomClickableText("Đăng ký ngay", {}, startText = "Chưa có tài khoản?", textSize = 12.sp, enabled = false)
+                CustomClickableText(
+                    "Đăng ký ngay",
+                    {},
+                    startText = "Chưa có tài khoản?",
+                    textSize = 12.sp
+                )
+                CustomClickableText(
+                    "Đăng ký ngay",
+                    {},
+                    startText = "Chưa có tài khoản?",
+                    textSize = 12.sp,
+                    enabled = false
+                )
                 CustomClickableText("Điều khoản sử dụng", {}, endText = " của ứng dụng.")
             }
         }

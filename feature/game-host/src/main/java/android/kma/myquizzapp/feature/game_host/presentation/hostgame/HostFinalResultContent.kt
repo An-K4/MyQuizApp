@@ -79,34 +79,53 @@ internal fun HostFinalResultScreenContent(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = {
             Surface {
-                QuizPrimaryButton("Về trang chủ", onHome,
-                    Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 20.dp, vertical = 12.dp))
+                QuizPrimaryButton(
+                    "Về trang chủ", onHome,
+                    Modifier.fillMaxWidth().navigationBarsPadding()
+                        .padding(horizontal = 20.dp, vertical = 12.dp)
+                )
             }
         }
     ) { padding ->
-        Box(Modifier.fillMaxSize().padding(padding).background(
-            Brush.verticalGradient(listOf(Color(0xFF211238), Color(0xFF51318A), Color(0xFF34205F)))
-        )) {
+        Box(
+            Modifier.fillMaxSize().padding(padding).background(
+                Brush.verticalGradient(
+                    listOf(
+                        Color(0xFF211238),
+                        Color(0xFF51318A),
+                        Color(0xFF34205F)
+                    )
+                )
+            )
+        ) {
             LazyColumn(
                 state = listState, modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(horizontal = 20.dp, vertical = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 item(key = "final-hero") {
-                    GameFinalResultHero(hostFinalPodium(state),
+                    GameFinalResultHero(
+                        hostFinalPodium(state),
                         subtitle = if (state.sessionStatus == SessionStatus.CANCELLED) "Trận đã bị hủy"
-                        else "Tổng kết trận đấu của bạn")
+                        else "Tổng kết trận đấu của bạn"
+                    )
                 }
                 when {
                     state.isFinalResultLoading -> item(key = "final-loading") {
                         HostFinalNotice("Đang tải kết quả cuối trận…", loading = true)
                     }
+
                     state.finalResultError != null -> item(key = "final-error") {
                         HostFinalNotice(state.finalResultError, onRetry = onRetry)
                     }
+
                     state.ended == null -> item(key = "final-missing") {
-                        HostFinalNotice("Chưa nhận được kết quả cuối trận. Bạn có thể tải lại.", onRetry = onRetry)
+                        HostFinalNotice(
+                            "Chưa nhận được kết quả cuối trận. Bạn có thể tải lại.",
+                            onRetry = onRetry
+                        )
                     }
+
                     else -> {
                         if (state.mode == GameMode.PRACTICE) {
                             item(key = "final-practice") { HostFinalNotice("Chế độ luyện tập không tính điểm và không có bảng xếp hạng.") }
@@ -133,15 +152,20 @@ internal fun HostFinalResultScreenContent(
                         }
                         if (statsExpanded) {
                             item(key = "final-stats-note") {
-                                Text(if (state.isMarathon)
-                                    "Thống kê theo lượt trả lời; các lần gặp lại cùng một câu được gộp chung. Số câu là vị trí xuất hiện đầu tiên."
-                                else "Thống kê trên các lượt trả lời đã ghi nhận; không bao gồm người bỏ qua.",
-                                    color = Color(0xFFE6DDF5), style = MaterialTheme.typography.bodyMedium)
+                                Text(
+                                    if (state.isMarathon)
+                                        "Thống kê theo lượt trả lời; các lần gặp lại cùng một câu được gộp chung. Số câu là vị trí xuất hiện đầu tiên."
+                                    else "Thống kê trên các lượt trả lời đã ghi nhận; không bao gồm người bỏ qua.",
+                                    color = Color(0xFFE6DDF5),
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
                             }
                             if (stats.isEmpty()) {
                                 item(key = "final-stats-empty") { HostFinalNotice("Chưa có lượt trả lời để thống kê.") }
                             }
-                            items(stats, key = { "final-stat-${it.questionId}-${it.questionIndex}" }) {
+                            items(
+                                stats,
+                                key = { "final-stat-${it.questionId}-${it.questionIndex}" }) {
                                 HostFinalQuestionStatCard(it)
                             }
                         }
@@ -158,21 +182,36 @@ internal fun HostFinalQuestionStatCard(stat: QuestionStat, modifier: Modifier = 
     val dark = MaterialTheme.colorScheme.background.luminance() < 0.5f
     val foreground = if (dark) MaterialTheme.colorScheme.onSurface else FrontendColors.Foreground
     val summary = hostFinalQuestionSummary(stat)
-    Surface(modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp),
-        color = if (dark) MaterialTheme.colorScheme.surfaceVariant else FrontendColors.SoftBackground) {
-        Row(Modifier.padding(20.dp).semantics(mergeDescendants = true) { },
-            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Surface(Modifier.sizeIn(minWidth = 40.dp, minHeight = 40.dp),
-                shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)) {
+    Surface(
+        modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp),
+        color = if (dark) MaterialTheme.colorScheme.surfaceVariant else FrontendColors.SoftBackground
+    ) {
+        Row(
+            Modifier.padding(20.dp).semantics(mergeDescendants = true) { },
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Surface(
+                Modifier.sizeIn(minWidth = 40.dp, minHeight = 40.dp),
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)
+            ) {
                 Box(Modifier.padding(8.dp), contentAlignment = Alignment.Center) {
-                    Text("${stat.questionIndex + 1}", color = foreground, fontWeight = FontWeight.Bold,
+                    Text(
+                        "${stat.questionIndex + 1}",
+                        color = foreground,
+                        fontWeight = FontWeight.Bold,
                         style = MaterialTheme.typography.bodyLarge,
-                        modifier = Modifier.clearAndSetSemantics { contentDescription = "Câu ${stat.questionIndex + 1}" })
+                        modifier = Modifier.clearAndSetSemantics {
+                            contentDescription = "Câu ${stat.questionIndex + 1}"
+                        })
                 }
             }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(summary.text, color = foreground, style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.SemiBold)
+                Text(
+                    summary.text, color = foreground, style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
                 LinearProgressIndicator(
                     progress = { summary.progress },
                     modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(50))
@@ -187,9 +226,16 @@ internal fun HostFinalQuestionStatCard(stat: QuestionStat, modifier: Modifier = 
 
 @Composable
 private fun HostFinalDisclosure(title: String, expanded: Boolean, onClick: () -> Unit) {
-    QuizSecondaryButton(title, onClick,
-        Modifier.fillMaxWidth().semantics { stateDescription = if (expanded) "Đang mở" else "Đang thu gọn" },
-        trailingIcon = { Icon(if (expanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore, null) })
+    QuizSecondaryButton(
+        title, onClick,
+        Modifier.fillMaxWidth()
+            .semantics { stateDescription = if (expanded) "Đang mở" else "Đang thu gọn" },
+        trailingIcon = {
+            Icon(
+                if (expanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
+                null
+            )
+        })
 }
 
 @Composable
@@ -198,7 +244,11 @@ private fun HostFinalNotice(text: String, onRetry: (() -> Unit)? = null, loading
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             if (loading) CircularProgressIndicator()
             Text(text, style = MaterialTheme.typography.bodyLarge)
-            if (onRetry != null) QuizSecondaryButton("Tải lại kết quả", onRetry, Modifier.fillMaxWidth())
+            if (onRetry != null) QuizSecondaryButton(
+                "Tải lại kết quả",
+                onRetry,
+                Modifier.fillMaxWidth()
+            )
         }
     }
 }
@@ -206,11 +256,18 @@ private fun HostFinalNotice(text: String, onRetry: (() -> Unit)? = null, loading
 private fun hostFinalPreviewState() = HostGameUiState(
     connection = HostGameConnection.CONNECTED, phase = GamePhase.FINISHED,
     sessionStatus = SessionStatus.FINISHED, mode = GameMode.CLASSIC,
-    ended = GameEnded(leaderboard = listOf(
-        LeaderboardRow(1, 1, "Minh Anh", 12450), LeaderboardRow(2, 2, "Quang Huy", 11200),
-        LeaderboardRow(3, 3, "Tuấn Kiệt", 10850), LeaderboardRow(4, 4, "Quốc Tuấn", 9650),
-        LeaderboardRow(5, 5, "Mai Lan", 8000)),
-        perQuestion = listOf(QuestionStat(10, 0, 20, 15), QuestionStat(11, 1, 20, 8), QuestionStat(12, 2, 0, 0)))
+    ended = GameEnded(
+        leaderboard = listOf(
+            LeaderboardRow(1, 1, "Minh Anh", 12450), LeaderboardRow(2, 2, "Quang Huy", 11200),
+            LeaderboardRow(3, 3, "Tuấn Kiệt", 10850), LeaderboardRow(4, 4, "Quốc Tuấn", 9650),
+            LeaderboardRow(5, 5, "Mai Lan", 8000)
+        ),
+        perQuestion = listOf(
+            QuestionStat(10, 0, 20, 15),
+            QuestionStat(11, 1, 20, 8),
+            QuestionStat(12, 2, 0, 0)
+        )
+    )
 )
 
 @Composable
@@ -233,11 +290,21 @@ private fun HostFinalDefaultPreview() = HostFinalPreview()
 @Composable
 private fun HostFinalStatsPreview() = HostFinalPreview(board = false, stats = true)
 
-@Preview(name = "Host Final · Narrow & large text", widthDp = 320, heightDp = 1200, fontScale = 1.5f)
+@Preview(
+    name = "Host Final · Narrow & large text",
+    widthDp = 320,
+    heightDp = 1200,
+    fontScale = 1.5f
+)
 @Composable
 private fun HostFinalNarrowPreview() = HostFinalPreview(board = false, stats = true)
 
-@Preview(name = "Host Final · Dark", widthDp = 390, heightDp = 1100, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(
+    name = "Host Final · Dark",
+    widthDp = 390,
+    heightDp = 1100,
+    uiMode = Configuration.UI_MODE_NIGHT_YES
+)
 @Composable
 private fun HostFinalDarkPreview() = HostFinalPreview(board = false, stats = true, dark = true)
 
@@ -245,30 +312,63 @@ private fun HostFinalDarkPreview() = HostFinalPreview(board = false, stats = tru
 @Composable
 private fun HostFinalOnePreview() {
     val state = hostFinalPreviewState()
-    HostFinalPreview(state.copy(ended = state.ended!!.copy(leaderboard = state.ended.leaderboard.take(1))))
+    HostFinalPreview(
+        state.copy(
+            ended = state.ended!!.copy(
+                leaderboard = state.ended.leaderboard.take(
+                    1
+                )
+            )
+        )
+    )
 }
 
 @Preview(name = "Host Final · Loading recovery", widthDp = 390, heightDp = 844)
 @Composable
-private fun HostFinalLoadingPreview() = HostFinalPreview(hostFinalPreviewState().copy(ended = null, isFinalResultLoading = true))
+private fun HostFinalLoadingPreview() =
+    HostFinalPreview(hostFinalPreviewState().copy(ended = null, isFinalResultLoading = true))
 
 @Preview(name = "Host Final · Recovery error", widthDp = 390, heightDp = 844)
 @Composable
-private fun HostFinalErrorPreview() = HostFinalPreview(hostFinalPreviewState().copy(ended = null, finalResultError = "Không thể tải kết quả. Kiểm tra kết nối rồi thử lại."))
+private fun HostFinalErrorPreview() = HostFinalPreview(
+    hostFinalPreviewState().copy(
+        ended = null,
+        finalResultError = "Không thể tải kết quả. Kiểm tra kết nối rồi thử lại."
+    )
+)
 
 @Preview(name = "Host Final · Empty", widthDp = 390, heightDp = 844)
 @Composable
-private fun HostFinalEmptyPreview() = HostFinalPreview(hostFinalPreviewState().copy(ended = GameEnded()), stats = true)
+private fun HostFinalEmptyPreview() =
+    HostFinalPreview(hostFinalPreviewState().copy(ended = GameEnded()), stats = true)
 
 @Preview(name = "Host Final · Marathon", widthDp = 390, heightDp = 1100)
 @Composable
-private fun HostFinalMarathonPreview() = HostFinalPreview(hostFinalPreviewState().copy(mode = GameMode.MARATHON), board = false, stats = true)
+private fun HostFinalMarathonPreview() = HostFinalPreview(
+    hostFinalPreviewState().copy(mode = GameMode.MARATHON),
+    board = false,
+    stats = true
+)
 
 @Preview(name = "Host Final · Question stat card", widthDp = 390, heightDp = 130)
-@Preview(name = "Host Final · Stat card narrow & large text", widthDp = 320, heightDp = 180, fontScale = 1.5f)
+@Preview(
+    name = "Host Final · Stat card narrow & large text",
+    widthDp = 320,
+    heightDp = 180,
+    fontScale = 1.5f
+)
 @Composable
 private fun HostFinalStatCardPreview() {
     MyQuizAppTheme(darkTheme = false) {
-        Box(Modifier.fillMaxWidth().padding(20.dp)) { HostFinalQuestionStatCard(QuestionStat(10, 3, 20, 15)) }
+        Box(Modifier.fillMaxWidth().padding(20.dp)) {
+            HostFinalQuestionStatCard(
+                QuestionStat(
+                    10,
+                    3,
+                    20,
+                    15
+                )
+            )
+        }
     }
 }

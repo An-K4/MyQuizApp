@@ -2,9 +2,11 @@ package android.kma.myquizzapp.feature.quiz_manage.presentation.components
 
 import android.kma.myquizzapp.core.common.validator.QuizEditorErrors
 import androidx.compose.foundation.ScrollState
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.runtime.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.key
 
 /** State creation is called only by Screen/Preview wrappers, not the stateless editor. */
 @Composable
@@ -15,7 +17,12 @@ fun rememberQuestionScrollStates(questions: List<QuestionDraft>): Map<String, Sc
 
 /** Scroll to the first invalid lazy item. Indices follow QuizEditorContent's fixed header. */
 @Composable
-fun ScrollToEditorError(errors: QuizEditorErrors, attempt: Int, questions: List<QuestionDraft>, listState: LazyListState) {
+fun ScrollToEditorError(
+    errors: QuizEditorErrors,
+    attempt: Int,
+    questions: List<QuestionDraft>,
+    listState: LazyListState
+) {
     LaunchedEffect(errors, attempt) {
         val target = when {
             errors.name != null -> 1
@@ -26,6 +33,7 @@ fun ScrollToEditorError(errors: QuizEditorErrors, attempt: Int, questions: List<
                 val index = questions.indexOfFirst { it.localId in errors.questions }
                 if (index < 0) null else 6 + index
             }
+
             else -> null
         }
         if (target != null) listState.animateScrollToItem(target)

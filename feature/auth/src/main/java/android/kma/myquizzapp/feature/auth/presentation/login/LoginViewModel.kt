@@ -1,15 +1,15 @@
 package android.kma.myquizzapp.feature.auth.presentation.login
 
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
-import android.kma.myquizzapp.feature.auth.domain.usecase.EnableGuestModeUseCase
-import android.kma.myquizzapp.feature.auth.domain.usecase.LoginUseCase
-import android.kma.myquizzapp.feature.auth.domain.usecase.LoginWithGoogleUseCase
 import android.kma.myquizzapp.core.common.error.toUserMessage
 import android.kma.myquizzapp.core.common.result.Result
 import android.kma.myquizzapp.core.common.validator.EmailValidator
 import android.kma.myquizzapp.core.common.validator.PasswordValidator
 import android.kma.myquizzapp.core.common.validator.ValidationResult
+import android.kma.myquizzapp.feature.auth.domain.usecase.EnableGuestModeUseCase
+import android.kma.myquizzapp.feature.auth.domain.usecase.LoginUseCase
+import android.kma.myquizzapp.feature.auth.domain.usecase.LoginWithGoogleUseCase
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -41,8 +41,20 @@ class LoginViewModel @Inject constructor(
 
     fun onIntent(intent: LoginIntent) {
         when (intent) {
-            is LoginIntent.EmailChanged -> _uiState.update { it.copy(email = intent.value, emailError = null) }
-            is LoginIntent.PasswordChanged -> _uiState.update { it.copy(password = intent.value, passwordError = null) }
+            is LoginIntent.EmailChanged -> _uiState.update {
+                it.copy(
+                    email = intent.value,
+                    emailError = null
+                )
+            }
+
+            is LoginIntent.PasswordChanged -> _uiState.update {
+                it.copy(
+                    password = intent.value,
+                    passwordError = null
+                )
+            }
+
             LoginIntent.Submit -> submit()
             LoginIntent.PlayAsGuest -> playAsGuest()
             is LoginIntent.GoogleTokenReceived -> loginWithGoogle(intent.idToken)

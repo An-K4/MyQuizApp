@@ -73,6 +73,7 @@ data class RoomConfigForm(
                 reviewMode
             }
         )
+
         GameConfigKey.ALLOW_ANSWER_LATE -> copy(allowAnswerLate = allowAnswerLate.copy(value = value))
         GameConfigKey.SHUFFLE_QUESTIONS -> copy(shuffleQuestions = shuffleQuestions.copy(value = value))
         GameConfigKey.SHUFFLE_OPTIONS -> copy(shuffleOptions = shuffleOptions.copy(value = value))
@@ -87,13 +88,19 @@ data class RoomConfigForm(
                 showCorrectAnswer
             }
         )
+
         GameConfigKey.SPEED_BONUS -> copy(speedBonus = speedBonus.copy(value = value))
         GameConfigKey.NEGATIVE_MARKING -> copy(negativeMarking = negativeMarking.copy(value = value))
         else -> this
     }
 
     fun updateNumber(key: GameConfigKey, value: String): RoomConfigForm = when (key) {
-        GameConfigKey.PER_QUESTION_SECONDS -> copy(perQuestionSeconds = perQuestionSeconds.copy(value = value))
+        GameConfigKey.PER_QUESTION_SECONDS -> copy(
+            perQuestionSeconds = perQuestionSeconds.copy(
+                value = value
+            )
+        )
+
         GameConfigKey.TOTAL_MATCH_SECONDS -> copy(totalMatchSeconds = totalMatchSeconds.copy(value = value))
         GameConfigKey.MAX_PLAYERS -> copy(maxPlayers = maxPlayers.copy(value = value))
         GameConfigKey.LIVES -> copy(lives = lives.copy(value = value))
@@ -131,6 +138,7 @@ data class RoomConfigForm(
                 GameConfigConstraint.BooleanConstraint -> false
                 is GameConfigConstraint.ChoiceConstraint ->
                     (currentValues[key] as? GameConfigValue.ChoiceValue)?.value !in constraint.values
+
                 is GameConfigConstraint.NumberConstraint -> {
                     val input = numberSetting(key).value.trim()
                     val number = input.toIntOrNull()
@@ -193,6 +201,7 @@ private fun RoomConfigForm.applyModeRules(mode: GameMode): RoomConfigForm = when
     GameMode.MARATHON -> copy(
         showCorrectAnswer = showCorrectAnswer.copy(value = true, editable = false)
     )
+
     GameMode.CLASSIC,
     GameMode.SOLO,
     GameMode.SURVIVAL,

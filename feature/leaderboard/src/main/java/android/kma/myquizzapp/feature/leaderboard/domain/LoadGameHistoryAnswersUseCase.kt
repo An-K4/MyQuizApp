@@ -18,6 +18,7 @@ class LoadGameHistoryAnswersUseCase @Inject constructor(
             is SessionState.LoggedIn -> null
             SessionState.Guest -> guestIdentityStore.getGuestIdOrNull()
                 ?: return Result.Error(AppError.Unknown(IllegalStateException("Guest identity is missing")))
+
             SessionState.Unknown -> return Result.Error(
                 AppError.Unknown(IllegalStateException("Session is not resolved"))
             )

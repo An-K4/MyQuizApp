@@ -56,7 +56,10 @@ private class ResultCall<T>(
 
     override fun enqueue(callback: Callback<Result<T>>) {
         delegate.enqueue(object : Callback<ApiEnvelope<T>> {
-            override fun onResponse(call: Call<ApiEnvelope<T>>, response: Response<ApiEnvelope<T>>) {
+            override fun onResponse(
+                call: Call<ApiEnvelope<T>>,
+                response: Response<ApiEnvelope<T>>
+            ) {
                 // Luôn trả onResponse — lỗi nằm trong Result, không ném exception lên Retrofit
                 callback.onResponse(this@ResultCall, Response.success(response.toResult()))
             }
@@ -79,7 +82,10 @@ private class ResultCall<T>(
         return when {
             envelope.success && envelope.data != null -> Result.Success(envelope.data, page)
             envelope.success ->
-                @Suppress("UNCHECKED_CAST") Result.Success(Unit as T, page) // VD logout trả data: null → khai báo Result<Unit>
+                @Suppress("UNCHECKED_CAST") Result.Success(
+                    Unit as T,
+                    page
+                ) // VD logout trả data: null → khai báo Result<Unit>
             else -> Result.Error(
                 AppError.Api(envelope.error?.code ?: "SERVER_ERROR")
             )

@@ -58,35 +58,47 @@ class SearchUiStateTest {
 
     private fun appendableState() = SearchUiState(
         query = " android ", submittedQuery = "android", hasCompletedSearch = true,
-        results = listOf(QuizCard(
-            id = 1, quizName = "Android", quizLanguage = "vi", quizOwnerId = 1,
-            questionCount = 10, playCount = 20, completionRate = 0.0, createdAt = "2026-10-10"
-        )), nextCursor = "next-page", hasMore = true
+        results = listOf(
+            QuizCard(
+                id = 1, quizName = "Android", quizLanguage = "vi", quizOwnerId = 1,
+                questionCount = 10, playCount = 20, completionRate = 0.0, createdAt = "2026-10-10"
+            )
+        ), nextCursor = "next-page", hasMore = true
     )
 
-    @Test fun `successful current page with cursor can append`() {
+    @Test
+    fun `successful current page with cursor can append`() {
         assertTrue(appendableState().canLoadMore)
         assertFalse(appendableState().canRetryLoadMore)
     }
 
-    @Test fun `unsubmitted or stale query cannot append`() {
+    @Test
+    fun `unsubmitted or stale query cannot append`() {
         assertFalse(appendableState().copy(hasCompletedSearch = false).canLoadMore)
         assertFalse(appendableState().copy(query = "new query").canLoadMore)
     }
 
-    @Test fun `missing cursor exhausted page or empty results cannot append`() {
+    @Test
+    fun `missing cursor exhausted page or empty results cannot append`() {
         assertFalse(appendableState().copy(nextCursor = null).canLoadMore)
         assertFalse(appendableState().copy(hasMore = false).canLoadMore)
         assertFalse(appendableState().copy(results = emptyList()).canLoadMore)
     }
 
-    @Test fun `loading blocks both automatic append and explicit retry`() {
+    @Test
+    fun `loading blocks both automatic append and explicit retry`() {
         assertFalse(appendableState().copy(isSearching = true).canLoadMore)
         assertFalse(appendableState().copy(isLoadingMore = true).canLoadMore)
-        assertFalse(appendableState().copy(isLoadingMore = true, error = "Network").canRetryLoadMore)
+        assertFalse(
+            appendableState().copy(
+                isLoadingMore = true,
+                error = "Network"
+            ).canRetryLoadMore
+        )
     }
 
-    @Test fun `append error pauses automatic loading but permits explicit retry`() {
+    @Test
+    fun `append error pauses automatic loading but permits explicit retry`() {
         val state = appendableState().copy(error = "Network")
         assertFalse(state.canLoadMore)
         assertTrue(state.canRetryLoadMore)

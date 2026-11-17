@@ -9,7 +9,7 @@ import java.text.NumberFormat
 internal fun finalResultStandings(state: FinalResultUiState): List<LeaderboardRow> =
     state.leaderboard.takeUnless {
         state.isPractice || state.isResultLoading || state.resultError != null ||
-            state.isMissing || state.isLeaderboardHidden
+                state.isMissing || state.isLeaderboardHidden
     }.orEmpty()
 
 internal fun finalResultPlayer(state: FinalResultUiState): LeaderboardRow? =
@@ -26,7 +26,11 @@ internal fun finalResultRemainingStandings(state: FinalResultUiState): List<Lead
 
 internal fun finalResultPodium(state: FinalResultUiState): List<FinalResultPodiumEntry> =
     finalResultPodiumPlayers(state).map {
-        FinalResultPodiumEntry(it.rank, it.playerName, "${formatFinalResultScore(it.playerScore)} điểm")
+        FinalResultPodiumEntry(
+            it.rank,
+            it.playerName,
+            "${formatFinalResultScore(it.playerScore)} điểm"
+        )
     }
 
 internal fun finalResultMetrics(state: FinalResultUiState): List<FinalResultMetric> {
@@ -39,4 +43,5 @@ internal fun finalResultMetrics(state: FinalResultUiState): List<FinalResultMetr
     }
 }
 
-internal fun formatFinalResultScore(value: Int): String = NumberFormat.getIntegerInstance().format(value)
+internal fun formatFinalResultScore(value: Int): String =
+    NumberFormat.getIntegerInstance().format(value)

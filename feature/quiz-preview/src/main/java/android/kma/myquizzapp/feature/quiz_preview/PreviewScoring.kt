@@ -2,11 +2,11 @@ package android.kma.myquizzapp.feature.quiz_preview
 
 import android.kma.myquizzapp.core.common.model.Question
 import android.kma.myquizzapp.core.common.model.QuestionType
-import kotlin.math.roundToInt
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.longOrNull
+import kotlin.math.roundToInt
 
 internal data class PreviewEvaluation(
     val isCorrect: Boolean?,
@@ -27,8 +27,10 @@ internal fun evaluatePreviewAnswer(
                 ?.toSet()
                 .orEmpty()
             val options = question.answerOptions.orEmpty()
-            val submitted = options.filter { it.id in selectedOptionIds }.joinToString(" · ") { it.optionText }
-            val correct = options.filter { it.id in correctIds }.joinToString(" · ") { it.optionText }
+            val submitted =
+                options.filter { it.id in selectedOptionIds }.joinToString(" · ") { it.optionText }
+            val correct =
+                options.filter { it.id in correctIds }.joinToString(" · ") { it.optionText }
             val validKey = correctIds.isNotEmpty()
             val matches = when (question.questionType) {
                 QuestionType.MULTIPLE_CHOICE -> selectedOptionIds.size == 1 && selectedOptionIds.first() in correctIds
@@ -41,8 +43,10 @@ internal fun evaluatePreviewAnswer(
                 correctLabel = correct.ifBlank { null }
             )
         }
+
         QuestionType.SHORT_ANSWER, QuestionType.LONG_ANSWER -> {
-            val correct = (question.correctAnswer as? JsonPrimitive)?.contentOrNull?.trim().orEmpty()
+            val correct =
+                (question.correctAnswer as? JsonPrimitive)?.contentOrNull?.trim().orEmpty()
             val submitted = textAnswer.trim()
             val validKey = correct.isNotEmpty()
             PreviewEvaluation(

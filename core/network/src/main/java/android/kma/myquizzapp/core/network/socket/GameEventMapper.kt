@@ -18,8 +18,8 @@ import android.kma.myquizzapp.core.network.socket.dto.PlayerFinishedDto
 import android.kma.myquizzapp.core.network.socket.dto.PlayerLeaderboardDto
 import android.kma.myquizzapp.core.network.socket.dto.QuestionAwaitingNextDto
 import android.kma.myquizzapp.core.network.socket.dto.QuestionLockedDto
-import android.kma.myquizzapp.core.network.socket.dto.QuestionStartedDto
 import android.kma.myquizzapp.core.network.socket.dto.QuestionResultsDto
+import android.kma.myquizzapp.core.network.socket.dto.QuestionStartedDto
 import android.kma.myquizzapp.core.network.socket.dto.QuestionTimeoutDto
 import android.kma.myquizzapp.core.network.socket.dto.SocketErrorDto
 import android.kma.myquizzapp.core.network.socket.dto.toPersonalQuestionResult
@@ -222,7 +222,10 @@ class GameEventMapper @Inject constructor(
             json.decodeFromString(HostPlayerProgressDto.serializer(), it)
         }
         return dto?.let {
-            GameEvent.HostPlayerProgressUpdated(progress = it.toDomain(), serverTime = it.serverTime)
+            GameEvent.HostPlayerProgressUpdated(
+                progress = it.toDomain(),
+                serverTime = it.serverTime
+            )
         } ?: GameEvent.Failed(GameSocketEvents.HOST_PLAYER_PROGRESS, CODE_CLIENT_PARSE_ERROR)
     }
 
@@ -231,7 +234,10 @@ class GameEventMapper @Inject constructor(
             json.decodeFromString(HostLeaderboardDto.serializer(), it)
         }
         return dto?.let {
-            GameEvent.HostLeaderboardUpdated(leaderboard = it.toDomain(), serverTime = it.serverTime)
+            GameEvent.HostLeaderboardUpdated(
+                leaderboard = it.toDomain(),
+                serverTime = it.serverTime
+            )
         } ?: GameEvent.Failed(GameSocketEvents.LEADERBOARD_HOST, CODE_CLIENT_PARSE_ERROR)
     }
 
@@ -277,7 +283,13 @@ class GameEventMapper @Inject constructor(
             return null
         }
         return runCatching { block(raw) }
-            .onFailure { Timber.e("Parse socket event %s thất bại (%s)", event, it.javaClass.simpleName) }
+            .onFailure {
+                Timber.e(
+                    "Parse socket event %s thất bại (%s)",
+                    event,
+                    it.javaClass.simpleName
+                )
+            }
             .getOrNull()
     }
 

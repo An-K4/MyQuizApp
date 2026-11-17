@@ -56,7 +56,8 @@ class UpdateQuizWithAssetsUseCase @Inject constructor(
             val imageUrl = when {
                 // User chọn ảnh mới cho câu hỏi này → upload
                 question.imageUri != null -> {
-                    when (val result = uploadImageUseCase(question.imageUri, folder = "questions")) {
+                    when (val result =
+                        uploadImageUseCase(question.imageUri, folder = "questions")) {
                         is Result.Success -> result.data
                         is Result.Error -> return result // Early return on error
                     }

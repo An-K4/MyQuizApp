@@ -20,8 +20,6 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
-import java.time.Instant
-import javax.inject.Inject
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
@@ -30,6 +28,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.time.Instant
+import javax.inject.Inject
 
 @HiltViewModel
 class GameViewModel @Inject constructor(
@@ -43,6 +43,7 @@ class GameViewModel @Inject constructor(
     private var nextTimeoutJob: Job? = null
     private var classicFeedbackJob: Job? = null
     private var finalResultRequested = false
+
     // Do not infer review question types from the number of chosen/correct answers.
     private val reviewQuestionTypes = mutableMapOf<Long, String>()
     private var latestOffsetServerMs: Long? = null
@@ -51,7 +52,9 @@ class GameViewModel @Inject constructor(
     private val _effect = Channel<GameEffect>(Channel.BUFFERED)
     val effect = _effect.receiveAsFlow()
 
-    init { connect() }
+    init {
+        connect()
+    }
 
     fun onIntent(intent: GameIntent) {
         when (intent) {
@@ -63,13 +66,20 @@ class GameViewModel @Inject constructor(
                     }
                 )
             }
-            is GameIntent.ChangeText -> _uiState.update { if (!it.isAnswerInputEnabled) it else it.copy(textAnswer = intent.value) }
+
+            is GameIntent.ChangeText -> _uiState.update {
+                if (!it.isAnswerInputEnabled) it else it.copy(
+                    textAnswer = intent.value
+                )
+            }
+
             GameIntent.Submit -> submit()
             GameIntent.NextQuestion -> requestNextQuestion()
             GameIntent.MatchDeadlineReached -> _uiState.update { state ->
                 if (!state.hasMatchBudget || state.isPersonallyDone) state
                 else state.copy(matchTimeExpired = true, isInputLocked = true)
             }
+
             GameIntent.Retry -> connect()
             GameIntent.Sync -> viewModelScope.launch { session.sync() }
             GameIntent.Leave -> viewModelScope.launch { exit(null) }
@@ -78,6 +88,7 @@ class GameViewModel @Inject constructor(
                     state.copy(isInputLocked = true)
                 } else state
             }
+
             GameIntent.ErrorShown -> _uiState.update { it.copy(errorMessage = null) }
         }
     }
@@ -98,25 +109,34 @@ class GameViewModel @Inject constructor(
 
     private suspend fun onEvent(event: GameEvent) {
         if (_uiState.value.phase == GamePhaseUi.Finished &&
-            event !is GameEvent.StateSnapshot && event !is GameEvent.GameEndedEvent) return
+            event !is GameEvent.StateSnapshot && event !is GameEvent.GameEndedEvent
+        ) return
         updateOffset(event.serverTimeOrNull())
         when (event) {
             GameEvent.Connected -> {
-                _uiState.update { it.copy(connection = GameConnection.CONNECTED, isSynchronizing = it.question != null || it.phase is GamePhaseUi.Countdown) }
+                _uiState.update {
+                    it.copy(
+                        connection = GameConnection.CONNECTED,
+                        isSynchronizing = it.question != null || it.phase is GamePhaseUi.Countdown
+                    )
+                }
                 session.joinAndSync()
             }
+
             is GameEvent.LobbyUpdated -> _uiState.update { state ->
                 state.withServerConfig(
                     sessionStatus = event.lobby.sessionStatus,
                     config = event.lobby.config
                 )
             }
+
             is GameEvent.GameStarted -> _uiState.update { state ->
                 state.withServerConfig(
                     sessionStatus = SessionStatus.ACTIVE,
                     config = event.config
                 ).copy(mode = event.mode)
             }
+
             is GameEvent.Disconnected -> when (event.reason) {
                 DisconnectReason.TRANSPORT -> {
                     nextTimeoutJob?.cancel()
@@ -129,26 +149,35 @@ class GameViewModel @Inject constructor(
                         )
                     }
                 }
+
                 DisconnectReason.SERVER_DISCONNECT -> exit("Máy chủ đã đóng kết nối tới phòng này.")
                 DisconnectReason.CLIENT -> Unit
             }
+
             is GameEvent.Countdown -> _uiState.update {
                 // Missing startsAt is an event fallback only, never a restarted local three-second timer.
                 val target = event.countdown.startsAt ?: Instant.ofEpochMilli(
-                    System.currentTimeMillis() + it.serverOffsetMs + event.countdown.seconds.coerceAtLeast(0) * 1_000L
+                    System.currentTimeMillis() + it.serverOffsetMs + event.countdown.seconds.coerceAtLeast(
+                        0
+                    ) * 1_000L
                 ).toString()
-                it.copy(phase = GamePhaseUi.Countdown(target), question = null,
-                    isSynchronizing = false, isInputLocked = true)
+                it.copy(
+                    phase = GamePhaseUi.Countdown(target), question = null,
+                    isSynchronizing = false, isInputLocked = true
+                )
             }
+
             is GameEvent.QuestionStarted -> {
                 val current = _uiState.value
                 val incoming = event.started.question
                 val currentQuestion = current.question
                 if (current.isClassic && currentQuestion != null &&
                     (incoming.index < currentQuestion.index ||
-                        (incoming.index == currentQuestion.index && incoming.id == currentQuestion.id &&
-                            current.phase != GamePhaseUi.Question && current.phase != GamePhaseUi.Connecting))) return
-                if (incoming.questionType.isNotBlank()) reviewQuestionTypes[incoming.id] = incoming.questionType
+                            (incoming.index == currentQuestion.index && incoming.id == currentQuestion.id &&
+                                    current.phase != GamePhaseUi.Question && current.phase != GamePhaseUi.Connecting))
+                ) return
+                if (incoming.questionType.isNotBlank()) reviewQuestionTypes[incoming.id] =
+                    incoming.questionType
                 nextTimeoutJob?.cancel()
                 _uiState.update {
                     it.copy(
@@ -192,6 +221,7 @@ class GameViewModel @Inject constructor(
                     )
                 }
             }
+
             is GameEvent.QuestionAwaitingNext -> applyAwaitingNext(event)
             is GameEvent.QuestionTimedOut -> applyQuestionTimeout(event)
             is GameEvent.AnswerProgressUpdated -> _uiState.update { state ->
@@ -200,22 +230,29 @@ class GameViewModel @Inject constructor(
                     activePlayers = event.progress.activePlayers
                 )
             }
+
             is GameEvent.PlayerLeaderboardUpdated -> {
                 if (_uiState.value.showLeaderboard == ShowLeaderboard.BETWEEN_QUESTIONS) {
                     applyLeaderboard(event.leaderboard, event.serverTime)
                 }
             }
+
             is GameEvent.QuestionLocked -> _uiState.update { state ->
                 if (state.question?.index != event.index || state.phase is GamePhaseUi.Results) state
                 else state.copy(phase = GamePhaseUi.Locked, isInputLocked = true)
             }
+
             is GameEvent.PersonalQuestionResultsReceived -> {
                 val before = _uiState.value
                 _uiState.update { it.reconcileClassicPersonalResult(event.result) }
                 if (_uiState.value != before) updateOffset(event.result.serverTime)
             }
+
             is GameEvent.QuestionResultsReceived -> _uiState.update { state ->
-                if (state.isClassic) return@update state.reconcileClassicCommonResult(event.results, event.serverTime)
+                if (state.isClassic) return@update state.reconcileClassicCommonResult(
+                    event.results,
+                    event.serverTime
+                )
                 if (state.question?.index != event.results.index ||
                     (event.results.questionId != null && state.question.id != event.results.questionId) ||
                     state.phase == GamePhaseUi.Finished
@@ -237,6 +274,7 @@ class GameViewModel @Inject constructor(
                             state.phase is GamePhaseUi.Results -> state.classicFeedbackRemainingMs
                             state.showCorrectAnswer == true && feedback.results.correctAnswers.isNotEmpty() ->
                                 CLASSIC_FEEDBACK_DURATION_MS
+
                             else -> 0L
                         },
                         isResultsLeaderboardFresh = state.isResultsLeaderboardFresh && state.phase is GamePhaseUi.Results,
@@ -249,6 +287,7 @@ class GameViewModel @Inject constructor(
                     )
                 }
             }
+
             is GameEvent.StateSnapshot -> {
                 restore(event.snapshot, event.serverTime)
                 if (event.snapshot.phase == GamePhase.FINISHED && !finalResultRequested) {
@@ -256,6 +295,7 @@ class GameViewModel @Inject constructor(
                     _effect.send(GameEffect.NavigateToFinalResult(gameId, playerId))
                 }
             }
+
             is GameEvent.GameEndedEvent -> finish(event)
             is GameEvent.PlayerEliminated -> if (event.player.id == playerId) {
                 _uiState.update {
@@ -268,6 +308,7 @@ class GameViewModel @Inject constructor(
                     )
                 }
             }
+
             is GameEvent.PlayerFinishedEvent -> applyPlayerFinished(event)
             is GameEvent.Failed -> {
                 if (event.event == EVENT_QUESTION_NEXT) {
@@ -276,6 +317,7 @@ class GameViewModel @Inject constructor(
                 }
                 onFailure(event.code)
             }
+
             is GameEvent.HostQuestionReceived,
             is GameEvent.HostAnswerReceivedEvent,
             is GameEvent.HostPlayerProgressUpdated,
@@ -309,7 +351,9 @@ class GameViewModel @Inject constructor(
                         current.phase !is GamePhaseUi.Results || current.isPaused ||
                         current.connection != GameConnection.CONNECTED || current.isSynchronizing
                     ) current else current.copy(
-                        classicFeedbackRemainingMs = (current.classicFeedbackRemainingMs - tick).coerceAtLeast(0L)
+                        classicFeedbackRemainingMs = (current.classicFeedbackRemainingMs - tick).coerceAtLeast(
+                            0L
+                        )
                     )
                 }
                 if (_uiState.value.classicFeedbackRemainingMs <= 0L) break
@@ -321,9 +365,14 @@ class GameViewModel @Inject constructor(
         val me = rows.firstOrNull { it.id == playerId }
         _uiState.update {
             if (it.isClassic && (!it.canShowClassicRank ||
-                (serverTime.serverMillis() ?: Long.MAX_VALUE) < (it.classicPhaseServerTime.serverMillis() ?: Long.MIN_VALUE))) it
-            else it.copy(leaderboard = rows, playerRank = me?.rank, playerScore = me?.playerScore,
-                isResultsLeaderboardFresh = it.phase is GamePhaseUi.Results)
+                        (serverTime.serverMillis()
+                            ?: Long.MAX_VALUE) < (it.classicPhaseServerTime.serverMillis()
+                    ?: Long.MIN_VALUE))
+            ) it
+            else it.copy(
+                leaderboard = rows, playerRank = me?.rank, playerScore = me?.playerScore,
+                isResultsLeaderboardFresh = it.phase is GamePhaseUi.Results
+            )
         }
     }
 
@@ -331,10 +380,14 @@ class GameViewModel @Inject constructor(
         val current = _uiState.value
         if (current.phase == GamePhaseUi.Finished) return
         if (current.isClassic && snapshot.phase != GamePhase.FINISHED &&
-            snapshot.index < (current.question?.index ?: -1)) return
+            snapshot.index < (current.question?.index ?: -1)
+        ) return
         if (current.isClassic && snapshot.phase != GamePhase.FINISHED &&
             current.question?.index == snapshot.index &&
-            (serverTime.serverMillis() ?: Long.MAX_VALUE) < (current.classicPhaseServerTime.serverMillis() ?: Long.MIN_VALUE)) return
+            (serverTime.serverMillis()
+                ?: Long.MAX_VALUE) < (current.classicPhaseServerTime.serverMillis()
+                ?: Long.MIN_VALUE)
+        ) return
         // Snapshot models live in core:common; capture the public property for a stable smart cast.
         val snapshotQuestion = snapshot.question
         snapshotQuestion?.takeIf { it.questionType.isNotBlank() }?.let {
@@ -345,9 +398,9 @@ class GameViewModel @Inject constructor(
         }
         _uiState.update { old ->
             val sameQuestion = old.question?.index == snapshot.index &&
-                (snapshotQuestion == null || old.question?.id == snapshotQuestion.id)
+                    (snapshotQuestion == null || old.question?.id == snapshotQuestion.id)
             val hasCurrentResults = sameQuestion && (old.results?.index == snapshot.index ||
-                (old.isClassic && old.phase is GamePhaseUi.Results))
+                    (old.isClassic && old.phase is GamePhaseUi.Results))
             // ACK thành công là bằng chứng server đã ghi đáp án. Một snapshot thiếu
             // answered_questions (pause/resume hoặc cache vừa reconnect) không được
             // mở lại input. Chỉ ACK bất định (isConfirming=true) mới cho phép snapshot
@@ -364,6 +417,7 @@ class GameViewModel @Inject constructor(
                         answered != null || hasLocallyAcceptedOrPendingAnswer -> GamePhaseUi.Submitted
                         else -> GamePhaseUi.Question
                     }
+
                     GamePhase.QUESTION_LOCKED -> if (hasCurrentResults) old.phase else GamePhaseUi.Locked
                     GamePhase.SHOWING_RESULTS -> GamePhaseUi.Results(restoredWithoutDetails = !hasCurrentResults)
                     GamePhase.FINISHED -> GamePhaseUi.Finished
@@ -378,10 +432,11 @@ class GameViewModel @Inject constructor(
             val showBoard = config?.flow?.showLeaderboard ?: old.showLeaderboard
             val allowAnswerLate = config?.flow?.allowAnswerLate ?: snapshot.allowAnswerLate
             val snapshotRows = snapshot.leaderboard
-            val classic = (snapshot.mode ?: old.mode) == android.kma.myquizzapp.core.common.model.GameMode.CLASSIC &&
-                pacing == android.kma.myquizzapp.core.common.model.Pacing.HOST
+            val classic = (snapshot.mode
+                ?: old.mode) == android.kma.myquizzapp.core.common.model.GameMode.CLASSIC &&
+                    pacing == android.kma.myquizzapp.core.common.model.Pacing.HOST
             val mayShowBoard = showBoard == ShowLeaderboard.BETWEEN_QUESTIONS &&
-                (!classic || (showCorrect == true && phase is GamePhaseUi.Results))
+                    (!classic || (showCorrect == true && phase is GamePhaseUi.Results))
             val rows = if (mayShowBoard) {
                 if (snapshotRows.isNotEmpty()) snapshotRows
                 else if (sameQuestion && (!old.isClassic || old.isResultsLeaderboardFresh)) old.leaderboard
@@ -411,50 +466,76 @@ class GameViewModel @Inject constructor(
                 allowAnswerLate = allowAnswerLate,
                 remainingSeconds = snapshot.remainingSeconds,
                 lives = snapshot.player?.lives ?: old.lives,
-                selectedOptionId = answered?.answerKeys?.singleOrNull() ?: old.selectedOptionId.takeIf { sameQuestion },
-                selectedOptionIds = answered?.answerKeys?.toSet() ?: old.selectedOptionIds.takeIf { sameQuestion }.orEmpty(),
-                textAnswer = answered?.answerKeys?.singleOrNull() ?: old.textAnswer.takeIf { sameQuestion }.orEmpty(),
-                acceptedAnswerKeys = answered?.answerKeys ?: old.acceptedAnswerKeys.takeIf { sameQuestion },
+                selectedOptionId = answered?.answerKeys?.singleOrNull()
+                    ?: old.selectedOptionId.takeIf { sameQuestion },
+                selectedOptionIds = answered?.answerKeys?.toSet()
+                    ?: old.selectedOptionIds.takeIf { sameQuestion }.orEmpty(),
+                textAnswer = answered?.answerKeys?.singleOrNull()
+                    ?: old.textAnswer.takeIf { sameQuestion }.orEmpty(),
+                acceptedAnswerKeys = answered?.answerKeys
+                    ?: old.acceptedAnswerKeys.takeIf { sameQuestion },
                 hasAnswerAttempt = answered != null || (sameQuestion && old.hasAnswerAttempt),
                 results = old.results.takeIf { hasCurrentResults && showCorrect == true }
-                    ?: old.results.takeIf { hasCurrentResults }?.copy(correctAnswers = emptyList(), stats = AnswerStats()),
+                    ?: old.results.takeIf { hasCurrentResults }
+                        ?.copy(correctAnswers = emptyList(), stats = AnswerStats()),
                 outcome = when {
                     !hasCurrentResults -> null
                     showCorrect != true -> QuestionOutcome.HIDDEN
                     else -> old.outcome
                 },
                 classicFeedbackRemainingMs = if (classic && old.isSynchronizing) 0L
-                    else old.classicFeedbackRemainingMs.takeIf { hasCurrentResults } ?: 0L,
+                else old.classicFeedbackRemainingMs.takeIf { hasCurrentResults } ?: 0L,
                 personalResult = old.personalResult.takeIf { sameQuestion && showCorrect == true && phase is GamePhaseUi.Results },
-                classicPhaseServerTime = if (classic) newerServerTime(old.classicPhaseServerTime.takeIf { sameQuestion }, serverTime) else null,
+                classicPhaseServerTime = if (classic) newerServerTime(
+                    old.classicPhaseServerTime.takeIf { sameQuestion },
+                    serverTime
+                ) else null,
                 classicTimingFromSnapshot = classic && phase is GamePhaseUi.Results,
                 totalScore = if (classic) old.totalScore.takeIf { sameQuestion && showCorrect == true && phase is GamePhaseUi.Results } else old.totalScore,
                 streak = if (classic) old.streak.takeIf { sameQuestion && showCorrect == true && phase is GamePhaseUi.Results } else old.streak,
                 isResultsLeaderboardFresh = phase is GamePhaseUi.Results && mayShowBoard &&
-                    (snapshotRows.isNotEmpty() || (sameQuestion && old.isResultsLeaderboardFresh)),
-                scoreEarned = old.scoreEarned.takeIf { sameQuestion && (!classic ||
-                    (showCorrect == true && phase is GamePhaseUi.Results)) },
+                        (snapshotRows.isNotEmpty() || (sameQuestion && old.isResultsLeaderboardFresh)),
+                scoreEarned = old.scoreEarned.takeIf {
+                    sameQuestion && (!classic ||
+                            (showCorrect == true && phase is GamePhaseUi.Results))
+                },
                 timedOut = sameQuestion && old.timedOut,
                 wasLate = sameQuestion && old.wasLate,
                 leaderboard = rows,
                 playerRank = me?.rank,
                 playerScore = me?.playerScore,
                 isInputLocked = status == SessionStatus.PAUSED ||
-                    phase != GamePhaseUi.Question || answered != null,
+                        phase != GamePhaseUi.Question || answered != null,
                 isSubmitting = false,
                 isConfirming = false
             ).let { restored ->
                 if (!restored.isClassic) restored
                 else {
                     val reconciled = if (snapshot.phase == GamePhase.SHOWING_RESULTS)
-                        restored.reconcileClassicPersonalResult(snapshot.personalResult?.takeIf { it.index == snapshot.index }, restored = true)
+                        restored.reconcileClassicPersonalResult(
+                            snapshot.personalResult?.takeIf { it.index == snapshot.index },
+                            restored = true
+                        )
                     else restored
-                    if (phase == GamePhaseUi.Finished) reconciled.copy(personalResult = null, results = null,
-                        outcome = null, totalScore = null, scoreEarned = null, streak = null, classicFeedbackRemainingMs = 0L)
+                    if (phase == GamePhaseUi.Finished) reconciled.copy(
+                        personalResult = null,
+                        results = null,
+                        outcome = null,
+                        totalScore = null,
+                        scoreEarned = null,
+                        streak = null,
+                        classicFeedbackRemainingMs = 0L
+                    )
                     else if (reconciled.visiblePersonalResult != null || reconciled.results == null) reconciled
-                    else reconciled.copy(outcome = if (reconciled.acceptedAnswerKeys == null) QuestionOutcome.HIDDEN
-                        else resolveQuestionFeedback(reconciled.showCorrectAnswer, reconciled.question?.questionType.orEmpty(),
-                            reconciled.acceptedAnswerKeys, reconciled.results).outcome)
+                    else reconciled.copy(
+                        outcome = if (reconciled.acceptedAnswerKeys == null) QuestionOutcome.HIDDEN
+                        else resolveQuestionFeedback(
+                            reconciled.showCorrectAnswer,
+                            reconciled.question?.questionType.orEmpty(),
+                            reconciled.acceptedAnswerKeys,
+                            reconciled.results
+                        ).outcome
+                    )
                 }
             }
         }
@@ -467,7 +548,7 @@ class GameViewModel @Inject constructor(
         val showCorrectAnswer = config.flow.showCorrectAnswer
         val showLeaderboard = config.flow.showLeaderboard
         val mayShowBoard = showLeaderboard == ShowLeaderboard.BETWEEN_QUESTIONS &&
-            (!isClassic || (showCorrectAnswer && phase is GamePhaseUi.Results))
+                (!isClassic || (showCorrectAnswer && phase is GamePhaseUi.Results))
         val resumedInput = sessionStatus == SessionStatus.ACTIVE && phase == GamePhaseUi.Question
         return copy(
             sessionStatus = sessionStatus,
@@ -480,8 +561,10 @@ class GameViewModel @Inject constructor(
             streak = if (isClassic && !showCorrectAnswer) null else streak,
             showLeaderboard = showLeaderboard,
             allowAnswerLate = config.flow.allowAnswerLate,
-            results = if (showCorrectAnswer) results else results?.copy(correctAnswers = emptyList(),
-                stats = AnswerStats()),
+            results = if (showCorrectAnswer) results else results?.copy(
+                correctAnswers = emptyList(),
+                stats = AnswerStats()
+            ),
             outcome = if (showCorrectAnswer) outcome else QuestionOutcome.HIDDEN.takeIf { results != null },
             isResultsLeaderboardFresh = mayShowBoard && isResultsLeaderboardFresh,
             leaderboard = if (mayShowBoard) leaderboard else emptyList(),
@@ -514,13 +597,19 @@ class GameViewModel @Inject constructor(
         val question = state.question ?: return
         val answer = when (question.questionType) {
             "multiple_choice" -> PlayerAnswer.SingleChoice(checkNotNull(state.selectedOptionId))
-            "multiple_select" -> PlayerAnswer.MultipleSelect(question.answerOptions.map { it.id }.filter(state.selectedOptionIds::contains))
+            "multiple_select" -> PlayerAnswer.MultipleSelect(question.answerOptions.map { it.id }
+                .filter(state.selectedOptionIds::contains))
+
             "short_answer", "long_answer" -> PlayerAnswer.Text(state.textAnswer.trim())
             else -> return
         }
         val submittedKeys = state.submittedAnswerKeys.map(String::trim)
-        _uiState.update { it.copy(phase = GamePhaseUi.Submitted, isInputLocked = true, isSubmitting = true,
-            hasAnswerAttempt = true) }
+        _uiState.update {
+            it.copy(
+                phase = GamePhaseUi.Submitted, isInputLocked = true, isSubmitting = true,
+                hasAnswerAttempt = true
+            )
+        }
         viewModelScope.launch {
             val result = session.submit(answer)
             val current = _uiState.value
@@ -540,11 +629,18 @@ class GameViewModel @Inject constructor(
                     if (result.data.accepted) retainAcceptedAnswer(submittedKeys)
                     applyAnswerAck(result.data)
                 }
+
                 is Result.Error -> {
                     val code = (result.error as? AppError.Api)?.code.orEmpty()
                     if (code in FATAL_CODES) exit(result.error.toUserMessage())
                     else {
-                        _uiState.update { it.copy(isSubmitting = false, isConfirming = true, errorMessage = "Đang xác nhận câu trả lời với máy chủ…") }
+                        _uiState.update {
+                            it.copy(
+                                isSubmitting = false,
+                                isConfirming = true,
+                                errorMessage = "Đang xác nhận câu trả lời với máy chủ…"
+                            )
+                        }
                         session.sync()
                     }
                 }
@@ -562,12 +658,18 @@ class GameViewModel @Inject constructor(
 
     private fun acceptClassicAnswer(keys: List<String>) {
         _uiState.update { state ->
-            state.copy(acceptedAnswerKeys = keys.takeUnless { state.visiblePersonalResult?.answered == false },
+            state.copy(
+                acceptedAnswerKeys = keys.takeUnless { state.visiblePersonalResult?.answered == false },
                 hasAnswerAttempt = state.visiblePersonalResult?.answered ?: true,
                 phase = if (state.phase == GamePhaseUi.Question) GamePhaseUi.Submitted else state.phase,
                 isInputLocked = true, isSubmitting = false, isConfirming = false,
                 outcome = if (state.visiblePersonalResult != null) state.outcome else state.results?.let { results ->
-                    resolveQuestionFeedback(state.showCorrectAnswer, state.question?.questionType.orEmpty(), keys, results).outcome
+                    resolveQuestionFeedback(
+                        state.showCorrectAnswer,
+                        state.question?.questionType.orEmpty(),
+                        keys,
+                        results
+                    ).outcome
                 } ?: state.outcome)
         }
     }
@@ -646,7 +748,8 @@ class GameViewModel @Inject constructor(
         if (finished.id != playerId) return
         nextTimeoutJob?.cancel()
         _uiState.update { state ->
-            val rows = if (state.showLeaderboard == ShowLeaderboard.NEVER) emptyList() else finished.leaderboard
+            val rows =
+                if (state.showLeaderboard == ShowLeaderboard.NEVER) emptyList() else finished.leaderboard
             val me = rows.firstOrNull { it.id == playerId }
             state.copy(
                 phase = if (finished.status == STATUS_ELIMINATED) {
@@ -727,11 +830,17 @@ class GameViewModel @Inject constructor(
     }
 
     private suspend fun finish(event: GameEvent.GameEndedEvent) {
-        session.saveResult(gameId, playerId, event.ended, _uiState.value.mode, socketToken,
-            reviewQuestionTypes = reviewQuestionTypes)
-        _uiState.update { it.copy(phase = GamePhaseUi.Finished, isInputLocked = true,
-            personalResult = null, results = null, outcome = null, totalScore = null,
-            scoreEarned = null, streak = null, classicFeedbackRemainingMs = 0L) }
+        session.saveResult(
+            gameId, playerId, event.ended, _uiState.value.mode, socketToken,
+            reviewQuestionTypes = reviewQuestionTypes
+        )
+        _uiState.update {
+            it.copy(
+                phase = GamePhaseUi.Finished, isInputLocked = true,
+                personalResult = null, results = null, outcome = null, totalScore = null,
+                scoreEarned = null, streak = null, classicFeedbackRemainingMs = 0L
+            )
+        }
         if (!finalResultRequested) {
             finalResultRequested = true
             _effect.send(GameEffect.NavigateToFinalResult(gameId, playerId))
@@ -761,7 +870,9 @@ class GameViewModel @Inject constructor(
     }
 
     private fun updateOffset(serverTime: String?) {
-        val serverMs = serverTime?.let { runCatching { Instant.parse(it).toEpochMilli() }.getOrNull() } ?: return
+        val serverMs =
+            serverTime?.let { runCatching { Instant.parse(it).toEpochMilli() }.getOrNull() }
+                ?: return
         if (serverMs < (latestOffsetServerMs ?: Long.MIN_VALUE)) return
         latestOffsetServerMs = serverMs
         _uiState.update { it.copy(serverOffsetMs = serverMs - System.currentTimeMillis()) }
@@ -788,6 +899,7 @@ class GameViewModel @Inject constructor(
         is GameEvent.LobbyUpdated,
         is GameEvent.Failed,
         is GameEvent.Unhandled -> null
+
         is GameEvent.HostQuestionReceived -> serverTime
         is GameEvent.HostAnswerReceivedEvent -> serverTime
         is GameEvent.HostPlayerProgressUpdated -> serverTime
@@ -795,8 +907,12 @@ class GameViewModel @Inject constructor(
     }
 
     private suspend fun exit(message: String?) {
-        _uiState.update { it.copy(classicFeedbackRemainingMs = 0L, personalResult = null,
-            scoreEarned = null, totalScore = null, streak = null) }
+        _uiState.update {
+            it.copy(
+                classicFeedbackRemainingMs = 0L, personalResult = null,
+                scoreEarned = null, totalScore = null, streak = null
+            )
+        }
         _effect.send(GameEffect.Exit(message))
         classicFeedbackJob?.cancel()
         classicFeedbackJob = null
@@ -813,6 +929,11 @@ class GameViewModel @Inject constructor(
         const val STATUS_ELIMINATED = "eliminated"
         const val STATUS_FINISHED = "finished"
 
-        val FATAL_CODES = setOf("GAME_TOKEN_INVALID", "GAME_TOKEN_WRONG_ROOM", "GAME_ROOM_NOT_FOUND", "GAME_PLAYER_NOT_FOUND")
+        val FATAL_CODES = setOf(
+            "GAME_TOKEN_INVALID",
+            "GAME_TOKEN_WRONG_ROOM",
+            "GAME_ROOM_NOT_FOUND",
+            "GAME_PLAYER_NOT_FOUND"
+        )
     }
 }

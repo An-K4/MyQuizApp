@@ -1,27 +1,25 @@
 package android.kma.myquizzapp.core.ui.components
 
 import android.content.res.Configuration
-import android.kma.myquizzapp.core.ui.theme.MyQuizAppTheme
-import androidx.compose.foundation.layout.*
-import androidx.compose.material3.Surface
-import androidx.compose.ui.tooling.preview.Preview
-
 import android.kma.myquizzapp.core.ui.theme.ComponentColors
+import android.kma.myquizzapp.core.ui.theme.MyQuizAppTheme
 import android.kma.myquizzapp.core.ui.theme.Primary
-import androidx.compose.material3.SwitchDefaults
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
-
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 
 /** Pattern cài đặt phổ biến; không phụ thuộc model hay intent của feature. */
@@ -70,7 +68,12 @@ fun SettingSwitchRow(
 }
 
 @Preview(name = "Setting Switch States Light", showBackground = true, widthDp = 390)
-@Preview(name = "Setting Switch States Dark", showBackground = true, widthDp = 390, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(
+    name = "Setting Switch States Dark",
+    showBackground = true,
+    widthDp = 390,
+    uiMode = Configuration.UI_MODE_NIGHT_YES
+)
 @Composable
 private fun SettingSwitchRowPreview() {
     MyQuizAppTheme {
@@ -78,8 +81,10 @@ private fun SettingSwitchRowPreview() {
             Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 SettingSwitchRow("Âm thanh", true, {}, description = "Phát âm thanh trong khi chơi")
                 SettingSwitchRow("Rung", false, {})
-                SettingSwitchRow("Thông báo", false, {}, enabled = false,
-                    description = "Mô tả dài để kiểm tra bố cục nhiều dòng khi tùy chọn bị vô hiệu hóa")
+                SettingSwitchRow(
+                    "Thông báo", false, {}, enabled = false,
+                    description = "Mô tả dài để kiểm tra bố cục nhiều dòng khi tùy chọn bị vô hiệu hóa"
+                )
             }
         }
     }

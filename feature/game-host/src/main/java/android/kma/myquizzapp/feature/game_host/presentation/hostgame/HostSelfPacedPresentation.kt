@@ -8,7 +8,8 @@ import java.util.Locale
 
 internal val HostGameUiState.usesSelfPacedMonitorLayout: Boolean
     get() = isSelfPaced && !isFinished && phase in setOf(
-        GamePhase.QUESTION_ACTIVE, GamePhase.QUESTION_LOCKED, GamePhase.SHOWING_RESULTS)
+        GamePhase.QUESTION_ACTIVE, GamePhase.QUESTION_LOCKED, GamePhase.SHOWING_RESULTS
+    )
 internal val HostGameUiState.hasFreshMonitoringData: Boolean
     get() = connection == HostGameConnection.CONNECTED && isStateSynchronized && hasMonitoringData
 internal val HostGameUiState.monitorShowsScores: Boolean get() = mode != GameMode.PRACTICE
@@ -29,6 +30,7 @@ internal enum class HostMonitorStatus(val label: String) {
     PLAYING("Đang chơi"), FINISHED("Đã hoàn thành"), DISCONNECTED("Mất kết nối"),
     ELIMINATED("Đã bị loại"), UNKNOWN("Chưa rõ trạng thái")
 }
+
 internal fun hostMonitorStatus(status: String): HostMonitorStatus = when (status) {
     "connected" -> HostMonitorStatus.PLAYING
     "finished" -> HostMonitorStatus.FINISHED
@@ -37,20 +39,53 @@ internal fun hostMonitorStatus(status: String): HostMonitorStatus = when (status
     else -> HostMonitorStatus.UNKNOWN
 }
 
-internal data class HostMonitorMetric(val label: String, val value: Int?, val status: HostMonitorStatus)
+internal data class HostMonitorMetric(
+    val label: String,
+    val value: Int?,
+    val status: HostMonitorStatus
+)
+
 internal fun hostMonitorMetrics(state: HostGameUiState): List<HostMonitorMetric> {
     val fresh = state.hasFreshMonitoringData
     return buildList {
-        add(HostMonitorMetric("Đang chơi", state.playingPlayers.takeIf { fresh }, HostMonitorStatus.PLAYING))
-        add(HostMonitorMetric("Hoàn thành", state.finishedPlayers.takeIf { fresh }, HostMonitorStatus.FINISHED))
-        add(HostMonitorMetric("Mất kết nối", state.disconnectedPlayers.takeIf { fresh }, HostMonitorStatus.DISCONNECTED))
+        add(
+            HostMonitorMetric(
+                "Đang chơi",
+                state.playingPlayers.takeIf { fresh },
+                HostMonitorStatus.PLAYING
+            )
+        )
+        add(
+            HostMonitorMetric(
+                "Hoàn thành",
+                state.finishedPlayers.takeIf { fresh },
+                HostMonitorStatus.FINISHED
+            )
+        )
+        add(
+            HostMonitorMetric(
+                "Mất kết nối",
+                state.disconnectedPlayers.takeIf { fresh },
+                HostMonitorStatus.DISCONNECTED
+            )
+        )
         if (state.monitorShowsEliminated)
-            add(HostMonitorMetric("Bị loại", state.eliminatedPlayers.takeIf { fresh }, HostMonitorStatus.ELIMINATED))
+            add(
+                HostMonitorMetric(
+                    "Bị loại",
+                    state.eliminatedPlayers.takeIf { fresh },
+                    HostMonitorStatus.ELIMINATED
+                )
+            )
     }
 }
 
 internal data class HostMonitorProgress(val label: String, val fraction: Float? = null)
-internal fun hostMonitorProgress(row: HostLeaderboardRow, state: HostGameUiState): HostMonitorProgress {
+
+internal fun hostMonitorProgress(
+    row: HostLeaderboardRow,
+    state: HostGameUiState
+): HostMonitorProgress {
     val answered = row.answeredCount
     if (answered < 0) return HostMonitorProgress("Chưa có tiến độ")
     // Marathon can loop the bank. Never show a finite completion percentage or 11/10.
@@ -74,6 +109,7 @@ internal fun hostMonitorInitials(name: String): String {
         else -> first(words.first()) + first(words.last())
     }.uppercase(Locale.ROOT)
 }
+
 internal fun hostMonitorScoreLabel(score: Int): String =
     "${NumberFormat.getIntegerInstance(Locale("vi", "VN")).format(score)} điểm"
 

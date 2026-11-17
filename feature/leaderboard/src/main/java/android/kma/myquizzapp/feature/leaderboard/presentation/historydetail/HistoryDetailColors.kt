@@ -34,11 +34,12 @@ internal fun historyDetailColors(): HistoryDetailColors {
         card = if (dark) scheme.surfaceVariant else FrontendColors.SoftBackground,
         summary = if (dark) scheme.surfaceVariant else FrontendColors.BrandTint,
         correct = if (dark) FrontendColors.Success else FrontendColors.SuccessForeground,
-        correctSurface = if (dark) FrontendColors.Success.copy(alpha = 0.12f).compositeOver(scheme.surface)
-            else FrontendColors.CorrectAnswerBackground,
+        correctSurface = if (dark) FrontendColors.Success.copy(alpha = 0.12f)
+            .compositeOver(scheme.surface)
+        else FrontendColors.CorrectAnswerBackground,
         incorrect = if (dark) scheme.onErrorContainer else FrontendColors.Danger,
         incorrectSurface = if (dark) scheme.errorContainer
-            else FrontendColors.Danger.copy(alpha = 0.07f).compositeOver(FrontendColors.PageBackground),
+        else FrontendColors.Danger.copy(alpha = 0.07f).compositeOver(FrontendColors.PageBackground),
         track = if (dark) scheme.surface else FrontendColors.Border
     )
 }

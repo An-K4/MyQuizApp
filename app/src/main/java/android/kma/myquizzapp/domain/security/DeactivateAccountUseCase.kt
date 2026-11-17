@@ -10,8 +10,15 @@ import android.kma.myquizzapp.core.common.result.Result
 import kotlinx.coroutines.CancellationException
 import javax.inject.Inject
 
-class DeactivateAccountUseCase @Inject constructor(private val users: UserRepository, private val session: SessionRepository) {
-    suspend operator fun invoke(password: String, confirmed: Boolean, token: SessionUserToken): SecurityMutationResult {
+class DeactivateAccountUseCase @Inject constructor(
+    private val users: UserRepository,
+    private val session: SessionRepository
+) {
+    suspend operator fun invoke(
+        password: String,
+        confirmed: Boolean,
+        token: SessionUserToken
+    ): SecurityMutationResult {
         if (session.captureUserSession() != token) return SecurityMutationResult.SessionChanged
         if (session.state.value.userOrNull?.authProvider == AuthProvider.GOOGLE)
             return SecurityMutationResult.Rejected(AppError.Api("AUTH_GOOGLE_ONLY"))
@@ -30,10 +37,16 @@ class DeactivateAccountUseCase @Inject constructor(private val users: UserReposi
     }
 
     /** Retry only local cleanup; never send DELETE twice after a confirmed mutation. */
-    suspend fun finishLocal(token: SessionUserToken, completed: Boolean = false): SecurityMutationResult = try {
+    suspend fun finishLocal(
+        token: SessionUserToken,
+        completed: Boolean = false
+    ): SecurityMutationResult = try {
         if (session.clearSession(token)) {
             if (completed) SecurityMutationResult.Completed else SecurityMutationResult.SessionEnded
         } else SecurityMutationResult.SessionChanged
-    } catch (e: CancellationException) { throw e }
-      catch (_: Exception) { SecurityMutationResult.CleanupPending }
+    } catch (e: CancellationException) {
+        throw e
+    } catch (_: Exception) {
+        SecurityMutationResult.CleanupPending
+    }
 }

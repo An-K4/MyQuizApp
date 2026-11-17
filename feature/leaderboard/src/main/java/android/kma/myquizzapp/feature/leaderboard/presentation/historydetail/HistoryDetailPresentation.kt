@@ -55,13 +55,15 @@ internal fun GameReviewItem.toHistoryReviewUi(): HistoryReviewUi {
             val isAnswer = key in correct
             if (!isAnswer && !selected) return@mapIndexedNotNull null
             HistoryAnswerUi(
-                text = option.text?.takeIf(String::isNotBlank) ?: "Nội dung đáp án không còn khả dụng",
+                text = option.text?.takeIf(String::isNotBlank)
+                    ?: "Nội dung đáp án không còn khả dụng",
                 tone = when {
                     isAnswer -> HistoryAnswerTone.Correct
                     correct.isEmpty() -> HistoryAnswerTone.Neutral
                     else -> HistoryAnswerTone.Incorrect
                 },
-                optionLabel = if (index < 26) ('A'.code + index).toChar().toString() else (index + 1).toString(),
+                optionLabel = if (index < 26) ('A'.code + index).toChar()
+                    .toString() else (index + 1).toString(),
                 caption = if (selected) "Bạn đã chọn" else "Đáp án đúng"
             )
         }
@@ -74,20 +76,42 @@ internal fun GameReviewItem.toHistoryReviewUi(): HistoryReviewUi {
         buildList {
             if (answered && isCorrect) {
                 when {
-                    mine.isNotBlank() -> add(HistoryAnswerUi(mine, HistoryAnswerTone.Correct, caption = "Bạn trả lời"))
-                    correct.isNotBlank() -> add(HistoryAnswerUi(correct, HistoryAnswerTone.Correct, caption = "Đáp án đúng"))
+                    mine.isNotBlank() -> add(
+                        HistoryAnswerUi(
+                            mine,
+                            HistoryAnswerTone.Correct,
+                            caption = "Bạn trả lời"
+                        )
+                    )
+
+                    correct.isNotBlank() -> add(
+                        HistoryAnswerUi(
+                            correct,
+                            HistoryAnswerTone.Correct,
+                            caption = "Đáp án đúng"
+                        )
+                    )
+
                     else -> notice = "Nội dung câu trả lời không còn khả dụng."
                 }
             } else {
                 if (answered) {
-                    add(HistoryAnswerUi(
-                        text = mine.ifBlank { "Không có nội dung trả lời" },
-                        tone = HistoryAnswerTone.Incorrect,
-                        caption = "Bạn trả lời"
-                    ))
+                    add(
+                        HistoryAnswerUi(
+                            text = mine.ifBlank { "Không có nội dung trả lời" },
+                            tone = HistoryAnswerTone.Incorrect,
+                            caption = "Bạn trả lời"
+                        )
+                    )
                 }
                 if (correct.isNotBlank()) {
-                    add(HistoryAnswerUi(correct, HistoryAnswerTone.Correct, caption = "Đáp án đúng"))
+                    add(
+                        HistoryAnswerUi(
+                            correct,
+                            HistoryAnswerTone.Correct,
+                            caption = "Đáp án đúng"
+                        )
+                    )
                 }
             }
         }
@@ -104,14 +128,18 @@ internal fun historyAccuracy(correct: Int, answers: Int): HistoryAccuracyUi {
         return HistoryAccuracyUi("Thống kê chưa khả dụng", null)
     }
     val percent = correct.toLong() * 100 / answers
-    return HistoryAccuracyUi("$correct/$answers trả lời đúng – $percent%", correct.toFloat() / answers)
+    return HistoryAccuracyUi(
+        "$correct/$answers trả lời đúng – $percent%",
+        correct.toFloat() / answers
+    )
 }
 
 internal fun GameHistorySummary.historyRoomLabel(): String? =
     sessionCode?.trim()?.takeIf(String::isNotEmpty)?.let { "Mã phòng: $it" }
         ?: sessionName.trim().takeIf(String::isNotEmpty)?.let { "Phòng: $it" }
 
-internal fun SessionStatus.historyStatusLabel(): String? = if (this == SessionStatus.CANCELLED) "Đã hủy" else null
+internal fun SessionStatus.historyStatusLabel(): String? =
+    if (this == SessionStatus.CANCELLED) "Đã hủy" else null
 
 internal fun GameMode.historyModeLabel(): String = when (this) {
     GameMode.CLASSIC -> "Cổ điển"
@@ -121,7 +149,8 @@ internal fun GameMode.historyModeLabel(): String = when (this) {
     GameMode.PRACTICE -> "Luyện tập"
 }
 
-internal fun formatHistoryNumber(value: Int): String = NumberFormat.getIntegerInstance(Locale.US).format(value)
+internal fun formatHistoryNumber(value: Int): String =
+    NumberFormat.getIntegerInstance(Locale.US).format(value)
 
 internal fun formatHistoryTime(raw: String?): String? = raw?.takeIf(String::isNotBlank)?.let {
     runCatching {
@@ -131,6 +160,7 @@ internal fun formatHistoryTime(raw: String?): String? = raw?.takeIf(String::isNo
 }
 
 internal fun historyPlayerInitials(name: String): String = name.trim().split(Regex("\\s+"))
-    .filter(String::isNotEmpty).take(2).map { it.first() }.joinToString("").uppercase(Locale.getDefault())
+    .filter(String::isNotEmpty).take(2).map { it.first() }.joinToString("")
+    .uppercase(Locale.getDefault())
 
 private fun String.optionKey(): String = trim().lowercase(Locale.ROOT)

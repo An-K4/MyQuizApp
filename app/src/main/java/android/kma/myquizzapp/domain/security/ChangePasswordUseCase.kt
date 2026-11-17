@@ -10,8 +10,16 @@ import android.kma.myquizzapp.core.common.result.Result
 import kotlinx.coroutines.CancellationException
 import javax.inject.Inject
 
-class ChangePasswordUseCase @Inject constructor(private val users: UserRepository, private val session: SessionRepository) {
-    suspend operator fun invoke(old: String, new: String, confirm: String, token: SessionUserToken): SecurityMutationResult {
+class ChangePasswordUseCase @Inject constructor(
+    private val users: UserRepository,
+    private val session: SessionRepository
+) {
+    suspend operator fun invoke(
+        old: String,
+        new: String,
+        confirm: String,
+        token: SessionUserToken
+    ): SecurityMutationResult {
         if (session.captureUserSession() != token) return SecurityMutationResult.SessionChanged
         if (session.state.value.userOrNull?.authProvider == AuthProvider.GOOGLE)
             return SecurityMutationResult.Rejected(AppError.Api("AUTH_GOOGLE_ONLY"))
@@ -31,6 +39,9 @@ class ChangePasswordUseCase @Inject constructor(private val users: UserRepositor
 
     private suspend fun retire(token: SessionUserToken): SecurityMutationResult = try {
         if (session.clearSession(token)) SecurityMutationResult.SessionEnded else SecurityMutationResult.SessionChanged
-    } catch (e: CancellationException) { throw e }
-      catch (_: Exception) { SecurityMutationResult.CleanupPending }
+    } catch (e: CancellationException) {
+        throw e
+    } catch (_: Exception) {
+        SecurityMutationResult.CleanupPending
+    }
 }

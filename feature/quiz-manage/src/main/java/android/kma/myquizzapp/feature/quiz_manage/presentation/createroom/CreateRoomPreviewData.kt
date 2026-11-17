@@ -1,6 +1,18 @@
 package android.kma.myquizzapp.feature.quiz_manage.presentation.createroom
 
-import android.kma.myquizzapp.core.common.model.*
+import android.kma.myquizzapp.core.common.model.GameConfig
+import android.kma.myquizzapp.core.common.model.GameConfigConstraint
+import android.kma.myquizzapp.core.common.model.GameConfigFieldSpec
+import android.kma.myquizzapp.core.common.model.GameConfigKey
+import android.kma.myquizzapp.core.common.model.GameConfigValue
+import android.kma.myquizzapp.core.common.model.GameMode
+import android.kma.myquizzapp.core.common.model.GameModeDescriptor
+import android.kma.myquizzapp.core.common.model.GameSession
+import android.kma.myquizzapp.core.common.model.IgnoredGameConfigField
+import android.kma.myquizzapp.core.common.model.IgnoredGameConfigReason
+import android.kma.myquizzapp.core.common.model.Pacing
+import android.kma.myquizzapp.core.common.model.SessionStatus
+import android.kma.myquizzapp.core.common.model.ShowLeaderboard
 import android.kma.myquizzapp.core.ui.gameconfig.RoomConfigForm
 import androidx.compose.ui.tooling.preview.PreviewParameterProvider
 
@@ -11,12 +23,18 @@ class CreateRoomPreviewProvider : PreviewParameterProvider<CreateRoomUiState> {
             val classic = createRoomPreviewState(GameMode.CLASSIC)
             return GameMode.entries.asSequence().map(::createRoomPreviewState) + sequenceOf(
                 CreateRoomUiState(),
-                CreateRoomUiState(isLoadingModes = false, errorMessage = "Không thể kết nối máy chủ. Hãy thử lại."),
+                CreateRoomUiState(
+                    isLoadingModes = false,
+                    errorMessage = "Không thể kết nối máy chủ. Hãy thử lại."
+                ),
                 classic.copy(
                     sessionName = "A",
                     modeConfig = classic.modeConfig?.updateNumber(GameConfigKey.MAX_PLAYERS, "0"),
                     invalidConfigKeys = setOf(GameConfigKey.MAX_PLAYERS),
-                    validationErrors = listOf("Tên phòng phải từ 2 đến 100 ký tự.", "Hãy kiểm tra lại các cấu hình đang được đánh dấu."),
+                    validationErrors = listOf(
+                        "Tên phòng phải từ 2 đến 100 ký tự.",
+                        "Hãy kiểm tra lại các cấu hình đang được đánh dấu."
+                    ),
                 ),
                 classic.copy(isSubmitting = true),
                 classic.copy(
@@ -35,7 +53,12 @@ class CreateRoomPreviewProvider : PreviewParameterProvider<CreateRoomUiState> {
                         currentPhase = "lobby",
                     ),
                     errorMessage = "Phòng ABC234 đã được tạo, nhưng chưa lấy được quyền host. Hãy thử lại; ứng dụng sẽ không tạo phòng thứ hai.",
-                    ignoredFields = listOf(IgnoredGameConfigField("example", IgnoredGameConfigReason.LOCKED)),
+                    ignoredFields = listOf(
+                        IgnoredGameConfigField(
+                            "example",
+                            IgnoredGameConfigReason.LOCKED
+                        )
+                    ),
                 ),
             )
         }
@@ -62,8 +85,14 @@ private fun previewDescriptor(mode: GameMode): GameModeDescriptor {
         ),
         timing = GameConfig.Timing(totalMatchSeconds = if (mode == GameMode.MARATHON) 600 else null),
     )
+
     fun number(key: GameConfigKey, value: Int?, min: Int, max: Int, nullable: Boolean = false) =
-        key to GameConfigFieldSpec(key, GameConfigConstraint.NumberConstraint(min, max, nullable), GameConfigValue.NumberValue(value))
+        key to GameConfigFieldSpec(
+            key,
+            GameConfigConstraint.NumberConstraint(min, max, nullable),
+            GameConfigValue.NumberValue(value)
+        )
+
     val editable = mutableMapOf(
         number(GameConfigKey.PER_QUESTION_SECONDS, null, 0, 600, true),
         number(GameConfigKey.MAX_PLAYERS, 100, 1, 200),
@@ -84,9 +113,17 @@ private fun previewDescriptor(mode: GameMode): GameModeDescriptor {
         GameConfigKey.NEGATIVE_MARKING to false,
     )
     booleanValues.forEach { (key, value) ->
-        editable[key] = GameConfigFieldSpec(key, GameConfigConstraint.BooleanConstraint, GameConfigValue.BooleanValue(value))
+        editable[key] = GameConfigFieldSpec(
+            key,
+            GameConfigConstraint.BooleanConstraint,
+            GameConfigValue.BooleanValue(value)
+        )
     }
-    val leaderboardOptions = if (selfPaced) listOf("never", "end_only") else listOf("never", "between_questions", "end_only")
+    val leaderboardOptions = if (selfPaced) listOf("never", "end_only") else listOf(
+        "never",
+        "between_questions",
+        "end_only"
+    )
     editable[GameConfigKey.SHOW_LEADERBOARD] = GameConfigFieldSpec(
         GameConfigKey.SHOW_LEADERBOARD,
         GameConfigConstraint.ChoiceConstraint(leaderboardOptions),

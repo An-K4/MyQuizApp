@@ -13,9 +13,9 @@ import android.kma.myquizzapp.core.common.model.GameHistorySummary
 import android.kma.myquizzapp.core.common.model.GameHistoryViewer
 import android.kma.myquizzapp.core.common.model.GameMode
 import android.kma.myquizzapp.core.common.model.GameModeDescriptor
+import android.kma.myquizzapp.core.common.model.GameResults
 import android.kma.myquizzapp.core.common.model.GameReview
 import android.kma.myquizzapp.core.common.model.GameReviewItem
-import android.kma.myquizzapp.core.common.model.GameResults
 import android.kma.myquizzapp.core.common.model.GameSession
 import android.kma.myquizzapp.core.common.model.IgnoredGameConfigField
 import android.kma.myquizzapp.core.common.model.IgnoredGameConfigReason
@@ -86,7 +86,12 @@ data class GameConfigFieldSpecDto(
         val constraint = when (kind) {
             GameConfigFieldKindDto.BOOLEAN -> GameConfigConstraint.BooleanConstraint
             GameConfigFieldKindDto.ENUM -> GameConfigConstraint.ChoiceConstraint(values)
-            GameConfigFieldKindDto.NUMBER -> GameConfigConstraint.NumberConstraint(min, max, nullable, note)
+            GameConfigFieldKindDto.NUMBER -> GameConfigConstraint.NumberConstraint(
+                min,
+                max,
+                nullable,
+                note
+            )
         }
         val defaultValue = default.toDomainValue(key) ?: return null
         return GameConfigFieldSpec(key, constraint, defaultValue)
@@ -95,9 +100,12 @@ data class GameConfigFieldSpecDto(
 
 @Serializable
 enum class GameConfigFieldKindDto {
-    @SerialName("boolean") BOOLEAN,
-    @SerialName("enum") ENUM,
-    @SerialName("number") NUMBER
+    @SerialName("boolean")
+    BOOLEAN,
+    @SerialName("enum")
+    ENUM,
+    @SerialName("number")
+    NUMBER
 }
 
 @Serializable
@@ -185,9 +193,12 @@ data class IgnoredGameConfigFieldDto(
 
 @Serializable
 enum class IgnoredGameConfigReasonDto {
-    @SerialName("unknown") UNKNOWN,
-    @SerialName("locked") LOCKED,
-    @SerialName("invalid") INVALID
+    @SerialName("unknown")
+    UNKNOWN,
+    @SerialName("locked")
+    LOCKED,
+    @SerialName("invalid")
+    INVALID
 }
 
 @Serializable
@@ -374,7 +385,8 @@ data class GameReviewItemDto(
         questionId = questionId,
         questionText = questionText,
         questionImage = questionImage,
-        answerOptions = answerOptions.orEmpty().mapIndexed { index, raw -> raw.toReviewOption(index) },
+        answerOptions = answerOptions.orEmpty()
+            .mapIndexed { index, raw -> raw.toReviewOption(index) },
         explanation = explanation,
         answered = answered,
         yourAnswers = yourAnswer.toReviewKeys(),
@@ -497,6 +509,7 @@ private fun Map<String, Any>.toJsonObject(): JsonObject = JsonObject(
                 @Suppress("UNCHECKED_CAST")
                 (value as Map<String, Any>).toJsonObject()
             }
+
             else -> error("Unsupported game config value: $value")
         }
     }
@@ -517,7 +530,7 @@ data class GameHistorySummaryDto(
         val rows = leaderboard.map { it.toDomain() }
         val viewerDomain = viewer.toDomain()
         val hidden = !viewerDomain.isHost &&
-            session.config.flow.showLeaderboard == ShowLeaderboard.NEVER
+                session.config.flow.showLeaderboard == ShowLeaderboard.NEVER
         return GameHistorySummary(
             sessionId = session.id,
             sessionName = session.sessionName,
@@ -531,7 +544,8 @@ data class GameHistorySummaryDto(
             hostAvatar = session.hostAvatar,
             quiz = quiz?.toDomain(),
             leaderboard = if (hidden) emptyList() else rows,
-            perQuestion = if (viewerDomain.isHost) perQuestion.orEmpty().map { it.toDomain() } else emptyList(),
+            perQuestion = if (viewerDomain.isHost) perQuestion.orEmpty()
+                .map { it.toDomain() } else emptyList(),
             viewer = viewerDomain,
             viewerResult = viewerDomain.playerId?.let { playerId -> rows.firstOrNull { it.id == playerId } },
             leaderboardHiddenByConfig = hidden,

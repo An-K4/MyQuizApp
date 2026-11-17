@@ -57,9 +57,9 @@ fun AppNavGraph(
     }
     val socketScreenOwnsConnectionUi = currentDestination?.let { destination ->
         destination.hasRoute(Route.HostLobby::class) ||
-            destination.hasRoute(Route.PlayerLobby::class) ||
-            destination.hasRoute(Route.HostGame::class) ||
-            destination.hasRoute(Route.GamePlay::class)
+                destination.hasRoute(Route.PlayerLobby::class) ||
+                destination.hasRoute(Route.HostGame::class) ||
+                destination.hasRoute(Route.GamePlay::class)
     } == true
 
     // Avatar cho tab "Hồ sơ". ViewModel scope theo Activity (xem CurrentUserViewModel)

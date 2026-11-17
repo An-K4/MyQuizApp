@@ -7,6 +7,7 @@ sealed interface AppError {
     data object Gone : AppError          // 410 không có envelope hợp lệ
     data object NotFound : AppError      // 404 không có envelope hợp lệ
     data class Server(val httpCode: Int) : AppError
+
     // N16.5: lỗi nghiệp vụ từ backend chỉ mang code (shared/errors/codes.ts) —
     // client tự map sang tiếng Việt, không còn message/details từ server.
     data class Api(val code: String) : AppError

@@ -14,12 +14,18 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
-import org.junit.Assert.*
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class SessionRepositoryTest {
-    @Test fun `refresh started before logout cannot restore old user`() = runTest {
+    @Test
+    fun `refresh started before logout cannot restore old user`() = runTest {
         val answer = CompletableDeferred<Result<User>>()
         val auth = RefreshAuth { answer.await() }
         val session = SessionRepositoryImpl(auth, backgroundScope)
@@ -32,7 +38,8 @@ class SessionRepositoryTest {
         assertEquals(SessionState.Guest, session.state.value)
     }
 
-    @Test fun `refresh started before confirmed profile update cannot overwrite it`() = runTest {
+    @Test
+    fun `refresh started before confirmed profile update cannot overwrite it`() = runTest {
         val answer = CompletableDeferred<Result<User>>()
         val session = SessionRepositoryImpl(RefreshAuth { answer.await() }, backgroundScope)
         session.onAuthenticated(user())
@@ -45,7 +52,8 @@ class SessionRepositoryTest {
         assertEquals("New Name", session.state.value.userOrNull?.fullname)
     }
 
-    @Test fun `same account login has a new generation and rejects stale mutation`() = runTest {
+    @Test
+    fun `same account login has a new generation and rejects stale mutation`() = runTest {
         val session = SessionRepositoryImpl(RefreshAuth { Result.Success(user()) }, backgroundScope)
         session.onAuthenticated(user())
         val old = checkNotNull(session.captureUserSession())
@@ -57,7 +65,8 @@ class SessionRepositoryTest {
         assertEquals("User Name", session.state.value.userOrNull?.fullname)
     }
 
-    @Test fun `avatar merge preserves already saved profile fields`() = runTest {
+    @Test
+    fun `avatar merge preserves already saved profile fields`() = runTest {
         val session = SessionRepositoryImpl(RefreshAuth { Result.Success(user()) }, backgroundScope)
         session.onAuthenticated(user())
         val token = checkNotNull(session.captureUserSession())
@@ -68,7 +77,8 @@ class SessionRepositoryTest {
         assertEquals("https://new-image", session.state.value.userOrNull?.avatar)
     }
 
-    @Test fun `refresh dedupes concurrent callers and network failure preserves login`() = runTest {
+    @Test
+    fun `refresh dedupes concurrent callers and network failure preserves login`() = runTest {
         val answer = CompletableDeferred<Result<User>>()
         val auth = RefreshAuth { answer.await() }
         val session = SessionRepositoryImpl(auth, backgroundScope)
@@ -82,7 +92,8 @@ class SessionRepositoryTest {
         assertEquals(user(), session.state.value.userOrNull)
     }
 
-    @Test fun `stale terminal response must not sign out new login`() = runTest {
+    @Test
+    fun `stale terminal response must not sign out new login`() = runTest {
         val answer = CompletableDeferred<Result<User>>()
         val session = SessionRepositoryImpl(RefreshAuth { answer.await() }, backgroundScope)
         session.onAuthenticated(user())
@@ -95,22 +106,27 @@ class SessionRepositoryTest {
     }
 
 
-    @Test fun `retiring current session clears cookies and prevents stale refresh resurrection`() = runTest {
-        val answer = CompletableDeferred<Result<User>>()
-        val cookies = RetirementCookies()
-        val session = SessionRepositoryImpl(RefreshAuth { answer.await() }, backgroundScope, cookies)
-        session.onAuthenticated(user())
-        val token = checkNotNull(session.captureUserSession())
-        val refresh = launch { session.refresh() }; runCurrent()
-        assertTrue(session.clearSession(token))
-        assertEquals(1, cookies.clears)
-        answer.complete(Result.Success(user())); refresh.join()
-        assertEquals(SessionState.Guest, session.state.value)
-    }
+    @Test
+    fun `retiring current session clears cookies and prevents stale refresh resurrection`() =
+        runTest {
+            val answer = CompletableDeferred<Result<User>>()
+            val cookies = RetirementCookies()
+            val session =
+                SessionRepositoryImpl(RefreshAuth { answer.await() }, backgroundScope, cookies)
+            session.onAuthenticated(user())
+            val token = checkNotNull(session.captureUserSession())
+            val refresh = launch { session.refresh() }; runCurrent()
+            assertTrue(session.clearSession(token))
+            assertEquals(1, cookies.clears)
+            answer.complete(Result.Success(user())); refresh.join()
+            assertEquals(SessionState.Guest, session.state.value)
+        }
 
-    @Test fun `stale retirement never clears cookies of a newer login`() = runTest {
+    @Test
+    fun `stale retirement never clears cookies of a newer login`() = runTest {
         val cookies = RetirementCookies()
-        val session = SessionRepositoryImpl(RefreshAuth { Result.Success(user()) }, backgroundScope, cookies)
+        val session =
+            SessionRepositoryImpl(RefreshAuth { Result.Success(user()) }, backgroundScope, cookies)
         session.onAuthenticated(user())
         val old = checkNotNull(session.captureUserSession())
         session.onAuthenticated(user())
@@ -119,7 +135,8 @@ class SessionRepositoryTest {
         assertNotNull(session.captureUserSession())
     }
 
-    @Test fun `snapshot changes lifetime for guest and repeated same account login`() = runTest {
+    @Test
+    fun `snapshot changes lifetime for guest and repeated same account login`() = runTest {
         val session = SessionRepositoryImpl(RefreshAuth { Result.Success(user()) }, backgroundScope)
         val unknown = session.snapshot()
         assertFalse(unknown.identity.resolved)
@@ -136,29 +153,47 @@ class SessionRepositoryTest {
         assertNotEquals(second.generation, guest.generation)
     }
 
-    @Test fun `profile publication changes snapshot state but not identity`() = runTest {
+    @Test
+    fun `profile publication changes snapshot state but not identity`() = runTest {
         val session = SessionRepositoryImpl(RefreshAuth { Result.Success(user()) }, backgroundScope)
         session.onAuthenticated(user())
         val before = session.snapshot()
-        assertTrue(session.applyUserUpdate(checkNotNull(session.captureUserSession()), user().copy(fullname = "Changed")))
+        assertTrue(
+            session.applyUserUpdate(
+                checkNotNull(session.captureUserSession()),
+                user().copy(fullname = "Changed")
+            )
+        )
         val after = session.snapshot()
         assertEquals(before.identity, after.identity)
         assertEquals("Changed", after.state.userOrNull?.fullname)
     }
 
-    private fun user() = User(7, "User Name", "user@example.com", createdAt = "2026-10-01", updatedAt = "2026-10-06")
+    private fun user() =
+        User(7, "User Name", "user@example.com", createdAt = "2026-10-01", updatedAt = "2026-10-06")
 }
 
 private class RefreshAuth(private val fetch: suspend () -> Result<User>) : AuthRepository {
     var calls = 0
-    override suspend fun getCurrentUser(): Result<User> { calls++; return fetch() }
+    override suspend fun getCurrentUser(): Result<User> {
+        calls++; return fetch()
+    }
+
     override suspend fun login(email: String, password: String): Result<User> = unused()
-    override suspend fun register(email: String, password: String, fullname: String, phone: String?): Result<User> = unused()
+    override suspend fun register(
+        email: String,
+        password: String,
+        fullname: String,
+        phone: String?
+    ): Result<User> = unused()
+
     override suspend fun loginWithGoogle(idToken: String): Result<User> = unused()
     override suspend fun logout(): Result<Unit> = unused()
     override suspend fun isAuthenticated(): Boolean = false
     override suspend fun forgotPassword(email: String): Result<Unit> = unused()
-    override suspend fun verifyResetWithOtp(email: String, otp: String): Result<ResetTicket> = unused()
+    override suspend fun verifyResetWithOtp(email: String, otp: String): Result<ResetTicket> =
+        unused()
+
     override suspend fun verifyResetWithToken(token: String): Result<ResetTicket> = unused()
     override suspend fun getResetTicket(ticket: String): Result<ResetTicketStatus> = unused()
     override suspend fun completeReset(ticket: String, newPassword: String): Result<Unit> = unused()
@@ -166,9 +201,18 @@ private class RefreshAuth(private val fetch: suspend () -> Result<User>) : AuthR
 }
 
 private class RetirementCookies : android.kma.myquizzapp.core.common.cookie.CookieStore {
-    @Volatile var clears = 0
-    override suspend fun loadForHost(host: String) = emptyList<android.kma.myquizzapp.core.common.cookie.StoredCookie>()
-    override suspend fun saveAll(host: String, cookies: List<android.kma.myquizzapp.core.common.cookie.StoredCookie>) = Unit
-    override suspend fun clear() { clears++ }
+    @Volatile
+    var clears = 0
+    override suspend fun loadForHost(host: String) =
+        emptyList<android.kma.myquizzapp.core.common.cookie.StoredCookie>()
+
+    override suspend fun saveAll(
+        host: String,
+        cookies: List<android.kma.myquizzapp.core.common.cookie.StoredCookie>
+    ) = Unit
+
+    override suspend fun clear() {
+        clears++
+    }
 }
 

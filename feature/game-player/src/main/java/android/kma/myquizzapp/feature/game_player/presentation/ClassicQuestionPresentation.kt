@@ -11,10 +11,12 @@ internal data class ClassicQuestionTime(
 )
 
 internal fun classicQuestionTime(state: GameUiState, nowMillis: Long): ClassicQuestionTime {
-    val deadline = state.endsAt?.let { runCatching { Instant.parse(it).toEpochMilli() }.getOrNull() }
+    val deadline =
+        state.endsAt?.let { runCatching { Instant.parse(it).toEpochMilli() }.getOrNull() }
     val left = when {
         state.isPaused -> state.remainingSeconds?.toLong()?.times(1_000L)
             ?: return ClassicQuestionTime()
+
         deadline != null -> deadline - (nowMillis + state.serverOffsetMs)
         else -> return ClassicQuestionTime()
     }.coerceAtLeast(0L)

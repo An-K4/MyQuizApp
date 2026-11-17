@@ -1,14 +1,14 @@
 package android.kma.myquizzapp.navigation
 
-import androidx.navigation.NavGraphBuilder
-import androidx.navigation.NavHostController
-import androidx.navigation.compose.composable
 import android.kma.myquizzapp.feature.game_host.presentation.hostgame.HostGameScreen
 import android.kma.myquizzapp.feature.game_player.presentation.GamePlayScreen
+import android.kma.myquizzapp.feature.leaderboard.presentation.FinalResultScreen
 import android.kma.myquizzapp.feature.lobby.presentation.guestnickname.GuestNicknameScreen
 import android.kma.myquizzapp.feature.lobby.presentation.hostlobby.HostLobbyScreen
 import android.kma.myquizzapp.feature.lobby.presentation.playerlobby.PlayerLobbyScreen
-import android.kma.myquizzapp.feature.leaderboard.presentation.FinalResultScreen
+import androidx.navigation.NavGraphBuilder
+import androidx.navigation.NavHostController
+import androidx.navigation.compose.composable
 
 /**
  * Key dùng để chuyển lý do bị buộc rời phòng về màn trước.

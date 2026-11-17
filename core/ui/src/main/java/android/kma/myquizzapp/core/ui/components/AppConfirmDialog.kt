@@ -4,7 +4,17 @@ import android.content.res.Configuration
 import android.kma.myquizzapp.core.ui.theme.ComponentColors
 import android.kma.myquizzapp.core.ui.theme.MyQuizAppTheme
 import androidx.compose.foundation.ScrollState
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -91,12 +101,18 @@ fun AppConfirmDialogContent(
                     style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
                 )
                 Spacer(Modifier.height(12.dp))
-                Text(message, color = ComponentColors.muted, style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    message,
+                    color = ComponentColors.muted,
+                    style = MaterialTheme.typography.bodyMedium
+                )
                 errorText?.takeIf { it.isNotBlank() }?.let { error ->
                     Spacer(Modifier.height(12.dp))
                     Text(
-                        error, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
-                        color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium,
+                        error,
+                        modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodyMedium,
                     )
                 }
             }
@@ -120,6 +136,7 @@ fun AppConfirmDialogContent(
                         enabled = !isLoading, loading = isLoading,
                         modifier = Modifier.weight(1f).fillMaxHeight(),
                     )
+
                     AppDialogVariant.Danger -> QuizDangerButton(
                         text = if (isLoading) loadingText else confirmText,
                         onClick = { if (!isLoading) onConfirm() },
@@ -158,20 +175,39 @@ private fun AppDialogPreviewContent(
 }
 
 @Preview(name = "App Dialog Normal Light", showBackground = true, widthDp = 390)
-@Preview(name = "App Dialog Normal Dark", showBackground = true, widthDp = 390, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(
+    name = "App Dialog Normal Dark",
+    showBackground = true,
+    widthDp = 390,
+    uiMode = Configuration.UI_MODE_NIGHT_YES
+)
 @Composable
 private fun AppDialogNormalPreview() = AppDialogPreviewContent(AppDialogVariant.Normal)
 
 @Preview(name = "App Dialog Danger Light", showBackground = true, widthDp = 390)
-@Preview(name = "App Dialog Danger Dark", showBackground = true, widthDp = 390, uiMode = Configuration.UI_MODE_NIGHT_YES)
-@Preview(name = "App Dialog Danger Large Text", showBackground = true, widthDp = 320, fontScale = 1.5f)
+@Preview(
+    name = "App Dialog Danger Dark",
+    showBackground = true,
+    widthDp = 390,
+    uiMode = Configuration.UI_MODE_NIGHT_YES
+)
+@Preview(
+    name = "App Dialog Danger Large Text",
+    showBackground = true,
+    widthDp = 320,
+    fontScale = 1.5f
+)
 @Composable
 private fun AppDialogDangerPreview() = AppDialogPreviewContent(AppDialogVariant.Danger)
 
 @Preview(name = "App Dialog Danger Loading", showBackground = true, widthDp = 390)
 @Composable
-private fun AppDialogLoadingPreview() = AppDialogPreviewContent(AppDialogVariant.Danger, isLoading = true)
+private fun AppDialogLoadingPreview() =
+    AppDialogPreviewContent(AppDialogVariant.Danger, isLoading = true)
 
 @Preview(name = "App Dialog Danger Error", showBackground = true, widthDp = 390)
 @Composable
-private fun AppDialogErrorPreview() = AppDialogPreviewContent(AppDialogVariant.Danger, errorText = "Không có kết nối mạng. Vui lòng thử lại.")
+private fun AppDialogErrorPreview() = AppDialogPreviewContent(
+    AppDialogVariant.Danger,
+    errorText = "Không có kết nối mạng. Vui lòng thử lại."
+)

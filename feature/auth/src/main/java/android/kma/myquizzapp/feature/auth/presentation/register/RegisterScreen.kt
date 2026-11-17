@@ -1,18 +1,33 @@
 package android.kma.myquizzapp.feature.auth.presentation.register
 
 import android.content.res.Configuration
+import android.kma.myquizzapp.core.ui.components.CustomClickableText
+import android.kma.myquizzapp.core.ui.components.QuizPrimaryButton
+import android.kma.myquizzapp.core.ui.theme.FrontendColors
+import android.kma.myquizzapp.core.ui.theme.MyQuizAppTheme
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Email
+import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.Phone
+import androidx.compose.material.icons.outlined.Visibility
+import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -22,6 +37,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextFieldColors
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -30,40 +46,23 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
-import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import android.kma.myquizzapp.core.ui.theme.MyQuizAppTheme
-
-import android.kma.myquizzapp.core.ui.components.CustomClickableText
-import android.kma.myquizzapp.core.ui.components.QuizPrimaryButton
-import android.kma.myquizzapp.core.ui.theme.FrontendColors
-import androidx.compose.foundation.ScrollState
-import androidx.compose.foundation.layout.defaultMinSize
-import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.material.icons.outlined.Email
-import androidx.compose.material.icons.outlined.Lock
-import androidx.compose.material.icons.outlined.Person
-import androidx.compose.material.icons.outlined.Phone
-import androidx.compose.material.icons.outlined.Visibility
-import androidx.compose.material.icons.outlined.VisibilityOff
-import androidx.compose.material3.TextFieldColors
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 /**
  * Stateful wrapper for Register screen
@@ -157,7 +156,11 @@ fun RegisterScreenContent(
                 color = foreground,
             )
             Spacer(Modifier.height(8.dp))
-            Text("Tạo tài khoản để thi đấu và chia sẻ bộ câu hỏi", style = inputStyle, color = muted)
+            Text(
+                "Tạo tài khoản để thi đấu và chia sẻ bộ câu hỏi",
+                style = inputStyle,
+                color = muted
+            )
             Spacer(Modifier.height(20.dp))
 
             RegisterFormField(
@@ -167,7 +170,10 @@ fun RegisterScreenContent(
                 onValueChange = { onIntent(RegisterIntent.FullnameChanged(it)) },
                 error = uiState.fullnameError,
                 icon = Icons.Outlined.Person,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text, imeAction = ImeAction.Next),
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Text,
+                    imeAction = ImeAction.Next
+                ),
                 enabled = !uiState.isLoading,
                 foreground = foreground, inputStyle = inputStyle, colors = fieldColors,
             )
@@ -179,7 +185,10 @@ fun RegisterScreenContent(
                 onValueChange = { onIntent(RegisterIntent.EmailChanged(it)) },
                 error = uiState.emailError,
                 icon = Icons.Outlined.Email,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next),
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Email,
+                    imeAction = ImeAction.Next
+                ),
                 enabled = !uiState.isLoading,
                 foreground = foreground, inputStyle = inputStyle, colors = fieldColors,
             )
@@ -191,7 +200,10 @@ fun RegisterScreenContent(
                 onValueChange = { onIntent(RegisterIntent.PasswordChanged(it)) },
                 error = uiState.passwordError,
                 icon = Icons.Outlined.Lock,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Next),
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Password,
+                    imeAction = ImeAction.Next
+                ),
                 enabled = !uiState.isLoading,
                 passwordVisible = passwordVisible,
                 onPasswordVisibilityChange = onPasswordVisibilityChange,
@@ -205,7 +217,10 @@ fun RegisterScreenContent(
                 onValueChange = { onIntent(RegisterIntent.PhoneChanged(it)) },
                 error = uiState.phoneError,
                 icon = Icons.Outlined.Phone,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone, imeAction = ImeAction.Done),
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Phone,
+                    imeAction = ImeAction.Done
+                ),
                 keyboardActions = KeyboardActions(onDone = {
                     if (!uiState.isLoading) onIntent(RegisterIntent.Submit)
                 }),
@@ -263,7 +278,10 @@ private fun RegisterFormField(
             leadingIcon = { Icon(icon, null, Modifier.size(20.dp)) },
             trailingIcon = if (passwordVisible != null) {
                 {
-                    IconButton(onClick = { onPasswordVisibilityChange(!passwordVisible) }, enabled = enabled) {
+                    IconButton(
+                        onClick = { onPasswordVisibilityChange(!passwordVisible) },
+                        enabled = enabled
+                    ) {
                         Icon(
                             if (passwordVisible) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility,
                             if (passwordVisible) "Ẩn mật khẩu" else "Hiện mật khẩu",
@@ -274,7 +292,9 @@ private fun RegisterFormField(
             } else null,
             visualTransformation = if (passwordVisible == false) PasswordVisualTransformation() else VisualTransformation.None,
             isError = error != null,
-            supportingText = if (error != null) { { Text(error) } } else null,
+            supportingText = if (error != null) {
+                { Text(error) }
+            } else null,
             enabled = enabled,
             keyboardOptions = keyboardOptions,
             keyboardActions = keyboardActions,
@@ -288,19 +308,36 @@ private fun RegisterFormField(
     }
 }
 
-@Preview(name = "Register Light", showBackground = true, showSystemUi = true, widthDp = 390, heightDp = 844)
+@Preview(
+    name = "Register Light",
+    showBackground = true,
+    showSystemUi = true,
+    widthDp = 390,
+    heightDp = 844
+)
 @Composable
 fun RegisterScreenPreviewLight() = RegisterContentPreview(RegisterUiState())
 
-@Preview(name = "Register Dark", showBackground = true, showSystemUi = true, widthDp = 390, heightDp = 844,
-    uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(
+    name = "Register Dark",
+    showBackground = true,
+    showSystemUi = true,
+    widthDp = 390,
+    heightDp = 844,
+    uiMode = Configuration.UI_MODE_NIGHT_YES
+)
 @Composable
 fun RegisterScreenPreviewDark() = RegisterContentPreview(RegisterUiState())
 
 @Preview(name = "Register Loading", showBackground = true, widthDp = 390, heightDp = 844)
 @Composable
 private fun RegisterLoadingPreview() = RegisterContentPreview(
-    RegisterUiState(fullname = "Nguyễn Văn A", email = "preview@example.com", password = "preview-only", isLoading = true),
+    RegisterUiState(
+        fullname = "Nguyễn Văn A",
+        email = "preview@example.com",
+        password = "preview-only",
+        isLoading = true
+    ),
 )
 
 @Preview(name = "Register Validation Errors", showBackground = true, widthDp = 390, heightDp = 844)
@@ -314,7 +351,13 @@ private fun RegisterErrorsPreview() = RegisterContentPreview(
     ),
 )
 
-@Preview(name = "Register Narrow Large Text", showBackground = true, widthDp = 320, heightDp = 740, fontScale = 1.5f)
+@Preview(
+    name = "Register Narrow Large Text",
+    showBackground = true,
+    widthDp = 320,
+    heightDp = 740,
+    fontScale = 1.5f
+)
 @Composable
 private fun RegisterLargeTextPreview() = RegisterContentPreview(RegisterUiState())
 

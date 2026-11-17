@@ -3,12 +3,22 @@ package android.kma.myquizzapp.core.ui.components
 import android.content.res.Configuration
 import android.kma.myquizzapp.core.ui.theme.ComponentColors
 import android.kma.myquizzapp.core.ui.theme.MyQuizAppTheme
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material3.*
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.TextRange
@@ -36,18 +46,29 @@ fun RoomCodeEntryCard(
     exitMessage: String? = null,
     onExitMessageDismiss: () -> Unit = {},
 ) {
-    Surface(modifier = modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp), color = ComponentColors.selectedSurface) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        color = ComponentColors.selectedSurface
+    ) {
         Column(Modifier.fillMaxWidth().padding(16.dp)) {
             Text(
                 "Tham gia ván đấu ngay", color = ComponentColors.foreground,
                 style = MaterialTheme.typography.titleLarge.copy(
-                    fontSize = 20.sp, lineHeight = 28.sp, letterSpacing = 0.sp, fontWeight = FontWeight.Bold,
+                    fontSize = 20.sp,
+                    lineHeight = 28.sp,
+                    letterSpacing = 0.sp,
+                    fontWeight = FontWeight.Bold,
                 ),
             )
             Spacer(Modifier.height(12.dp))
             Text(
                 "Nhập mã phòng 6 ký tự được chủ phòng chia sẻ.", color = ComponentColors.muted,
-                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp, lineHeight = 20.3.sp, letterSpacing = 0.sp),
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontSize = 14.sp,
+                    lineHeight = 20.3.sp,
+                    letterSpacing = 0.sp
+                ),
             )
             Spacer(Modifier.height(12.dp))
             if (exitMessage != null) {
@@ -55,9 +76,14 @@ fun RoomCodeEntryCard(
                 Spacer(Modifier.height(12.dp))
             }
             SixCharacterCodeFieldContent(
-                value = codeValue, onValueChange = onCodeValueChange, kind = SixCharacterCodeKind.Room,
-                focused = codeFocused, onFocusChange = onCodeFocusChange,
-                modifier = Modifier.fillMaxWidth(), enabled = !isSubmitting, errorMessage = codeError,
+                value = codeValue,
+                onValueChange = onCodeValueChange,
+                kind = SixCharacterCodeKind.Room,
+                focused = codeFocused,
+                onFocusChange = onCodeFocusChange,
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !isSubmitting,
+                errorMessage = codeError,
                 imeAction = ImeAction.Go,
                 keyboardActions = KeyboardActions(onGo = { if (canSubmit && !isSubmitting) onSubmit() }),
             )
@@ -67,9 +93,18 @@ fun RoomCodeEntryCard(
             }
             Spacer(Modifier.height(12.dp))
             QuizPrimaryButton(
-                "Vào phòng", onSubmit, Modifier.fillMaxWidth(), enabled = canSubmit && !isSubmitting,
+                "Vào phòng",
+                onSubmit,
+                Modifier.fillMaxWidth(),
+                enabled = canSubmit && !isSubmitting,
                 loading = isSubmitting,
-                trailingIcon = { Icon(Icons.AutoMirrored.Filled.ArrowForward, null, Modifier.size(16.dp)) },
+                trailingIcon = {
+                    Icon(
+                        Icons.AutoMirrored.Filled.ArrowForward,
+                        null,
+                        Modifier.size(16.dp)
+                    )
+                },
             )
         }
     }
@@ -78,13 +113,23 @@ fun RoomCodeEntryCard(
 @Composable
 private fun RoomCodeMessage(message: String, actionText: String, onDismiss: () -> Unit) {
     Row {
-        Text(message, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+        Text(
+            message,
+            modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.error
+        )
         TextButton(onClick = onDismiss) { Text(actionText) }
     }
 }
 
 @Preview(name = "Room Code Light", showBackground = true, widthDp = 390)
-@Preview(name = "Room Code Dark", showBackground = true, widthDp = 390, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(
+    name = "Room Code Dark",
+    showBackground = true,
+    widthDp = 390,
+    uiMode = Configuration.UI_MODE_NIGHT_YES
+)
 @Composable
 private fun RoomCodeEntryCardPreview() = RoomCodePreview("AB23", false)
 
@@ -92,7 +137,12 @@ private fun RoomCodeEntryCardPreview() = RoomCodePreview("AB23", false)
 @Composable
 private fun RoomCodeLoadingPreview() = RoomCodePreview("AB23CD", true)
 
-@Preview(name = "Room Code Error Large Text", showBackground = true, widthDp = 320, fontScale = 1.3f)
+@Preview(
+    name = "Room Code Error Large Text",
+    showBackground = true,
+    widthDp = 320,
+    fontScale = 1.3f
+)
 @Composable
 private fun RoomCodeErrorPreview() = RoomCodePreview("AB23CD", false, "Không tìm thấy phòng")
 

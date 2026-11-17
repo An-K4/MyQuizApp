@@ -25,6 +25,7 @@ data class ProfileDraft(
         phone = phone.trim().takeIf { it != originalPhone },
         description = description.trim().takeIf { it != originalDescription }
     )
+
     val isDirty: Boolean get() = !patch().isEmpty
 
     fun errors(): ProfileFieldErrors {
@@ -36,7 +37,8 @@ data class ProfileDraft(
             fullname = if (name != null && name.length !in 2..100)
                 "Họ tên cần từ 2 đến 100 ký tự" else null,
             phone = if (number != null && number.isNotEmpty() &&
-                !Regex("^\\+?[0-9]{7,15}$").matches(number))
+                !Regex("^\\+?[0-9]{7,15}$").matches(number)
+            )
                 "Số điện thoại cần 7–15 chữ số, có thể bắt đầu bằng +" else null,
             description = if (bio != null && bio.length > 200)
                 "Giới thiệu không được quá 200 ký tự" else null
@@ -44,6 +46,7 @@ data class ProfileDraft(
     }
 
     companion object {
-        fun from(user: User) = ProfileDraft(user.fullname, user.phone.orEmpty(), user.description.orEmpty())
+        fun from(user: User) =
+            ProfileDraft(user.fullname, user.phone.orEmpty(), user.description.orEmpty())
     }
 }

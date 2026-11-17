@@ -1,19 +1,19 @@
 package android.kma.myquizzapp.feature.auth.presentation.forgot
 
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
-import android.kma.myquizzapp.feature.auth.domain.usecase.ForgotPasswordUseCase
-import android.kma.myquizzapp.feature.auth.presentation.validation.AuthValidator
 import android.kma.myquizzapp.core.common.error.toUserMessage
 import android.kma.myquizzapp.core.common.result.Result
+import android.kma.myquizzapp.feature.auth.domain.usecase.ForgotPasswordUseCase
+import android.kma.myquizzapp.feature.auth.presentation.validation.AuthValidator
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
-import timber.log.Timber
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import timber.log.Timber
 import javax.inject.Inject
 
 /**
@@ -36,12 +36,13 @@ class ForgotPasswordViewModel @Inject constructor(
 
     fun onIntent(intent: ForgotPasswordIntent) {
         when (intent) {
-            is ForgotPasswordIntent.EmailChanged -> _uiState.update { 
-                it.copy(email = intent.value, emailError = null) 
+            is ForgotPasswordIntent.EmailChanged -> _uiState.update {
+                it.copy(email = intent.value, emailError = null)
             }
+
             ForgotPasswordIntent.Submit -> submit()
-            ForgotPasswordIntent.NavigateBack -> viewModelScope.launch { 
-                _effect.send(ForgotPasswordEffect.NavigateBack) 
+            ForgotPasswordIntent.NavigateBack -> viewModelScope.launch {
+                _effect.send(ForgotPasswordEffect.NavigateBack)
             }
         }
     }
@@ -66,11 +67,14 @@ class ForgotPasswordViewModel @Inject constructor(
             when (val result = forgotPasswordUseCase(email)) {
                 is Result.Success -> {
                     Timber.d("Forgot Pass: API call SUCCESS - email sent successfully")
-                    _effect.send(ForgotPasswordEffect.ShowMessage(
-                        "Đã gửi mã OTP đến email của bạn. Vui lòng kiểm tra."
-                    ))
+                    _effect.send(
+                        ForgotPasswordEffect.ShowMessage(
+                            "Đã gửi mã OTP đến email của bạn. Vui lòng kiểm tra."
+                        )
+                    )
                     _effect.send(ForgotPasswordEffect.NavigateToOtpVerification(email))
                 }
+
                 is Result.Error -> {
                     Timber.e("Forgot Pass: API call FAILED - error: ${result.error}")
                     Timber.e("Forgot Pass: Error message: ${result.error.toUserMessage()}")

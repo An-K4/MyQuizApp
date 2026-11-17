@@ -1,36 +1,37 @@
 package android.kma.myquizzapp.feature.auth.presentation.login
 
 import android.content.res.Configuration
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.ScrollState
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.material.icons.outlined.Email
-import androidx.compose.material.icons.outlined.Lock
-import androidx.compose.material.icons.outlined.Visibility
-import androidx.compose.material.icons.outlined.VisibilityOff
-import androidx.compose.ui.graphics.luminance
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.unit.sp
+import android.kma.myquizzapp.core.common.util.hashSha256
+import android.kma.myquizzapp.core.ui.components.CustomClickableText
 import android.kma.myquizzapp.core.ui.components.QuizPrimaryButton
 import android.kma.myquizzapp.core.ui.components.QuizSecondaryButton
 import android.kma.myquizzapp.core.ui.theme.FrontendColors
+import android.kma.myquizzapp.core.ui.theme.MyQuizAppTheme
+import android.kma.myquizzapp.feature.auth.R
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Email
+import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.Visibility
+import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -51,14 +52,18 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.credentials.CredentialManager
 import androidx.credentials.GetCredentialRequest
 import androidx.credentials.exceptions.GetCredentialCancellationException
@@ -66,17 +71,11 @@ import androidx.credentials.exceptions.GetCredentialException
 import androidx.credentials.exceptions.NoCredentialException
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import android.kma.myquizzapp.core.common.util.hashSha256
-import android.kma.myquizzapp.feature.auth.R
-import android.kma.myquizzapp.core.ui.theme.MyQuizAppTheme
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import kotlinx.coroutines.launch
 import timber.log.Timber
 import java.util.UUID
-
-import android.kma.myquizzapp.core.ui.components.CustomClickableText
-import androidx.compose.ui.text.style.TextAlign
 
 @Composable
 fun LoginScreen(
@@ -100,7 +99,8 @@ fun LoginScreen(
                 val rawNonce = UUID.randomUUID().toString()
                 val hashedNonce = rawNonce.hashSha256()
 
-                val serverClientId = "808588686055-l416uahi6qvb0o8n8q0h7mee85avutmc.apps.googleusercontent.com"
+                val serverClientId =
+                    "808588686055-l416uahi6qvb0o8n8q0h7mee85avutmc.apps.googleusercontent.com"
                 val googleIdOption = GetGoogleIdOption.Builder()
                     .setFilterByAuthorizedAccounts(false)
                     .setServerClientId(serverClientId)
@@ -113,7 +113,7 @@ fun LoginScreen(
 
                 val result = credentialManager.getCredential(context, request)
                 val credential = result.credential
-                
+
                 if (credential is GoogleIdTokenCredential) {
                     viewModel.onIntent(LoginIntent.GoogleTokenReceived(credential.idToken))
                 } else {
@@ -230,9 +230,14 @@ fun LoginScreenContent(
                 placeholder = { Text("Nhập email của bạn", style = inputStyle) },
                 leadingIcon = { Icon(Icons.Outlined.Email, "Email", Modifier.size(20.dp)) },
                 isError = uiState.emailError != null,
-                supportingText = if (uiState.emailError != null) { { Text(uiState.emailError) } } else null,
+                supportingText = if (uiState.emailError != null) {
+                    { Text(uiState.emailError) }
+                } else null,
                 enabled = !uiState.isLoading,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next),
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Email,
+                    imeAction = ImeAction.Next
+                ),
                 singleLine = true,
                 textStyle = inputStyle,
                 shape = RoundedCornerShape(16.dp),
@@ -246,10 +251,15 @@ fun LoginScreenContent(
                 placeholder = { Text("Nhập mật khẩu", style = inputStyle) },
                 leadingIcon = { Icon(Icons.Outlined.Lock, "Mật khẩu", Modifier.size(20.dp)) },
                 isError = uiState.passwordError != null,
-                supportingText = if (uiState.passwordError != null) { { Text(uiState.passwordError) } } else null,
+                supportingText = if (uiState.passwordError != null) {
+                    { Text(uiState.passwordError) }
+                } else null,
                 enabled = !uiState.isLoading,
                 visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Password,
+                    imeAction = ImeAction.Done
+                ),
                 keyboardActions = KeyboardActions(onDone = {
                     if (!uiState.isLoading) onIntent(LoginIntent.Submit)
                 }),
@@ -294,11 +304,19 @@ fun LoginScreenContent(
                 modifier = Modifier.fillMaxWidth(),
             )
             Spacer(Modifier.height(20.dp))
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+            Row(
+                Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(20.dp)
+            ) {
                 HorizontalDivider(Modifier.weight(1f), color = border)
-                Text("Hoặc đăng nhập với", color = muted,
-                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp, lineHeight = 18.sp, letterSpacing = 0.sp))
+                Text(
+                    "Hoặc đăng nhập với", color = muted,
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        fontSize = 12.sp,
+                        lineHeight = 18.sp,
+                        letterSpacing = 0.sp
+                    )
+                )
                 HorizontalDivider(Modifier.weight(1f), color = border)
             }
             Spacer(Modifier.height(20.dp))
@@ -328,12 +346,20 @@ fun LoginScreenContent(
     }
 }
 
-@Preview(name = "Login Light", showBackground = true, showSystemUi = true, widthDp = 390, heightDp = 844)
+@Preview(
+    name = "Login Light",
+    showBackground = true,
+    showSystemUi = true,
+    widthDp = 390,
+    heightDp = 844
+)
 @Composable
 fun LoginScreenPreviewLight() = LoginContentPreview(LoginUiState())
 
-@Preview(name = "Login Dark", showBackground = true, showSystemUi = true, widthDp = 390, heightDp = 844,
-    uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(
+    name = "Login Dark", showBackground = true, showSystemUi = true, widthDp = 390, heightDp = 844,
+    uiMode = Configuration.UI_MODE_NIGHT_YES
+)
 @Composable
 fun LoginScreenPreviewDark() = LoginContentPreview(LoginUiState())
 
@@ -346,10 +372,20 @@ private fun LoginLoadingPreview() = LoginContentPreview(
 @Preview(name = "Login Validation Errors", showBackground = true, widthDp = 390, heightDp = 844)
 @Composable
 private fun LoginErrorsPreview() = LoginContentPreview(
-    LoginUiState(email = "email", emailError = "Email không hợp lệ", passwordError = "Vui lòng nhập mật khẩu"),
+    LoginUiState(
+        email = "email",
+        emailError = "Email không hợp lệ",
+        passwordError = "Vui lòng nhập mật khẩu"
+    ),
 )
 
-@Preview(name = "Login Narrow Large Text", showBackground = true, widthDp = 320, heightDp = 740, fontScale = 1.5f)
+@Preview(
+    name = "Login Narrow Large Text",
+    showBackground = true,
+    widthDp = 320,
+    heightDp = 740,
+    fontScale = 1.5f
+)
 @Composable
 private fun LoginLargeTextPreview() = LoginContentPreview(LoginUiState())
 

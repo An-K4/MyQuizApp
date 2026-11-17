@@ -18,6 +18,7 @@ class PlayerGameSessionUseCase @Inject constructor(
         repository.joinLobby()
         repository.sync()
     }
+
     suspend fun submit(answer: PlayerAnswer) = repository.submitAnswer(answer)
     suspend fun requestNext() = repository.requestNextQuestion()
     fun saveResult(
@@ -28,9 +29,14 @@ class PlayerGameSessionUseCase @Inject constructor(
         socketToken: String,
         reviewQuestionTypes: Map<Long, String> = emptyMap()
     ) {
-        gameResults.save(StoredGameResult(gameId, playerId, result, mode, socketToken,
-            reviewQuestionTypes = reviewQuestionTypes.toMap()))
+        gameResults.save(
+            StoredGameResult(
+                gameId, playerId, result, mode, socketToken,
+                reviewQuestionTypes = reviewQuestionTypes.toMap()
+            )
+        )
     }
+
     suspend fun sync() = repository.sync()
     suspend fun disconnect() = repository.disconnect()
 }

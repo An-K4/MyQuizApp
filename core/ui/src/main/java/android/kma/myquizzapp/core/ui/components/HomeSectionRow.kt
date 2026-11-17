@@ -1,25 +1,30 @@
 package android.kma.myquizzapp.core.ui.components
 
 import android.content.res.Configuration
-import android.kma.myquizzapp.core.ui.theme.MyQuizAppTheme
-import androidx.compose.material3.Surface
-import androidx.compose.ui.tooling.preview.Preview
+import android.kma.myquizzapp.core.common.model.HomeSection
 import android.kma.myquizzapp.core.common.model.QuizCard
-
-import androidx.compose.foundation.layout.*
+import android.kma.myquizzapp.core.ui.theme.ComponentColors
+import android.kma.myquizzapp.core.ui.theme.MyQuizAppTheme
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.text.font.FontWeight
-import android.kma.myquizzapp.core.ui.theme.ComponentColors
-import android.kma.myquizzapp.core.common.model.HomeSection
 
 /**
  * Một section nằm ngang trên Trang chủ: tiêu đề + LazyRow các thế quiz.
@@ -48,7 +53,12 @@ fun HomeSectionRow(
             Text(
                 eyebrowText, modifier = Modifier.padding(horizontal = 20.dp).padding(bottom = 8.dp),
                 color = MaterialTheme.colorScheme.primary,
-                style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp, lineHeight = 16.sp, letterSpacing = 0.sp, fontWeight = FontWeight.SemiBold),
+                style = MaterialTheme.typography.labelSmall.copy(
+                    fontSize = 11.sp,
+                    lineHeight = 16.sp,
+                    letterSpacing = 0.sp,
+                    fontWeight = FontWeight.SemiBold
+                ),
             )
         }
         Row(
@@ -60,14 +70,22 @@ fun HomeSectionRow(
             Text(
                 text = section.title,
                 color = ComponentColors.foreground,
-                style = MaterialTheme.typography.titleLarge.copy(fontSize = 20.sp, lineHeight = 28.sp, letterSpacing = 0.sp, fontWeight = FontWeight.Bold),
+                style = MaterialTheme.typography.titleLarge.copy(
+                    fontSize = 20.sp,
+                    lineHeight = 28.sp,
+                    letterSpacing = 0.sp,
+                    fontWeight = FontWeight.Bold
+                ),
                 modifier = Modifier
                     .weight(1f)
                     .padding(vertical = 8.dp)
             )
             if (onSeeMore != null) {
                 TextButton(onClick = onSeeMore) {
-                    Text("Xem thêm", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold))
+                    Text(
+                        "Xem thêm",
+                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold)
+                    )
                 }
             }
         }
@@ -95,12 +113,20 @@ fun HomeSectionRow(
 }
 
 @Preview(name = "Home Section States Light", showBackground = true, widthDp = 390)
-@Preview(name = "Home Section States Dark", showBackground = true, widthDp = 390, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(
+    name = "Home Section States Dark",
+    showBackground = true,
+    widthDp = 390,
+    uiMode = Configuration.UI_MODE_NIGHT_YES
+)
 @Composable
 private fun HomeSectionRowPreview() {
     MyQuizAppTheme {
         Surface(color = MaterialTheme.colorScheme.background) {
-            Column(Modifier.padding(vertical = 20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Column(
+                Modifier.padding(vertical = 20.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
                 val quiz = QuizCard(
                     id = 1L,
                     quizName = "100 Câu Tiếng Anh Giao Tiếp Thông Dụng",
@@ -114,7 +140,11 @@ private fun HomeSectionRowPreview() {
                 )
                 val section = HomeSection("preview", "Quiz nổi bật", "featured", listOf(quiz))
                 HomeSectionRow(section, {}, onSeeMore = {})
-                HomeSectionRow(section.copy(title = "Section không có nút Xem thêm", items = emptyList()), {})
+                HomeSectionRow(
+                    section.copy(
+                        title = "Section không có nút Xem thêm",
+                        items = emptyList()
+                    ), {})
             }
         }
     }

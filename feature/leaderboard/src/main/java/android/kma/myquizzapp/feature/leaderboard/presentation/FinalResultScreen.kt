@@ -103,7 +103,8 @@ fun FinalResultScreenContent(
         bottomBar = {
             Surface(color = MaterialTheme.colorScheme.surface) {
                 Column(
-                    Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 20.dp, vertical = 12.dp),
+                    Modifier.fillMaxWidth().navigationBarsPadding()
+                        .padding(horizontal = 20.dp, vertical = 12.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     if (state.reviewEnabled && !state.isMissing) {
@@ -118,9 +119,17 @@ fun FinalResultScreenContent(
             }
         }
     ) { padding ->
-        Box(Modifier.fillMaxSize().padding(padding).background(
-            Brush.verticalGradient(listOf(Color(0xFF211238), Color(0xFF51318A), Color(0xFF34205F)))
-        )) {
+        Box(
+            Modifier.fillMaxSize().padding(padding).background(
+                Brush.verticalGradient(
+                    listOf(
+                        Color(0xFF211238),
+                        Color(0xFF51318A),
+                        Color(0xFF34205F)
+                    )
+                )
+            )
+        ) {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 state = listState,
@@ -131,38 +140,54 @@ fun FinalResultScreenContent(
                     Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
                         GameFinalResultHero(entries = finalResultPodium(state))
                         when {
-                            state.isResultLoading -> ResultNotice("Đang tải lại kết quả…", loading = true)
+                            state.isResultLoading -> ResultNotice(
+                                "Đang tải lại kết quả…",
+                                loading = true
+                            )
+
                             state.resultError != null -> ResultNotice(
                                 state.resultError,
                                 actionLabel = "Thử tải lại kết quả",
                                 onAction = { onIntent(FinalResultIntent.RetryResult) }
                             )
+
                             state.isMissing -> ResultNotice("Không tìm thấy kết quả của trận này.")
                             state.isPractice -> ResultNotice("Chế độ luyện tập không tính điểm và không có bảng xếp hạng.")
                             state.isLeaderboardHidden -> ResultNotice(
                                 if (state.leaderboardHiddenByConfig) "Host đã ẩn bảng xếp hạng của trận này."
                                 else "Chưa có dữ liệu bảng xếp hạng cho trận này."
                             )
+
                             player != null -> GameFinalResultSummaryCard(
                                 title = "Thành tích của bạn (${player.playerName})",
                                 metrics = finalResultMetrics(state)
                             )
+
                             else -> ResultNotice("Chưa có thành tích cá nhân của bạn trong kết quả này.")
                         }
                     }
                 }
                 if (state.reviewEnabled && !state.isMissing && state.isReviewVisible) {
                     item(key = "review-heading") {
-                        Text("Xem lại câu trả lời", color = Color.White,
-                            style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                        Text(
+                            "Xem lại câu trả lời",
+                            color = Color.White,
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold
+                        )
                     }
                     when {
                         state.isReviewLoading -> item(key = "review-loading") {
                             ResultNotice("Đang tải câu trả lời…", loading = true)
                         }
+
                         state.reviewError != null -> item(key = "review-error") {
-                            ResultNotice(state.reviewError, "Thử lại", { onIntent(FinalResultIntent.RetryReview) })
+                            ResultNotice(
+                                state.reviewError,
+                                "Thử lại",
+                                { onIntent(FinalResultIntent.RetryReview) })
                         }
+
                         state.review != null -> {
                             item(key = "review-summary") {
                                 ResultNotice(onlineReviewSummary(state.review, state.mode))
@@ -170,9 +195,13 @@ fun FinalResultScreenContent(
                             if (state.reviewItems.isEmpty()) {
                                 item(key = "review-empty") { ResultNotice("Không có chi tiết câu trả lời để hiển thị.") }
                             }
-                            items(state.reviewItems, key = { "review-${it.questionIndex}-${it.questionId}" }) {
-                                OnlineReviewItemCard(it, state.mode,
-                                    questionType = it.questionId?.let(state.reviewQuestionTypes::get))
+                            items(
+                                state.reviewItems,
+                                key = { "review-${it.questionIndex}-${it.questionId}" }) {
+                                OnlineReviewItemCard(
+                                    it, state.mode,
+                                    questionType = it.questionId?.let(state.reviewQuestionTypes::get)
+                                )
                             }
                         }
                     }
@@ -186,7 +215,8 @@ fun FinalResultScreenContent(
                             LeaderboardPlayerCard(
                                 rankLabel = "#${row.rank}", playerName = row.playerName,
                                 scoreText = "${formatFinalResultScore(row.playerScore)} điểm",
-                                initials = row.playerName.trim().split(Regex("\\s+")).filter(String::isNotEmpty)
+                                initials = row.playerName.trim().split(Regex("\\s+"))
+                                    .filter(String::isNotEmpty)
                                     .take(2).joinToString("") { it.take(1).uppercase() },
                                 isCurrentPlayer = row.id == state.playerId
                             )
@@ -209,7 +239,11 @@ private fun ResultNotice(
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             if (loading) CircularProgressIndicator()
             Text(text, style = MaterialTheme.typography.bodyLarge)
-            if (actionLabel != null) QuizSecondaryButton(actionLabel, onAction, Modifier.fillMaxWidth())
+            if (actionLabel != null) QuizSecondaryButton(
+                actionLabel,
+                onAction,
+                Modifier.fillMaxWidth()
+            )
         }
     }
 }
@@ -218,8 +252,14 @@ private fun ResultNotice(
 private fun ResultDisclosure(title: String, expanded: Boolean, onClick: () -> Unit) {
     QuizSecondaryButton(
         text = title, onClick = onClick,
-        modifier = Modifier.fillMaxWidth().semantics { stateDescription = if (expanded) "Đang mở" else "Đang thu gọn" },
-        trailingIcon = { Text(if (expanded) "−" else "+", style = MaterialTheme.typography.titleLarge) }
+        modifier = Modifier.fillMaxWidth()
+            .semantics { stateDescription = if (expanded) "Đang mở" else "Đang thu gọn" },
+        trailingIcon = {
+            Text(
+                if (expanded) "−" else "+",
+                style = MaterialTheme.typography.titleLarge
+            )
+        }
     )
 }
 
@@ -238,7 +278,10 @@ private fun previewFinalResult() = FinalResultUiState(
 )
 
 @Composable
-private fun FinalResultPreview(state: FinalResultUiState = previewFinalResult(), dark: Boolean = false) {
+private fun FinalResultPreview(
+    state: FinalResultUiState = previewFinalResult(),
+    dark: Boolean = false
+) {
     val listState = rememberLazyListState()
     MyQuizAppTheme(darkTheme = dark) {
         FinalResultScreenContent(state, {}, {}, listState, false, {})
@@ -253,7 +296,12 @@ private fun PlayerFinalLightPreview() = FinalResultPreview()
 @Composable
 private fun PlayerFinalDarkPreview() = FinalResultPreview(dark = true)
 
-@Preview(name = "Player Final · Narrow & large text", widthDp = 320, heightDp = 740, fontScale = 1.5f)
+@Preview(
+    name = "Player Final · Narrow & large text",
+    widthDp = 320,
+    heightDp = 740,
+    fontScale = 1.5f
+)
 @Composable
 private fun PlayerFinalNarrowPreview() {
     val state = previewFinalResult()
@@ -266,39 +314,72 @@ private fun PlayerFinalNarrowPreview() {
 @Composable
 private fun PlayerFinalOnePlayerPreview() {
     val state = previewFinalResult()
-    FinalResultPreview(state.copy(playerId = 1, result = state.result!!.copy(leaderboard = state.leaderboard.take(1))))
+    FinalResultPreview(
+        state.copy(
+            playerId = 1,
+            result = state.result!!.copy(leaderboard = state.leaderboard.take(1))
+        )
+    )
 }
 
 @Preview(name = "Player Final · Hidden", widthDp = 390, heightDp = 844)
 @Composable
-private fun PlayerFinalHiddenPreview() = FinalResultPreview(previewFinalResult().copy(leaderboardHiddenByConfig = true))
+private fun PlayerFinalHiddenPreview() =
+    FinalResultPreview(previewFinalResult().copy(leaderboardHiddenByConfig = true))
 
 @Preview(name = "Player Final · Loading", widthDp = 390, heightDp = 844)
 @Composable
-private fun PlayerFinalLoadingPreview() = FinalResultPreview(previewFinalResult().copy(result = null, isResultLoading = true))
+private fun PlayerFinalLoadingPreview() =
+    FinalResultPreview(previewFinalResult().copy(result = null, isResultLoading = true))
 
 @Preview(name = "Player Final · Result error", widthDp = 390, heightDp = 844)
 @Composable
-private fun PlayerFinalErrorPreview() = FinalResultPreview(previewFinalResult().copy(result = null, resultError = "Không thể tải kết quả. Kiểm tra kết nối rồi thử lại."))
+private fun PlayerFinalErrorPreview() = FinalResultPreview(
+    previewFinalResult().copy(
+        result = null,
+        resultError = "Không thể tải kết quả. Kiểm tra kết nối rồi thử lại."
+    )
+)
 
 @Preview(name = "Player Final · Review", widthDp = 390, heightDp = 844)
 @Composable
-private fun PlayerFinalReviewPreview() = FinalResultPreview(previewFinalResult().copy(
-    isReviewVisible = true,
-    reviewQuestionTypes = mapOf(10L to "multiple_choice"),
-    review = GameReview(playerScore = 9650, correctAnswersCount = 13, totalQuestions = 15, answeredCount = 15,
-        items = listOf(GameReviewItem(questionIndex = 0, questionId = 10, questionText = "Quốc gia có diện tích lớn nhất thế giới?",
-            answerOptions = listOf(PublicAnswerOption("A", "Canada"), PublicAnswerOption("B", "Liên bang Nga")),
-            answered = true, yourAnswers = listOf("B"), correctAnswers = listOf("B"),
-            isCorrect = true, isLate = false, scoreEarned = 950)))
-))
+private fun PlayerFinalReviewPreview() = FinalResultPreview(
+    previewFinalResult().copy(
+        isReviewVisible = true,
+        reviewQuestionTypes = mapOf(10L to "multiple_choice"),
+        review = GameReview(
+            playerScore = 9650, correctAnswersCount = 13, totalQuestions = 15, answeredCount = 15,
+            items = listOf(
+                GameReviewItem(
+                    questionIndex = 0,
+                    questionId = 10,
+                    questionText = "Quốc gia có diện tích lớn nhất thế giới?",
+                    answerOptions = listOf(
+                        PublicAnswerOption("A", "Canada"),
+                        PublicAnswerOption("B", "Liên bang Nga")
+                    ),
+                    answered = true,
+                    yourAnswers = listOf("B"),
+                    correctAnswers = listOf("B"),
+                    isCorrect = true,
+                    isLate = false,
+                    scoreEarned = 950
+                )
+            )
+        )
+    )
+)
 
 @Preview(name = "Player Final · Review unavailable", widthDp = 390, heightDp = 844)
 @Composable
-private fun PlayerFinalReviewErrorPreview() = FinalResultPreview(previewFinalResult().copy(
-    isReviewVisible = true, reviewError = "Phiên xem lại không còn sau khi ứng dụng được khởi động lại."
-))
+private fun PlayerFinalReviewErrorPreview() = FinalResultPreview(
+    previewFinalResult().copy(
+        isReviewVisible = true,
+        reviewError = "Phiên xem lại không còn sau khi ứng dụng được khởi động lại."
+    )
+)
 
 @Preview(name = "Player Final · Network practice", widthDp = 390, heightDp = 844)
 @Composable
-private fun PlayerFinalPracticePreview() = FinalResultPreview(previewFinalResult().copy(mode = GameMode.PRACTICE))
+private fun PlayerFinalPracticePreview() =
+    FinalResultPreview(previewFinalResult().copy(mode = GameMode.PRACTICE))

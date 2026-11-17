@@ -3,7 +3,6 @@ package android.kma.myquizzapp.core.network.api
 import android.kma.myquizzapp.core.common.result.Result
 import android.kma.myquizzapp.core.network.dto.CreateQuizRequestDto
 import android.kma.myquizzapp.core.network.dto.HomeContentDto
-import android.kma.myquizzapp.core.network.dto.QuizCardDto
 import android.kma.myquizzapp.core.network.dto.QuizDetailDto
 import android.kma.myquizzapp.core.network.dto.QuizListDto
 import android.kma.myquizzapp.core.network.dto.QuizSummaryListDto
@@ -22,7 +21,7 @@ import retrofit2.http.Query
  * Base URL: /v1/quizzes
  */
 interface QuizApiService {
-    
+
     /**
      * GET /v1/quizzes/home
      * 
@@ -31,7 +30,7 @@ interface QuizApiService {
      */
     @GET("quizzes/home")
     suspend fun getHomeContent(): Result<HomeContentDto>
-    
+
     /**
      * GET /v1/quizzes/search?keyword=...&cursor=...&limit=...
      * 
@@ -62,7 +61,7 @@ interface QuizApiService {
         @Query("cursor") cursor: String?,
         @Query("limit") limit: Int
     ): Result<QuizListDto>
-    
+
     /**
      * GET /v1/quizzes/me?visibility=...&keyword=...&sort=...&cursor=...&limit=...
      * 
@@ -85,7 +84,7 @@ interface QuizApiService {
         @Query("limit") limit: Int,
         @Query("include_total") includeTotal: Boolean = false
     ): Result<QuizSummaryListDto>
-    
+
     /**
      * GET /v1/quizzes/id/:quizId
      * 
@@ -99,7 +98,7 @@ interface QuizApiService {
     suspend fun getQuizDetail(
         @Path("quizId") quizId: Long
     ): Result<QuizDetailDto>
-    
+
     /**
      * POST /v1/quizzes
      * 
@@ -112,7 +111,7 @@ interface QuizApiService {
     suspend fun createQuiz(
         @Body body: CreateQuizRequestDto
     ): Result<QuizDetailDto>
-    
+
     /**
      * PATCH /v1/quizzes/id/:quizId (N16)
      *

@@ -83,24 +83,26 @@ data class GameUiState(
     val isClassic: Boolean get() = mode == GameMode.CLASSIC && pacing == Pacing.HOST
     val usesClassicQuestionLayout: Boolean
         get() = isClassic && question != null &&
-            (phase == GamePhaseUi.Question || phase == GamePhaseUi.Submitted || phase == GamePhaseUi.Locked ||
-                (phase is GamePhaseUi.Results && !showsClassicSummary))
+                (phase == GamePhaseUi.Question || phase == GamePhaseUi.Submitted || phase == GamePhaseUi.Locked ||
+                        (phase is GamePhaseUi.Results && !showsClassicSummary))
     val skipsClassicSummary: Boolean
         get() = showCorrectAnswer == false && showLeaderboard != null &&
-            showLeaderboard != ShowLeaderboard.BETWEEN_QUESTIONS
+                showLeaderboard != ShowLeaderboard.BETWEEN_QUESTIONS
     val showsClassicSummary: Boolean
         get() = isClassic && phase is GamePhaseUi.Results && !skipsClassicSummary &&
-            (classicFeedbackRemainingMs <= 0L || showCorrectAnswer != true ||
-                results?.correctAnswers.isNullOrEmpty() || question == null)
+                (classicFeedbackRemainingMs <= 0L || showCorrectAnswer != true ||
+                        results?.correctAnswers.isNullOrEmpty() || question == null)
     val revealsClassicFeedback: Boolean
         get() = isClassic && phase is GamePhaseUi.Results && showCorrectAnswer == true &&
-            !results?.correctAnswers.isNullOrEmpty()
+                !results?.correctAnswers.isNullOrEmpty()
     val visiblePersonalResult: PersonalQuestionResult?
-        get() = personalResult?.takeIf { isClassic && phase is GamePhaseUi.Results &&
-            showCorrectAnswer == true && it.index == question?.index && it.questionId == question?.id }
+        get() = personalResult?.takeIf {
+            isClassic && phase is GamePhaseUi.Results &&
+                    showCorrectAnswer == true && it.index == question?.index && it.questionId == question?.id
+        }
     val canShowClassicRank: Boolean
         get() = isClassic && phase is GamePhaseUi.Results && showCorrectAnswer == true &&
-            showLeaderboard == ShowLeaderboard.BETWEEN_QUESTIONS
+                showLeaderboard == ShowLeaderboard.BETWEEN_QUESTIONS
     val isPaused: Boolean get() = sessionStatus == SessionStatus.PAUSED
     val isSelfPaced: Boolean get() = pacing == Pacing.SELF
     val isAnswerInputEnabled: Boolean get() = !isInputLocked && !isPaused
@@ -114,20 +116,24 @@ data class GameUiState(
             showLeaderboard == ShowLeaderboard.NEVER -> false
             isPersonallyDone -> true
             else -> showLeaderboard == ShowLeaderboard.BETWEEN_QUESTIONS && phase is GamePhaseUi.Results &&
-                (!isClassic || showCorrectAnswer == true)
+                    (!isClassic || showCorrectAnswer == true)
         }
 
-    val canSubmit: Boolean get() = isAnswerInputEnabled && when (question?.questionType) {
-        "multiple_choice" -> selectedOptionId != null
-        "multiple_select" -> selectedOptionIds.isNotEmpty()
-        "short_answer", "long_answer" -> textAnswer.isNotBlank()
-        else -> false
-    }
+    val canSubmit: Boolean
+        get() = isAnswerInputEnabled && when (question?.questionType) {
+            "multiple_choice" -> selectedOptionId != null
+            "multiple_select" -> selectedOptionIds.isNotEmpty()
+            "short_answer", "long_answer" -> textAnswer.isNotBlank()
+            else -> false
+        }
 
-    val submittedAnswerKeys: List<String> get() = when (question?.questionType) {
-        "multiple_choice" -> listOfNotNull(selectedOptionId)
-        "multiple_select" -> question.answerOptions.map { it.id }.filter(selectedOptionIds::contains)
-        "short_answer", "long_answer" -> listOf(textAnswer).filter(String::isNotBlank)
-        else -> emptyList()
-    }
+    val submittedAnswerKeys: List<String>
+        get() = when (question?.questionType) {
+            "multiple_choice" -> listOfNotNull(selectedOptionId)
+            "multiple_select" -> question.answerOptions.map { it.id }
+                .filter(selectedOptionIds::contains)
+
+            "short_answer", "long_answer" -> listOf(textAnswer).filter(String::isNotBlank)
+            else -> emptyList()
+        }
 }

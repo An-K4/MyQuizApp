@@ -1,7 +1,6 @@
 package android.kma.myquizzapp.core.network.di
 
 import android.kma.myquizzapp.core.network.dto.PaginationMetaDto
-import kotlinx.serialization.decodeFromString
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test

@@ -59,7 +59,8 @@ class ImageCompressor @Inject constructor(
         }
 
         val decodeOptions = BitmapFactory.Options().apply { inSampleSize = sampleSize }
-        return resolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, decodeOptions) }
+        return resolver.openInputStream(uri)
+            ?.use { BitmapFactory.decodeStream(it, null, decodeOptions) }
     }
 
     private fun Bitmap.toJpegBytes(quality: Int): ByteArray =

@@ -5,23 +5,12 @@ import android.kma.myquizzapp.core.common.model.GamePhase
 import android.kma.myquizzapp.core.common.model.HostLeaderboardRow
 import android.kma.myquizzapp.core.common.model.PublicAnswerOption
 import android.kma.myquizzapp.core.common.model.QuestionLockReason
-import android.kma.myquizzapp.core.ui.components.QuestionImage
-import android.kma.myquizzapp.core.ui.components.GameStartCountdownScreenContent
-import android.kma.myquizzapp.core.ui.components.gameStartCountdownSeconds
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import android.kma.myquizzapp.core.ui.components.AppConfirmDialog
 import android.kma.myquizzapp.core.ui.components.AppDialogVariant
+import android.kma.myquizzapp.core.ui.components.GameStartCountdownScreenContent
+import android.kma.myquizzapp.core.ui.components.QuestionImage
+import android.kma.myquizzapp.core.ui.components.gameStartCountdownSeconds
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.runtime.key
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -32,11 +21,18 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
@@ -48,8 +44,12 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -96,7 +96,8 @@ fun HostGameScreen(
 
     val isCountdown = uiState.phase == GamePhase.COUNTDOWN && !uiState.isFinished
     val isPreparing = uiState.usesStartCountdownLayout
-    val needsLeaveConfirmation = (uiState.isClassic || uiState.isSelfPaced || isPreparing) && !uiState.isFinished
+    val needsLeaveConfirmation =
+        (uiState.isClassic || uiState.isSelfPaced || isPreparing) && !uiState.isFinished
     val requestLeave: () -> Unit = {
         menuExpanded = false
         pendingCloseKey = null
@@ -122,25 +123,36 @@ fun HostGameScreen(
     }
     LaunchedEffect(questionKey, uiState.phase) { menuExpanded = false }
     LaunchedEffect(questionKey, uiState.canCloseClassicQuestion) {
-        if (pendingCloseKey != questionKey || !uiState.canCloseClassicQuestion) pendingCloseKey = null
+        if (pendingCloseKey != questionKey || !uiState.canCloseClassicQuestion) pendingCloseKey =
+            null
     }
     LaunchedEffect(uiState.isFinished) { if (uiState.isFinished) showLeaveDialog = false }
 
     if (uiState.isFinished) {
         HostFinalResultScreenContent(
-            state = uiState, listState = finalListState,
-            boardExpanded = finalBoardExpanded, onToggleBoard = { finalBoardExpanded = !finalBoardExpanded },
-            statsExpanded = finalStatsExpanded, onToggleStats = { finalStatsExpanded = !finalStatsExpanded },
+            state = uiState,
+            listState = finalListState,
+            boardExpanded = finalBoardExpanded,
+            onToggleBoard = { finalBoardExpanded = !finalBoardExpanded },
+            statsExpanded = finalStatsExpanded,
+            onToggleStats = { finalStatsExpanded = !finalStatsExpanded },
             onRetry = { viewModel.onIntent(HostGameIntent.RetryFinalResults) },
-            onHome = requestLeave, snackbarHostState = snackbarHostState,
+            onHome = requestLeave,
+            snackbarHostState = snackbarHostState,
         )
     } else if (isPreparing) {
-        val seconds by key(uiState.phase, uiState.countdownTargetEpochMs, uiState.serverOffsetMs,
-            uiState.isPaused, uiState.connection, uiState.isStateSynchronized) {
+        val seconds by key(
+            uiState.phase, uiState.countdownTargetEpochMs, uiState.serverOffsetMs,
+            uiState.isPaused, uiState.connection, uiState.isStateSynchronized
+        ) {
             produceState<Int?>(null) {
                 if (!isCountdown || uiState.isPaused || uiState.connection != HostGameConnection.CONNECTED || !uiState.isStateSynchronized) return@produceState
                 do {
-                    value = gameStartCountdownSeconds(uiState.countdownTargetEpochMs, uiState.serverOffsetMs, System.currentTimeMillis())
+                    value = gameStartCountdownSeconds(
+                        uiState.countdownTargetEpochMs,
+                        uiState.serverOffsetMs,
+                        System.currentTimeMillis()
+                    )
                     if (value == null || value == 0) break
                     delay(100)
                 } while (true)
@@ -157,19 +169,34 @@ fun HostGameScreen(
             seconds == 0 -> "Đang chờ máy chủ mở câu hỏi đầu tiên…"
             else -> "Câu hỏi đầu tiên sắp xuất hiện. Hãy sẵn sàng!"
         }
-        GameStartCountdownScreenContent(seconds, message, "Chuẩn bị vào trận",
+        GameStartCountdownScreenContent(
+            seconds, message, "Chuẩn bị vào trận",
             snackbarHost = { SnackbarHost(snackbarHostState) },
             onRetry = if (uiState.connection == HostGameConnection.RECONNECT_FAILED ||
                 (uiState.isSelfPaced && uiState.connection == HostGameConnection.CONNECTED &&
-                    uiState.isStateSynchronized && !uiState.isPaused && (!isCountdown || seconds == 0)))
+                        uiState.isStateSynchronized && !uiState.isPaused && (!isCountdown || seconds == 0))
+            )
                 ({ viewModel.onIntent(HostGameIntent.Retry) }) else null,
             actions = {
-                IconButton(onClick = { menuExpanded = true }) { Icon(Icons.Filled.MoreVert, "Điều khiển trận") }
+                IconButton(onClick = { menuExpanded = true }) {
+                    Icon(
+                        Icons.Filled.MoreVert,
+                        "Điều khiển trận"
+                    )
+                }
                 DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
-                    DropdownMenuItem(text = { Text(uiState.pauseLabel) }, enabled = isCountdown && uiState.canPauseOrResume,
-                        onClick = { menuExpanded = false; viewModel.onIntent(HostGameIntent.PauseOrResume) })
-                    DropdownMenuItem(text = { Text("Kết thúc trận") }, enabled = isCountdown && uiState.canEndGame,
-                        onClick = { menuExpanded = false; viewModel.onIntent(HostGameIntent.RequestEndGame) })
+                    DropdownMenuItem(
+                        text = { Text(uiState.pauseLabel) },
+                        enabled = isCountdown && uiState.canPauseOrResume,
+                        onClick = {
+                            menuExpanded = false; viewModel.onIntent(HostGameIntent.PauseOrResume)
+                        })
+                    DropdownMenuItem(
+                        text = { Text("Kết thúc trận") },
+                        enabled = isCountdown && uiState.canEndGame,
+                        onClick = {
+                            menuExpanded = false; viewModel.onIntent(HostGameIntent.RequestEndGame)
+                        })
                     DropdownMenuItem(text = { Text("Rời màn") }, onClick = requestLeave)
                 }
             })
@@ -181,8 +208,10 @@ fun HostGameScreen(
                 // Hiding via the fill button keeps the answer section open; collapsing hides both.
                 if (intent == HostGameIntent.ToggleAnswerKey) optionsExpanded = true
                 viewModel.onIntent(intent)
-            }, listState = listState, snackbarHostState = snackbarHostState,
-            optionsExpanded = answerSectionExpanded, onToggleOptions = {
+            },
+            listState = listState, snackbarHostState = snackbarHostState,
+            optionsExpanded = answerSectionExpanded,
+            onToggleOptions = {
                 if (answerSectionExpanded) {
                     optionsExpanded = false
                     viewModel.onIntent(HostGameIntent.HideAnswerKey)
@@ -225,7 +254,12 @@ fun HostGameScreen(
             confirmText = "Chốt câu & hiện kết quả", dismissText = "Tiếp tục chờ",
             onConfirm = {
                 pendingCloseKey = null
-                if (expectedId != null) viewModel.onIntent(HostGameIntent.ConfirmCloseQuestion(expectedIndex, expectedId))
+                if (expectedId != null) viewModel.onIntent(
+                    HostGameIntent.ConfirmCloseQuestion(
+                        expectedIndex,
+                        expectedId
+                    )
+                )
             },
             onDismiss = { pendingCloseKey = null },
         )
@@ -234,7 +268,9 @@ fun HostGameScreen(
         if (uiState.isClassic || uiState.isSelfPaced || isPreparing) AppConfirmDialog(
             title = "Kết thúc trận?",
             message = "Trận sẽ kết thúc cho tất cả người chơi và chuyển sang kết quả cuối trận. Đây không phải thao tác chỉ rời màn Host.",
-            confirmText = "Kết thúc trận", dismissText = "Tiếp tục trận", variant = AppDialogVariant.Danger,
+            confirmText = "Kết thúc trận",
+            dismissText = "Tiếp tục trận",
+            variant = AppDialogVariant.Danger,
             onConfirm = { viewModel.onIntent(HostGameIntent.ConfirmEndGame) },
             onDismiss = { viewModel.onIntent(HostGameIntent.DismissEndDialog) },
         ) else EndGameDialog(
@@ -260,9 +296,18 @@ internal val HostGameUiState.usesStartCountdownLayout: Boolean
 /** The clock belongs to the stateful Screen boundary, never Preview/content. */
 @Composable
 private fun rememberHostQuestionTime(state: HostGameUiState): HostQuestionTime {
-    val time by key(hostQuestionKey(state), state.deadlineEpochMs, state.serverOffsetMs,
-        state.isPaused, state.connection, state.isStateSynchronized, state.isQuestionClockKnown, state.phase,
-        state.autoAdvance, state.results?.nextQuestionAt) {
+    val time by key(
+        hostQuestionKey(state),
+        state.deadlineEpochMs,
+        state.serverOffsetMs,
+        state.isPaused,
+        state.connection,
+        state.isStateSynchronized,
+        state.isQuestionClockKnown,
+        state.phase,
+        state.autoAdvance,
+        state.results?.nextQuestionAt
+    ) {
         produceState(initialValue = hostQuestionTime(state, System.currentTimeMillis())) {
             do {
                 value = hostQuestionTime(state, System.currentTimeMillis())
@@ -445,6 +490,7 @@ private fun phaseLabel(state: HostGameUiState): String = when (state.phase) {
         QuestionLockReason.TIME_UP -> "Đã đóng — hết thời gian"
         else -> "Đã đóng câu"
     }
+
     GamePhase.SHOWING_RESULTS -> "Đang hiện kết quả"
     GamePhase.FINISHED -> "Trận đã xong"
     GamePhase.UNKNOWN -> "Đang đồng bộ"
@@ -610,7 +656,7 @@ private fun SelfPacedOverviewCard(state: HostGameUiState) {
             Text(modeLabel(state), style = MaterialTheme.typography.titleLarge)
             Text(
                 "Đang chơi ${state.playingPlayers} · Mất kết nối ${state.disconnectedPlayers} · " +
-                    "Hoàn thành ${state.finishedPlayers} · Bị loại ${state.eliminatedPlayers}"
+                        "Hoàn thành ${state.finishedPlayers} · Bị loại ${state.eliminatedPlayers}"
             )
             if (state.isMarathon) {
                 Text(
@@ -638,6 +684,7 @@ private fun SelfPacedPlayerRow(row: HostLeaderboardRow, state: HostGameUiState) 
         row.status == "finished" || row.status == "eliminated" -> {
             if (total > 0) "Đã làm ${row.answeredCount}/$total câu" else "Đã làm ${row.answeredCount} câu"
         }
+
         total > 0 -> "Đang ở câu ${(row.currentQuestionIndex + 1).coerceAtMost(total)}/$total"
         else -> "Đã làm ${row.answeredCount} câu"
     }
@@ -647,14 +694,27 @@ private fun SelfPacedPlayerRow(row: HostLeaderboardRow, state: HostGameUiState) 
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(row.playerName, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                Text(
+                    row.playerName,
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.weight(1f)
+                )
                 Text("${row.playerScore} điểm", fontWeight = FontWeight.Bold)
             }
-            Text("$progress · ${playerStatusLabel(row.status)}", style = MaterialTheme.typography.bodyMedium)
+            Text(
+                "$progress · ${playerStatusLabel(row.status)}",
+                style = MaterialTheme.typography.bodyMedium
+            )
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("Đúng ${row.correctCount} · Sai ${row.wrongCount}", style = MaterialTheme.typography.bodySmall)
+                Text(
+                    "Đúng ${row.correctCount} · Sai ${row.wrongCount}",
+                    style = MaterialTheme.typography.bodySmall
+                )
                 row.lives?.let { Text("Mạng $it", style = MaterialTheme.typography.bodySmall) }
-                if (row.streak > 0) Text("Chuỗi ${row.streak}", style = MaterialTheme.typography.bodySmall)
+                if (row.streak > 0) Text(
+                    "Chuỗi ${row.streak}",
+                    style = MaterialTheme.typography.bodySmall
+                )
             }
         }
     }

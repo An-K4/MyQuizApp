@@ -2,20 +2,29 @@ package android.kma.myquizzapp.feature.quiz_manage.presentation.components
 
 import android.kma.myquizzapp.core.common.model.QuestionType
 import android.kma.myquizzapp.core.common.validator.QuizEditorErrors
-import android.kma.myquizzapp.core.ui.components.SettingSwitchRow
 import android.kma.myquizzapp.core.ui.components.QuizPrimaryButton
 import android.kma.myquizzapp.core.ui.components.QuizSecondaryButton
+import android.kma.myquizzapp.core.ui.components.SettingSwitchRow
 import androidx.compose.foundation.ScrollState
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material3.*
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
 /** Stateless editor body shared by create/edit quiz screens. */
@@ -71,24 +80,49 @@ fun QuizEditorContent(
             verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
             item(key = "cover") {
-                ImagePickerSection("Ảnh bìa quiz", coverImageModel, onPickCoverImage, onRemoveCoverImage,
-                    enabled = !isSubmitting, isCover = true)
+                ImagePickerSection(
+                    "Ảnh bìa quiz", coverImageModel, onPickCoverImage, onRemoveCoverImage,
+                    enabled = !isSubmitting, isCover = true
+                )
             }
             item(key = "name") {
-                EditorField("Tên Quiz *", quizName, onQuizNameChanged, enabled = !isSubmitting,
-                    placeholder = "Nhập tên bộ câu hỏi cuốn hút", error = validationErrors.name)
+                EditorField(
+                    "Tên Quiz *", quizName, onQuizNameChanged, enabled = !isSubmitting,
+                    placeholder = "Nhập tên bộ câu hỏi cuốn hút", error = validationErrors.name
+                )
             }
             item(key = "description") {
-                EditorField("Mô tả", quizDescription, onQuizDescriptionChanged, enabled = !isSubmitting,
-                    placeholder = "Giới thiệu ngắn về chủ đề câu hỏi", singleLine = false, minLines = 3,
-                    error = validationErrors.description)
+                EditorField(
+                    "Mô tả",
+                    quizDescription,
+                    onQuizDescriptionChanged,
+                    enabled = !isSubmitting,
+                    placeholder = "Giới thiệu ngắn về chủ đề câu hỏi",
+                    singleLine = false,
+                    minLines = 3,
+                    error = validationErrors.description
+                )
             }
             item(key = "language_category") {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    EditorField("Ngôn ngữ *", quizLanguage, onQuizLanguageChanged, Modifier.weight(1f),
-                        enabled = !isSubmitting, placeholder = "vi", error = validationErrors.language)
-                    EditorField("Chủ đề", quizCategory, onQuizCategoryChanged, Modifier.weight(1f),
-                        enabled = !isSubmitting, placeholder = "Khoa học", error = validationErrors.category)
+                    EditorField(
+                        "Ngôn ngữ *",
+                        quizLanguage,
+                        onQuizLanguageChanged,
+                        Modifier.weight(1f),
+                        enabled = !isSubmitting,
+                        placeholder = "vi",
+                        error = validationErrors.language
+                    )
+                    EditorField(
+                        "Chủ đề",
+                        quizCategory,
+                        onQuizCategoryChanged,
+                        Modifier.weight(1f),
+                        enabled = !isSubmitting,
+                        placeholder = "Khoa học",
+                        error = validationErrors.category
+                    )
                 }
             }
             item(key = "visibility") {
@@ -98,8 +132,10 @@ fun QuizEditorContent(
                 )
             }
             item(key = "question_heading") {
-                Text("Câu hỏi (${questions.size})", style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold, color = EditorColors.foreground)
+                Text(
+                    "Câu hỏi (${questions.size})", style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold, color = EditorColors.foreground
+                )
                 EditorErrorMessages(validationErrors.general)
             }
             itemsIndexed(questions, key = { _, question -> question.localId }) { index, question ->
@@ -107,7 +143,12 @@ fun QuizEditorContent(
                     question = question, questionNumber = index + 1,
                     canRemove = questions.size > 1, enabled = !isSubmitting,
                     supplementaryExpanded = question.localId in supplementaryExpandedIds,
-                    onSupplementaryExpandedChange = { onSupplementaryExpandedChange(question.localId, it) },
+                    onSupplementaryExpandedChange = {
+                        onSupplementaryExpandedChange(
+                            question.localId,
+                            it
+                        )
+                    },
                     typeScrollState = checkNotNull(typeScrollStates[question.localId]),
                     timeScrollState = checkNotNull(timeScrollStates[question.localId]),
                     errors = validationErrors.questions[question.localId].orEmpty(),
@@ -118,7 +159,13 @@ fun QuizEditorContent(
                     onCustomTimeSelected = { onCustomTimeSelected(question.localId) },
                     onPickImage = { onPickQuestionImage(question.localId) },
                     onRemoveImage = { onRemoveQuestionImage(question.localId) },
-                    onOptionChanged = { optionIndex, value -> onOptionChanged(question.localId, optionIndex, value) },
+                    onOptionChanged = { optionIndex, value ->
+                        onOptionChanged(
+                            question.localId,
+                            optionIndex,
+                            value
+                        )
+                    },
                     onToggleCorrect = { onToggleCorrect(question.localId, it) },
                     onAddOption = { onAddOption(question.localId) },
                     onRemoveOption = { onRemoveOption(question.localId, it) },
@@ -129,14 +176,24 @@ fun QuizEditorContent(
                 )
             }
             item(key = "add_question") {
-                QuizSecondaryButton("Thêm câu hỏi", onAddQuestion, Modifier.fillMaxWidth(), enabled = !isSubmitting,
+                QuizSecondaryButton(
+                    "Thêm câu hỏi", onAddQuestion, Modifier.fillMaxWidth(), enabled = !isSubmitting,
                     leadingIcon = { Icon(Icons.Default.Add, null) })
             }
         }
         Surface(color = EditorColors.surface, shadowElevation = 2.dp) {
-            Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(
+                Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 errorMessage?.let { EditorErrorMessages(listOf(it)) }
-                QuizPrimaryButton(submitLabel, onSubmit, Modifier.fillMaxWidth(), enabled = !isSubmitting, loading = isSubmitting)
+                QuizPrimaryButton(
+                    submitLabel,
+                    onSubmit,
+                    Modifier.fillMaxWidth(),
+                    enabled = !isSubmitting,
+                    loading = isSubmitting
+                )
             }
         }
     }

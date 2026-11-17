@@ -1,3 +1,4 @@
 <resources>
+
     <style name="Theme.MyQuizzApp" parent="android:Theme.Material.NoActionBar" />
 </resources>

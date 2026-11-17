@@ -5,13 +5,40 @@ import android.kma.myquizzapp.core.common.model.AnswerOption
 import android.kma.myquizzapp.core.common.model.Question
 import android.kma.myquizzapp.core.common.model.QuestionType
 import android.kma.myquizzapp.core.common.model.Quiz
-import android.kma.myquizzapp.core.ui.components.*
+import android.kma.myquizzapp.core.ui.components.AnswerOptionItem
+import android.kma.myquizzapp.core.ui.components.AnswerOptionSelectionMode
+import android.kma.myquizzapp.core.ui.components.AppConfirmDialog
+import android.kma.myquizzapp.core.ui.components.AppConfirmDialogContent
+import android.kma.myquizzapp.core.ui.components.FinalResultMetric
+import android.kma.myquizzapp.core.ui.components.GameFinalResultHero
+import android.kma.myquizzapp.core.ui.components.GameFinalResultSummaryCard
+import android.kma.myquizzapp.core.ui.components.GameStartCountdownContent
+import android.kma.myquizzapp.core.ui.components.QuestionImage
+import android.kma.myquizzapp.core.ui.components.QuizPrimaryButton
+import android.kma.myquizzapp.core.ui.components.QuizSecondaryButton
 import android.kma.myquizzapp.core.ui.theme.FrontendColors
 import android.kma.myquizzapp.core.ui.theme.MyQuizAppTheme
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
@@ -23,9 +50,26 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Lightbulb
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -35,7 +79,14 @@ import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
-import androidx.compose.ui.semantics.*
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.progressBarRangeInfo
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -61,7 +112,7 @@ fun QuizPreviewScreen(
     val keyboard = LocalSoftwareKeyboardController.current
     var showExitDialog by rememberSaveable { mutableStateOf(false) }
     val activeRun = !state.isLoading && state.quiz?.questions?.isNotEmpty() == true &&
-        state.phase != PreviewPhase.FINISHED
+            state.phase != PreviewPhase.FINISHED
     val requestExit: () -> Unit = {
         if (activeRun) showExitDialog = true else onNavigateBack()
     }
@@ -118,11 +169,18 @@ fun QuizPreviewScreenContent(
     if (!state.isLoading && state.errorMessage == null &&
         state.quiz?.questions?.isNotEmpty() == true && state.phase == PreviewPhase.FINISHED
     ) {
-        PreviewFinalResultContent(state, onIntent, listState, summaryReviewExpanded, onToggleSummaryReview, modifier)
+        PreviewFinalResultContent(
+            state,
+            onIntent,
+            listState,
+            summaryReviewExpanded,
+            onToggleSummaryReview,
+            modifier
+        )
         return
     }
     val showQuestion = !state.isLoading && state.currentQuestion != null &&
-        state.phase in setOf(PreviewPhase.QUESTION, PreviewPhase.FEEDBACK)
+            state.phase in setOf(PreviewPhase.QUESTION, PreviewPhase.FEEDBACK)
     Scaffold(
         // Resize the screen viewport for IME, not the footer/button's measured height.
         modifier = modifier.fillMaxSize().imePadding(),
@@ -155,8 +213,16 @@ fun QuizPreviewScreenContent(
                 )
                 if (showQuestion && (state.currentQuestion?.timeLimit ?: 0) > 0) {
                     PreviewTimeBar(
-                        fraction = previewTimeFraction(state.currentQuestion, state.remainingSeconds, state.remainingTimeMillis),
-                        critical = previewTimeIsCritical(state.currentQuestion, state.remainingSeconds, state.remainingTimeMillis),
+                        fraction = previewTimeFraction(
+                            state.currentQuestion,
+                            state.remainingSeconds,
+                            state.remainingTimeMillis
+                        ),
+                        critical = previewTimeIsCritical(
+                            state.currentQuestion,
+                            state.remainingSeconds,
+                            state.remainingTimeMillis
+                        ),
                         remainingSeconds = state.remainingSeconds,
                         modifier = Modifier.padding(horizontal = 20.dp).padding(bottom = 12.dp),
                     )
@@ -171,12 +237,20 @@ fun QuizPreviewScreenContent(
                         QuizPrimaryButton(
                             text = previewPrimaryLabel(state),
                             onClick = {
-                                onIntent(if (state.phase == PreviewPhase.FEEDBACK)
-                                    QuizPreviewIntent.Next else QuizPreviewIntent.Submit)
+                                onIntent(
+                                    if (state.phase == PreviewPhase.FEEDBACK)
+                                        QuizPreviewIntent.Next else QuizPreviewIntent.Submit
+                                )
                             },
                             enabled = state.phase == PreviewPhase.FEEDBACK || state.canSubmit,
                             trailingIcon = if (state.phase == PreviewPhase.FEEDBACK) {
-                                { Icon(Icons.AutoMirrored.Filled.ArrowForward, null, Modifier.size(18.dp)) }
+                                {
+                                    Icon(
+                                        Icons.AutoMirrored.Filled.ArrowForward,
+                                        null,
+                                        Modifier.size(18.dp)
+                                    )
+                                }
                             } else null,
                             modifier = Modifier.fillMaxWidth().navigationBarsPadding()
                                 .padding(horizontal = 20.dp, vertical = 12.dp),
@@ -195,16 +269,19 @@ fun QuizPreviewScreenContent(
                 QuizPrimaryButton("Thử lại", { onIntent(QuizPreviewIntent.Retry) })
                 TextButton(onClick = onRequestExit) { Text("Quay lại") }
             }
+
             state.quiz?.questions.isNullOrEmpty() -> Centered(contentModifier) {
                 Text("Quiz này chưa có câu hỏi để chơi thử.")
                 Spacer(Modifier.height(12.dp))
                 QuizPrimaryButton("Quay lại quiz", onRequestExit)
             }
+
             else -> when (state.phase) {
                 PreviewPhase.COUNTDOWN -> CountdownContent(state, contentModifier)
                 PreviewPhase.QUESTION, PreviewPhase.FEEDBACK -> PreviewQuestionContent(
                     state, onIntent, listState, contentModifier,
                 )
+
                 PreviewPhase.FINISHED -> Unit // Rendered by the dedicated final-result scaffold above.
             }
         }
@@ -231,12 +308,13 @@ private fun PreviewTimeBar(
     modifier: Modifier = Modifier,
 ) {
     val safeFraction = fraction.coerceIn(0f, 1f)
-    Box(modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp))
-        .background(previewBorderColor()).semantics {
-            contentDescription = "Thời gian còn lại"
-            stateDescription = "${remainingSeconds.coerceAtLeast(0)} giây"
-            progressBarRangeInfo = ProgressBarRangeInfo(safeFraction, 0f..1f)
-        }) {
+    Box(
+        modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp))
+            .background(previewBorderColor()).semantics {
+                contentDescription = "Thời gian còn lại"
+                stateDescription = "${remainingSeconds.coerceAtLeast(0)} giây"
+                progressBarRangeInfo = ProgressBarRangeInfo(safeFraction, 0f..1f)
+            }) {
         if (safeFraction > 0f) Box(
             Modifier.fillMaxHeight().fillMaxWidth(safeFraction)
                 .background(if (critical) FrontendColors.Danger else MaterialTheme.colorScheme.primary),
@@ -247,24 +325,29 @@ private fun PreviewTimeBar(
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun PreviewBadges(totalScore: Int) {
-    val tint = if (isSystemInDarkTheme()) MaterialTheme.colorScheme.primaryContainer else FrontendColors.BrandTint
+    val tint =
+        if (isSystemInDarkTheme()) MaterialTheme.colorScheme.primaryContainer else FrontendColors.BrandTint
     FlowRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Surface(color = tint, shape = RoundedCornerShape(50)) {
-            Text("Chế độ luyện tập • Không tính xếp hạng",
+            Text(
+                "Chế độ luyện tập • Không tính xếp hạng",
                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
                 color = MaterialTheme.colorScheme.primary, fontSize = 11.sp,
-                lineHeight = 16.sp, fontWeight = FontWeight.SemiBold)
+                lineHeight = 16.sp, fontWeight = FontWeight.SemiBold
+            )
         }
         Surface(color = tint, shape = RoundedCornerShape(50), modifier = Modifier.semantics {
             liveRegion = LiveRegionMode.Polite
             contentDescription = "Tổng điểm ước tính: $totalScore"
         }) {
-            Text("$totalScore điểm", Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+            Text(
+                "$totalScore điểm", Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
                 color = MaterialTheme.colorScheme.primary, fontSize = 11.sp,
-                lineHeight = 16.sp, fontWeight = FontWeight.Bold)
+                lineHeight = 16.sp, fontWeight = FontWeight.Bold
+            )
         }
     }
 }
@@ -279,7 +362,8 @@ private fun PreviewQuestionContent(
     val question = state.currentQuestion ?: return
     val result = state.currentResult.takeIf { state.phase == PreviewPhase.FEEDBACK }
     val feedback = state.phase == PreviewPhase.FEEDBACK
-    val selectedIds = if (feedback && result?.isAnswered != true) emptySet() else state.selectedOptionIds
+    val selectedIds =
+        if (feedback && result?.isAnswered != true) emptySet() else state.selectedOptionIds
     LazyColumn(
         state = listState, modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 0.dp, bottom = 20.dp),
@@ -294,12 +378,17 @@ private fun PreviewQuestionContent(
                         question = question, selectedIds = selectedIds, result = result,
                         enabled = !feedback,
                         onSelectOption = { optionId ->
-                            onIntent(if (question.questionType == QuestionType.MULTIPLE_SELECT)
-                                QuizPreviewIntent.ToggleOption(optionId) else QuizPreviewIntent.SelectOption(optionId))
+                            onIntent(
+                                if (question.questionType == QuestionType.MULTIPLE_SELECT)
+                                    QuizPreviewIntent.ToggleOption(optionId) else QuizPreviewIntent.SelectOption(
+                                    optionId
+                                )
+                            )
                         },
                     )
                 }
             }
+
             QuestionType.SHORT_ANSWER, QuestionType.LONG_ANSWER -> item {
                 PreviewTextAnswer(
                     value = if (feedback) result?.submittedAnswer.orEmpty() else state.textAnswer,
@@ -317,12 +406,16 @@ private fun PreviewQuestionContent(
                 result.isCorrect == null -> "Không thể chấm câu hỏi này"
                 result.isCorrect == false && question.questionType == QuestionType.MULTIPLE_SELECT ->
                     "Bộ đáp án chưa chính xác"
+
                 else -> null
             }
             if (notice != null) item {
                 // A missing correct option is green too: state the overall multi-answer result explicitly.
-                Text(notice, color = if (result.isAnswered && result.isCorrect == false)
-                    FrontendColors.Danger else previewMutedColor(), style = MaterialTheme.typography.bodyMedium,
+                Text(
+                    notice,
+                    color = if (result.isAnswered && result.isCorrect == false)
+                        FrontendColors.Danger else previewMutedColor(),
+                    style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
             }
         }
@@ -337,9 +430,10 @@ private fun PreviewQuestionContent(
 @Composable
 private fun PreviewQuestionHeading(question: Question) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text(question.questionText, style = MaterialTheme.typography.titleLarge.copy(
-            fontWeight = FontWeight.Bold, fontSize = 20.sp, lineHeight = 28.sp,
-        ), modifier = Modifier.semantics { heading() })
+        Text(
+            question.questionText, style = MaterialTheme.typography.titleLarge.copy(
+                fontWeight = FontWeight.Bold, fontSize = 20.sp, lineHeight = 28.sp,
+            ), modifier = Modifier.semantics { heading() })
         if (!question.questionImage.isNullOrBlank()) {
             QuestionImage(question.questionImage, "Ảnh minh họa câu hỏi")
         }
@@ -358,7 +452,8 @@ private fun PreviewChoiceAnswers(
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         question.answerOptions.orEmpty().forEachIndexed { index, option ->
             AnswerOptionItem(
-                label = if (index < 26) ('A'.code + index).toChar().toString() else (index + 1).toString(),
+                label = if (index < 26) ('A'.code + index).toChar()
+                    .toString() else (index + 1).toString(),
                 text = option.optionText,
                 selected = option.id in selectedIds,
                 onClick = { onSelectOption(option.id) },
@@ -409,16 +504,24 @@ private fun PreviewTextAnswer(
             Surface(
                 color = when (correct) {
                     true -> if (isSystemInDarkTheme()) FrontendColors.Success.copy(alpha = 0.12f)
-                        else FrontendColors.CorrectAnswerBackground
+                    else FrontendColors.CorrectAnswerBackground
+
                     false -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.4f)
                     null -> MaterialTheme.colorScheme.surfaceVariant
-                }, shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth(),
+                },
+                shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth(),
             ) {
                 Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(status, color = if (correct == null) previewMutedColor() else accent,
+                    Text(
+                        status, color = if (correct == null) previewMutedColor() else accent,
                         fontWeight = FontWeight.SemiBold,
                         modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
-                    result.correctAnswer?.let { Text("Đáp án mẫu: $it", style = MaterialTheme.typography.bodyMedium) }
+                    result.correctAnswer?.let {
+                        Text(
+                            "Đáp án mẫu: $it",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
                 }
             }
         }
@@ -433,13 +536,23 @@ private fun PreviewSupportingCard(title: String, body: String) {
         shape = RoundedCornerShape(20.dp), modifier = Modifier.fillMaxWidth(),
     ) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                val color = if (dark) MaterialTheme.colorScheme.onSecondaryContainer else FrontendColors.Info
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                val color =
+                    if (dark) MaterialTheme.colorScheme.onSecondaryContainer else FrontendColors.Info
                 Icon(Icons.Outlined.Lightbulb, null, tint = color, modifier = Modifier.size(18.dp))
                 Text(title, color = color, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
             }
-            Text(body, style = MaterialTheme.typography.bodySmall.copy(fontSize = 13.sp, lineHeight = 19.sp),
-                color = if (dark) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                body,
+                style = MaterialTheme.typography.bodySmall.copy(
+                    fontSize = 13.sp,
+                    lineHeight = 19.sp
+                ),
+                color = if (dark) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
@@ -482,10 +595,15 @@ private fun PreviewFinalResultContent(
         bottomBar = {
             Surface(color = MaterialTheme.colorScheme.surface) {
                 Column(
-                    Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 20.dp, vertical = 12.dp),
+                    Modifier.fillMaxWidth().navigationBarsPadding()
+                        .padding(horizontal = 20.dp, vertical = 12.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    QuizPrimaryButton("Chơi lại", { onIntent(QuizPreviewIntent.Restart) }, Modifier.fillMaxWidth())
+                    QuizPrimaryButton(
+                        "Chơi lại",
+                        { onIntent(QuizPreviewIntent.Restart) },
+                        Modifier.fillMaxWidth()
+                    )
                     TextButton({ onIntent(QuizPreviewIntent.Exit) }, Modifier.fillMaxWidth()) {
                         Text("Thoát chơi thử")
                     }
@@ -496,7 +614,15 @@ private fun PreviewFinalResultContent(
         LazyColumn(
             state = listState,
             modifier = Modifier.fillMaxSize()
-                .background(Brush.verticalGradient(listOf(Color(0xFF211238), Color(0xFF51318A), Color(0xFF34205F))))
+                .background(
+                    Brush.verticalGradient(
+                        listOf(
+                            Color(0xFF211238),
+                            Color(0xFF51318A),
+                            Color(0xFF34205F)
+                        )
+                    )
+                )
                 .padding(padding).consumeWindowInsets(padding),
             contentPadding = PaddingValues(horizontal = 20.dp, vertical = 24.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp),
@@ -524,10 +650,15 @@ private fun PreviewFinalResultContent(
                     ),
                     supportingContent = {
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text("Đã trả lời ${state.answeredCount}/$total · Tỷ lệ đúng ${state.accuracy}%",
-                                style = MaterialTheme.typography.bodyMedium)
-                            Text("Điểm ước tính, có thể khác trận thật.",
-                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(
+                                "Đã trả lời ${state.answeredCount}/$total · Tỷ lệ đúng ${state.accuracy}%",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            Text(
+                                "Điểm ước tính, có thể khác trận thật.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
                     },
                 )
@@ -543,7 +674,8 @@ private fun PreviewFinalResultContent(
             }
             if (reviewExpanded) {
                 items(ordered, key = { it.question.id }) { result ->
-                    val originalIndex = state.quiz?.questions?.indexOfFirst { it.id == result.question.id } ?: -1
+                    val originalIndex =
+                        state.quiz?.questions?.indexOfFirst { it.id == result.question.id } ?: -1
                     PreviewReviewItem(result, originalIndex.takeIf { it >= 0 }?.plus(1))
                 }
             }
@@ -558,27 +690,37 @@ private fun PreviewReviewItem(result: PreviewQuestionResult, questionNumber: Int
     val isIncorrect = result.isAnswered && result.isCorrect == false
     val dark = colors.background.luminance() < 0.5f
     val cardColor = when {
-        isCorrect -> if (dark) FrontendColors.Success.copy(alpha = 0.12f).compositeOver(colors.surface)
-            else FrontendColors.CorrectAnswerBackground
+        isCorrect -> if (dark) FrontendColors.Success.copy(alpha = 0.12f)
+            .compositeOver(colors.surface)
+        else FrontendColors.CorrectAnswerBackground
+
         isIncorrect -> colors.errorContainer
         else -> colors.surface // Skipped and ungradable answers stay neutral.
     }
     val foreground = if (isIncorrect) colors.onErrorContainer else colors.onSurface
-    val muted = if (isCorrect || isIncorrect) foreground.copy(alpha = 0.8f) else colors.onSurfaceVariant
+    val muted =
+        if (isCorrect || isIncorrect) foreground.copy(alpha = 0.8f) else colors.onSurfaceVariant
     val statusColor = when {
         isCorrect -> if (dark) FrontendColors.Success else FrontendColors.SuccessForeground
         isIncorrect -> colors.onErrorContainer
         else -> colors.onSurface
     }
-    Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp), color = cardColor, contentColor = foreground) {
+    Surface(
+        Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        color = cardColor,
+        contentColor = foreground
+    ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(
                 text = questionNumber?.let { "Câu $it" } ?: "Câu hỏi",
                 style = MaterialTheme.typography.labelLarge, color = muted,
             )
             PreviewQuestionHeading(result.question)
-            Text(previewResultStatus(result), style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.SemiBold, color = statusColor)
+            Text(
+                previewResultStatus(result), style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold, color = statusColor
+            )
             when (result.question.questionType) {
                 QuestionType.MULTIPLE_CHOICE, QuestionType.MULTIPLE_SELECT -> {
                     PreviewChoiceAnswers(
@@ -591,6 +733,7 @@ private fun PreviewReviewItem(result: PreviewQuestionResult, questionNumber: Int
                         result.submittedAnswer?.let { Text("Bạn trả lời: $it") }
                     }
                 }
+
                 QuestionType.SHORT_ANSWER, QuestionType.LONG_ANSWER -> PreviewTextAnswer(
                     value = result.submittedAnswer.orEmpty(), onChange = {},
                     longAnswer = result.question.questionType == QuestionType.LONG_ANSWER,
@@ -598,8 +741,14 @@ private fun PreviewReviewItem(result: PreviewQuestionResult, questionNumber: Int
                 )
             }
             Text(
-                "Thời gian trả lời: ${String.format(java.util.Locale.ROOT, "%.1f", result.timeTakenSeconds.coerceAtLeast(0.0))} giây" +
-                    if (result.isLate) " · Quá giờ" else "",
+                "Thời gian trả lời: ${
+                    String.format(
+                        java.util.Locale.ROOT,
+                        "%.1f",
+                        result.timeTakenSeconds.coerceAtLeast(0.0)
+                    )
+                } giây" +
+                        if (result.isLate) " · Quá giờ" else "",
                 style = MaterialTheme.typography.bodySmall, color = muted,
             )
             result.question.explanation?.takeIf(String::isNotBlank)?.let {
@@ -628,27 +777,40 @@ private fun previewFixture(
         id = 1, quizId = 1, questionType = type, questionText = "Đỉnh núi nào cao nhất thế giới?",
         timeLimit = limit, questionHint = hint, explanation = explanation,
         questionImage = if (image) "https://preview.invalid/mountain.png" else null,
-        answerOptions = if (choice) listOf(AnswerOption(0, "K2"), AnswerOption(1, "Everest"),
-            AnswerOption(2, "Kangchenjunga"), AnswerOption(3, "Lhotse")) else null,
+        answerOptions = if (choice) listOf(
+            AnswerOption(0, "K2"), AnswerOption(1, "Everest"),
+            AnswerOption(2, "Kangchenjunga"), AnswerOption(3, "Lhotse")
+        ) else null,
         correctAnswer = if (type == QuestionType.MULTIPLE_SELECT)
             JsonArray(listOf(JsonPrimitive(1), JsonPrimitive(2)))
         else if (choice) JsonArray(listOf(JsonPrimitive(1))) else JsonPrimitive("Everest"),
     )
-    val result = if (phase == PreviewPhase.FEEDBACK || phase == PreviewPhase.FINISHED) PreviewQuestionResult(
-        question = question, submittedAnswer = if (!answered) null else if (correct == true) "Everest" else "K2",
-        correctAnswer = "Everest", isCorrect = correct, isAnswered = answered,
-        isLate = seconds == 0 && limit > 0, scoreEarned = if (correct == true && answered) 1_250 else 0,
-        timeTakenSeconds = 15.0, selectedOptionIds = if (answered) selected else emptySet(),
-    ) else null
+    val result =
+        if (phase == PreviewPhase.FEEDBACK || phase == PreviewPhase.FINISHED) PreviewQuestionResult(
+            question = question,
+            submittedAnswer = if (!answered) null else if (correct == true) "Everest" else "K2",
+            correctAnswer = "Everest",
+            isCorrect = correct,
+            isAnswered = answered,
+            isLate = seconds == 0 && limit > 0,
+            scoreEarned = if (correct == true && answered) 1_250 else 0,
+            timeTakenSeconds = 15.0,
+            selectedOptionIds = if (answered) selected else emptySet(),
+        ) else null
     return QuizPreviewUiState(
         isLoading = false,
-        quiz = Quiz(id = 1, quizOwner = 10, quizName = "Đố vui địa lý", quizLanguage = "vi",
+        quiz = Quiz(
+            id = 1, quizOwner = 10, quizName = "Đố vui địa lý", quizLanguage = "vi",
             isPublic = true, createdAt = "2026-10-11T00:00:00Z", updatedAt = "2026-10-11T00:00:00Z",
             questions = if (phase == PreviewPhase.FINISHED) listOf(question) else
                 listOf(question) + (2L..15L).map { question.copy(id = it) }),
-        phase = phase, remainingSeconds = seconds, selectedOptionIds = selected,
+        phase = phase,
+        remainingSeconds = seconds,
+        selectedOptionIds = selected,
         textAnswer = if (phase == PreviewPhase.QUESTION && !choice) "Everest" else "",
-        currentResult = result, results = listOfNotNull(result), totalScore = result?.scoreEarned ?: 0,
+        currentResult = result,
+        results = listOfNotNull(result),
+        totalScore = result?.scoreEarned ?: 0,
         isLate = seconds == 0 && limit > 0,
     )
 }
@@ -667,54 +829,73 @@ private fun PreviewSingleHint() = PreviewScreenFixture(previewFixture())
 
 @Preview(name = "Preview Single Correct", showBackground = true, widthDp = 390, heightDp = 844)
 @Composable
-private fun PreviewSingleCorrect() = PreviewScreenFixture(previewFixture(
-    phase = PreviewPhase.FEEDBACK, selected = setOf(1L),
-))
+private fun PreviewSingleCorrect() = PreviewScreenFixture(
+    previewFixture(
+        phase = PreviewPhase.FEEDBACK, selected = setOf(1L),
+    )
+)
 
 @Preview(name = "Preview Single Wrong", showBackground = true, widthDp = 390, heightDp = 844)
 @Composable
-private fun PreviewSingleWrong() = PreviewScreenFixture(previewFixture(
-    phase = PreviewPhase.FEEDBACK, selected = setOf(0L), correct = false,
-))
+private fun PreviewSingleWrong() = PreviewScreenFixture(
+    previewFixture(
+        phase = PreviewPhase.FEEDBACK, selected = setOf(0L), correct = false,
+    )
+)
 
 @Preview(name = "Preview Multiple Selecting", showBackground = true, widthDp = 390, heightDp = 844)
 @Composable
-private fun PreviewMultipleSelecting() = PreviewScreenFixture(previewFixture(
-    type = QuestionType.MULTIPLE_SELECT, selected = setOf(0L, 1L),
-))
+private fun PreviewMultipleSelecting() = PreviewScreenFixture(
+    previewFixture(
+        type = QuestionType.MULTIPLE_SELECT, selected = setOf(0L, 1L),
+    )
+)
 
 @Preview(name = "Preview Multiple Wrong", showBackground = true, widthDp = 390, heightDp = 844)
 @Composable
-private fun PreviewMultipleWrong() = PreviewScreenFixture(previewFixture(
-    type = QuestionType.MULTIPLE_SELECT, phase = PreviewPhase.FEEDBACK,
-    selected = setOf(0L, 1L), correct = false,
-))
+private fun PreviewMultipleWrong() = PreviewScreenFixture(
+    previewFixture(
+        type = QuestionType.MULTIPLE_SELECT, phase = PreviewPhase.FEEDBACK,
+        selected = setOf(0L, 1L), correct = false,
+    )
+)
 
 @Preview(name = "Preview Short Answer", showBackground = true, widthDp = 390, heightDp = 844)
 @Composable
-private fun PreviewShortAnswer() = PreviewScreenFixture(previewFixture(type = QuestionType.SHORT_ANSWER, image = false))
+private fun PreviewShortAnswer() =
+    PreviewScreenFixture(previewFixture(type = QuestionType.SHORT_ANSWER, image = false))
 
 @Preview(name = "Preview Short Feedback", showBackground = true, widthDp = 390, heightDp = 844)
 @Composable
-private fun PreviewShortFeedback() = PreviewScreenFixture(previewFixture(
-    type = QuestionType.SHORT_ANSWER, phase = PreviewPhase.FEEDBACK, image = false, correct = false,
-))
+private fun PreviewShortFeedback() = PreviewScreenFixture(
+    previewFixture(
+        type = QuestionType.SHORT_ANSWER,
+        phase = PreviewPhase.FEEDBACK,
+        image = false,
+        correct = false,
+    )
+)
 
 @Preview(name = "Preview Long Answer", showBackground = true, widthDp = 390, heightDp = 844)
 @Composable
-private fun PreviewLongAnswer() = PreviewScreenFixture(previewFixture(type = QuestionType.LONG_ANSWER, image = false))
+private fun PreviewLongAnswer() =
+    PreviewScreenFixture(previewFixture(type = QuestionType.LONG_ANSWER, image = false))
 
 @Preview(name = "Preview Long Feedback", showBackground = true, widthDp = 390, heightDp = 844)
 @Composable
-private fun PreviewLongFeedback() = PreviewScreenFixture(previewFixture(
-    type = QuestionType.LONG_ANSWER, phase = PreviewPhase.FEEDBACK, image = false,
-))
+private fun PreviewLongFeedback() = PreviewScreenFixture(
+    previewFixture(
+        type = QuestionType.LONG_ANSWER, phase = PreviewPhase.FEEDBACK, image = false,
+    )
+)
 
 @Preview(name = "Preview Skipped", showBackground = true, widthDp = 390, heightDp = 844)
 @Composable
-private fun PreviewSkipped() = PreviewScreenFixture(previewFixture(
-    phase = PreviewPhase.FEEDBACK, correct = false, answered = false,
-))
+private fun PreviewSkipped() = PreviewScreenFixture(
+    previewFixture(
+        phase = PreviewPhase.FEEDBACK, correct = false, answered = false,
+    )
+)
 
 @Preview(name = "Preview Critical Time", showBackground = true, widthDp = 390, heightDp = 844)
 @Composable
@@ -724,57 +905,128 @@ private fun PreviewCriticalTime() = PreviewScreenFixture(previewFixture(seconds 
 @Composable
 private fun PreviewTimeExpired() = PreviewScreenFixture(previewFixture(seconds = 0))
 
-@Preview(name = "Preview Untimed No Supporting Text", showBackground = true, widthDp = 390, heightDp = 844)
+@Preview(
+    name = "Preview Untimed No Supporting Text",
+    showBackground = true,
+    widthDp = 390,
+    heightDp = 844
+)
 @Composable
-private fun PreviewUntimed() = PreviewScreenFixture(previewFixture(limit = 0, seconds = 0, image = false, hint = null, explanation = null))
+private fun PreviewUntimed() = PreviewScreenFixture(
+    previewFixture(
+        limit = 0,
+        seconds = 0,
+        image = false,
+        hint = null,
+        explanation = null
+    )
+)
 
-@Preview(name = "Preview Dark Feedback", showBackground = true, widthDp = 390, heightDp = 844, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(
+    name = "Preview Dark Feedback",
+    showBackground = true,
+    widthDp = 390,
+    heightDp = 844,
+    uiMode = Configuration.UI_MODE_NIGHT_YES
+)
 @Composable
-private fun PreviewDarkFeedback() = PreviewScreenFixture(previewFixture(phase = PreviewPhase.FEEDBACK, selected = setOf(1L)))
+private fun PreviewDarkFeedback() =
+    PreviewScreenFixture(previewFixture(phase = PreviewPhase.FEEDBACK, selected = setOf(1L)))
 
-@Preview(name = "Preview Narrow Large Font", showBackground = true, widthDp = 320, heightDp = 844, fontScale = 1.3f)
+@Preview(
+    name = "Preview Narrow Large Font",
+    showBackground = true,
+    widthDp = 320,
+    heightDp = 844,
+    fontScale = 1.3f
+)
 @Composable
 private fun PreviewNarrow() = PreviewScreenFixture(previewFixture(type = QuestionType.LONG_ANSWER))
 
 @Preview(name = "Preview Countdown", showBackground = true, widthDp = 390, heightDp = 844)
 @Composable
-private fun PreviewCountdown() = PreviewScreenFixture(previewFixture(phase = PreviewPhase.COUNTDOWN))
+private fun PreviewCountdown() =
+    PreviewScreenFixture(previewFixture(phase = PreviewPhase.COUNTDOWN))
 
 @Preview(name = "Preview Summary", showBackground = true, widthDp = 390, heightDp = 844)
 @Composable
-private fun PreviewSummary() = PreviewScreenFixture(previewFixture(phase = PreviewPhase.FINISHED, selected = setOf(1L)))
+private fun PreviewSummary() =
+    PreviewScreenFixture(previewFixture(phase = PreviewPhase.FINISHED, selected = setOf(1L)))
 
-@Preview(name = "Preview Summary · Narrow Large Font", widthDp = 320, heightDp = 844, fontScale = 1.5f)
+@Preview(
+    name = "Preview Summary · Narrow Large Font",
+    widthDp = 320,
+    heightDp = 844,
+    fontScale = 1.5f
+)
 @Composable
-private fun PreviewSummaryNarrow() = PreviewScreenFixture(previewFixture(phase = PreviewPhase.FINISHED))
+private fun PreviewSummaryNarrow() =
+    PreviewScreenFixture(previewFixture(phase = PreviewPhase.FINISHED))
 
 @Preview(name = "Preview Summary · Review Expanded", widthDp = 390, heightDp = 1100)
-@Preview(name = "Preview Summary · Review Dark", widthDp = 390, heightDp = 1100, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(
+    name = "Preview Summary · Review Dark",
+    widthDp = 390,
+    heightDp = 1100,
+    uiMode = Configuration.UI_MODE_NIGHT_YES
+)
 @Composable
 private fun PreviewSummaryExpanded() {
     val base = previewFixture(phase = PreviewPhase.FINISHED, selected = setOf(1L))
     val original = base.results.first()
     val results = listOf(
         original,
-        original.copy(question = original.question.copy(id = 2), isCorrect = false, scoreEarned = 0, submittedAnswer = "K2", selectedOptionIds = setOf(0L)),
-        original.copy(question = original.question.copy(id = 3), isCorrect = false, isAnswered = false, submittedAnswer = null, scoreEarned = 0, selectedOptionIds = emptySet()),
-        original.copy(question = original.question.copy(id = 4), isCorrect = null, scoreEarned = 0, isLate = true),
+        original.copy(
+            question = original.question.copy(id = 2),
+            isCorrect = false,
+            scoreEarned = 0,
+            submittedAnswer = "K2",
+            selectedOptionIds = setOf(0L)
+        ),
+        original.copy(
+            question = original.question.copy(id = 3),
+            isCorrect = false,
+            isAnswered = false,
+            submittedAnswer = null,
+            scoreEarned = 0,
+            selectedOptionIds = emptySet()
+        ),
+        original.copy(
+            question = original.question.copy(id = 4),
+            isCorrect = null,
+            scoreEarned = 0,
+            isLate = true
+        ),
     )
     MyQuizAppTheme {
         val listState = rememberLazyListState()
         QuizPreviewScreenContent(
-            state = base.copy(quiz = base.quiz?.copy(questions = results.map { it.question }), results = results, elapsedSeconds = 125),
+            state = base.copy(
+                quiz = base.quiz?.copy(questions = results.map { it.question }),
+                results = results,
+                elapsedSeconds = 125
+            ),
             onIntent = {}, onRequestExit = {}, listState = listState, summaryReviewExpanded = true,
         )
     }
 }
 
 @Preview(name = "Preview Review · Single Choice", widthDp = 390)
-@Preview(name = "Preview Review · Single Choice Dark", widthDp = 390, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(
+    name = "Preview Review · Single Choice Dark",
+    widthDp = 390,
+    uiMode = Configuration.UI_MODE_NIGHT_YES
+)
 @Composable
 private fun PreviewReviewChoice() {
     MyQuizAppTheme {
-        PreviewReviewItem(previewFixture(phase = PreviewPhase.FINISHED, selected = setOf(0L), correct = false).results.first(), 1)
+        PreviewReviewItem(
+            previewFixture(
+                phase = PreviewPhase.FINISHED,
+                selected = setOf(0L),
+                correct = false
+            ).results.first(), 1
+        )
     }
 }
 
@@ -782,8 +1034,12 @@ private fun PreviewReviewChoice() {
 @Composable
 private fun PreviewReviewMultiple() {
     MyQuizAppTheme {
-        PreviewReviewItem(previewFixture(type = QuestionType.MULTIPLE_SELECT,
-            phase = PreviewPhase.FINISHED, selected = setOf(0L, 1L), correct = false).results.first(), 2)
+        PreviewReviewItem(
+            previewFixture(
+                type = QuestionType.MULTIPLE_SELECT,
+                phase = PreviewPhase.FINISHED, selected = setOf(0L, 1L), correct = false
+            ).results.first(), 2
+        )
     }
 }
 
@@ -791,8 +1047,12 @@ private fun PreviewReviewMultiple() {
 @Composable
 private fun PreviewReviewText() {
     MyQuizAppTheme {
-        PreviewReviewItem(previewFixture(type = QuestionType.LONG_ANSWER,
-            phase = PreviewPhase.FINISHED, correct = false, image = false).results.first(), 3)
+        PreviewReviewItem(
+            previewFixture(
+                type = QuestionType.LONG_ANSWER,
+                phase = PreviewPhase.FINISHED, correct = false, image = false
+            ).results.first(), 3
+        )
     }
 }
 
@@ -802,7 +1062,12 @@ private fun PreviewLoading() = PreviewScreenFixture(QuizPreviewUiState())
 
 @Preview(name = "Preview Error", showBackground = true, widthDp = 390, heightDp = 844)
 @Composable
-private fun PreviewError() = PreviewScreenFixture(QuizPreviewUiState(isLoading = false, errorMessage = "Không có kết nối mạng. Vui lòng thử lại."))
+private fun PreviewError() = PreviewScreenFixture(
+    QuizPreviewUiState(
+        isLoading = false,
+        errorMessage = "Không có kết nối mạng. Vui lòng thử lại."
+    )
+)
 
 @Preview(name = "Preview Exit Confirmation", showBackground = true, widthDp = 390)
 @Composable
@@ -825,9 +1090,16 @@ private fun PreviewEmptyQuiz() {
     PreviewScreenFixture(fixture.copy(quiz = fixture.quiz?.copy(questions = emptyList())))
 }
 
-@Preview(name = "Preview Multiple Missing Correct Option", showBackground = true, widthDp = 390, heightDp = 844)
+@Preview(
+    name = "Preview Multiple Missing Correct Option",
+    showBackground = true,
+    widthDp = 390,
+    heightDp = 844
+)
 @Composable
-private fun PreviewMultipleMissingOption() = PreviewScreenFixture(previewFixture(
-    type = QuestionType.MULTIPLE_SELECT, phase = PreviewPhase.FEEDBACK,
-    selected = setOf(1L), correct = false,
-))
+private fun PreviewMultipleMissingOption() = PreviewScreenFixture(
+    previewFixture(
+        type = QuestionType.MULTIPLE_SELECT, phase = PreviewPhase.FEEDBACK,
+        selected = setOf(1L), correct = false,
+    )
+)

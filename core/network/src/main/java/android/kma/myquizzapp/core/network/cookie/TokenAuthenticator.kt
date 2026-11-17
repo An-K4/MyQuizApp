@@ -1,19 +1,19 @@
 ﻿package android.kma.myquizzapp.core.network.cookie
 
 import android.kma.myquizzapp.core.common.cookie.CookieStore
+import android.kma.myquizzapp.core.common.error.hasApiCode
+import android.kma.myquizzapp.core.common.error.isSessionTerminal
 import android.kma.myquizzapp.core.common.result.Result
 import android.kma.myquizzapp.core.network.api.AuthApiService
-import dagger.Lazy                          // ← GỐC LỖI: phải là dagger.Lazy, KHÔNG phải kotlin.Lazy
+import dagger.Lazy
 import kotlinx.coroutines.runBlocking
 import okhttp3.Authenticator
 import okhttp3.Request
 import okhttp3.Response
 import okhttp3.Route
+import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
-import android.kma.myquizzapp.core.common.error.isSessionTerminal
-import android.kma.myquizzapp.core.common.error.hasApiCode
-import java.io.IOException
 
 @Singleton
 class TokenAuthenticator @Inject constructor(

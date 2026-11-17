@@ -23,9 +23,11 @@ internal fun classicResultKind(state: GameUiState): ClassicResultKind = when {
             else -> ClassicResultKind.INCORRECT
         }
     }
+
     state.showCorrectAnswer == null || state.results == null ||
-        (state.phase as? GamePhaseUi.Results)?.restoredWithoutDetails == true ->
+            (state.phase as? GamePhaseUi.Results)?.restoredWithoutDetails == true ->
         ClassicResultKind.UNKNOWN
+
     state.acceptedAnswerKeys == null && state.hasAnswerAttempt -> ClassicResultKind.UNKNOWN
     state.acceptedAnswerKeys.isNullOrEmpty() -> ClassicResultKind.UNANSWERED
     state.outcome == QuestionOutcome.CORRECT -> ClassicResultKind.CORRECT
@@ -41,19 +43,22 @@ internal fun classicResultTitle(state: GameUiState): String = when (classicResul
     ClassicResultKind.HIDDEN -> "Câu hỏi đã kết thúc"
 }
 
-internal fun classicResultDescription(state: GameUiState): String = when (classicResultKind(state)) {
-    ClassicResultKind.CORRECT -> "Bạn đã trả lời đúng câu hỏi này."
-    ClassicResultKind.INCORRECT -> "Câu trả lời đã gửi chưa khớp đáp án được chấp nhận."
-    ClassicResultKind.UNANSWERED -> "Không có câu trả lời được xác nhận cho câu hỏi này."
-    ClassicResultKind.HIDDEN -> "Phòng chơi không công bố đáp án và kết quả đúng/sai."
-    ClassicResultKind.UNKNOWN -> when {
-        (state.phase as? GamePhaseUi.Results)?.restoredWithoutDetails == true ->
-            "Đã đồng bộ phiên chơi, nhưng máy chủ không gửi lại chi tiết kết quả câu này."
-        state.hasAnswerAttempt && state.acceptedAnswerKeys == null ->
-            "Chưa xác nhận được máy chủ đã ghi nhận câu trả lời. Không tự suy đoán đúng/sai."
-        else -> "Chưa nhận đủ dữ liệu để hiển thị kết quả đúng/sai."
+internal fun classicResultDescription(state: GameUiState): String =
+    when (classicResultKind(state)) {
+        ClassicResultKind.CORRECT -> "Bạn đã trả lời đúng câu hỏi này."
+        ClassicResultKind.INCORRECT -> "Câu trả lời đã gửi chưa khớp đáp án được chấp nhận."
+        ClassicResultKind.UNANSWERED -> "Không có câu trả lời được xác nhận cho câu hỏi này."
+        ClassicResultKind.HIDDEN -> "Phòng chơi không công bố đáp án và kết quả đúng/sai."
+        ClassicResultKind.UNKNOWN -> when {
+            (state.phase as? GamePhaseUi.Results)?.restoredWithoutDetails == true ->
+                "Đã đồng bộ phiên chơi, nhưng máy chủ không gửi lại chi tiết kết quả câu này."
+
+            state.hasAnswerAttempt && state.acceptedAnswerKeys == null ->
+                "Chưa xác nhận được máy chủ đã ghi nhận câu trả lời. Không tự suy đoán đúng/sai."
+
+            else -> "Chưa nhận đủ dữ liệu để hiển thị kết quả đúng/sai."
+        }
     }
-}
 
 /** endsAt is the current server phase deadline, including the refreshed deadline after resume. */
 internal fun classicResultsWaitText(state: GameUiState, nowMillis: Long): String {
@@ -61,8 +66,9 @@ internal fun classicResultsWaitText(state: GameUiState, nowMillis: Long): String
     if (state.connection != GameConnection.CONNECTED || state.isSynchronizing) return "Đang kết nối lại và đồng bộ phiên chơi…"
     if (state.isPaused) return "Trận đang tạm dừng — chờ Host tiếp tục."
     if (!state.autoAdvance) return "Chờ Host chuyển câu."
-    val deadline = state.endsAt?.let { runCatching { Instant.parse(it).toEpochMilli() }.getOrNull() }
-        ?: return "Đang chờ máy chủ chuyển tiếp…"
+    val deadline =
+        state.endsAt?.let { runCatching { Instant.parse(it).toEpochMilli() }.getOrNull() }
+            ?: return "Đang chờ máy chủ chuyển tiếp…"
     val left = (deadline - nowMillis - state.serverOffsetMs).coerceAtLeast(0L)
     if (left == 0L) return "Đang chờ máy chủ chuyển tiếp…"
     val seconds = (left + 999L) / 1_000L

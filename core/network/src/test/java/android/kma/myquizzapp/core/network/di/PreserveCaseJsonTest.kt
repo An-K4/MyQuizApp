@@ -6,7 +6,6 @@ import android.kma.myquizzapp.core.network.dto.PresignUploadRequestDto
 import android.kma.myquizzapp.core.network.dto.ResetTicketDto
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse

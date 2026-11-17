@@ -6,7 +6,10 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonObject
-import org.junit.Assert.*
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ClassicPersonalResultMapperTest {
@@ -16,15 +19,21 @@ class ClassicPersonalResultMapperTest {
         "serverTime":"2026-10-20T04:00:00Z"}"""
 
     private fun event(raw: String) = mapper.map(GameSocketEvents.QUESTION_PERSONAL_RESULTS, raw)
-    private fun snapshot(field: String) = mapper.map(GameSocketEvents.GAME_STATE,
-        """{"current_phase":"showing_results","session_status":"paused","index":0,"endsAt":null$field}""")
-        as GameEvent.StateSnapshot
+    private fun snapshot(field: String) = mapper.map(
+        GameSocketEvents.GAME_STATE,
+        """{"current_phase":"showing_results","session_status":"paused","index":0,"endsAt":null$field}"""
+    )
+            as GameEvent.StateSnapshot
 
-    @Test fun `private event is registered exactly once`() {
-        assertEquals(1, GameSocketEvents.SERVER_EVENTS.count { it == GameSocketEvents.QUESTION_PERSONAL_RESULTS })
+    @Test
+    fun `private event is registered exactly once`() {
+        assertEquals(
+            1,
+            GameSocketEvents.SERVER_EVENTS.count { it == GameSocketEvents.QUESTION_PERSONAL_RESULTS })
     }
 
-    @Test fun `mixed casing and numeric identity map identically through event and snapshot`() {
+    @Test
+    fun `mixed casing and numeric identity map identically through event and snapshot`() {
         val result = (event(fixture) as GameEvent.PersonalQuestionResultsReceived).result
         assertEquals(result, snapshot(",\"personal_result\":$fixture").snapshot.personalResult)
         assertEquals(123L, result.questionId)
@@ -34,7 +43,8 @@ class ClassicPersonalResultMapperTest {
         assertEquals("2026-10-20T04:00:05Z", result.nextQuestionAt)
     }
 
-    @Test fun `unanswered null correctness and explicit zeros are genuine data`() {
+    @Test
+    fun `unanswered null correctness and explicit zeros are genuine data`() {
         val raw = fixture.replace("\"answered\":true", "\"answered\":false")
             .replace("\"isCorrect\":true", "\"isCorrect\":null")
             .replace("\"scoreEarned\":950", "\"scoreEarned\":0")
@@ -48,14 +58,19 @@ class ClassicPersonalResultMapperTest {
         assertNull(result.nextQuestionAt)
     }
 
-    @Test fun `old missing or explicit null private snapshot remains compatible`() {
+    @Test
+    fun `old missing or explicit null private snapshot remains compatible`() {
         for (field in listOf("", ",\"personal_result\":null")) {
             assertNull(snapshot(field).snapshot.personalResult)
-            assertEquals(android.kma.myquizzapp.core.common.model.SessionStatus.PAUSED, snapshot(field).snapshot.sessionStatus)
+            assertEquals(
+                android.kma.myquizzapp.core.common.model.SessionStatus.PAUSED,
+                snapshot(field).snapshot.sessionStatus
+            )
         }
     }
 
-    @Test fun `every private field is required and cannot default to zero or failure`() {
+    @Test
+    fun `every private field is required and cannot default to zero or failure`() {
         val obj = Json.parseToJsonElement(fixture).jsonObject
         for (key in obj.keys) {
             val raw = kotlinx.serialization.json.JsonObject(obj - key).toString()
@@ -64,7 +79,8 @@ class ClassicPersonalResultMapperTest {
         }
     }
 
-    @Test fun `malformed identity grading and timing do not destroy the enclosing pause snapshot`() {
+    @Test
+    fun `malformed identity grading and timing do not destroy the enclosing pause snapshot`() {
         val obj = Json.parseToJsonElement(fixture).jsonObject
         val badValues = listOf(
             "index" to JsonPrimitive(-1), "question_id" to JsonPrimitive(0),
@@ -78,21 +94,36 @@ class ClassicPersonalResultMapperTest {
             assertTrue("Malformed $key", event(raw) is GameEvent.Failed)
             val state = snapshot(",\"personal_result\":$raw").snapshot
             assertNull(state.personalResult)
-            assertEquals(android.kma.myquizzapp.core.common.model.GamePhase.SHOWING_RESULTS, state.phase)
+            assertEquals(
+                android.kma.myquizzapp.core.common.model.GamePhase.SHOWING_RESULTS,
+                state.phase
+            )
             assertNull(state.endsAt)
         }
     }
 
-    @Test fun `wrong answer zero score is valid but unanswered with correctness is not`() {
+    @Test
+    fun `wrong answer zero score is valid but unanswered with correctness is not`() {
         val wrong = fixture.replace("\"isCorrect\":true", "\"isCorrect\":false")
-            .replace("\"scoreEarned\":950", "\"scoreEarned\":0").replace("\"streak\":3", "\"streak\":0")
+            .replace("\"scoreEarned\":950", "\"scoreEarned\":0")
+            .replace("\"streak\":3", "\"streak\":0")
         assertTrue(event(wrong) is GameEvent.PersonalQuestionResultsReceived)
-        assertTrue(event(wrong.replace("\"answered\":true", "\"answered\":false")) is GameEvent.Failed)
+        assertTrue(
+            event(
+                wrong.replace(
+                    "\"answered\":true",
+                    "\"answered\":false"
+                )
+            ) is GameEvent.Failed
+        )
     }
 
-    @Test fun `omitted lobby score remains compatible with active backend payload`() {
-        val event = mapper.map(GameSocketEvents.LOBBY_UPDATED,
-            """{"session_status":"active","players":[{"id":202,"player_name":"Player","status":"connected"}],"config":{}}""")
+    @Test
+    fun `omitted lobby score remains compatible with active backend payload`() {
+        val event = mapper.map(
+            GameSocketEvents.LOBBY_UPDATED,
+            """{"session_status":"active","players":[{"id":202,"player_name":"Player","status":"connected"}],"config":{}}"""
+        )
         assertTrue(event is GameEvent.LobbyUpdated)
     }
 }

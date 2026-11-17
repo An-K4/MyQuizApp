@@ -23,18 +23,28 @@ data class GameSession(
 
 @Serializable
 enum class GameMode {
-    @SerialName("classic") CLASSIC,
-    @SerialName("solo") SOLO,
-    @SerialName("survival") SURVIVAL,
-    @SerialName("marathon") MARATHON,
-    @SerialName("practice") PRACTICE
+    @SerialName("classic")
+    CLASSIC,
+    @SerialName("solo")
+    SOLO,
+    @SerialName("survival")
+    SURVIVAL,
+    @SerialName("marathon")
+    MARATHON,
+    @SerialName("practice")
+    PRACTICE
 }
 
 @Serializable
 enum class SessionStatus {
-    @SerialName("lobby") LOBBY,
-    @SerialName("active") ACTIVE,
-    @SerialName("paused") PAUSED,
-    @SerialName("finished") FINISHED,
-    @SerialName("cancelled") CANCELLED
+    @SerialName("lobby")
+    LOBBY,
+    @SerialName("active")
+    ACTIVE,
+    @SerialName("paused")
+    PAUSED,
+    @SerialName("finished")
+    FINISHED,
+    @SerialName("cancelled")
+    CANCELLED
 }

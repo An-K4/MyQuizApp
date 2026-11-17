@@ -25,18 +25,27 @@ class PasswordResetValidationTest {
     @Test
     fun resetPreservesExistingRegisterPolicy() {
         listOf("", "short", "abcdefgh", " password ").forEach { password ->
-            assertEquals(AuthValidator.registerPasswordError(password), AuthValidator.resetPasswordError(password))
+            assertEquals(
+                AuthValidator.registerPasswordError(password),
+                AuthValidator.resetPasswordError(password)
+            )
         }
     }
 
     @Test
     fun emptyConfirmationIsRejected() {
-        assertEquals("Vui lòng xác nhận mật khẩu", AuthValidator.confirmPasswordError("abcdefgh", ""))
+        assertEquals(
+            "Vui lòng xác nhận mật khẩu",
+            AuthValidator.confirmPasswordError("abcdefgh", "")
+        )
     }
 
     @Test
     fun mismatchedConfirmationIsRejected() {
-        assertEquals("Mật khẩu xác nhận không khớp", AuthValidator.confirmPasswordError("abcdefgh", "abcdEfgh"))
+        assertEquals(
+            "Mật khẩu xác nhận không khớp",
+            AuthValidator.confirmPasswordError("abcdefgh", "abcdEfgh")
+        )
     }
 
     @Test

@@ -1,22 +1,32 @@
 package android.kma.myquizzapp.core.ui.components
 
+import android.content.res.Configuration
 import android.kma.myquizzapp.core.ui.theme.ComponentColors
-import androidx.compose.foundation.layout.*
+import android.kma.myquizzapp.core.ui.theme.MyQuizAppTheme
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Star
-import androidx.compose.material3.*
-import android.content.res.Configuration
-import android.kma.myquizzapp.core.ui.theme.MyQuizAppTheme
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -36,21 +46,46 @@ fun SearchQuizCard(
         modifier = modifier.fillMaxWidth().semantics { role = Role.Button },
         shape = RoundedCornerShape(20.dp), color = ComponentColors.softSurface,
     ) {
-        Row(Modifier.padding(12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.Top) {
-            RemoteImage(imageUrl, contentDescription = null,
-                modifier = Modifier.width(82.dp).height(106.dp).clip(RoundedCornerShape(16.dp)))
+        Row(
+            Modifier.padding(12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.Top
+        ) {
+            RemoteImage(
+                imageUrl, contentDescription = null,
+                modifier = Modifier.width(82.dp).height(106.dp).clip(RoundedCornerShape(16.dp))
+            )
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(title, color = ComponentColors.foreground,
+                Text(
+                    title, color = ComponentColors.foreground,
                     style = MaterialTheme.typography.titleMedium.copy(
-                        fontSize = 16.sp, lineHeight = 22.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.sp))
-                Text(metadataText, color = ComponentColors.muted,
-                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp, lineHeight = 16.sp))
+                        fontSize = 16.sp,
+                        lineHeight = 22.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.sp
+                    )
+                )
+                Text(
+                    metadataText, color = ComponentColors.muted,
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        fontSize = 11.sp,
+                        lineHeight = 16.sp
+                    )
+                )
                 if (!ratingText.isNullOrBlank()) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(ratingText, color = ComponentColors.warning,
-                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold))
-                        Icon(Icons.Default.Star, contentDescription = "Đánh giá", tint = ComponentColors.warning, modifier = Modifier.size(14.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            ratingText, color = ComponentColors.warning,
+                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold)
+                        )
+                        Icon(
+                            Icons.Default.Star,
+                            contentDescription = "Đánh giá",
+                            tint = ComponentColors.warning,
+                            modifier = Modifier.size(14.dp)
+                        )
                     }
                 }
             }
@@ -59,16 +94,33 @@ fun SearchQuizCard(
 }
 
 @Preview(name = "Search Card Light", showBackground = true, widthDp = 390)
-@Preview(name = "Search Card Dark", showBackground = true, widthDp = 390, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(
+    name = "Search Card Dark",
+    showBackground = true,
+    widthDp = 390,
+    uiMode = Configuration.UI_MODE_NIGHT_YES
+)
 @Composable
 private fun SearchQuizCardPreview() {
     MyQuizAppTheme {
         Surface(color = MaterialTheme.colorScheme.background) {
             Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 // Null image uses the local placeholder: previews do not fetch network images.
-                SearchQuizCard("100 Câu Tiếng Anh Giao Tiếp Thông Dụng", "20 câu hỏi • 500 người đã chơi • Tạo bởi Anh Thư", null, {}, ratingText = "4.9")
+                SearchQuizCard(
+                    "100 Câu Tiếng Anh Giao Tiếp Thông Dụng",
+                    "20 câu hỏi • 500 người đã chơi • Tạo bởi Anh Thư",
+                    null,
+                    {},
+                    ratingText = "4.9"
+                )
                 SearchQuizCard("Quiz chưa có đánh giá", "10 câu hỏi • Tạo bởi Minh Anh", null, {})
-                SearchQuizCard("Quiz tạm thời không thể mở", "20 câu hỏi", null, {}, enabled = false)
+                SearchQuizCard(
+                    "Quiz tạm thời không thể mở",
+                    "20 câu hỏi",
+                    null,
+                    {},
+                    enabled = false
+                )
             }
         }
     }

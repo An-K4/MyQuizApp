@@ -62,7 +62,10 @@ class HostGameEventMapperTest {
         assertEquals(listOf("0"), hostQuestion.correctAnswers)
         assertEquals(listOf("0", "1", "2"), hostQuestion.question.answerOptions.map { it.id })
         assertEquals("Hà Nội", hostQuestion.question.answerOptions.first().text)
-        assertEquals("https://cdn.example.com/questions/77.png", hostQuestion.question.questionImage)
+        assertEquals(
+            "https://cdn.example.com/questions/77.png",
+            hostQuestion.question.questionImage
+        )
     }
 
     @Test
@@ -103,7 +106,10 @@ class HostGameEventMapperTest {
         """.trimIndent()
 
         val results =
-            (mapper.map(GameSocketEvents.QUESTION_RESULTS, payload) as GameEvent.QuestionResultsReceived)
+            (mapper.map(
+                GameSocketEvents.QUESTION_RESULTS,
+                payload
+            ) as GameEvent.QuestionResultsReceived)
                 .results
 
         assertEquals(3, results.index)
@@ -131,7 +137,10 @@ class HostGameEventMapperTest {
         """.trimIndent()
 
         val results =
-            (mapper.map(GameSocketEvents.QUESTION_RESULTS, payload) as GameEvent.QuestionResultsReceived)
+            (mapper.map(
+                GameSocketEvents.QUESTION_RESULTS,
+                payload
+            ) as GameEvent.QuestionResultsReceived)
                 .results
 
         assertTrue(results.correctAnswers.isEmpty())
@@ -143,9 +152,11 @@ class HostGameEventMapperTest {
 
     @Test
     fun `question results legacy flat stats exclude aggregate correct count`() {
-        val results = (mapper.map(GameSocketEvents.QUESTION_RESULTS,
-            """{"index":0,"stats":{"total":5,"correct":3,"0":2,"1":3}}""")
-            as GameEvent.QuestionResultsReceived).results
+        val results = (mapper.map(
+            GameSocketEvents.QUESTION_RESULTS,
+            """{"index":0,"stats":{"total":5,"correct":3,"0":2,"1":3}}"""
+        )
+                as GameEvent.QuestionResultsReceived).results
         assertEquals(5, results.stats.total)
         assertEquals(mapOf("0" to 2, "1" to 3), results.stats.distribution)
     }
@@ -153,23 +164,29 @@ class HostGameEventMapperTest {
     @Test
     fun `nested stats preserve grouped multi select and timeout buckets without flattening metadata`() {
         // game.cache.ts uses String(answer): [0,2] -> "0,2", null -> "null".
-        val results = (mapper.map(GameSocketEvents.QUESTION_RESULTS,
-            """{"index":0,"stats":{"total":4,"correct":2,"distribution":{"0,2":2,"2":1,"null":1}}}""")
-            as GameEvent.QuestionResultsReceived).results
+        val results = (mapper.map(
+            GameSocketEvents.QUESTION_RESULTS,
+            """{"index":0,"stats":{"total":4,"correct":2,"distribution":{"0,2":2,"2":1,"null":1}}}"""
+        )
+                as GameEvent.QuestionResultsReceived).results
         assertEquals(4, results.stats.total)
         assertEquals(mapOf("0,2" to 2, "2" to 1, "null" to 1), results.stats.distribution)
     }
 
     @Test
     fun `explicit nested stats take precedence and malformed nested stats do not use outer counts`() {
-        val valid = (mapper.map(GameSocketEvents.QUESTION_RESULTS,
-            """{"index":0,"stats":{"total":2,"correct":1,"0":99,"distribution":{"1":2}}}""")
-            as GameEvent.QuestionResultsReceived).results
+        val valid = (mapper.map(
+            GameSocketEvents.QUESTION_RESULTS,
+            """{"index":0,"stats":{"total":2,"correct":1,"0":99,"distribution":{"1":2}}}"""
+        )
+                as GameEvent.QuestionResultsReceived).results
         assertEquals(mapOf("1" to 2), valid.stats.distribution)
         for (value in listOf("null", "[]", "5", "\"invalid\"")) {
-            val malformed = (mapper.map(GameSocketEvents.QUESTION_RESULTS,
-                """{"index":0,"stats":{"total":2,"correct":1,"0":2,"distribution":$value}}""")
-                as GameEvent.QuestionResultsReceived).results
+            val malformed = (mapper.map(
+                GameSocketEvents.QUESTION_RESULTS,
+                """{"index":0,"stats":{"total":2,"correct":1,"0":2,"distribution":$value}}"""
+            )
+                    as GameEvent.QuestionResultsReceived).results
             assertEquals(2, malformed.stats.total)
             assertTrue(malformed.stats.distribution.isEmpty())
         }
@@ -210,7 +227,10 @@ class HostGameEventMapperTest {
         """.trimIndent()
 
         val answer =
-            (mapper.map(GameSocketEvents.HOST_ANSWER_RECEIVED, payload) as GameEvent.HostAnswerReceivedEvent)
+            (mapper.map(
+                GameSocketEvents.HOST_ANSWER_RECEIVED,
+                payload
+            ) as GameEvent.HostAnswerReceivedEvent)
                 .answer
 
         assertEquals(2, answer.index)
@@ -239,7 +259,7 @@ class HostGameEventMapperTest {
         """.trimIndent()
 
         val event = mapper.map(GameSocketEvents.HOST_PLAYER_PROGRESS, payload)
-            as GameEvent.HostPlayerProgressUpdated
+                as GameEvent.HostPlayerProgressUpdated
 
         assertEquals(31L, event.progress.id)
         assertEquals("Kiro", event.progress.playerName)
@@ -265,7 +285,7 @@ class HostGameEventMapperTest {
         """.trimIndent()
 
         val finished = (mapper.map(GameSocketEvents.PLAYER_FINISHED, payload)
-            as GameEvent.PlayerFinishedEvent).finished
+                as GameEvent.PlayerFinishedEvent).finished
 
         assertEquals(31L, finished.id)
         assertEquals("Kiro", finished.playerName)
@@ -293,7 +313,10 @@ class HostGameEventMapperTest {
         """.trimIndent()
 
         val board =
-            (mapper.map(GameSocketEvents.LEADERBOARD_HOST, payload) as GameEvent.HostLeaderboardUpdated)
+            (mapper.map(
+                GameSocketEvents.LEADERBOARD_HOST,
+                payload
+            ) as GameEvent.HostLeaderboardUpdated)
                 .leaderboard
 
         assertEquals(10, board.totalQuestions)
@@ -380,7 +403,8 @@ class HostGameEventMapperTest {
             }
         """.trimIndent()
 
-        val ended = (mapper.map(GameSocketEvents.GAME_ENDED, payload) as GameEvent.GameEndedEvent).ended
+        val ended =
+            (mapper.map(GameSocketEvents.GAME_ENDED, payload) as GameEvent.GameEndedEvent).ended
 
         assertEquals(2, ended.leaderboard.size)
         assertEquals("Kiro", ended.leaderboard.first().playerName)

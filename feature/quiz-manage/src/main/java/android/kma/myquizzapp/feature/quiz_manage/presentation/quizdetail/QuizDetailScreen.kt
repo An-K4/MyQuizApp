@@ -1,7 +1,11 @@
 package android.kma.myquizzapp.feature.quiz_manage.presentation.quizdetail
 
 import android.content.res.Configuration
-import android.kma.myquizzapp.core.common.model.*
+import android.kma.myquizzapp.core.common.model.AnswerOption
+import android.kma.myquizzapp.core.common.model.Question
+import android.kma.myquizzapp.core.common.model.QuestionType
+import android.kma.myquizzapp.core.common.model.Quiz
+import android.kma.myquizzapp.core.common.model.QuizOwner
 import android.kma.myquizzapp.core.ui.components.Avatar
 import android.kma.myquizzapp.core.ui.components.QuizPrimaryButton
 import android.kma.myquizzapp.core.ui.components.QuizSecondaryButton
@@ -10,7 +14,23 @@ import android.kma.myquizzapp.core.ui.theme.FrontendColors
 import android.kma.myquizzapp.core.ui.theme.MyQuizAppTheme
 import android.kma.myquizzapp.feature.quiz_manage.presentation.components.ConfirmDeleteQuizDialog
 import android.kma.myquizzapp.feature.quiz_manage.presentation.components.QuestionPreviewCard
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
@@ -22,10 +42,25 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Lock
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -40,7 +75,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import kotlinx.coroutines.flow.collect
 
 /** Stateful integration only: lifecycle, effects, scrolling and accordion state. */
 @Composable
@@ -77,16 +111,19 @@ fun QuizDetailScreen(
     }
     LaunchedEffect(uiState.quiz?.questions?.map { it.id }) {
         uiState.quiz?.let { quiz ->
-            collapsedQuestionIds = collapsedQuestionIds.intersect(quiz.questions.map { it.id }.toSet())
+            collapsedQuestionIds =
+                collapsedQuestionIds.intersect(quiz.questions.map { it.id }.toSet())
         }
     }
 
     QuizDetailScreenContent(
         uiState = uiState,
         listState = listState,
-        expandedQuestionIds = uiState.quiz?.questions.orEmpty().map { it.id }.toSet() - collapsedQuestionIds,
+        expandedQuestionIds = uiState.quiz?.questions.orEmpty().map { it.id }
+            .toSet() - collapsedQuestionIds,
         onQuestionExpandedChange = { id, expanded ->
-            collapsedQuestionIds = if (expanded) collapsedQuestionIds - id else collapsedQuestionIds + id
+            collapsedQuestionIds =
+                if (expanded) collapsedQuestionIds - id else collapsedQuestionIds + id
         },
         onNavigateBack = onNavigateBack,
         onNavigateToCreateRoom = onNavigateToCreateRoom,
@@ -112,7 +149,8 @@ fun QuizDetailScreenContent(
     modifier: Modifier = Modifier,
 ) {
     val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
-    val foreground = if (isDark) MaterialTheme.colorScheme.onBackground else FrontendColors.Foreground
+    val foreground =
+        if (isDark) MaterialTheme.colorScheme.onBackground else FrontendColors.Foreground
     val danger = if (isDark) MaterialTheme.colorScheme.error else FrontendColors.Danger
     val border = if (isDark) MaterialTheme.colorScheme.outlineVariant else FrontendColors.Border
     val quiz = uiState.quiz
@@ -125,8 +163,13 @@ fun QuizDetailScreenContent(
             TopAppBar(
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
                 title = {
-                    Text(quiz?.quizName ?: "Chi tiết quiz", maxLines = 1, overflow = TextOverflow.Ellipsis,
-                        color = foreground, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+                    Text(
+                        quiz?.quizName ?: "Chi tiết quiz",
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        color = foreground,
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                    )
                 },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack, enabled = !uiState.isDeleting) {
@@ -135,11 +178,25 @@ fun QuizDetailScreenContent(
                 },
                 actions = {
                     if (uiState.isOwner && readyQuiz != null) {
-                        IconButton(onClick = { onNavigateToEditQuiz(readyQuiz.id) }, enabled = !uiState.isDeleting) {
-                            Icon(Icons.Outlined.Edit, contentDescription = "Chỉnh sửa quiz", tint = foreground)
+                        IconButton(
+                            onClick = { onNavigateToEditQuiz(readyQuiz.id) },
+                            enabled = !uiState.isDeleting
+                        ) {
+                            Icon(
+                                Icons.Outlined.Edit,
+                                contentDescription = "Chỉnh sửa quiz",
+                                tint = foreground
+                            )
                         }
-                        IconButton(onClick = { onIntent(QuizDetailIntent.DeleteQuizClicked) }, enabled = !uiState.isDeleting) {
-                            Icon(Icons.Outlined.DeleteOutline, contentDescription = "Xóa quiz", tint = danger)
+                        IconButton(
+                            onClick = { onIntent(QuizDetailIntent.DeleteQuizClicked) },
+                            enabled = !uiState.isDeleting
+                        ) {
+                            Icon(
+                                Icons.Outlined.DeleteOutline,
+                                contentDescription = "Xóa quiz",
+                                tint = danger
+                            )
                         }
                     }
                 },
@@ -151,7 +208,8 @@ fun QuizDetailScreenContent(
                     Column(Modifier.navigationBarsPadding()) {
                         HorizontalDivider(color = border)
                         Row(
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp)
+                            modifier = Modifier.fillMaxWidth()
+                                .padding(horizontal = 20.dp, vertical = 12.dp)
                                 .height(IntrinsicSize.Min),
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
                         ) {
@@ -176,10 +234,15 @@ fun QuizDetailScreenContent(
         when {
             uiState.isLoading -> CenterContent(Modifier.padding(innerPadding)) { CircularProgressIndicator() }
             uiState.error != null -> CenterContent(Modifier.padding(innerPadding)) {
-                Text(uiState.error, textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    uiState.error,
+                    textAlign = TextAlign.Center,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
                 Spacer(Modifier.height(12.dp))
                 QuizSecondaryButton("Thử lại", { onIntent(QuizDetailIntent.Retry) })
             }
+
             readyQuiz != null -> QuizDetailContent(
                 quiz = readyQuiz,
                 listState = listState,
@@ -187,6 +250,7 @@ fun QuizDetailScreenContent(
                 onQuestionExpandedChange = onQuestionExpandedChange,
                 modifier = Modifier.padding(innerPadding),
             )
+
             else -> CenterContent(Modifier.padding(innerPadding)) { Text("Không có dữ liệu quiz.") }
         }
     }
@@ -222,8 +286,10 @@ private fun QuizDetailContent(
 ) {
     val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
     val foreground = if (isDark) MaterialTheme.colorScheme.onSurface else FrontendColors.Foreground
-    val muted = if (isDark) MaterialTheme.colorScheme.onSurfaceVariant else FrontendColors.MutedForeground
-    val soft = if (isDark) MaterialTheme.colorScheme.surfaceVariant else FrontendColors.SoftBackground
+    val muted =
+        if (isDark) MaterialTheme.colorScheme.onSurfaceVariant else FrontendColors.MutedForeground
+    val soft =
+        if (isDark) MaterialTheme.colorScheme.surfaceVariant else FrontendColors.SoftBackground
     val tint = if (isDark) MaterialTheme.colorScheme.primaryContainer else FrontendColors.BrandTint
     val questions = quiz.questions.map { it.toQuestionPreviewUiModel() }
     LazyColumn(
@@ -235,31 +301,56 @@ private fun QuizDetailContent(
         item(key = "cover") {
             RemoteImage(
                 imageUrl = quiz.quizImage, contentDescription = "Ảnh bìa ${quiz.quizName}",
-                modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f).clip(RoundedCornerShape(16.dp)),
+                modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f)
+                    .clip(RoundedCornerShape(16.dp)),
             )
         }
         item(key = "title") {
-            Text(quiz.quizName, color = foreground,
-                style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold, fontSize = 22.sp, lineHeight = 30.sp))
+            Text(
+                quiz.quizName, color = foreground,
+                style = MaterialTheme.typography.headlineSmall.copy(
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 22.sp,
+                    lineHeight = 30.sp
+                )
+            )
         }
         item(key = "author") {
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                Surface(shape = CircleShape, color = tint, contentColor = MaterialTheme.colorScheme.primary) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(
+                    shape = CircleShape,
+                    color = tint,
+                    contentColor = MaterialTheme.colorScheme.primary
+                ) {
                     Avatar(quiz.owner?.avatar, contentDescription = null, size = 44.dp)
                 }
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text("Tạo bởi ${quiz.displayAuthorName()}", color = foreground,
-                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold))
+                    Text(
+                        "Tạo bởi ${quiz.displayAuthorName()}", color = foreground,
+                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold)
+                    )
                     formatQuizCreatedDate(quiz.createdAt)?.let { date ->
-                        Text("Ngày tạo: $date", color = muted, style = MaterialTheme.typography.bodySmall)
+                        Text(
+                            "Ngày tạo: $date",
+                            color = muted,
+                            style = MaterialTheme.typography.bodySmall
+                        )
                     }
                 }
             }
         }
         item(key = "metadata") {
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                quiz.quizCategory?.takeIf { it.isNotBlank() }?.let { category -> QuizMetadataPill(category) }
-                quiz.quizLanguage.takeIf { it.isNotBlank() }?.let { language -> QuizMetadataPill("Ngôn ngữ: $language") }
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                quiz.quizCategory?.takeIf { it.isNotBlank() }
+                    ?.let { category -> QuizMetadataPill(category) }
+                quiz.quizLanguage.takeIf { it.isNotBlank() }
+                    ?.let { language -> QuizMetadataPill("Ngôn ngữ: $language") }
             }
         }
         item(key = "stats") {
@@ -269,30 +360,61 @@ private fun QuizDetailContent(
                 quiz.playCount?.let { add(it.toString() to "Lượt chơi") }
             }
             Surface(shape = RoundedCornerShape(20.dp), color = soft) {
-                Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 20.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 20.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                     cells.forEach { (value, label) ->
-                        Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Text(value, color = foreground, textAlign = TextAlign.Center,
-                                style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold))
-                            Text(label, color = muted, textAlign = TextAlign.Center,
-                                style = MaterialTheme.typography.bodySmall)
+                        Column(
+                            Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text(
+                                value, color = foreground, textAlign = TextAlign.Center,
+                                style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold)
+                            )
+                            Text(
+                                label, color = muted, textAlign = TextAlign.Center,
+                                style = MaterialTheme.typography.bodySmall
+                            )
                         }
                     }
                 }
             }
         }
         quiz.quizDescription?.takeIf { it.isNotBlank() }?.let { description ->
-            item(key = "description") { Text(description, color = muted, style = MaterialTheme.typography.bodyMedium) }
+            item(key = "description") {
+                Text(
+                    description,
+                    color = muted,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
         }
         item(key = "question-heading") {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Danh sách câu hỏi (${questions.size} câu)", color = foreground,
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, fontSize = 18.sp))
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Outlined.Lock, contentDescription = null, tint = muted, modifier = Modifier.size(14.dp))
-                    Text("Đáp án đúng đã được ẩn", color = muted, style = MaterialTheme.typography.bodySmall)
+                Text(
+                    "Danh sách câu hỏi (${questions.size} câu)", color = foreground,
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp
+                    )
+                )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Outlined.Lock,
+                        contentDescription = null,
+                        tint = muted,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Text(
+                        "Đáp án đúng đã được ẩn",
+                        color = muted,
+                        style = MaterialTheme.typography.bodySmall
+                    )
                 }
             }
         }
@@ -320,9 +442,11 @@ private fun QuizMetadataPill(text: String) {
         shape = RoundedCornerShape(50),
         color = if (isDark) MaterialTheme.colorScheme.primaryContainer else FrontendColors.BrandTint,
     ) {
-        Text(text, modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+        Text(
+            text, modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
             color = if (isDark) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.primary,
-            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold))
+            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold)
+        )
     }
 }
 
@@ -340,17 +464,31 @@ private fun quizDetailPreviewQuiz(mixedTimes: Boolean = false): Quiz {
             questionImage = if (type == QuestionType.MULTIPLE_SELECT) "https://preview.invalid/question.png" else null,
             answerOptions = when (type) {
                 QuestionType.MULTIPLE_CHOICE -> listOf("Ai Cập", "Nhật Bản", "Pháp", "Ấn Độ")
-                QuestionType.MULTIPLE_SELECT -> listOf("Núi Phú Sĩ", "Tháp Eiffel", "Vịnh Hạ Long", "Kim tự tháp Giza")
+                QuestionType.MULTIPLE_SELECT -> listOf(
+                    "Núi Phú Sĩ",
+                    "Tháp Eiffel",
+                    "Vịnh Hạ Long",
+                    "Kim tự tháp Giza"
+                )
+
                 else -> null
             }?.mapIndexed { optionIndex, text -> AnswerOption(optionIndex + 1L, text) },
         )
     }
     return Quiz(
-        id = 1L, quizOwner = 1L, owner = QuizOwner(1L, "Hoàng Long"),
-        quizName = "Khám phá Văn hóa Thế giới", quizLanguage = "vi", quizCategory = "Văn hóa",
-        isPublic = true, questionCount = questions.size, playCount = 2400,
+        id = 1L,
+        quizOwner = 1L,
+        owner = QuizOwner(1L, "Hoàng Long"),
+        quizName = "Khám phá Văn hóa Thế giới",
+        quizLanguage = "vi",
+        quizCategory = "Văn hóa",
+        isPublic = true,
+        questionCount = questions.size,
+        playCount = 2400,
         quizDescription = "Bộ câu hỏi tổng hợp những nét đặc sắc về phong tục, ẩm thực và danh lam thắng cảnh trên toàn cầu.",
-        createdAt = "2026-10-08T00:00:00Z", updatedAt = "2026-10-08T00:00:00Z", questions = questions,
+        createdAt = "2026-10-08T00:00:00Z",
+        updatedAt = "2026-10-08T00:00:00Z",
+        questions = questions,
     )
 }
 
@@ -373,38 +511,81 @@ private fun QuizDetailPreviewContent(
 }
 
 @Preview(name = "Quiz Detail Owner Light", showBackground = true, widthDp = 390, heightDp = 844)
-@Preview(name = "Quiz Detail Owner Dark", showBackground = true, widthDp = 390, heightDp = 844, uiMode = Configuration.UI_MODE_NIGHT_YES)
-@Preview(name = "Quiz Detail Large Text", showBackground = true, widthDp = 320, heightDp = 844, fontScale = 1.5f)
+@Preview(
+    name = "Quiz Detail Owner Dark",
+    showBackground = true,
+    widthDp = 390,
+    heightDp = 844,
+    uiMode = Configuration.UI_MODE_NIGHT_YES
+)
+@Preview(
+    name = "Quiz Detail Large Text",
+    showBackground = true,
+    widthDp = 320,
+    heightDp = 844,
+    fontScale = 1.5f
+)
 @Composable
 private fun QuizDetailScreenContentPreview() = QuizDetailPreviewContent()
 
 @Preview(name = "Quiz Detail Visitor", showBackground = true, widthDp = 390, heightDp = 844)
 @Composable
-private fun QuizDetailVisitorPreview() = QuizDetailPreviewContent(QuizDetailUiState(quiz = quizDetailPreviewQuiz()))
+private fun QuizDetailVisitorPreview() =
+    QuizDetailPreviewContent(QuizDetailUiState(quiz = quizDetailPreviewQuiz()))
 
 @Preview(name = "Quiz Detail Mixed Times", showBackground = true, widthDp = 390, heightDp = 844)
 @Composable
-private fun QuizDetailMixedTimesPreview() = QuizDetailPreviewContent(QuizDetailUiState(quiz = quizDetailPreviewQuiz(mixedTimes = true), isOwner = true))
+private fun QuizDetailMixedTimesPreview() = QuizDetailPreviewContent(
+    QuizDetailUiState(
+        quiz = quizDetailPreviewQuiz(mixedTimes = true),
+        isOwner = true
+    )
+)
 
-@Preview(name = "Quiz Detail Questions Collapsed", showBackground = true, widthDp = 390, heightDp = 844)
+@Preview(
+    name = "Quiz Detail Questions Collapsed",
+    showBackground = true,
+    widthDp = 390,
+    heightDp = 844
+)
 @Composable
-private fun QuizDetailQuestionsCollapsedPreview() = QuizDetailPreviewContent(expandedQuestionIds = emptySet(), initialListIndex = 6)
+private fun QuizDetailQuestionsCollapsedPreview() =
+    QuizDetailPreviewContent(expandedQuestionIds = emptySet(), initialListIndex = 6)
 
-@Preview(name = "Quiz Detail Questions Expanded", showBackground = true, widthDp = 390, heightDp = 844)
-@Preview(name = "Quiz Detail Questions Expanded Dark", showBackground = true, widthDp = 390, heightDp = 844, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(
+    name = "Quiz Detail Questions Expanded",
+    showBackground = true,
+    widthDp = 390,
+    heightDp = 844
+)
+@Preview(
+    name = "Quiz Detail Questions Expanded Dark",
+    showBackground = true,
+    widthDp = 390,
+    heightDp = 844,
+    uiMode = Configuration.UI_MODE_NIGHT_YES
+)
 @Composable
 private fun QuizDetailQuestionsExpandedPreview() = QuizDetailPreviewContent(initialListIndex = 6)
 
 @Preview(name = "Quiz Detail Loading", showBackground = true, widthDp = 390, heightDp = 844)
 @Composable
-private fun QuizDetailLoadingPreview() = QuizDetailPreviewContent(QuizDetailUiState(isLoading = true))
+private fun QuizDetailLoadingPreview() =
+    QuizDetailPreviewContent(QuizDetailUiState(isLoading = true))
 
 @Preview(name = "Quiz Detail Error", showBackground = true, widthDp = 390, heightDp = 844)
 @Composable
-private fun QuizDetailErrorPreview() = QuizDetailPreviewContent(QuizDetailUiState(error = "Không có kết nối mạng. Vui lòng thử lại."))
+private fun QuizDetailErrorPreview() =
+    QuizDetailPreviewContent(QuizDetailUiState(error = "Không có kết nối mạng. Vui lòng thử lại."))
 
 @Preview(name = "Quiz Detail Empty Questions", showBackground = true, widthDp = 390, heightDp = 844)
 @Composable
-private fun QuizDetailEmptyQuestionsPreview() = QuizDetailPreviewContent(QuizDetailUiState(
-    quiz = quizDetailPreviewQuiz().copy(questions = emptyList(), questionCount = 0, playCount = null), isOwner = true,
-))
+private fun QuizDetailEmptyQuestionsPreview() = QuizDetailPreviewContent(
+    QuizDetailUiState(
+        quiz = quizDetailPreviewQuiz().copy(
+            questions = emptyList(),
+            questionCount = 0,
+            playCount = null
+        ), isOwner = true,
+    )
+)

@@ -1,10 +1,12 @@
 package android.kma.myquizzapp.feature.quiz_preview
 
-import android.kma.myquizzapp.feature.quiz_preview.domain.usecase.LoadQuizPreviewUseCase
-
-import android.kma.myquizzapp.core.common.model.*
+import android.kma.myquizzapp.core.common.model.AnswerOption
+import android.kma.myquizzapp.core.common.model.Question
+import android.kma.myquizzapp.core.common.model.QuestionType
+import android.kma.myquizzapp.core.common.model.Quiz
 import android.kma.myquizzapp.core.common.repository.QuizRepository
 import android.kma.myquizzapp.core.common.result.Result
+import android.kma.myquizzapp.feature.quiz_preview.domain.usecase.LoadQuizPreviewUseCase
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import io.mockk.coEvery
@@ -13,11 +15,20 @@ import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.test.*
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.setMain
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonPrimitive
 import org.junit.After
-import org.junit.Assert.*
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
@@ -32,7 +43,9 @@ class QuizPreviewViewModelTest {
     }
 
     @After
-    fun tearDown() { Dispatchers.resetMain() }
+    fun tearDown() {
+        Dispatchers.resetMain()
+    }
 
     @Test
     fun `loads quiz then starts countdown and first question`() = runTest(dispatcher) {
@@ -61,19 +74,20 @@ class QuizPreviewViewModelTest {
     }
 
     @Test
-    fun `feedback remains until manual next even after old reveal duration`() = runTest(dispatcher) {
-        withPreview { vm ->
-            begin(vm)
-            vm.onIntent(QuizPreviewIntent.SelectOption(1L))
-            val remaining = vm.uiState.value.remainingTimeMillis
-            advanceTimeBy(20_000)
-            runCurrent()
-            assertEquals(PreviewPhase.FEEDBACK, vm.uiState.value.phase)
-            assertEquals(remaining, vm.uiState.value.remainingTimeMillis)
-            vm.onIntent(QuizPreviewIntent.Next)
-            assertEquals(PreviewPhase.FINISHED, vm.uiState.value.phase)
+    fun `feedback remains until manual next even after old reveal duration`() =
+        runTest(dispatcher) {
+            withPreview { vm ->
+                begin(vm)
+                vm.onIntent(QuizPreviewIntent.SelectOption(1L))
+                val remaining = vm.uiState.value.remainingTimeMillis
+                advanceTimeBy(20_000)
+                runCurrent()
+                assertEquals(PreviewPhase.FEEDBACK, vm.uiState.value.phase)
+                assertEquals(remaining, vm.uiState.value.remainingTimeMillis)
+                vm.onIntent(QuizPreviewIntent.Next)
+                assertEquals(PreviewPhase.FINISHED, vm.uiState.value.phase)
+            }
         }
-    }
 
     @Test
     fun `multiple select sends once and locks input during feedback`() = runTest(dispatcher) {
@@ -111,26 +125,32 @@ class QuizPreviewViewModelTest {
     }
 
     @Test
-    fun `skip reveals answer without submitting partial selection and waits for next`() = runTest(dispatcher) {
-        withPreview(listOf(question(type = QuestionType.MULTIPLE_SELECT), question(id = 2))) { vm ->
-            begin(vm)
-            vm.onIntent(QuizPreviewIntent.ToggleOption(1L))
-            vm.onIntent(QuizPreviewIntent.Skip)
-            assertEquals(PreviewPhase.FEEDBACK, vm.uiState.value.phase)
-            assertEquals(false, vm.uiState.value.currentResult?.isAnswered)
-            assertNull(vm.uiState.value.currentResult?.submittedAnswer)
-            assertEquals("Một", vm.uiState.value.currentResult?.correctAnswer)
-            assertEquals(0, vm.uiState.value.totalScore)
-            vm.onIntent(QuizPreviewIntent.Skip)
-            assertEquals(1, vm.uiState.value.results.size)
-            vm.onIntent(QuizPreviewIntent.Next)
-            assertEquals(1, vm.uiState.value.currentIndex)
-            assertEquals(PreviewPhase.QUESTION, vm.uiState.value.phase)
-            assertTrue(vm.uiState.value.selectedOptionIds.isEmpty())
-            vm.onIntent(QuizPreviewIntent.Next)
-            assertEquals(1, vm.uiState.value.currentIndex)
+    fun `skip reveals answer without submitting partial selection and waits for next`() =
+        runTest(dispatcher) {
+            withPreview(
+                listOf(
+                    question(type = QuestionType.MULTIPLE_SELECT),
+                    question(id = 2)
+                )
+            ) { vm ->
+                begin(vm)
+                vm.onIntent(QuizPreviewIntent.ToggleOption(1L))
+                vm.onIntent(QuizPreviewIntent.Skip)
+                assertEquals(PreviewPhase.FEEDBACK, vm.uiState.value.phase)
+                assertEquals(false, vm.uiState.value.currentResult?.isAnswered)
+                assertNull(vm.uiState.value.currentResult?.submittedAnswer)
+                assertEquals("Một", vm.uiState.value.currentResult?.correctAnswer)
+                assertEquals(0, vm.uiState.value.totalScore)
+                vm.onIntent(QuizPreviewIntent.Skip)
+                assertEquals(1, vm.uiState.value.results.size)
+                vm.onIntent(QuizPreviewIntent.Next)
+                assertEquals(1, vm.uiState.value.currentIndex)
+                assertEquals(PreviewPhase.QUESTION, vm.uiState.value.phase)
+                assertTrue(vm.uiState.value.selectedOptionIds.isEmpty())
+                vm.onIntent(QuizPreviewIntent.Next)
+                assertEquals(1, vm.uiState.value.currentIndex)
+            }
         }
-    }
 
     @Test
     fun `expired timed question stays answerable and receives late score`() = runTest(dispatcher) {
@@ -148,19 +168,20 @@ class QuizPreviewViewModelTest {
     }
 
     @Test
-    fun `untimed question has no fallback deadline late penalty or speed bonus`() = runTest(dispatcher) {
-        withPreview(listOf(question(limit = 0))) { vm ->
-            begin(vm)
-            advanceTimeBy(60_000)
-            runCurrent()
-            assertEquals(PreviewPhase.QUESTION, vm.uiState.value.phase)
-            assertFalse(vm.uiState.value.isLate)
-            assertEquals(0, vm.uiState.value.remainingSeconds)
-            vm.onIntent(QuizPreviewIntent.SelectOption(1L))
-            assertEquals(false, vm.uiState.value.currentResult?.isLate)
-            assertEquals(1_000, vm.uiState.value.totalScore)
+    fun `untimed question has no fallback deadline late penalty or speed bonus`() =
+        runTest(dispatcher) {
+            withPreview(listOf(question(limit = 0))) { vm ->
+                begin(vm)
+                advanceTimeBy(60_000)
+                runCurrent()
+                assertEquals(PreviewPhase.QUESTION, vm.uiState.value.phase)
+                assertFalse(vm.uiState.value.isLate)
+                assertEquals(0, vm.uiState.value.remainingSeconds)
+                vm.onIntent(QuizPreviewIntent.SelectOption(1L))
+                assertEquals(false, vm.uiState.value.currentResult?.isLate)
+                assertEquals(1_000, vm.uiState.value.totalScore)
+            }
         }
-    }
 
     @Test
     fun `duplicate load requests are claimed before coroutine launch`() = runTest(dispatcher) {
@@ -173,36 +194,38 @@ class QuizPreviewViewModelTest {
     }
 
     @Test
-    fun `invalid option ids and question type intents cannot mutate selection`() = runTest(dispatcher) {
-        withPreview { vm ->
-            begin(vm)
-            vm.onIntent(QuizPreviewIntent.SelectOption(99L))
-            vm.onIntent(QuizPreviewIntent.ToggleOption(1L))
-            vm.onIntent(QuizPreviewIntent.ChangeText("Không hợp lệ"))
-            assertEquals(PreviewPhase.QUESTION, vm.uiState.value.phase)
-            assertTrue(vm.uiState.value.selectedOptionIds.isEmpty())
-            assertEquals("", vm.uiState.value.textAnswer)
+    fun `invalid option ids and question type intents cannot mutate selection`() =
+        runTest(dispatcher) {
+            withPreview { vm ->
+                begin(vm)
+                vm.onIntent(QuizPreviewIntent.SelectOption(99L))
+                vm.onIntent(QuizPreviewIntent.ToggleOption(1L))
+                vm.onIntent(QuizPreviewIntent.ChangeText("Không hợp lệ"))
+                assertEquals(PreviewPhase.QUESTION, vm.uiState.value.phase)
+                assertTrue(vm.uiState.value.selectedOptionIds.isEmpty())
+                assertEquals("", vm.uiState.value.textAnswer)
+            }
         }
-    }
 
     @Test
-    fun `total score accumulates only once per question and restart resets run`() = runTest(dispatcher) {
-        withPreview(listOf(question(limit = 0), question(id = 2, limit = 0))) { vm ->
-            begin(vm)
-            vm.onIntent(QuizPreviewIntent.SelectOption(1L))
-            vm.onIntent(QuizPreviewIntent.SelectOption(1L))
-            assertEquals(1_000, vm.uiState.value.totalScore)
-            vm.onIntent(QuizPreviewIntent.Next)
-            vm.onIntent(QuizPreviewIntent.SelectOption(1L))
-            assertEquals(2_000, vm.uiState.value.totalScore)
-            vm.onIntent(QuizPreviewIntent.Next)
-            assertEquals(PreviewPhase.FINISHED, vm.uiState.value.phase)
-            vm.onIntent(QuizPreviewIntent.Restart)
-            assertEquals(PreviewPhase.COUNTDOWN, vm.uiState.value.phase)
-            assertEquals(0, vm.uiState.value.totalScore)
-            assertTrue(vm.uiState.value.results.isEmpty())
+    fun `total score accumulates only once per question and restart resets run`() =
+        runTest(dispatcher) {
+            withPreview(listOf(question(limit = 0), question(id = 2, limit = 0))) { vm ->
+                begin(vm)
+                vm.onIntent(QuizPreviewIntent.SelectOption(1L))
+                vm.onIntent(QuizPreviewIntent.SelectOption(1L))
+                assertEquals(1_000, vm.uiState.value.totalScore)
+                vm.onIntent(QuizPreviewIntent.Next)
+                vm.onIntent(QuizPreviewIntent.SelectOption(1L))
+                assertEquals(2_000, vm.uiState.value.totalScore)
+                vm.onIntent(QuizPreviewIntent.Next)
+                assertEquals(PreviewPhase.FINISHED, vm.uiState.value.phase)
+                vm.onIntent(QuizPreviewIntent.Restart)
+                assertEquals(PreviewPhase.COUNTDOWN, vm.uiState.value.phase)
+                assertEquals(0, vm.uiState.value.totalScore)
+                assertTrue(vm.uiState.value.results.isEmpty())
+            }
         }
-    }
 
     @Test
     fun `missing key remains ungradable and never awards points`() = runTest(dispatcher) {
@@ -215,24 +238,30 @@ class QuizPreviewViewModelTest {
     }
 
     @Test
-    fun `review preserves exact selected ids across next question and restart`() = runTest(dispatcher) {
-        withPreview(listOf(question(type = QuestionType.MULTIPLE_SELECT), question(id = 2))) { vm ->
-            begin(vm)
-            vm.onIntent(QuizPreviewIntent.ToggleOption(0L))
-            vm.onIntent(QuizPreviewIntent.ToggleOption(1L))
-            vm.onIntent(QuizPreviewIntent.Submit)
-            val first = vm.uiState.value.results.first()
-            assertEquals(setOf(0L, 1L), first.selectedOptionIds)
-            vm.onIntent(QuizPreviewIntent.Next)
-            vm.onIntent(QuizPreviewIntent.SelectOption(1L))
-            assertEquals(setOf(0L, 1L), vm.uiState.value.results[0].selectedOptionIds)
-            assertEquals(setOf(1L), vm.uiState.value.results[1].selectedOptionIds)
-            vm.onIntent(QuizPreviewIntent.Next)
-            vm.onIntent(QuizPreviewIntent.Restart)
-            assertTrue(vm.uiState.value.results.isEmpty())
-            assertEquals(setOf(0L, 1L), first.selectedOptionIds)
+    fun `review preserves exact selected ids across next question and restart`() =
+        runTest(dispatcher) {
+            withPreview(
+                listOf(
+                    question(type = QuestionType.MULTIPLE_SELECT),
+                    question(id = 2)
+                )
+            ) { vm ->
+                begin(vm)
+                vm.onIntent(QuizPreviewIntent.ToggleOption(0L))
+                vm.onIntent(QuizPreviewIntent.ToggleOption(1L))
+                vm.onIntent(QuizPreviewIntent.Submit)
+                val first = vm.uiState.value.results.first()
+                assertEquals(setOf(0L, 1L), first.selectedOptionIds)
+                vm.onIntent(QuizPreviewIntent.Next)
+                vm.onIntent(QuizPreviewIntent.SelectOption(1L))
+                assertEquals(setOf(0L, 1L), vm.uiState.value.results[0].selectedOptionIds)
+                assertEquals(setOf(1L), vm.uiState.value.results[1].selectedOptionIds)
+                vm.onIntent(QuizPreviewIntent.Next)
+                vm.onIntent(QuizPreviewIntent.Restart)
+                assertTrue(vm.uiState.value.results.isEmpty())
+                assertEquals(setOf(0L, 1L), first.selectedOptionIds)
+            }
         }
-    }
 
     @Test
     fun `skip does not preserve abandoned choices for review`() = runTest(dispatcher) {
@@ -261,20 +290,41 @@ class QuizPreviewViewModelTest {
             SavedStateHandle(mapOf("quizId" to 1L)),
             monotonicMillis = { testScheduler.currentTime + 1_000L },
         )
-        try { block(vm) } finally { vm.viewModelScope.cancel() }
+        try {
+            block(vm)
+        } finally {
+            vm.viewModelScope.cancel()
+        }
     }
 
-    private fun question(id: Long = 1, type: QuestionType = QuestionType.MULTIPLE_CHOICE, limit: Int = 30): Question {
+    private fun question(
+        id: Long = 1,
+        type: QuestionType = QuestionType.MULTIPLE_CHOICE,
+        limit: Int = 30
+    ): Question {
         val choice = type in setOf(QuestionType.MULTIPLE_CHOICE, QuestionType.MULTIPLE_SELECT)
         return Question(
-            id = id, quizId = 1, questionType = type, questionText = "Một cộng không?", timeLimit = limit,
-            answerOptions = if (choice) listOf(AnswerOption(0, "Không"), AnswerOption(1, "Một")) else null,
+            id = id,
+            quizId = 1,
+            questionType = type,
+            questionText = "Một cộng không?",
+            timeLimit = limit,
+            answerOptions = if (choice) listOf(
+                AnswerOption(0, "Không"),
+                AnswerOption(1, "Một")
+            ) else null,
             correctAnswer = if (choice) JsonArray(listOf(JsonPrimitive(1))) else JsonPrimitive("Một"),
         )
     }
 
     private fun quiz(questions: List<Question>) = Quiz(
-        id = 1, quizOwner = 10, quizName = "Quiz thử", quizLanguage = "vi", isPublic = true,
-        createdAt = "2026-10-06T00:00:00Z", updatedAt = "2026-10-06T00:00:00Z", questions = questions,
+        id = 1,
+        quizOwner = 10,
+        quizName = "Quiz thử",
+        quizLanguage = "vi",
+        isPublic = true,
+        createdAt = "2026-10-06T00:00:00Z",
+        updatedAt = "2026-10-06T00:00:00Z",
+        questions = questions,
     )
 }

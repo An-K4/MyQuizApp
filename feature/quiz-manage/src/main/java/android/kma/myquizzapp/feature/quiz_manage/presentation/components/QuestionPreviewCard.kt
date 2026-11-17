@@ -7,12 +7,21 @@ import android.kma.myquizzapp.core.ui.components.QuestionImage
 import android.kma.myquizzapp.core.ui.theme.FrontendColors
 import android.kma.myquizzapp.core.ui.theme.MyQuizAppTheme
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material3.*
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -39,15 +48,19 @@ fun QuestionPreviewCard(
     modifier: Modifier = Modifier,
 ) {
     val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
-    val soft = if (isDark) MaterialTheme.colorScheme.surfaceVariant else FrontendColors.SoftBackground
+    val soft =
+        if (isDark) MaterialTheme.colorScheme.surfaceVariant else FrontendColors.SoftBackground
     val foreground = if (isDark) MaterialTheme.colorScheme.onSurface else FrontendColors.Foreground
-    val muted = if (isDark) MaterialTheme.colorScheme.onSurfaceVariant else FrontendColors.MutedForeground
+    val muted =
+        if (isDark) MaterialTheme.colorScheme.onSurfaceVariant else FrontendColors.MutedForeground
     Surface(modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp), color = soft) {
         Column {
             Row(
                 modifier = Modifier.fillMaxWidth()
                     .clickable(role = Role.Button, onClick = { onExpandedChange(!expanded) })
-                    .semantics { stateDescription = if (expanded) "Đã mở câu hỏi" else "Đã thu gọn câu hỏi" }
+                    .semantics {
+                        stateDescription = if (expanded) "Đã mở câu hỏi" else "Đã thu gọn câu hỏi"
+                    }
                     .padding(16.dp),
                 verticalAlignment = Alignment.Top,
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -62,8 +75,10 @@ fun QuestionPreviewCard(
                             fontWeight = FontWeight.Bold, fontSize = 14.sp, lineHeight = 20.sp,
                         ),
                     )
-                    Text("${questionTypeLabel(questionType)} • $timeLimitSeconds giây",
-                        color = muted, style = MaterialTheme.typography.bodySmall)
+                    Text(
+                        "${questionTypeLabel(questionType)} • $timeLimitSeconds giây",
+                        color = muted, style = MaterialTheme.typography.bodySmall
+                    )
                 }
                 Icon(
                     if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
@@ -80,7 +95,11 @@ fun QuestionPreviewCard(
                     when (questionType) {
                         QuestionType.MULTIPLE_CHOICE, QuestionType.MULTIPLE_SELECT -> {
                             if (optionTexts.isEmpty()) {
-                                Text("Câu hỏi chưa có lựa chọn.", color = muted, style = MaterialTheme.typography.bodyMedium)
+                                Text(
+                                    "Câu hỏi chưa có lựa chọn.",
+                                    color = muted,
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
                             } else {
                                 optionTexts.forEachIndexed { index, text ->
                                     AnswerOptionItem(
@@ -93,6 +112,7 @@ fun QuestionPreviewCard(
                                 }
                             }
                         }
+
                         QuestionType.SHORT_ANSWER, QuestionType.LONG_ANSWER -> {
                             Surface(
                                 modifier = Modifier.fillMaxWidth().heightIn(
@@ -118,14 +138,20 @@ fun QuestionPreviewCard(
 }
 
 @Preview(name = "Question Collapsed Light", showBackground = true, widthDp = 390)
-@Preview(name = "Question Collapsed Dark", showBackground = true, widthDp = 390, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(
+    name = "Question Collapsed Dark",
+    showBackground = true,
+    widthDp = 390,
+    uiMode = Configuration.UI_MODE_NIGHT_YES
+)
 @Composable
 private fun QuestionPreviewCardCollapsedPreview() {
     MyQuizAppTheme {
         Surface(color = MaterialTheme.colorScheme.background) {
             Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 QuestionType.entries.forEach { type ->
-                    QuestionPreviewCard("Kim tự tháp Giza nằm ở quốc gia nào?", type, 30, null,
+                    QuestionPreviewCard(
+                        "Kim tự tháp Giza nằm ở quốc gia nào?", type, 30, null,
                         listOf("Ai Cập", "Nhật Bản", "Pháp", "Ấn Độ"), false, {})
                 }
             }
@@ -149,14 +175,20 @@ private fun ExpandedQuestionPreview(type: QuestionType, withImage: Boolean = fal
 }
 
 @Preview(name = "Question Single Choice", showBackground = true, widthDp = 390)
-@Preview(name = "Question Single Choice Dark", showBackground = true, widthDp = 390, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(
+    name = "Question Single Choice Dark",
+    showBackground = true,
+    widthDp = 390,
+    uiMode = Configuration.UI_MODE_NIGHT_YES
+)
 @Preview(name = "Question Large Text", showBackground = true, widthDp = 320, fontScale = 1.5f)
 @Composable
 private fun QuestionSingleChoicePreview() = ExpandedQuestionPreview(QuestionType.MULTIPLE_CHOICE)
 
 @Preview(name = "Question Multi Choice With Image", showBackground = true, widthDp = 390)
 @Composable
-private fun QuestionMultiChoicePreview() = ExpandedQuestionPreview(QuestionType.MULTIPLE_SELECT, withImage = true)
+private fun QuestionMultiChoicePreview() =
+    ExpandedQuestionPreview(QuestionType.MULTIPLE_SELECT, withImage = true)
 
 @Preview(name = "Question Short Answer", showBackground = true, widthDp = 390)
 @Composable

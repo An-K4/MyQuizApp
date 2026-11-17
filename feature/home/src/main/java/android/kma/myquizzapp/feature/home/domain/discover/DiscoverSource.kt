@@ -53,6 +53,8 @@ fun resolveDiscoverRequest(sectionType: String?, title: String?, topic: String?)
     }
     return DiscoverRequest(
         initialQuery = initialQuery,
-        filters = listOf(DiscoverFilter.All) + DEFAULT_CATEGORY_FILTERS + listOfNotNull(customCategory)
+        filters = listOf(DiscoverFilter.All) + DEFAULT_CATEGORY_FILTERS + listOfNotNull(
+            customCategory
+        )
     )
 }

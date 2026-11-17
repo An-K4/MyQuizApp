@@ -11,15 +11,45 @@ import android.kma.myquizzapp.feature.home.domain.discover.DiscoverSort
 import android.kma.myquizzapp.feature.home.domain.discover.resolveDiscoverRequest
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.grid.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyGridState
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.luminance
@@ -114,7 +144,8 @@ fun DiscoverScreenContent(
     modifier: Modifier = Modifier
 ) {
     val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
-    val mutedColor = if (isDark) MaterialTheme.colorScheme.onSurfaceVariant else FrontendColors.MutedForeground
+    val mutedColor =
+        if (isDark) MaterialTheme.colorScheme.onSurfaceVariant else FrontendColors.MutedForeground
     Scaffold(
         topBar = {
             TopAppBar(
@@ -164,9 +195,12 @@ private fun DiscoverFilterBar(
     onSortSelected: (DiscoverSort) -> Unit
 ) {
     val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
-    val softColor = if (isDark) MaterialTheme.colorScheme.surfaceVariant else FrontendColors.SoftBackground
-    val mutedColor = if (isDark) MaterialTheme.colorScheme.onSurfaceVariant else FrontendColors.MutedForeground
-    val foregroundColor = if (isDark) MaterialTheme.colorScheme.onSurface else FrontendColors.Foreground
+    val softColor =
+        if (isDark) MaterialTheme.colorScheme.surfaceVariant else FrontendColors.SoftBackground
+    val mutedColor =
+        if (isDark) MaterialTheme.colorScheme.onSurfaceVariant else FrontendColors.MutedForeground
+    val foregroundColor =
+        if (isDark) MaterialTheme.colorScheme.onSurface else FrontendColors.Foreground
     Column {
         Row(
             modifier = Modifier.fillMaxWidth().horizontalScroll(filterScrollState)
@@ -199,14 +233,21 @@ private fun DiscoverFilterBar(
                 )
             }
         }
-        Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.End) {
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+            horizontalArrangement = Arrangement.End
+        ) {
             // No total-result label: this Paging source does not expose backend total.
             Box {
                 TextButton(onClick = { onSortMenuExpandedChange(true) }) {
-                    Text(uiState.sort.label(), color = foregroundColor,
-                        style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
-                    Icon(Icons.Default.ArrowDropDown, contentDescription = "Sắp xếp",
-                        tint = foregroundColor)
+                    Text(
+                        uiState.sort.label(), color = foregroundColor,
+                        style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold
+                    )
+                    Icon(
+                        Icons.Default.ArrowDropDown, contentDescription = "Sắp xếp",
+                        tint = foregroundColor
+                    )
                 }
                 DropdownMenu(
                     expanded = sortMenuExpanded,
@@ -242,14 +283,24 @@ private fun QuizPagingContent(
 ) {
     when {
         !initialized || (loadStates.refresh is LoadState.Loading && itemCount == 0) ->
-            Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+            Box(
+                modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) { CircularProgressIndicator() }
+
         loadStates.refresh is LoadState.Error && itemCount == 0 -> ErrorState(
             message = "Không thể tải quiz. Vui lòng thử lại.", onRetry = onRetry,
             modifier = modifier.fillMaxSize()
         )
+
         itemCount == 0 -> Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text("Chưa có quiz phù hợp", modifier = Modifier.padding(20.dp), textAlign = TextAlign.Center)
+            Text(
+                "Chưa có quiz phù hợp",
+                modifier = Modifier.padding(20.dp),
+                textAlign = TextAlign.Center
+            )
         }
+
         else -> LazyVerticalGrid(
             columns = GridCells.Fixed(2), state = gridState,
             modifier = modifier.fillMaxSize(),
@@ -275,14 +326,23 @@ private fun QuizPagingContent(
                 }
             }
             when (loadStates.append) {
-                is LoadState.Loading -> item(key = "append_loading", span = { GridItemSpan(maxLineSpan) }) {
-                    Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                is LoadState.Loading -> item(
+                    key = "append_loading",
+                    span = { GridItemSpan(maxLineSpan) }) {
+                    Box(
+                        Modifier.fillMaxWidth().padding(16.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
                         CircularProgressIndicator()
                     }
                 }
-                is LoadState.Error -> item(key = "append_error", span = { GridItemSpan(maxLineSpan) }) {
+
+                is LoadState.Error -> item(
+                    key = "append_error",
+                    span = { GridItemSpan(maxLineSpan) }) {
                     ErrorState("Không thể tải thêm quiz. Vui lòng thử lại.", onRetry)
                 }
+
                 else -> Unit
             }
         }
@@ -343,9 +403,21 @@ private fun DiscoverPreview(
 }
 
 @Preview(name = "Discover Grid Light", showBackground = true, widthDp = 390, heightDp = 844)
-@Preview(name = "Discover Grid Dark", showBackground = true, widthDp = 390, heightDp = 844, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(
+    name = "Discover Grid Dark",
+    showBackground = true,
+    widthDp = 390,
+    heightDp = 844,
+    uiMode = Configuration.UI_MODE_NIGHT_YES
+)
 @Preview(name = "Discover Grid Narrow", showBackground = true, widthDp = 320, heightDp = 720)
-@Preview(name = "Discover Large Text", showBackground = true, widthDp = 390, heightDp = 844, fontScale = 1.5f)
+@Preview(
+    name = "Discover Large Text",
+    showBackground = true,
+    widthDp = 390,
+    heightDp = 844,
+    fontScale = 1.5f
+)
 @Composable
 private fun DiscoverGridPreview() = DiscoverPreview()
 
@@ -359,8 +431,10 @@ private fun DiscoverEmptyPreview() = DiscoverPreview(emptyList())
 
 @Preview(name = "Discover Error", showBackground = true, widthDp = 390, heightDp = 844)
 @Composable
-private fun DiscoverErrorPreview() = DiscoverPreview(emptyList(), refresh = LoadState.Error(IllegalStateException("Preview")))
+private fun DiscoverErrorPreview() =
+    DiscoverPreview(emptyList(), refresh = LoadState.Error(IllegalStateException("Preview")))
 
 @Preview(name = "Discover Append Error", showBackground = true, widthDp = 390, heightDp = 844)
 @Composable
-private fun DiscoverAppendErrorPreview() = DiscoverPreview(append = LoadState.Error(IllegalStateException("Preview")))
+private fun DiscoverAppendErrorPreview() =
+    DiscoverPreview(append = LoadState.Error(IllegalStateException("Preview")))

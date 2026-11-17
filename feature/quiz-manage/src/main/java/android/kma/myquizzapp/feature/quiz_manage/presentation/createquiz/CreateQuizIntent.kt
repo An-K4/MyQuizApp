@@ -25,7 +25,9 @@ sealed interface CreateQuizIntent {
     data class HintChanged(val localId: String, val value: String) : CreateQuizIntent
     data class ExplanationChanged(val localId: String, val value: String) : CreateQuizIntent
 
-    data class OptionChanged(val localId: String, val index: Int, val value: String) : CreateQuizIntent
+    data class OptionChanged(val localId: String, val index: Int, val value: String) :
+        CreateQuizIntent
+
     data class AddOption(val localId: String) : CreateQuizIntent
     data class RemoveOption(val localId: String, val index: Int) : CreateQuizIntent
     data class ToggleCorrectIndex(val localId: String, val index: Int) : CreateQuizIntent

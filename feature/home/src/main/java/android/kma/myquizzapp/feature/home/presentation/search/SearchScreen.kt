@@ -6,7 +6,13 @@ import android.kma.myquizzapp.core.common.model.QuizOwner
 import android.kma.myquizzapp.core.ui.components.SearchQuizCard
 import android.kma.myquizzapp.core.ui.theme.FrontendColors
 import android.kma.myquizzapp.core.ui.theme.MyQuizAppTheme
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
@@ -18,8 +24,22 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -79,7 +99,8 @@ fun SearchScreenContent(
     modifier: Modifier = Modifier
 ) {
     val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
-    val searchFieldColor = if (isDark) MaterialTheme.colorScheme.surfaceVariant else FrontendColors.SoftBackground
+    val searchFieldColor =
+        if (isDark) MaterialTheme.colorScheme.surfaceVariant else FrontendColors.SoftBackground
     Scaffold(
         topBar = {
             TopAppBar(
@@ -129,6 +150,7 @@ fun SearchScreenContent(
                     message = uiState.error,
                     onRetry = { onIntent(SearchIntent.Retry) }
                 )
+
                 !uiState.hasQuery -> SearchHint("Nhập từ khóa để tìm kiếm quiz")
                 uiState.hasResults -> LazyColumn(
                     state = listState,
@@ -150,7 +172,9 @@ fun SearchScreenContent(
                         )
                     }
                     if (uiState.error != null) item(key = "append_error") {
-                        SearchErrorMessage(uiState.error, onRetry = { onIntent(SearchIntent.Retry) })
+                        SearchErrorMessage(
+                            uiState.error,
+                            onRetry = { onIntent(SearchIntent.Retry) })
                     }
                     if (uiState.isLoadingMore) item(key = "append_loading") {
                         Box(
@@ -159,10 +183,12 @@ fun SearchScreenContent(
                         ) { CircularProgressIndicator() }
                     }
                 }
+
                 uiState.shouldShowNoResults -> SearchHint(
                     title = "Không tìm thấy kết quả",
                     subtitle = "Thử từ khóa khác"
                 )
+
                 else -> SearchHint("Nhấn tìm kiếm để xem kết quả")
             }
         }
@@ -188,8 +214,10 @@ private fun SearchErrorMessage(message: String, onRetry: () -> Unit) {
         verticalArrangement = Arrangement.spacedBy(8.dp),
         modifier = Modifier.fillMaxWidth().padding(20.dp)
     ) {
-        Text(message, style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center)
+        Text(
+            message, style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center
+        )
         TextButton(onClick = onRetry) { Text("Thử lại") }
     }
 }
@@ -197,10 +225,18 @@ private fun SearchErrorMessage(message: String, onRetry: () -> Unit) {
 @Composable
 private fun SearchHint(title: String, subtitle: String? = null) {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Column(Modifier.padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Column(
+            Modifier.padding(20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
             Text(title, style = MaterialTheme.typography.bodyLarge)
             subtitle?.let {
-                Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    it,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
     }
@@ -235,14 +271,21 @@ private fun SearchPreview(state: SearchUiState) {
 }
 
 @Preview(name = "Search Results Light", showBackground = true, widthDp = 390, heightDp = 844)
-@Preview(name = "Search Results Dark", showBackground = true, widthDp = 390, heightDp = 844, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(
+    name = "Search Results Dark",
+    showBackground = true,
+    widthDp = 390,
+    heightDp = 844,
+    uiMode = Configuration.UI_MODE_NIGHT_YES
+)
 @Preview(name = "Search Results Narrow", showBackground = true, widthDp = 320, heightDp = 720)
 @Composable
 private fun SearchResultsPreview() = SearchPreview(searchPreviewState())
 
 @Preview(name = "Search Loading", showBackground = true, widthDp = 390, heightDp = 844)
 @Composable
-private fun SearchLoadingPreview() = SearchPreview(SearchUiState(query = "Tiếng Anh", isSearching = true))
+private fun SearchLoadingPreview() =
+    SearchPreview(SearchUiState(query = "Tiếng Anh", isSearching = true))
 
 @Preview(name = "Search Empty Results", showBackground = true, widthDp = 390, heightDp = 844)
 @Composable
@@ -250,13 +293,22 @@ private fun SearchEmptyPreview() = SearchPreview(searchPreviewState().copy(resul
 
 @Preview(name = "Search Initial Error", showBackground = true, widthDp = 390, heightDp = 844)
 @Composable
-private fun SearchErrorPreview() = SearchPreview(SearchUiState(query = "Tiếng Anh", error = "Không thể kết nối. Vui lòng thử lại."))
+private fun SearchErrorPreview() = SearchPreview(
+    SearchUiState(
+        query = "Tiếng Anh",
+        error = "Không thể kết nối. Vui lòng thử lại."
+    )
+)
 
 @Preview(name = "Search Append Error", showBackground = true, widthDp = 390, heightDp = 844)
 @Composable
-private fun SearchAppendErrorPreview() = SearchPreview(searchPreviewState().copy(
-    error = "Không thể tải thêm kết quả. Vui lòng thử lại.", hasMore = true, nextCursor = "preview-next"
-))
+private fun SearchAppendErrorPreview() = SearchPreview(
+    searchPreviewState().copy(
+        error = "Không thể tải thêm kết quả. Vui lòng thử lại.",
+        hasMore = true,
+        nextCursor = "preview-next"
+    )
+)
 
 @Preview(name = "Search Initial Hint", showBackground = true, widthDp = 390, heightDp = 844)
 @Composable

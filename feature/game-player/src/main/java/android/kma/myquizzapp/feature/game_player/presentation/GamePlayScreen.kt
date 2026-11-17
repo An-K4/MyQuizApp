@@ -2,19 +2,12 @@ package android.kma.myquizzapp.feature.game_player.presentation
 
 import android.kma.myquizzapp.core.common.model.PublicAnswerOption
 import android.kma.myquizzapp.core.common.model.PublicQuestion
-import android.kma.myquizzapp.core.ui.components.QuestionImage
-import android.kma.myquizzapp.core.ui.components.GameStartCountdownScreenContent
-import android.kma.myquizzapp.core.ui.components.gameStartCountdownSeconds
 import android.kma.myquizzapp.core.ui.components.AppConfirmDialog
-import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.produceState
-import androidx.compose.runtime.key
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import android.kma.myquizzapp.core.ui.components.GameStartCountdownScreenContent
+import android.kma.myquizzapp.core.ui.components.QuestionImage
+import android.kma.myquizzapp.core.ui.components.gameStartCountdownSeconds
 import android.kma.myquizzapp.core.ui.theme.MyQuizAppTheme
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -23,6 +16,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
@@ -40,17 +34,23 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import java.time.Instant
 import kotlinx.coroutines.delay
+import java.time.Instant
 
 @Composable
 fun GamePlayScreen(
@@ -64,7 +64,10 @@ fun GamePlayScreen(
         viewModel.effect.collect {
             when (it) {
                 is GameEffect.Exit -> onExit(it.message)
-                is GameEffect.NavigateToFinalResult -> onNavigateToFinalResult(it.gameId, it.playerId)
+                is GameEffect.NavigateToFinalResult -> onNavigateToFinalResult(
+                    it.gameId,
+                    it.playerId
+                )
             }
         }
     }
@@ -73,7 +76,8 @@ fun GamePlayScreen(
     val focusManager = LocalFocusManager.current
     val keyboard = LocalSoftwareKeyboardController.current
     var showExitDialog by rememberSaveable { mutableStateOf(false) }
-    val needsExitConfirmation = state.isClassic || state.usesSelfPacedLayout || state.usesStartCountdownLayout
+    val needsExitConfirmation =
+        state.isClassic || state.usesSelfPacedLayout || state.usesStartCountdownLayout
     val requestExit: () -> Unit = {
         if (needsExitConfirmation) showExitDialog = true else viewModel.onIntent(GameIntent.Leave)
     }
@@ -84,14 +88,22 @@ fun GamePlayScreen(
     LaunchedEffect(state.question?.id, state.question?.index, state.showsClassicSummary) {
         if (state.isClassic) listState.scrollToItem(0)
     }
-    LaunchedEffect(state.question?.id, state.question?.index, state.phase is GamePhaseUi.Results, state.isPersonallyDone) {
+    LaunchedEffect(
+        state.question?.id,
+        state.question?.index,
+        state.phase is GamePhaseUi.Results,
+        state.isPersonallyDone
+    ) {
         if (state.usesSelfPacedLayout) listState.scrollToItem(0)
     }
-    LaunchedEffect(state.isClassic, state.usesSelfPacedLayout, state.phase, state.isAnswerInputEnabled,
-        state.connection, state.isSynchronizing) {
+    LaunchedEffect(
+        state.isClassic, state.usesSelfPacedLayout, state.phase, state.isAnswerInputEnabled,
+        state.connection, state.isSynchronizing
+    ) {
         if ((state.isClassic || state.usesSelfPacedLayout) &&
             (state.phase != GamePhaseUi.Question || !state.isAnswerInputEnabled ||
-                (state.usesSelfPacedLayout && !state.selfPacedCanAnswer))) {
+                    (state.usesSelfPacedLayout && !state.selfPacedCanAnswer))
+        ) {
             focusManager.clearFocus()
             keyboard?.hide()
         }
@@ -99,11 +111,22 @@ fun GamePlayScreen(
     if (state.usesStartCountdownLayout) {
         val target = (state.phase as? GamePhaseUi.Countdown)?.startsAt
             ?.let { runCatching { Instant.parse(it).toEpochMilli() }.getOrNull() }
-        val seconds by key(state.phase, target, state.serverOffsetMs, state.isPaused, state.connection, state.isSynchronizing) {
+        val seconds by key(
+            state.phase,
+            target,
+            state.serverOffsetMs,
+            state.isPaused,
+            state.connection,
+            state.isSynchronizing
+        ) {
             produceState<Int?>(null) {
                 if (state.phase !is GamePhaseUi.Countdown || state.isPaused || state.connection != GameConnection.CONNECTED || state.isSynchronizing) return@produceState
                 do {
-                    value = gameStartCountdownSeconds(target, state.serverOffsetMs, System.currentTimeMillis())
+                    value = gameStartCountdownSeconds(
+                        target,
+                        state.serverOffsetMs,
+                        System.currentTimeMillis()
+                    )
                     if (value == null || value == 0) break
                     delay(100)
                 } while (true)
@@ -120,37 +143,65 @@ fun GamePlayScreen(
             seconds == 0 -> "Đang chờ máy chủ mở câu hỏi đầu tiên…"
             else -> "Câu hỏi đầu tiên sắp xuất hiện. Hãy sẵn sàng!"
         }
-        GameStartCountdownScreenContent(seconds, message, "Chuẩn bị vào trận", modifier,
+        GameStartCountdownScreenContent(
+            seconds, message, "Chuẩn bị vào trận", modifier,
             snackbarHost = { SnackbarHost(snackbar) },
             actions = { TextButton(onClick = requestExit) { Text("Rời màn") } },
             onRetry = if (state.connection == GameConnection.RECONNECT_FAILED)
-                ({ viewModel.onIntent(GameIntent.Retry) }) else null)
+                ({ viewModel.onIntent(GameIntent.Retry) }) else null
+        )
     } else if (state.showsClassicSummary || (state.isClassic && state.phase is GamePhaseUi.Results && state.question == null)) {
         val waitText = rememberClassicResultsWait(state)
-        ClassicResultsScreenContent(state, waitText, requestExit, { viewModel.onIntent(GameIntent.Retry) },
-            listState, snackbar, modifier)
+        ClassicResultsScreenContent(
+            state, waitText, requestExit, { viewModel.onIntent(GameIntent.Retry) },
+            listState, snackbar, modifier
+        )
     } else if (state.usesClassicQuestionLayout) {
-        val time = if (state.phase is GamePhaseUi.Results) ClassicQuestionTime() else rememberClassicQuestionTime(state)
-        LaunchedEffect(state.question?.id, state.question?.index, state.endsAt, time.expired, state.isPaused) {
+        val time =
+            if (state.phase is GamePhaseUi.Results) ClassicQuestionTime() else rememberClassicQuestionTime(
+                state
+            )
+        LaunchedEffect(
+            state.question?.id,
+            state.question?.index,
+            state.endsAt,
+            time.expired,
+            state.isPaused
+        ) {
             if (time.expired && !state.isPaused) viewModel.onIntent(GameIntent.DeadlineReached)
         }
         ClassicQuestionScreenContent(
-            state = state, time = time, onIntent = viewModel::onIntent,
-            onRequestExit = requestExit, listState = listState, snackbar = snackbar, modifier = modifier,
+            state = state,
+            time = time,
+            onIntent = viewModel::onIntent,
+            onRequestExit = requestExit,
+            listState = listState,
+            snackbar = snackbar,
+            modifier = modifier,
         )
     } else if (state.usesSelfPacedLayout) {
         val time = rememberSelfPacedTime(state)
-        LaunchedEffect(state.question?.id, state.question?.index, state.endsAt, time.question.expired,
-            state.isPaused, state.connection, state.isSynchronizing) {
+        LaunchedEffect(
+            state.question?.id, state.question?.index, state.endsAt, time.question.expired,
+            state.isPaused, state.connection, state.isSynchronizing
+        ) {
             if (time.question.expired && state.selfPacedIsOnline && !state.isPaused)
                 viewModel.onIntent(GameIntent.DeadlineReached)
         }
-        LaunchedEffect(state.matchEndsAt, time.matchExpired, state.isPaused, state.connection, state.isSynchronizing) {
+        LaunchedEffect(
+            state.matchEndsAt,
+            time.matchExpired,
+            state.isPaused,
+            state.connection,
+            state.isSynchronizing
+        ) {
             if (time.matchExpired && state.selfPacedIsOnline && !state.isPaused && !state.isPersonallyDone)
                 viewModel.onIntent(GameIntent.MatchDeadlineReached)
         }
-        SelfPacedQuestionScreenContent(state, time, viewModel::onIntent, requestExit,
-            listState, snackbar, modifier)
+        SelfPacedQuestionScreenContent(
+            state, time, viewModel::onIntent, requestExit,
+            listState, snackbar, modifier
+        )
     } else {
         // Unknown/unsupported pacing keeps the legacy fallback; Classic is unchanged.
         GamePlayScreenContent(
@@ -176,8 +227,18 @@ internal val GameUiState.usesStartCountdownLayout: Boolean
 /** Stateful clock adapter; no clock/effect belongs in the pure self-paced Content. */
 @Composable
 private fun rememberSelfPacedTime(state: GameUiState): SelfPacedTime {
-    val time by key(state.question?.id, state.question?.index, state.phase, state.endsAt, state.matchEndsAt,
-        state.serverOffsetMs, state.timeLimitSeconds, state.isPaused, state.connection, state.isSynchronizing) {
+    val time by key(
+        state.question?.id,
+        state.question?.index,
+        state.phase,
+        state.endsAt,
+        state.matchEndsAt,
+        state.serverOffsetMs,
+        state.timeLimitSeconds,
+        state.isPaused,
+        state.connection,
+        state.isSynchronizing
+    ) {
         produceState(initialValue = selfPacedTime(state, System.currentTimeMillis())) {
             do {
                 value = selfPacedTime(state, System.currentTimeMillis())
@@ -194,8 +255,10 @@ private fun rememberSelfPacedTime(state: GameUiState): SelfPacedTime {
 /** Stateful clock adapter lives at the Screen boundary; the Classic content only renders values. */
 @Composable
 private fun rememberClassicQuestionTime(state: GameUiState): ClassicQuestionTime {
-    val time by key(state.question?.id, state.question?.index, state.endsAt, state.serverOffsetMs,
-        state.timeLimitSeconds, state.isPaused, state.remainingSeconds) {
+    val time by key(
+        state.question?.id, state.question?.index, state.endsAt, state.serverOffsetMs,
+        state.timeLimitSeconds, state.isPaused, state.remainingSeconds
+    ) {
         produceState(initialValue = classicQuestionTime(state, System.currentTimeMillis())) {
             do {
                 value = classicQuestionTime(state, System.currentTimeMillis())
@@ -209,8 +272,17 @@ private fun rememberClassicQuestionTime(state: GameUiState): ClassicQuestionTime
 
 @Composable
 private fun rememberClassicResultsWait(state: GameUiState): String {
-    val text by key(state.endsAt, state.serverOffsetMs, state.isPaused, state.remainingSeconds,
-        state.connection, state.isSynchronizing, state.autoAdvance, state.question?.id, state.question?.index) {
+    val text by key(
+        state.endsAt,
+        state.serverOffsetMs,
+        state.isPaused,
+        state.remainingSeconds,
+        state.connection,
+        state.isSynchronizing,
+        state.autoAdvance,
+        state.question?.id,
+        state.question?.index
+    ) {
         produceState(initialValue = classicResultsWaitText(state, System.currentTimeMillis())) {
             do {
                 value = classicResultsWaitText(state, System.currentTimeMillis())
@@ -268,6 +340,7 @@ fun GamePlayScreenContent(
                         score = state.totalScore ?: state.playerScore
                     )
                 }
+
                 GamePhaseUi.PlayerFinished -> item {
                     PersonalCompletionCard(
                         title = if (state.matchTimeExpired) "Đã hết thời gian" else "Bạn đã hoàn thành",
@@ -275,74 +348,100 @@ fun GamePlayScreenContent(
                         score = state.totalScore ?: state.playerScore
                     )
                 }
+
                 else -> Unit
             }
             if (state.answeredCount != null && state.activePlayers != null) {
                 item { Text("Đã trả lời: ${state.answeredCount}/${state.activePlayers}") }
             }
-            state.question?.takeUnless { state.isPersonallyDone || state.phase == GamePhaseUi.Finished }?.let { question ->
-                item {
-                    Text("Câu ${question.index + 1}/${question.total}", style = MaterialTheme.typography.labelLarge)
-                    Text(question.questionText, style = MaterialTheme.typography.headlineSmall)
-                    QuestionImage(
-                        imageUrl = question.questionImage,
-                        contentDescription = "Ảnh minh họa câu hỏi",
-                        modifier = Modifier.padding(top = 12.dp)
-                    )
-                    question.questionHint?.takeIf(String::isNotBlank)?.let { Text("Gợi ý: $it") }
-                }
-                when (question.questionType) {
-                    "multiple_choice" -> items(question.answerOptions, key = { it.id }) { option ->
-                        SingleOption(option, state.selectedOptionId == option.id, state.isAnswerInputEnabled) {
-                            onIntent(GameIntent.SelectOption(option.id))
-                        }
-                    }
-                    "multiple_select" -> items(question.answerOptions, key = { it.id }) { option ->
-                        MultipleOption(option, option.id in state.selectedOptionIds, state.isAnswerInputEnabled) {
-                            onIntent(GameIntent.ToggleOption(option.id))
-                        }
-                    }
-                    "short_answer", "long_answer" -> item {
-                        OutlinedTextField(
-                            value = state.textAnswer,
-                            onValueChange = { onIntent(GameIntent.ChangeText(it)) },
-                            enabled = state.isAnswerInputEnabled,
-                            minLines = if (question.questionType == "long_answer") 4 else 1,
-                            label = { Text("Câu trả lời") },
-                            modifier = Modifier.fillMaxWidth()
+            state.question?.takeUnless { state.isPersonallyDone || state.phase == GamePhaseUi.Finished }
+                ?.let { question ->
+                    item {
+                        Text(
+                            "Câu ${question.index + 1}/${question.total}",
+                            style = MaterialTheme.typography.labelLarge
                         )
+                        Text(question.questionText, style = MaterialTheme.typography.headlineSmall)
+                        QuestionImage(
+                            imageUrl = question.questionImage,
+                            contentDescription = "Ảnh minh họa câu hỏi",
+                            modifier = Modifier.padding(top = 12.dp)
+                        )
+                        question.questionHint?.takeIf(String::isNotBlank)
+                            ?.let { Text("Gợi ý: $it") }
+                    }
+                    when (question.questionType) {
+                        "multiple_choice" -> items(
+                            question.answerOptions,
+                            key = { it.id }) { option ->
+                            SingleOption(
+                                option,
+                                state.selectedOptionId == option.id,
+                                state.isAnswerInputEnabled
+                            ) {
+                                onIntent(GameIntent.SelectOption(option.id))
+                            }
+                        }
+
+                        "multiple_select" -> items(
+                            question.answerOptions,
+                            key = { it.id }) { option ->
+                            MultipleOption(
+                                option,
+                                option.id in state.selectedOptionIds,
+                                state.isAnswerInputEnabled
+                            ) {
+                                onIntent(GameIntent.ToggleOption(option.id))
+                            }
+                        }
+
+                        "short_answer", "long_answer" -> item {
+                            OutlinedTextField(
+                                value = state.textAnswer,
+                                onValueChange = { onIntent(GameIntent.ChangeText(it)) },
+                                enabled = state.isAnswerInputEnabled,
+                                minLines = if (question.questionType == "long_answer") 4 else 1,
+                                label = { Text("Câu trả lời") },
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                    }
+                    item {
+                        Button(
+                            onClick = { onIntent(GameIntent.Submit) },
+                            enabled = state.canSubmit,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            if (state.isSubmitting) CircularProgressIndicator() else Text("Gửi đáp án")
+                        }
                     }
                 }
-                item {
-                    Button(
-                        onClick = { onIntent(GameIntent.Submit) },
-                        enabled = state.canSubmit,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        if (state.isSubmitting) CircularProgressIndicator() else Text("Gửi đáp án")
-                    }
-                }
-            }
             if (state.phase is GamePhaseUi.Results) {
                 item {
                     Card(Modifier.fillMaxWidth()) {
-                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Column(
+                            Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
                             if (state.phase.restoredWithoutDetails) {
                                 Text("Đang chờ câu tiếp theo")
                                 Text("Kết quả chi tiết không thể phát lại sau khi kết nối lại.")
                             } else {
-                                Text(when (state.outcome) {
-                                    QuestionOutcome.CORRECT -> "Chính xác!"
-                                    QuestionOutcome.INCORRECT -> "Chưa chính xác"
-                                    QuestionOutcome.HIDDEN, null -> "Kết quả đã được ghi nhận"
-                                }, style = MaterialTheme.typography.titleMedium)
+                                Text(
+                                    when (state.outcome) {
+                                        QuestionOutcome.CORRECT -> "Chính xác!"
+                                        QuestionOutcome.INCORRECT -> "Chưa chính xác"
+                                        QuestionOutcome.HIDDEN, null -> "Kết quả đã được ghi nhận"
+                                    }, style = MaterialTheme.typography.titleMedium
+                                )
                                 if (state.showCorrectAnswer == true) {
                                     state.results?.correctAnswers?.takeIf { it.isNotEmpty() }?.let {
                                         Text("Đáp án đúng: ${it.joinToString()}")
                                     }
-                                    state.results?.stats?.distribution?.takeIf { it.isNotEmpty() }?.let { distribution ->
-                                        Text("Phân bố: " + distribution.entries.joinToString { "${it.key}: ${it.value}" })
-                                    }
+                                    state.results?.stats?.distribution?.takeIf { it.isNotEmpty() }
+                                        ?.let { distribution ->
+                                            Text("Phân bố: " + distribution.entries.joinToString { "${it.key}: ${it.value}" })
+                                        }
                                 }
                                 if (state.isSelfPaced) {
                                     if (state.timedOut) {
@@ -387,7 +486,7 @@ fun GamePlayScreenContent(
                     Card(Modifier.fillMaxWidth()) {
                         Text(
                             "#${row.rank}  ${row.playerName} — ${row.playerScore} điểm" +
-                                if (row.id == state.playerId) "  (Bạn)" else "",
+                                    if (row.id == state.playerId) "  (Bạn)" else "",
                             Modifier.padding(14.dp)
                         )
                     }
@@ -401,7 +500,12 @@ fun GamePlayScreenContent(
 private fun SelfPacedStatus(state: GameUiState, onIntent: (GameIntent) -> Unit) {
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            state.lives?.let { Text("Mạng còn lại: $it", style = MaterialTheme.typography.titleMedium) }
+            state.lives?.let {
+                Text(
+                    "Mạng còn lại: $it",
+                    style = MaterialTheme.typography.titleMedium
+                )
+            }
             state.matchEndsAt?.let { deadline ->
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -444,6 +548,7 @@ private fun ConnectionBanner(
             "Mất kết nối — đang đồng bộ lại…",
             color = MaterialTheme.colorScheme.error
         )
+
         GameConnection.RECONNECT_FAILED -> Card(Modifier.fillMaxWidth()) {
             Column(
                 Modifier.padding(16.dp),
@@ -495,13 +600,20 @@ private fun PhaseHeader(state: GameUiState, onIntent: (GameIntent) -> Unit) {
 }
 
 @Composable
-private fun DeadlineCountdown(endsAt: String?, offsetMs: Long, fallback: Int?, onExpired: () -> Unit) {
+private fun DeadlineCountdown(
+    endsAt: String?,
+    offsetMs: Long,
+    fallback: Int?,
+    onExpired: () -> Unit
+) {
     if (endsAt == null) return
     var seconds by remember(endsAt, offsetMs) { mutableIntStateOf(fallback ?: 0) }
     LaunchedEffect(endsAt, offsetMs) {
-        val deadline = runCatching { Instant.parse(endsAt).toEpochMilli() }.getOrNull() ?: return@LaunchedEffect
+        val deadline = runCatching { Instant.parse(endsAt).toEpochMilli() }.getOrNull()
+            ?: return@LaunchedEffect
         while (true) {
-            seconds = ((deadline - (System.currentTimeMillis() + offsetMs)).coerceAtLeast(0L) / 1000L).toInt()
+            seconds =
+                ((deadline - (System.currentTimeMillis() + offsetMs)).coerceAtLeast(0L) / 1000L).toInt()
             if (seconds == 0) {
                 onExpired()
                 break
@@ -513,7 +625,12 @@ private fun DeadlineCountdown(endsAt: String?, offsetMs: Long, fallback: Int?, o
 }
 
 @Composable
-private fun SingleOption(option: PublicAnswerOption, selected: Boolean, enabled: Boolean, onClick: () -> Unit) {
+private fun SingleOption(
+    option: PublicAnswerOption,
+    selected: Boolean,
+    enabled: Boolean,
+    onClick: () -> Unit
+) {
     Card(onClick = onClick, enabled = enabled, modifier = Modifier.fillMaxWidth()) {
         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             RadioButton(selected = selected, onClick = onClick, enabled = enabled)
@@ -523,7 +640,12 @@ private fun SingleOption(option: PublicAnswerOption, selected: Boolean, enabled:
 }
 
 @Composable
-private fun MultipleOption(option: PublicAnswerOption, selected: Boolean, enabled: Boolean, onClick: () -> Unit) {
+private fun MultipleOption(
+    option: PublicAnswerOption,
+    selected: Boolean,
+    enabled: Boolean,
+    onClick: () -> Unit
+) {
     Card(onClick = onClick, enabled = enabled, modifier = Modifier.fillMaxWidth()) {
         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             Checkbox(checked = selected, onCheckedChange = { onClick() }, enabled = enabled)

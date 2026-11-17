@@ -8,7 +8,7 @@ import android.kma.myquizzapp.core.common.model.QuizCard
 data class SearchUiState(
     // Search query
     val query: String = "",
-    
+
     // Search results
     val results: List<QuizCard> = emptyList(),
     val isSearching: Boolean = false,
@@ -17,7 +17,7 @@ data class SearchUiState(
     // không hiển thị "Không tìm thấy" trong lúc user mới chỉ đang sửa input.
     val hasCompletedSearch: Boolean = false,
     val submittedQuery: String? = null,
-    
+
     // Pagination — N16.5: cursor thật thay vì đếm page (backend không đọc `page`;
     // bản cũ load more chỉ lặp lại trang 1). nextCursor null = không còn trang kế.
     val nextCursor: String? = null,
@@ -29,13 +29,13 @@ data class SearchUiState(
      */
     val isLoading: Boolean
         get() = isSearching || isLoadingMore
-    
+
     /**
      * Whether we have search results to display.
      */
     val hasResults: Boolean
         get() = results.isNotEmpty()
-    
+
     /**
      * Whether search query is not blank.
      */
@@ -46,7 +46,7 @@ data class SearchUiState(
     // A failed append pauses automatic loading; explicit retry keeps the same cursor.
     private val hasAppendablePage: Boolean
         get() = hasCompletedSearch && submittedQuery == query.trim() &&
-            hasResults && hasMore && nextCursor != null
+                hasResults && hasMore && nextCursor != null
 
     val canLoadMore: Boolean
         get() = hasAppendablePage && !isLoading && error == null
@@ -57,8 +57,8 @@ data class SearchUiState(
     /** Chỉ hiện empty-result sau response Success rỗng của đúng query đang nhập. */
     val shouldShowNoResults: Boolean
         get() = hasCompletedSearch &&
-            submittedQuery == query.trim() &&
-            results.isEmpty() &&
-            error == null &&
-            !isSearching
+                submittedQuery == query.trim() &&
+                results.isEmpty() &&
+                error == null &&
+                !isSearching
 }

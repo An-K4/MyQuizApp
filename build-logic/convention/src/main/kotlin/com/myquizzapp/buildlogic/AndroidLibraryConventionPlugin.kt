@@ -31,7 +31,7 @@ class AndroidLibraryConventionPlugin : Plugin<Project> {
                 jvmTarget.set(JvmTarget.JVM_17) // thay jvmToolchain(17) — không cần cài JDK 17 riêng
             }
         }
-        
+
         // Add Timber logging to all library modules
         dependencies {
             "implementation"(libs.findLibrary("timber").get())

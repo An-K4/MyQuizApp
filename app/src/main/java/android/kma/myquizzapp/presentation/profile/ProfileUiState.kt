@@ -42,6 +42,7 @@ sealed interface ProfileIntent {
     data object RequestCloseEdit : ProfileIntent
     data object KeepEditing : ProfileIntent
     data object DiscardEdits : ProfileIntent
+
     // This is a local lifetime marker, NOT an authentication credential.
     data class AvatarPicked(val uri: String, val token: SessionUserToken?) : ProfileIntent
     data object ConfirmAvatar : ProfileIntent

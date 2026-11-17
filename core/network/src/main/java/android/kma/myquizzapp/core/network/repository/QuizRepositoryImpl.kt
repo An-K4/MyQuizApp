@@ -15,10 +15,9 @@ import android.kma.myquizzapp.core.common.repository.QuizRepository
 import android.kma.myquizzapp.core.common.result.Result
 import android.kma.myquizzapp.core.common.result.map
 import android.kma.myquizzapp.core.network.api.QuizApiService
+import android.kma.myquizzapp.core.network.di.PublicQuizApiService
 import android.kma.myquizzapp.core.network.dto.toDomain
 import android.kma.myquizzapp.core.network.dto.toRequestDto
-import android.kma.myquizzapp.core.network.di.PublicQuizApiService
-import timber.log.Timber
 import javax.inject.Inject
 
 /**
@@ -38,17 +37,21 @@ class QuizRepositoryImpl @Inject constructor(
     @PublicQuizApiService private val publicQuizApi: QuizApiService,
     private val quizCacheStore: QuizCacheStore
 ) : QuizRepository {
-    
+
     override suspend fun getHomeContent(): Result<List<HomeSection>> =
         quizApi.getHomeContent().map { it.toDomain() }
 
     private fun AppError.canUseQuizCache(): Boolean =
         this is AppError.Network ||
-            this is AppError.Server ||
-            hasApiCode("SERVICE_UNAVAILABLE", "SERVER_ERROR")
-    
-    override suspend fun searchQuizzes(keyword: String, cursor: String?, limit: Int): Result<List<QuizCard>> =
-        // Backend bọc response trong { quizzes: [...] } → unwrap QuizListDto.quizzes.
+                this is AppError.Server ||
+                hasApiCode("SERVICE_UNAVAILABLE", "SERVER_ERROR")
+
+    override suspend fun searchQuizzes(
+        keyword: String,
+        cursor: String?,
+        limit: Int
+    ): Result<List<QuizCard>> =
+    // Backend bọc response trong { quizzes: [...] } → unwrap QuizListDto.quizzes.
         // page cursor (meta.pagination) được .map giữ lại nguyên vẹn qua Result.page.
         quizApi.searchQuizzes(keyword, cursor = cursor, limit = limit).map { dto ->
             dto.quizzes.map { it.toDomain() }
@@ -78,9 +81,9 @@ class QuizRepositoryImpl @Inject constructor(
             cursor = cursor,
             limit = limit
         ).map { dto -> dto.quizzes.map { it.toDomain() } }
-    
+
     override suspend fun getMyQuizzes(params: MyQuizzesParams): Result<List<QuizSummary>> =
-        // Backend bọc response trong { quizzes: [...] } → unwrap QuizSummaryListDto.quizzes.
+    // Backend bọc response trong { quizzes: [...] } → unwrap QuizSummaryListDto.quizzes.
         // page cursor (meta.pagination) được .map giữ lại nguyên vẹn qua Result.page.
         quizApi.getMyQuizzes(
             visibility = params.visibility.apiValue,
@@ -91,11 +94,11 @@ class QuizRepositoryImpl @Inject constructor(
         ).map { dto ->
             dto.quizzes.map { it.toDomain() }
         }
-    
+
     override suspend fun createQuiz(newQuiz: NewQuiz): Result<Quiz> =
         // Backend bọc response trong { quiz: {...} } → unwrap QuizDetailDto.quiz.
         quizApi.createQuiz(newQuiz.toRequestDto()).map { it.quiz }
-    
+
     override suspend fun getQuizDetail(quizId: Long): Result<Quiz> {
         // Backend bọc response trong { quiz: {...} } → unwrap QuizDetailDto.quiz thành domain model.
         val networkResult = quizApi.getQuizDetail(quizId).map { it.quiz }
@@ -105,6 +108,7 @@ class QuizRepositoryImpl @Inject constructor(
                 quizCacheStore.cacheQuiz(quizId, networkResult.data)
                 networkResult
             }
+
             is Result.Error -> {
                 // Chỉ lỗi tạm thời mới được fallback cache. Lỗi nghiệp vụ như
                 // QUIZ_NOT_FOUND/401/403 phải đi thẳng lên UI; nếu không quiz đã
@@ -116,9 +120,11 @@ class QuizRepositoryImpl @Inject constructor(
                         quizCacheStore.removeQuiz(quizId)
                         networkResult
                     }
+
                     networkResult.error.canUseQuizCache() ->
                         quizCacheStore.getCachedQuiz(quizId)?.let { Result.Success(it) }
                             ?: networkResult
+
                     else -> networkResult
                 }
             }
@@ -141,6 +147,7 @@ class QuizRepositoryImpl @Inject constructor(
                 quizCacheStore.removeQuiz(quizId)
                 Result.Success(Unit)
             }
+
             is Result.Error -> result
         }
 }

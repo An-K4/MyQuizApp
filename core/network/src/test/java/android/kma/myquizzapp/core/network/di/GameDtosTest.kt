@@ -12,7 +12,6 @@ import android.kma.myquizzapp.core.network.dto.JoinGameRequestDto
 import android.kma.myquizzapp.core.network.dto.JoinGameResponseDto
 import android.kma.myquizzapp.core.network.dto.RoomLookupResponseDto
 import android.kma.myquizzapp.core.network.dto.toRequestDto
-import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse

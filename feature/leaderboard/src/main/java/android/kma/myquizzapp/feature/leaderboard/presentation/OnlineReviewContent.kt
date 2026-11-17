@@ -56,25 +56,48 @@ internal fun OnlineReviewItemCard(
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(review.heading, Modifier.weight(1f), color = foreground,
-                    style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
-                Surface(shape = RoundedCornerShape(50), color = MaterialTheme.colorScheme.surface,
-                    modifier = Modifier.semantics(mergeDescendants = true) { stateDescription = review.tone.label }) {
-                    Row(Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(when (review.tone) {
-                            OnlineReviewTone.Correct -> Icons.Outlined.CheckCircle
-                            OnlineReviewTone.Incorrect -> Icons.Outlined.Cancel
-                            else -> Icons.Outlined.RemoveCircleOutline
-                        }, contentDescription = null, tint = statusColor, modifier = Modifier.size(16.dp))
-                        Text(review.tone.label, color = statusColor, style = MaterialTheme.typography.labelMedium)
+            Row(
+                Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    review.heading, Modifier.weight(1f), color = foreground,
+                    style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold
+                )
+                Surface(
+                    shape = RoundedCornerShape(50), color = MaterialTheme.colorScheme.surface,
+                    modifier = Modifier.semantics(mergeDescendants = true) {
+                        stateDescription = review.tone.label
+                    }) {
+                    Row(
+                        Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            when (review.tone) {
+                                OnlineReviewTone.Correct -> Icons.Outlined.CheckCircle
+                                OnlineReviewTone.Incorrect -> Icons.Outlined.Cancel
+                                else -> Icons.Outlined.RemoveCircleOutline
+                            },
+                            contentDescription = null,
+                            tint = statusColor,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Text(
+                            review.tone.label,
+                            color = statusColor,
+                            style = MaterialTheme.typography.labelMedium
+                        )
                     }
                 }
             }
-            Text(review.questionText, color = foreground, style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold)
+            Text(
+                review.questionText,
+                color = foreground,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
             QuestionImage(item.questionImage, "Ảnh minh họa ${review.heading.lowercase()}")
             review.options.forEach { option ->
                 AnswerOptionItem(
@@ -92,12 +115,25 @@ internal fun OnlineReviewItemCard(
                 )
             }
             review.responses.forEach { response ->
-                Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface,
-                    border = BorderStroke(1.dp, response.tone.foreground().copy(alpha = 0.3f))) {
-                    Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text(response.label, color = response.tone.foreground(),
-                            style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
-                        Text(response.text, color = foreground, style = MaterialTheme.typography.bodyMedium)
+                Surface(
+                    shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface,
+                    border = BorderStroke(1.dp, response.tone.foreground().copy(alpha = 0.3f))
+                ) {
+                    Column(
+                        Modifier.fillMaxWidth().padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(
+                            response.label,
+                            color = response.tone.foreground(),
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            response.text,
+                            color = foreground,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
                     }
                 }
             }
@@ -106,14 +142,27 @@ internal fun OnlineReviewItemCard(
             }
             review.explanation?.let { explanation ->
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text("Giải thích", color = foreground, style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.SemiBold)
-                    Text(explanation, color = foreground, style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        "Giải thích",
+                        color = foreground,
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        explanation,
+                        color = foreground,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
                 }
             }
-            val details = listOfNotNull(review.scoreText, review.timeText,
+            val details = listOfNotNull(
+                review.scoreText, review.timeText,
                 "Trả lời muộn".takeIf { review.isLate }).joinToString(" • ")
-            if (details.isNotBlank()) Text(details, color = foreground, style = MaterialTheme.typography.bodySmall)
+            if (details.isNotBlank()) Text(
+                details,
+                color = foreground,
+                style = MaterialTheme.typography.bodySmall
+            )
         }
     }
 }
@@ -136,16 +185,20 @@ private fun OnlineReviewTone.foreground(): Color = when (this) {
 private fun reviewFixture() = GameReviewItem(
     questionIndex = 0, questionId = 10,
     questionText = "Quốc gia có diện tích lớn nhất thế giới?",
-    answerOptions = listOf(PublicAnswerOption("a", "Canada"), PublicAnswerOption("b", "Liên bang Nga"),
-        PublicAnswerOption("c", "Trung Quốc")),
+    answerOptions = listOf(
+        PublicAnswerOption("a", "Canada"), PublicAnswerOption("b", "Liên bang Nga"),
+        PublicAnswerOption("c", "Trung Quốc")
+    ),
     answered = true, yourAnswers = listOf("b"), correctAnswers = listOf("b"),
     isCorrect = true, isLate = false, scoreEarned = 950, timeTakenSeconds = 2.35,
     explanation = "Liên bang Nga có diện tích lớn nhất thế giới.",
 )
 
 @Composable
-private fun ReviewCardPreview(item: GameReviewItem = reviewFixture(), mode: GameMode = GameMode.CLASSIC,
-    questionType: String? = "multiple_choice") {
+private fun ReviewCardPreview(
+    item: GameReviewItem = reviewFixture(), mode: GameMode = GameMode.CLASSIC,
+    questionType: String? = "multiple_choice"
+) {
     MyQuizAppTheme {
         Surface {
             OnlineReviewItemCard(item, mode, Modifier.padding(20.dp), questionType)
@@ -154,30 +207,55 @@ private fun ReviewCardPreview(item: GameReviewItem = reviewFixture(), mode: Game
 }
 
 @Preview(name = "Online Review · Đúng", widthDp = 390, showBackground = true)
-@Preview(name = "Online Review · Dark", widthDp = 390, uiMode = Configuration.UI_MODE_NIGHT_YES, showBackground = true)
+@Preview(
+    name = "Online Review · Dark",
+    widthDp = 390,
+    uiMode = Configuration.UI_MODE_NIGHT_YES,
+    showBackground = true
+)
 @Composable
 private fun OnlineReviewCorrectPreview() = ReviewCardPreview()
 
 @Preview(name = "Online Review · Sai, đã chọn", widthDp = 390, showBackground = true)
 @Composable
-private fun OnlineReviewIncorrectPreview() = ReviewCardPreview(reviewFixture().copy(yourAnswers = listOf("a"), isCorrect = false, scoreEarned = 0))
+private fun OnlineReviewIncorrectPreview() = ReviewCardPreview(
+    reviewFixture().copy(
+        yourAnswers = listOf("a"),
+        isCorrect = false,
+        scoreEarned = 0
+    )
+)
 
 @Preview(name = "Online Review · Nhiều lựa chọn, chọn thiếu", widthDp = 390, showBackground = true)
 @Composable
-private fun OnlineReviewPartialPreview() = ReviewCardPreview(reviewFixture().copy(
-    questionText = "Chọn tất cả các đáp án đúng", correctAnswers = listOf("a", "b"),
-    yourAnswers = listOf("a"), isCorrect = false, scoreEarned = 0, explanation = null), questionType = "multiple_select")
+private fun OnlineReviewPartialPreview() = ReviewCardPreview(
+    reviewFixture().copy(
+        questionText = "Chọn tất cả các đáp án đúng", correctAnswers = listOf("a", "b"),
+        yourAnswers = listOf("a"), isCorrect = false, scoreEarned = 0, explanation = null
+    ), questionType = "multiple_select"
+)
 
 @Preview(name = "Online Review · Bỏ qua", widthDp = 390, showBackground = true)
 @Composable
-private fun OnlineReviewSkippedPreview() = ReviewCardPreview(reviewFixture().copy(answered = false,
-    yourAnswers = emptyList(), isCorrect = false, scoreEarned = 0, timeTakenSeconds = null))
+private fun OnlineReviewSkippedPreview() = ReviewCardPreview(
+    reviewFixture().copy(
+        answered = false,
+        yourAnswers = emptyList(), isCorrect = false, scoreEarned = 0, timeTakenSeconds = null
+    )
+)
 
 @Preview(name = "Online Review · Câu nhập chữ", widthDp = 390, showBackground = true)
 @Composable
-private fun OnlineReviewTextPreview() = ReviewCardPreview(reviewFixture().copy(answerOptions = emptyList(),
-    questionText = "Viết tên quốc gia có diện tích lớn nhất thế giới", yourAnswers = listOf("Canada"),
-    correctAnswers = listOf("Liên bang Nga"), isCorrect = false, scoreEarned = 0))
+private fun OnlineReviewTextPreview() = ReviewCardPreview(
+    reviewFixture().copy(
+        answerOptions = emptyList(),
+        questionText = "Viết tên quốc gia có diện tích lớn nhất thế giới",
+        yourAnswers = listOf("Canada"),
+        correctAnswers = listOf("Liên bang Nga"),
+        isCorrect = false,
+        scoreEarned = 0
+    )
+)
 
 @Preview(name = "Online Review · Practice không điểm", widthDp = 390, showBackground = true)
 @Composable
@@ -185,19 +263,35 @@ private fun OnlineReviewPracticePreview() = ReviewCardPreview(mode = GameMode.PR
 
 @Preview(name = "Online Review · Marathon lượt 21", widthDp = 390, showBackground = true)
 @Composable
-private fun OnlineReviewMarathonPreview() = ReviewCardPreview(reviewFixture().copy(questionIndex = 20), GameMode.MARATHON)
+private fun OnlineReviewMarathonPreview() =
+    ReviewCardPreview(reviewFixture().copy(questionIndex = 20), GameMode.MARATHON)
 
 @Preview(name = "Online Review · Ảnh fallback", widthDp = 390, showBackground = true)
 @Composable
-private fun OnlineReviewImagePreview() = ReviewCardPreview(reviewFixture().copy(questionImage = "https://preview.invalid/question.png"))
+private fun OnlineReviewImagePreview() =
+    ReviewCardPreview(reviewFixture().copy(questionImage = "https://preview.invalid/question.png"))
 
 @Preview(name = "Online Review · Thiếu dữ liệu", widthDp = 390, showBackground = true)
 @Composable
-private fun OnlineReviewMissingPreview() = ReviewCardPreview(reviewFixture().copy(questionText = null,
-    yourAnswers = listOf("removed-option"), correctAnswers = emptyList(), isCorrect = false, explanation = null))
+private fun OnlineReviewMissingPreview() = ReviewCardPreview(
+    reviewFixture().copy(
+        questionText = null,
+        yourAnswers = listOf("removed-option"),
+        correctAnswers = emptyList(),
+        isCorrect = false,
+        explanation = null
+    )
+)
 
-@Preview(name = "Online Review · Hẹp, chữ lớn", widthDp = 320, fontScale = 1.5f, showBackground = true)
+@Preview(
+    name = "Online Review · Hẹp, chữ lớn",
+    widthDp = 320,
+    fontScale = 1.5f,
+    showBackground = true
+)
 @Composable
-private fun OnlineReviewLargeTextPreview() = ReviewCardPreview(reviewFixture().copy(
-    questionText = "Một nội dung câu hỏi rất dài để kiểm tra việc xuống dòng, không cắt mất thông tin trên màn hình nhỏ.",
-    answerOptions = reviewFixture().answerOptions.map { it.copy(text = "Nội dung đáp án dài cần hiển thị đầy đủ, kể cả khi tăng cỡ chữ.") }))
+private fun OnlineReviewLargeTextPreview() = ReviewCardPreview(
+    reviewFixture().copy(
+        questionText = "Một nội dung câu hỏi rất dài để kiểm tra việc xuống dòng, không cắt mất thông tin trên màn hình nhỏ.",
+        answerOptions = reviewFixture().answerOptions.map { it.copy(text = "Nội dung đáp án dài cần hiển thị đầy đủ, kể cả khi tăng cỡ chữ.") })
+)

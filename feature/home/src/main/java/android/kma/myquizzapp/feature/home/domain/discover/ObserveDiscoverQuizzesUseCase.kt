@@ -9,7 +9,12 @@ class ObserveDiscoverQuizzesUseCase @Inject constructor(
     private val repository: QuizRepository
 ) {
     operator fun invoke(query: DiscoverQuery) = Pager(
-        config = PagingConfig(pageSize = 12, initialLoadSize = 12, prefetchDistance = 3, enablePlaceholders = false),
+        config = PagingConfig(
+            pageSize = 12,
+            initialLoadSize = 12,
+            prefetchDistance = 3,
+            enablePlaceholders = false
+        ),
         pagingSourceFactory = { DiscoverPagingSource(repository, query) }
     ).flow
 }

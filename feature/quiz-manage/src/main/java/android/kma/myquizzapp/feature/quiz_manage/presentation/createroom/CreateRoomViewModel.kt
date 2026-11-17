@@ -69,7 +69,8 @@ class CreateRoomViewModel @Inject constructor(
             when (val result = getGameModes()) {
                 is Result.Success -> {
                     val modes = result.data
-                    val selected = modes.firstOrNull { it.mode == GameMode.CLASSIC } ?: modes.firstOrNull()
+                    val selected =
+                        modes.firstOrNull { it.mode == GameMode.CLASSIC } ?: modes.firstOrNull()
                     _uiState.update {
                         it.copy(
                             isLoadingModes = false,
@@ -83,6 +84,7 @@ class CreateRoomViewModel @Inject constructor(
                         )
                     }
                 }
+
                 is Result.Error -> _uiState.update {
                     it.copy(isLoadingModes = false, errorMessage = result.error.toUserMessage())
                 }
@@ -127,7 +129,10 @@ class CreateRoomViewModel @Inject constructor(
         if (!canEdit(key)) return
         _uiState.update {
             it.copy(
-                modeConfig = it.modeConfig?.updateNumber(key, value.filter { char -> char.isDigit() }.take(4)),
+                modeConfig = it.modeConfig?.updateNumber(
+                    key,
+                    value.filter { char -> char.isDigit() }.take(4)
+                ),
                 invalidConfigKeys = it.invalidConfigKeys - key,
                 validationErrors = emptyList()
             )
@@ -202,6 +207,7 @@ class CreateRoomViewModel @Inject constructor(
                     }
                     requestHostToken(result.data.session)
                 }
+
                 is Result.Error -> handleError(result.error)
             }
         }
@@ -227,6 +233,7 @@ class CreateRoomViewModel @Inject constructor(
                         )
                     )
                 }
+
                 is Result.Error -> {
                     if (result.error.isMissingResource("GAME_ROOM_NOT_FOUND")) {
                         _uiState.update { it.copy(isSubmitting = false) }
@@ -236,7 +243,7 @@ class CreateRoomViewModel @Inject constructor(
                             it.copy(
                                 isSubmitting = false,
                                 errorMessage = "Phòng ${session.sessionCode} đã được tạo, nhưng chưa lấy được quyền host. " +
-                                    "Hãy thử lại; ứng dụng sẽ không tạo phòng thứ hai."
+                                        "Hãy thử lại; ứng dụng sẽ không tạo phòng thứ hai."
                             )
                         }
                         if (result.error.isAuthenticationRequired) {

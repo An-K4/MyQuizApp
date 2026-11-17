@@ -11,7 +11,6 @@ import android.kma.myquizzapp.core.ui.theme.MyQuizAppTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -102,8 +101,10 @@ fun ActivityScreenContent(
                             selected = uiState.selectedRole == role,
                             onClick = { onIntent(ActivityIntent.SelectRole(role)) },
                             text = {
-                                val list = if (role == GameHistoryRole.PLAYED) uiState.played else uiState.hosted
-                                val title = if (role == GameHistoryRole.PLAYED) "Đã tham gia chơi" else "Đã tổ chức Host"
+                                val list =
+                                    if (role == GameHistoryRole.PLAYED) uiState.played else uiState.hosted
+                                val title =
+                                    if (role == GameHistoryRole.PLAYED) "Đã tham gia chơi" else "Đã tổ chức Host"
                                 Text(
                                     text = list.totalCount?.let { "$title ($it)" } ?: title,
                                     maxLines = 1,
@@ -146,7 +147,8 @@ private fun HistoryList(
             val listState = rememberLazyListState()
             val shouldLoadMore by remember(page.items.size, page.hasMore, page.isLoadingMore) {
                 derivedStateOf {
-                    val lastVisible = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1
+                    val lastVisible =
+                        listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1
                     page.hasMore && !page.isLoadingMore && lastVisible >= page.items.lastIndex - 2
                 }
             }
@@ -157,7 +159,10 @@ private fun HistoryList(
             LazyColumn(
                 state = listState,
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 20.dp, vertical = 16.dp),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                    horizontal = 20.dp,
+                    vertical = 16.dp
+                ),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 items(page.items, key = { it.sessionId }) { item ->
@@ -168,7 +173,12 @@ private fun HistoryList(
                     }
                 }
                 if (page.isLoadingMore) {
-                    item { Box(Modifier.fillMaxWidth().padding(12.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() } }
+                    item {
+                        Box(
+                            Modifier.fillMaxWidth().padding(12.dp),
+                            contentAlignment = Alignment.Center
+                        ) { CircularProgressIndicator() }
+                    }
                 }
                 page.appendErrorMessage?.let { message ->
                     item {
@@ -176,7 +186,11 @@ private fun HistoryList(
                             Modifier.fillMaxWidth().padding(12.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            Text(message, color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center)
+                            Text(
+                                message,
+                                color = MaterialTheme.colorScheme.error,
+                                textAlign = TextAlign.Center
+                            )
                             TextButton(onClick = onRetry) { Text("Thử lại") }
                         }
                     }
@@ -217,7 +231,13 @@ private fun ErrorState(message: String, onRetry: () -> Unit) {
 }
 
 @Preview(name = "Hoạt động — đã chơi", showBackground = true, widthDp = 390, heightDp = 844)
-@Preview(name = "Hoạt động — đã chơi tối", showBackground = true, widthDp = 390, heightDp = 844, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(
+    name = "Hoạt động — đã chơi tối",
+    showBackground = true,
+    widthDp = 390,
+    heightDp = 844,
+    uiMode = Configuration.UI_MODE_NIGHT_YES
+)
 @Composable
 private fun ActivityPlayedPreview() {
     MyQuizAppTheme {

@@ -32,6 +32,7 @@ class LoadGameHistoryUseCase @Inject constructor(
             is SessionState.LoggedIn -> null
             SessionState.Guest -> guestIdentityStore.getGuestIdOrNull()
                 ?: return Result.Success(emptyList(), PageInfo(nextCursor = null, hasMore = false))
+
             SessionState.Unknown -> return Result.Error(
                 AppError.Unknown(IllegalStateException("Session is not resolved"))
             )

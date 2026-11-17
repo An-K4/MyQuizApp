@@ -1,9 +1,9 @@
 ﻿package android.kma.myquizzapp.core.database.dao
 
+import android.kma.myquizzapp.core.database.entity.CookieEntity
 import androidx.room.Dao
 import androidx.room.Query
 import androidx.room.Upsert
-import android.kma.myquizzapp.core.database.entity.CookieEntity
 
 @Dao
 interface CookieDao {

@@ -102,6 +102,7 @@ class PlayerLobbyViewModel @Inject constructor(
             is GameEvent.Disconnected -> when (event.reason) {
                 DisconnectReason.SERVER_DISCONNECT ->
                     exit("Máy chủ đã đóng kết nối tới phòng này.")
+
                 DisconnectReason.CLIENT -> Unit
                 DisconnectReason.TRANSPORT ->
                     _uiState.update { it.copy(connection = ConnectionStatus.RECONNECTING) }
@@ -131,6 +132,7 @@ class PlayerLobbyViewModel @Inject constructor(
             event.code == CODE_RECONNECT_EXHAUSTED -> _uiState.update {
                 it.copy(connection = ConnectionStatus.RECONNECT_FAILED)
             }
+
             event.code in FATAL_CODES -> exit(message)
             else -> _uiState.update { it.copy(errorMessage = message) }
         }

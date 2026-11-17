@@ -10,7 +10,17 @@ import android.kma.myquizzapp.core.ui.theme.MyQuizAppTheme
 import android.kma.myquizzapp.feature.quiz_manage.presentation.components.ConfirmDeleteQuizDialog
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -23,9 +33,32 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Sort
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.luminance
@@ -40,7 +73,6 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.paging.LoadState
 import androidx.paging.compose.collectAsLazyPagingItems
-import kotlinx.coroutines.flow.collect
 
 /** Stateful boundary: Paging, lifecycle, scroll/menu state and one-off effects live here. */
 @Composable
@@ -134,7 +166,8 @@ fun QuizManageListScreenContent(
     modifier: Modifier = Modifier,
 ) {
     val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
-    val foreground = if (isDark) MaterialTheme.colorScheme.onBackground else FrontendColors.Foreground
+    val foreground =
+        if (isDark) MaterialTheme.colorScheme.onBackground else FrontendColors.Foreground
     val border = if (isDark) MaterialTheme.colorScheme.outline else FrontendColors.Border
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -143,13 +176,21 @@ fun QuizManageListScreenContent(
             TopAppBar(
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
                 title = {
-                    Text("Thư viện của tôi", color = foreground, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                        style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold))
+                    Text(
+                        "Thư viện của tôi",
+                        color = foreground,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold)
+                    )
                 },
                 navigationIcon = {
                     onNavigateBack?.let { back ->
                         IconButton(onClick = back) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Quay lại")
+                            Icon(
+                                Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "Quay lại"
+                            )
                         }
                     }
                 },
@@ -263,17 +304,24 @@ private fun QuizPagingContent(
 ) {
     when {
         refreshState is LoadState.Loading && itemCount == 0 ->
-            Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+            Box(
+                modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) { CircularProgressIndicator() }
+
         refreshState is LoadState.Error && itemCount == 0 ->
             CenterMessage("Không tải được danh sách quiz của bạn.", onRetry, modifier.fillMaxSize())
+
         itemCount == 0 -> {
-            val filtered = uiState.keyword.isNotBlank() || uiState.visibility != MyQuizzesVisibility.ALL
+            val filtered =
+                uiState.keyword.isNotBlank() || uiState.visibility != MyQuizzesVisibility.ALL
             CenterMessage(
                 if (filtered) "Không có quiz phù hợp với từ khóa hoặc bộ lọc này."
                 else "Bạn chưa có quiz nào. Nhấn Tạo Quiz mới để bắt đầu.",
                 modifier = modifier.fillMaxSize(),
             )
         }
+
         else -> LazyColumn(
             modifier = modifier.fillMaxSize(),
             state = listState,
@@ -285,8 +333,10 @@ private fun QuizPagingContent(
                 LinearProgressIndicator(Modifier.fillMaxWidth())
             }
             if (refreshState is LoadState.Error) item(key = "refresh-error") {
-                CenterMessage("Không thể cập nhật danh sách. Đang hiển thị dữ liệu đã tải.", onRetry,
-                    Modifier.fillMaxWidth().padding(vertical = 8.dp))
+                CenterMessage(
+                    "Không thể cập nhật danh sách. Đang hiển thị dữ liệu đã tải.", onRetry,
+                    Modifier.fillMaxWidth().padding(vertical = 8.dp)
+                )
             }
             items(count = itemCount, key = itemKey) { index ->
                 quizAt(index)?.let { quiz ->
@@ -299,7 +349,13 @@ private fun QuizPagingContent(
                         onMenuExpandedChange = { onQuizMenuExpandedChange(if (it) quiz.id else null) },
                         onClick = { onQuizClick(quiz.id) },
                         onEditClick = { onEditClick(quiz.id) },
-                        onDeleteClick = { onIntent(QuizManageListIntent.DeleteQuizClicked(QuizDeleteTarget(quiz.id, quiz.quizName))) },
+                        onDeleteClick = {
+                            onIntent(
+                                QuizManageListIntent.DeleteQuizClicked(
+                                    QuizDeleteTarget(quiz.id, quiz.quizName)
+                                )
+                            )
+                        },
                         enabled = !uiState.isDeleting,
                     )
                 }
@@ -317,13 +373,21 @@ private fun QuizPagingContent(
 }
 
 @Composable
-private fun CenterMessage(message: String, onRetry: (() -> Unit)? = null, modifier: Modifier = Modifier) {
+private fun CenterMessage(
+    message: String,
+    onRetry: (() -> Unit)? = null,
+    modifier: Modifier = Modifier
+) {
     Column(
         modifier = modifier.padding(20.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        Text(message, textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(
+            message,
+            textAlign = TextAlign.Center,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
         onRetry?.let {
             Spacer(Modifier.height(12.dp))
             TextButton(onClick = it) { Text("Thử lại") }
@@ -346,13 +410,21 @@ private fun SortMenuButtonContent(
     )
     Box {
         IconButton(onClick = { onExpandedChange(true) }) {
-            Icon(Icons.Default.Sort, contentDescription = "Sắp xếp: ${options.first { it.first == selected }.second}")
+            Icon(
+                Icons.Default.Sort,
+                contentDescription = "Sắp xếp: ${options.first { it.first == selected }.second}"
+            )
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { onExpandedChange(false) }) {
             options.forEach { (sort, label) ->
                 DropdownMenuItem(
                     text = { Text(label) },
-                    trailingIcon = { if (sort == selected) Icon(Icons.Default.Check, contentDescription = "Đang chọn") },
+                    trailingIcon = {
+                        if (sort == selected) Icon(
+                            Icons.Default.Check,
+                            contentDescription = "Đang chọn"
+                        )
+                    },
                     onClick = {
                         onSortSelected(sort)
                         onExpandedChange(false)
@@ -411,14 +483,27 @@ private fun LibraryPreviewContent(
 }
 
 @Preview(name = "Library Light", showBackground = true, widthDp = 390, heightDp = 844)
-@Preview(name = "Library Dark", showBackground = true, widthDp = 390, heightDp = 844, uiMode = Configuration.UI_MODE_NIGHT_YES)
-@Preview(name = "Library Large Text", showBackground = true, widthDp = 320, heightDp = 844, fontScale = 1.5f)
+@Preview(
+    name = "Library Dark",
+    showBackground = true,
+    widthDp = 390,
+    heightDp = 844,
+    uiMode = Configuration.UI_MODE_NIGHT_YES
+)
+@Preview(
+    name = "Library Large Text",
+    showBackground = true,
+    widthDp = 320,
+    heightDp = 844,
+    fontScale = 1.5f
+)
 @Composable
 private fun QuizManageListScreenContentPreview() = LibraryPreviewContent()
 
 @Preview(name = "Library Loading", showBackground = true, widthDp = 390, heightDp = 844)
 @Composable
-private fun LibraryLoadingPreview() = LibraryPreviewContent(quizzes = emptyList(), refreshState = LoadState.Loading)
+private fun LibraryLoadingPreview() =
+    LibraryPreviewContent(quizzes = emptyList(), refreshState = LoadState.Loading)
 
 @Preview(name = "Library Empty", showBackground = true, widthDp = 390, heightDp = 844)
 @Composable
@@ -426,11 +511,15 @@ private fun LibraryEmptyPreview() = LibraryPreviewContent(quizzes = emptyList())
 
 @Preview(name = "Library Filter Empty", showBackground = true, widthDp = 390, heightDp = 844)
 @Composable
-private fun LibraryFilteredEmptyPreview() = LibraryPreviewContent(quizzes = emptyList(), uiState = QuizManageListUiState(keyword = "Toán"))
+private fun LibraryFilteredEmptyPreview() =
+    LibraryPreviewContent(quizzes = emptyList(), uiState = QuizManageListUiState(keyword = "Toán"))
 
 @Preview(name = "Library Load Error", showBackground = true, widthDp = 390, heightDp = 844)
 @Composable
-private fun LibraryErrorPreview() = LibraryPreviewContent(quizzes = emptyList(), refreshState = LoadState.Error(IllegalStateException("Preview")))
+private fun LibraryErrorPreview() = LibraryPreviewContent(
+    quizzes = emptyList(),
+    refreshState = LoadState.Error(IllegalStateException("Preview"))
+)
 
 @Preview(name = "Library Menu", showBackground = true, widthDp = 390, heightDp = 844)
 @Composable
@@ -438,7 +527,9 @@ private fun LibraryMenuPreview() = LibraryPreviewContent(expandedQuizMenuId = 1L
 
 @Preview(name = "Library Delete Error", showBackground = true, widthDp = 390, heightDp = 844)
 @Composable
-private fun LibraryDeleteErrorPreview() = LibraryPreviewContent(uiState = QuizManageListUiState(
-    deleteTarget = QuizDeleteTarget(1L, "Luyện thi trắc nghiệm Sinh học 12"),
-    deleteError = "Không có kết nối mạng. Vui lòng thử lại.",
-))
+private fun LibraryDeleteErrorPreview() = LibraryPreviewContent(
+    uiState = QuizManageListUiState(
+        deleteTarget = QuizDeleteTarget(1L, "Luyện thi trắc nghiệm Sinh học 12"),
+        deleteError = "Không có kết nối mạng. Vui lòng thử lại.",
+    )
+)

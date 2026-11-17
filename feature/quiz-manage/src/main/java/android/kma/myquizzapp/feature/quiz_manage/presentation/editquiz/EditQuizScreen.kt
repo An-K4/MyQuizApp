@@ -1,28 +1,50 @@
 package android.kma.myquizzapp.feature.quiz_manage.presentation.editquiz
 
 import android.content.res.Configuration
-import android.kma.myquizzapp.core.ui.theme.MyQuizAppTheme
-import android.kma.myquizzapp.feature.quiz_manage.presentation.components.*
 import android.kma.myquizzapp.core.ui.components.AppConfirmDialog
 import android.kma.myquizzapp.core.ui.components.AppDialogVariant
-import androidx.compose.foundation.ScrollState
-import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
+import android.kma.myquizzapp.core.ui.theme.MyQuizAppTheme
+import android.kma.myquizzapp.feature.quiz_manage.presentation.components.QuestionDraft
+import android.kma.myquizzapp.feature.quiz_manage.presentation.components.QuizEditorContent
+import android.kma.myquizzapp.feature.quiz_manage.presentation.components.ScrollToEditorError
+import android.kma.myquizzapp.feature.quiz_manage.presentation.components.rememberQuestionScrollStates
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.ScrollState
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
@@ -42,8 +64,12 @@ fun EditQuizScreen(
     val listState = rememberLazyListState()
     val typeScrollStates = rememberQuestionScrollStates(uiState.questions)
     val timeScrollStates = rememberQuestionScrollStates(uiState.questions)
-    ScrollToEditorError(uiState.validationErrors, uiState.validationAttempt, uiState.questions, listState)
-
+    ScrollToEditorError(
+        uiState.validationErrors,
+        uiState.validationAttempt,
+        uiState.questions,
+        listState
+    )
 
 
     val requestBack: () -> Unit = {
@@ -55,14 +81,15 @@ fun EditQuizScreen(
     }
     BackHandler(enabled = uiState.isDirty || uiState.isSubmitting) { requestBack() }
 
-    val photoPickerLauncher = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        val target = pendingPickTarget
-        pendingPickTarget = null
-        if (uri != null && target != null) {
-            if (target == "cover") viewModel.onIntent(EditQuizIntent.PickCoverImage(uri))
-            else viewModel.onIntent(EditQuizIntent.PickQuestionImage(target, uri))
+    val photoPickerLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+            val target = pendingPickTarget
+            pendingPickTarget = null
+            if (uri != null && target != null) {
+                if (target == "cover") viewModel.onIntent(EditQuizIntent.PickCoverImage(uri))
+                else viewModel.onIntent(EditQuizIntent.PickQuestionImage(target, uri))
+            }
         }
-    }
     val launchImagePicker: (String) -> Unit = { target ->
         if (!uiState.isSubmitting) {
             pendingPickTarget = target
@@ -86,7 +113,8 @@ fun EditQuizScreen(
         timeScrollStates = timeScrollStates,
         supplementaryExpandedIds = supplementaryExpandedIds,
         onSupplementaryExpandedChange = { id, expanded ->
-            supplementaryExpandedIds = if (expanded) (supplementaryExpandedIds + id).distinct() else supplementaryExpandedIds - id
+            supplementaryExpandedIds =
+                if (expanded) (supplementaryExpandedIds + id).distinct() else supplementaryExpandedIds - id
         },
         showDiscardDialog = showDiscardDialog,
         onShowDiscardDialogChange = { showDiscardDialog = it },
@@ -150,13 +178,15 @@ fun EditQuizScreenContent(
                 Spacer(Modifier.height(12.dp))
                 Button(onClick = { onIntent(EditQuizIntent.Retry) }) { Text("Thử lại") }
             }
+
             else -> QuizEditorContent(
                 quizName = uiState.quizName,
                 quizDescription = uiState.quizDescription,
                 quizLanguage = uiState.quizLanguage,
                 quizCategory = uiState.quizCategory,
                 isPublic = uiState.isPublic,
-                coverImageModel = if (uiState.coverRemoved) null else uiState.coverImageUri ?: uiState.existingCoverUrl,
+                coverImageModel = if (uiState.coverRemoved) null else uiState.coverImageUri
+                    ?: uiState.existingCoverUrl,
                 questions = uiState.questions,
                 validationErrors = uiState.validationErrors,
                 listState = listState,
@@ -174,20 +204,77 @@ fun EditQuizScreenContent(
                 onIsPublicChanged = { onIntent(EditQuizIntent.IsPublicChanged(it)) },
                 onPickCoverImage = onPickCoverImage,
                 onRemoveCoverImage = { onIntent(EditQuizIntent.RemoveCoverImage) },
-                onQuestionTypeChanged = { id, type -> onIntent(EditQuizIntent.QuestionTypeChanged(id, type)) },
-                onQuestionTextChanged = { id, value -> onIntent(EditQuizIntent.QuestionTextChanged(id, value)) },
-                onTimeLimitChanged = { id, value -> onIntent(EditQuizIntent.TimeLimitChanged(id, value)) },
-                onTimePresetSelected = { id, seconds -> onIntent(EditQuizIntent.TimePresetSelected(id, seconds)) },
+                onQuestionTypeChanged = { id, type ->
+                    onIntent(
+                        EditQuizIntent.QuestionTypeChanged(
+                            id,
+                            type
+                        )
+                    )
+                },
+                onQuestionTextChanged = { id, value ->
+                    onIntent(
+                        EditQuizIntent.QuestionTextChanged(
+                            id,
+                            value
+                        )
+                    )
+                },
+                onTimeLimitChanged = { id, value ->
+                    onIntent(
+                        EditQuizIntent.TimeLimitChanged(
+                            id,
+                            value
+                        )
+                    )
+                },
+                onTimePresetSelected = { id, seconds ->
+                    onIntent(
+                        EditQuizIntent.TimePresetSelected(
+                            id,
+                            seconds
+                        )
+                    )
+                },
                 onCustomTimeSelected = { onIntent(EditQuizIntent.CustomTimeSelected(it)) },
                 onPickQuestionImage = onPickQuestionImage,
                 onRemoveQuestionImage = { onIntent(EditQuizIntent.RemoveQuestionImage(it)) },
-                onOptionChanged = { id, index, value -> onIntent(EditQuizIntent.OptionChanged(id, index, value)) },
-                onToggleCorrect = { id, index -> onIntent(EditQuizIntent.ToggleCorrectIndex(id, index)) },
+                onOptionChanged = { id, index, value ->
+                    onIntent(
+                        EditQuizIntent.OptionChanged(
+                            id,
+                            index,
+                            value
+                        )
+                    )
+                },
+                onToggleCorrect = { id, index ->
+                    onIntent(
+                        EditQuizIntent.ToggleCorrectIndex(
+                            id,
+                            index
+                        )
+                    )
+                },
                 onAddOption = { onIntent(EditQuizIntent.AddOption(it)) },
                 onRemoveOption = { id, index -> onIntent(EditQuizIntent.RemoveOption(id, index)) },
                 onHintChanged = { id, value -> onIntent(EditQuizIntent.HintChanged(id, value)) },
-                onExplanationChanged = { id, value -> onIntent(EditQuizIntent.ExplanationChanged(id, value)) },
-                onCorrectTextChanged = { id, value -> onIntent(EditQuizIntent.CorrectTextChanged(id, value)) },
+                onExplanationChanged = { id, value ->
+                    onIntent(
+                        EditQuizIntent.ExplanationChanged(
+                            id,
+                            value
+                        )
+                    )
+                },
+                onCorrectTextChanged = { id, value ->
+                    onIntent(
+                        EditQuizIntent.CorrectTextChanged(
+                            id,
+                            value
+                        )
+                    )
+                },
                 onRemoveQuestion = { onIntent(EditQuizIntent.RemoveQuestion(it)) },
                 onAddQuestion = { onIntent(EditQuizIntent.AddQuestion) },
                 onSubmit = { onIntent(EditQuizIntent.Submit) },
@@ -208,10 +295,12 @@ private fun CenterStatusContent(modifier: Modifier, content: @Composable ColumnS
 }
 
 @Composable
-private fun EditQuizPreviewContent(uiState: EditQuizUiState = EditQuizUiState(
-    isLoading = false, quizName = "Khám phá Văn hóa Thế giới", quizCategory = "Văn hóa",
-    existingCoverUrl = "https://preview.invalid/cover.png", questions = listOf(QuestionDraft()),
-)) {
+private fun EditQuizPreviewContent(
+    uiState: EditQuizUiState = EditQuizUiState(
+        isLoading = false, quizName = "Khám phá Văn hóa Thế giới", quizCategory = "Văn hóa",
+        existingCoverUrl = "https://preview.invalid/cover.png", questions = listOf(QuestionDraft()),
+    )
+) {
     MyQuizAppTheme {
         EditQuizScreenContent(
             uiState = uiState, listState = rememberLazyListState(),
@@ -226,9 +315,25 @@ private fun EditQuizPreviewContent(uiState: EditQuizUiState = EditQuizUiState(
 }
 
 @Preview(name = "Edit Quiz - Light", showBackground = true, widthDp = 390, heightDp = 844)
-@Preview(name = "Edit Quiz - Dark", showBackground = true, widthDp = 390, heightDp = 844, uiMode = Configuration.UI_MODE_NIGHT_YES)
-@Composable private fun EditQuizScreenContentPreview() = EditQuizPreviewContent()
+@Preview(
+    name = "Edit Quiz - Dark",
+    showBackground = true,
+    widthDp = 390,
+    heightDp = 844,
+    uiMode = Configuration.UI_MODE_NIGHT_YES
+)
+@Composable
+private fun EditQuizScreenContentPreview() = EditQuizPreviewContent()
+
 @Preview(name = "Edit Quiz - Loading", showBackground = true, widthDp = 390, heightDp = 844)
-@Composable private fun EditQuizLoadingPreview() = EditQuizPreviewContent(EditQuizUiState())
+@Composable
+private fun EditQuizLoadingPreview() = EditQuizPreviewContent(EditQuizUiState())
+
 @Preview(name = "Edit Quiz - Load Error", showBackground = true, widthDp = 390, heightDp = 844)
-@Composable private fun EditQuizLoadErrorPreview() = EditQuizPreviewContent(EditQuizUiState(isLoading = false, loadError = "Không thể tải quiz. Vui lòng thử lại."))
+@Composable
+private fun EditQuizLoadErrorPreview() = EditQuizPreviewContent(
+    EditQuizUiState(
+        isLoading = false,
+        loadError = "Không thể tải quiz. Vui lòng thử lại."
+    )
+)

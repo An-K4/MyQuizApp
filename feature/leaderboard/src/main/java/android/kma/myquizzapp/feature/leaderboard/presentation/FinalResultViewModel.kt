@@ -12,13 +12,13 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
-import javax.inject.Inject
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 @HiltViewModel
 class FinalResultViewModel @Inject constructor(
@@ -79,6 +79,7 @@ class FinalResultViewModel @Inject constructor(
                         )
                     }
                 }
+
                 is Result.Error -> {
                     val message = result.error.toUserMessage()
                     if (result.error.isMissingResource("GAME_ROOM_NOT_FOUND")) {
@@ -118,6 +119,7 @@ class FinalResultViewModel @Inject constructor(
                 is Result.Success -> _uiState.update {
                     it.copy(review = result.data, isReviewLoading = false, reviewError = null)
                 }
+
                 is Result.Error -> _uiState.update {
                     it.copy(isReviewLoading = false, reviewError = result.error.toUserMessage())
                 }

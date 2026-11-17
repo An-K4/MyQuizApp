@@ -18,8 +18,11 @@ class SaveProfileUseCase @Inject constructor(
         val patch = draft.patch()
         if (patch.isEmpty) return Result.Success(Unit)
         return when (val result = users.updateProfile(patch)) {
-            is Result.Success -> if (session.applyUserUpdate(token, result.data)) Result.Success(Unit)
-                else Result.Error(AppError.Unauthorized)
+            is Result.Success -> if (session.applyUserUpdate(token, result.data)) Result.Success(
+                Unit
+            )
+            else Result.Error(AppError.Unauthorized)
+
             is Result.Error -> {
                 if (result.error.isSessionTerminal) session.invalidateSession(token)
                 result

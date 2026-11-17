@@ -19,7 +19,11 @@ interface StorageRepository {
      * Endpoint: POST /v1/storage/presign (authRequired).
      * folder phải thuộc ALLOWED_FOLDERS backend: "avatars" | "quizzes" | "questions" | "uploads".
      */
-    suspend fun presignUpload(contentType: String, folder: String, fileSize: Long): Result<PresignResult>
+    suspend fun presignUpload(
+        contentType: String,
+        folder: String,
+        fileSize: Long
+    ): Result<PresignResult>
 
     /**
      * Bước 2: PUT bytes ảnh trực tiếp lên uploadUrl (bên thứ 3, KHÔNG cookie/auth

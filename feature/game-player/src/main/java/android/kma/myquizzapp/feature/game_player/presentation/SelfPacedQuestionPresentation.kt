@@ -5,17 +5,26 @@ import java.time.Instant
 
 /** Display policy only. Server ACKs/events remain the authority for grading and transitions. */
 internal val GameUiState.usesSelfPacedLayout: Boolean
-    get() = isSelfPaced && mode in setOf(GameMode.SOLO, GameMode.SURVIVAL, GameMode.MARATHON, GameMode.PRACTICE)
+    get() = isSelfPaced && mode in setOf(
+        GameMode.SOLO,
+        GameMode.SURVIVAL,
+        GameMode.MARATHON,
+        GameMode.PRACTICE
+    )
 
 internal val GameUiState.selfPacedIsPractice: Boolean get() = mode == GameMode.PRACTICE
 internal val GameUiState.selfPacedIsOnline: Boolean
     get() = connection == GameConnection.CONNECTED && !isSynchronizing
 internal val GameUiState.selfPacedCanAnswer: Boolean
     get() = selfPacedIsOnline && !isPaused && !matchTimeExpired && isAnswerInputEnabled &&
-        phase == GamePhaseUi.Question && !isSubmitting && !isConfirming
+            phase == GamePhaseUi.Question && !isSubmitting && !isConfirming
 internal val GameUiState.selfPacedShowsSubmitAction: Boolean
-    get() = isSelfPaced && question?.questionType in setOf("multiple_select", "short_answer", "long_answer") &&
-        (phase == GamePhaseUi.Question || phase == GamePhaseUi.Submitted)
+    get() = isSelfPaced && question?.questionType in setOf(
+        "multiple_select",
+        "short_answer",
+        "long_answer"
+    ) &&
+            (phase == GamePhaseUi.Question || phase == GamePhaseUi.Submitted)
 
 internal val GameUiState.selfPacedCanRequestNext: Boolean
     get() = shouldShowNextAction && selfPacedIsOnline && !isPaused && !matchTimeExpired && !isRequestingNext
@@ -33,13 +42,13 @@ internal val GameUiState.selfPacedResultMatchesQuestion: Boolean
         val current = question ?: return false
         val result = results ?: return false
         return (phase is GamePhaseUi.Results || phase == GamePhaseUi.Eliminated) &&
-            result.index == current.index && (result.questionId == null || result.questionId == current.id) &&
-            (phase as? GamePhaseUi.Results)?.restoredWithoutDetails != true
+                result.index == current.index && (result.questionId == null || result.questionId == current.id) &&
+                (phase as? GamePhaseUi.Results)?.restoredWithoutDetails != true
     }
 
 internal val GameUiState.selfPacedRevealsResult: Boolean
     get() = selfPacedResultMatchesQuestion && showCorrectAnswer == true &&
-        outcome in setOf(QuestionOutcome.CORRECT, QuestionOutcome.INCORRECT)
+            outcome in setOf(QuestionOutcome.CORRECT, QuestionOutcome.INCORRECT)
 
 /** Pending drafts may be displayed; results use accepted evidence only, never a draft. */
 internal fun selfPacedSelectedKeys(state: GameUiState): List<String> =
@@ -51,7 +60,8 @@ internal fun selfPacedProgressLabel(state: GameUiState): String {
     val question = state.question ?: return "Đang đồng bộ câu hỏi…"
     if (state.mode == GameMode.MARATHON) {
         val answered = question.index + if (state.selfPacedResultMatchesQuestion ||
-            state.acceptedAnswerKeys != null) 1 else 0
+            state.acceptedAnswerKeys != null
+        ) 1 else 0
         return "Đã làm ${answered.coerceAtLeast(0)} câu"
     }
     return "Câu ${question.index + 1}/${question.total}"
@@ -95,6 +105,7 @@ internal fun selfPacedFooterText(state: GameUiState): String = when {
         state.autoAdvance -> "Đang chờ máy chủ chuyển câu…"
         else -> "Đang chờ máy chủ xác nhận hoàn thành…"
     }
+
     state.isConfirming -> "Đang xác nhận câu trả lời với máy chủ…"
     state.isSubmitting -> "Đang gửi đáp án…"
     state.phase == GamePhaseUi.Submitted -> "Đã gửi đáp án. Đang chờ kết quả…"
@@ -115,12 +126,20 @@ internal data class SelfPacedTime(
 internal fun selfPacedTime(state: GameUiState, nowMillis: Long): SelfPacedTime {
     if (!state.selfPacedIsOnline || state.isPaused || state.isPersonallyDone || state.phase == GamePhaseUi.Finished)
         return SelfPacedTime()
-    val questionTime = if (state.phase == GamePhaseUi.Question) classicQuestionTime(state, nowMillis)
+    val questionTime =
+        if (state.phase == GamePhaseUi.Question) classicQuestionTime(state, nowMillis)
         else ClassicQuestionTime()
-    val matchDeadline = state.matchEndsAt?.let { runCatching { Instant.parse(it).toEpochMilli() }.getOrNull() }
+    val matchDeadline =
+        state.matchEndsAt?.let { runCatching { Instant.parse(it).toEpochMilli() }.getOrNull() }
     val matchLeft = matchDeadline?.let { (it - nowMillis - state.serverOffsetMs).coerceAtLeast(0L) }
-    return SelfPacedTime(questionTime, matchLeft?.let { ((it + 999L) / 1_000L).toInt() }, matchLeft == 0L)
+    return SelfPacedTime(
+        questionTime,
+        matchLeft?.let { ((it + 999L) / 1_000L).toInt() },
+        matchLeft == 0L
+    )
 }
 
 internal fun selfPacedClockLabel(seconds: Int): String =
-    "${seconds.coerceAtLeast(0) / 60}:${(seconds.coerceAtLeast(0) % 60).toString().padStart(2, '0')}"
+    "${seconds.coerceAtLeast(0) / 60}:${
+        (seconds.coerceAtLeast(0) % 60).toString().padStart(2, '0')
+    }"

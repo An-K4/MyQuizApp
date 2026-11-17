@@ -7,11 +7,24 @@ import android.kma.myquizzapp.feature.quiz_manage.domain.usecase.CreateQuizWithA
 import android.kma.myquizzapp.feature.quiz_manage.presentation.createquiz.CreateQuizIntent
 import android.kma.myquizzapp.feature.quiz_manage.presentation.createquiz.CreateQuizViewModel
 import androidx.lifecycle.ViewModelStore
-import io.mockk.*
-import kotlinx.coroutines.*
-import kotlinx.coroutines.test.*
+import io.mockk.coEvery
+import io.mockk.coVerify
+import io.mockk.mockk
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.setMain
 import org.junit.After
-import org.junit.Assert.*
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
@@ -21,15 +34,27 @@ class CreateQuizViewModelTest {
     private lateinit var saveQuiz: CreateQuizWithAssetsUseCase
     private lateinit var vm: CreateQuizViewModel
     private lateinit var store: ViewModelStore
-    private val quiz = Quiz(id = 1L, quizOwner = 7L, quizName = "Quiz mẫu", quizLanguage = "vi", isPublic = true,
-        createdAt = "2026-10-10T00:00:00Z", updatedAt = "2026-10-10T00:00:00Z")
-    @Before fun setUp() {
+    private val quiz = Quiz(
+        id = 1L, quizOwner = 7L, quizName = "Quiz mẫu", quizLanguage = "vi", isPublic = true,
+        createdAt = "2026-10-10T00:00:00Z", updatedAt = "2026-10-10T00:00:00Z"
+    )
+
+    @Before
+    fun setUp() {
         Dispatchers.setMain(dispatcher)
         saveQuiz = mockk()
         store = ViewModelStore()
     }
-    @After fun tearDown() { store.clear(); Dispatchers.resetMain() }
-    private fun create() { vm = CreateQuizViewModel(saveQuiz); store.put("editor", vm) }
+
+    @After
+    fun tearDown() {
+        store.clear(); Dispatchers.resetMain()
+    }
+
+    private fun create() {
+        vm = CreateQuizViewModel(saveQuiz); store.put("editor", vm)
+    }
+
     private fun validInput(): String {
         vm.onIntent(CreateQuizIntent.QuizNameChanged(" Quiz mẫu "))
         vm.onIntent(CreateQuizIntent.QuizLanguageChanged(" vi "))
@@ -41,7 +66,8 @@ class CreateQuizViewModelTest {
         return id
     }
 
-    @Test fun `validation blocks upload and repeated errors remain observable`() = runTest(dispatcher) {
+    @Test
+    fun `validation blocks upload and repeated errors remain observable`() = runTest(dispatcher) {
         create()
         vm.onIntent(CreateQuizIntent.Submit)
         val firstAttempt = vm.uiState.value.validationAttempt
@@ -51,38 +77,48 @@ class CreateQuizViewModelTest {
         assertEquals(firstAttempt + 1, vm.uiState.value.validationAttempt)
         coVerify(exactly = 0) { saveQuiz(any()) }
     }
-    @Test fun `double submit is blocked synchronously and fields cannot change while saving`() = runTest(dispatcher) {
-        create()
+
+    @Test
+    fun `double submit is blocked synchronously and fields cannot change while saving`() =
+        runTest(dispatcher) {
+            create()
+            val id = validInput()
+            val response = CompletableDeferred<Result<Quiz>>()
+            coEvery { saveQuiz(any()) } coAnswers { response.await() }
+            vm.onIntent(CreateQuizIntent.Submit)
+            vm.onIntent(CreateQuizIntent.Submit)
+            vm.onIntent(CreateQuizIntent.QuizNameChanged("Không được đổi"))
+            vm.onIntent(CreateQuizIntent.AddQuestion)
+            vm.onIntent(CreateQuizIntent.OptionChanged(id, 0, "Không được đổi"))
+            assertTrue(vm.uiState.value.isSubmitting)
+            assertEquals(" Quiz mẫu ", vm.uiState.value.quizName)
+            assertEquals(1, vm.uiState.value.questions.size)
+            assertEquals(" A ", vm.uiState.value.questions.first().options.first())
+            runCurrent()
+            coVerify(exactly = 1) { saveQuiz(any()) }
+            response.complete(Result.Success(quiz))
+            advanceUntilIdle()
+            assertFalse(vm.uiState.value.isSubmitting)
+            assertFalse(vm.uiState.value.isDirty)
+        }
+
+    @Test
+    fun `custom mode survives typing a preset and preset selection clears custom mode`() =
+        runTest(dispatcher) {
+            create();
+            val id = validInput()
+            vm.onIntent(CreateQuizIntent.CustomTimeSelected(id))
+            vm.onIntent(CreateQuizIntent.TimeLimitChanged(id, "30"))
+            assertTrue(vm.uiState.value.questions.first().usesCustomTime)
+            vm.onIntent(CreateQuizIntent.TimePresetSelected(id, 60))
+            assertFalse(vm.uiState.value.questions.first().usesCustomTime)
+            assertEquals("60", vm.uiState.value.questions.first().timeLimit)
+        }
+
+    @Test
+    fun `options stay within bounds and deletion remaps correct index`() = runTest(dispatcher) {
+        create();
         val id = validInput()
-        val response = CompletableDeferred<Result<Quiz>>()
-        coEvery { saveQuiz(any()) } coAnswers { response.await() }
-        vm.onIntent(CreateQuizIntent.Submit)
-        vm.onIntent(CreateQuizIntent.Submit)
-        vm.onIntent(CreateQuizIntent.QuizNameChanged("Không được đổi"))
-        vm.onIntent(CreateQuizIntent.AddQuestion)
-        vm.onIntent(CreateQuizIntent.OptionChanged(id, 0, "Không được đổi"))
-        assertTrue(vm.uiState.value.isSubmitting)
-        assertEquals(" Quiz mẫu ", vm.uiState.value.quizName)
-        assertEquals(1, vm.uiState.value.questions.size)
-        assertEquals(" A ", vm.uiState.value.questions.first().options.first())
-        runCurrent()
-        coVerify(exactly = 1) { saveQuiz(any()) }
-        response.complete(Result.Success(quiz))
-        advanceUntilIdle()
-        assertFalse(vm.uiState.value.isSubmitting)
-        assertFalse(vm.uiState.value.isDirty)
-    }
-    @Test fun `custom mode survives typing a preset and preset selection clears custom mode`() = runTest(dispatcher) {
-        create(); val id = validInput()
-        vm.onIntent(CreateQuizIntent.CustomTimeSelected(id))
-        vm.onIntent(CreateQuizIntent.TimeLimitChanged(id, "30"))
-        assertTrue(vm.uiState.value.questions.first().usesCustomTime)
-        vm.onIntent(CreateQuizIntent.TimePresetSelected(id, 60))
-        assertFalse(vm.uiState.value.questions.first().usesCustomTime)
-        assertEquals("60", vm.uiState.value.questions.first().timeLimit)
-    }
-    @Test fun `options stay within bounds and deletion remaps correct index`() = runTest(dispatcher) {
-        create(); val id = validInput()
         repeat(4) { vm.onIntent(CreateQuizIntent.AddOption(id)) }
         assertEquals(4, vm.uiState.value.questions.first().options.size)
         vm.onIntent(CreateQuizIntent.ToggleCorrectIndex(id, 3))
@@ -95,16 +131,30 @@ class CreateQuizViewModelTest {
         vm.onIntent(CreateQuizIntent.RemoveOption(id, 0))
         assertEquals(2, vm.uiState.value.questions.first().options.size)
     }
-    @Test fun `last question cannot be removed and selecting same type keeps answer`() = runTest(dispatcher) {
-        create(); val id = validInput()
-        vm.onIntent(CreateQuizIntent.RemoveQuestion(id))
-        assertEquals(1, vm.uiState.value.questions.size)
-        vm.onIntent(CreateQuizIntent.QuestionTypeChanged(id, vm.uiState.value.questions.first().questionType))
-        assertEquals(setOf(0), vm.uiState.value.questions.first().correctIndexes)
-    }
-    @Test fun `network error preserves draft and permits deliberate retry`() = runTest(dispatcher) {
+
+    @Test
+    fun `last question cannot be removed and selecting same type keeps answer`() =
+        runTest(dispatcher) {
+            create();
+            val id = validInput()
+            vm.onIntent(CreateQuizIntent.RemoveQuestion(id))
+            assertEquals(1, vm.uiState.value.questions.size)
+            vm.onIntent(
+                CreateQuizIntent.QuestionTypeChanged(
+                    id,
+                    vm.uiState.value.questions.first().questionType
+                )
+            )
+            assertEquals(setOf(0), vm.uiState.value.questions.first().correctIndexes)
+        }
+
+    @Test
+    fun `network error preserves draft and permits deliberate retry`() = runTest(dispatcher) {
         create(); validInput()
-        coEvery { saveQuiz(any()) } returnsMany listOf(Result.Error(AppError.Network), Result.Success(quiz))
+        coEvery { saveQuiz(any()) } returnsMany listOf(
+            Result.Error(AppError.Network),
+            Result.Success(quiz)
+        )
         vm.onIntent(CreateQuizIntent.Submit)
         advanceUntilIdle()
         assertFalse(vm.uiState.value.isSubmitting)

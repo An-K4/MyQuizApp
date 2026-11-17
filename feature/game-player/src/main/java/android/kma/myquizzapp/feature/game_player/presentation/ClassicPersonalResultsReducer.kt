@@ -9,7 +9,9 @@ internal fun String?.serverMillis(): Long? = this?.let {
 }
 
 internal fun newerServerTime(old: String?, incoming: String?): String? =
-    if ((incoming.serverMillis() ?: Long.MIN_VALUE) >= (old.serverMillis() ?: Long.MIN_VALUE)) incoming ?: old else old
+    if ((incoming.serverMillis() ?: Long.MIN_VALUE) >= (old.serverMillis()
+            ?: Long.MIN_VALUE)
+    ) incoming ?: old else old
 
 /** Shared by realtime and player:sync. Assignment only: never increment scores/streak locally. */
 internal fun GameUiState.reconcileClassicPersonalResult(
@@ -24,7 +26,9 @@ internal fun GameUiState.reconcileClassicPersonalResult(
     val resultTime = result.serverTime.serverMillis() ?: return this
     if (resultTime < (personalResult?.serverTime.serverMillis() ?: Long.MIN_VALUE)) return this
     // A delayed closure may not reopen a newer active snapshot of the same question.
-    if (phase !is GamePhaseUi.Results && resultTime < (classicPhaseServerTime.serverMillis() ?: Long.MIN_VALUE)) return this
+    if (phase !is GamePhaseUi.Results && resultTime < (classicPhaseServerTime.serverMillis()
+            ?: Long.MIN_VALUE)
+    ) return this
     val alreadyClosed = phase is GamePhaseUi.Results
     return copy(
         personalResult = result,
@@ -41,7 +45,7 @@ internal fun GameUiState.reconcileClassicPersonalResult(
         // Snapshot/common timing wins. In particular a late private event cannot unpause a clock.
         endsAt = if (!restored && !alreadyClosed && !isPaused) result.nextQuestionAt else endsAt,
         classicPhaseServerTime = if (restored || alreadyClosed) classicPhaseServerTime
-            else newerServerTime(classicPhaseServerTime, result.serverTime),
+        else newerServerTime(classicPhaseServerTime, result.serverTime),
         classicFeedbackRemainingMs = if (restored) 0L else classicFeedbackRemainingMs,
         hasAnswerAttempt = result.answered,
         isInputLocked = true,
@@ -50,15 +54,21 @@ internal fun GameUiState.reconcileClassicPersonalResult(
     )
 }
 
-internal fun GameUiState.reconcileClassicCommonResult(result: QuestionResults, serverTime: String?): GameUiState {
+internal fun GameUiState.reconcileClassicCommonResult(
+    result: QuestionResults,
+    serverTime: String?
+): GameUiState {
     if (phase == GamePhaseUi.Finished || question?.index != result.index ||
         (result.questionId != null && question.id != result.questionId)
     ) return this
     val alreadyClosed = phase is GamePhaseUi.Results
     if (!alreadyClosed && (serverTime.serverMillis() ?: Long.MAX_VALUE) <
-        (classicPhaseServerTime.serverMillis() ?: Long.MIN_VALUE)) return this
-    val feedback = resolveQuestionFeedback(showCorrectAnswer, question.questionType,
-        acceptedAnswerKeys.orEmpty(), result)
+        (classicPhaseServerTime.serverMillis() ?: Long.MIN_VALUE)
+    ) return this
+    val feedback = resolveQuestionFeedback(
+        showCorrectAnswer, question.questionType,
+        acceptedAnswerKeys.orEmpty(), result
+    )
     return copy(
         phase = GamePhaseUi.Results(),
         results = feedback.results,
@@ -68,10 +78,12 @@ internal fun GameUiState.reconcileClassicCommonResult(result: QuestionResults, s
         classicPhaseServerTime = newerServerTime(classicPhaseServerTime, serverTime),
         classicFeedbackRemainingMs = when {
             alreadyClosed -> classicFeedbackRemainingMs
-            showCorrectAnswer == true && feedback.results.correctAnswers.isNotEmpty() -> minOf(CLASSIC_FEEDBACK_DURATION_MS,
+            showCorrectAnswer == true && feedback.results.correctAnswers.isNotEmpty() -> minOf(
+                CLASSIC_FEEDBACK_DURATION_MS,
                 result.nextQuestionAt.serverMillis()?.let { deadline ->
                     serverTime.serverMillis()?.let { (deadline - it).coerceAtLeast(0L) }
                 } ?: CLASSIC_FEEDBACK_DURATION_MS)
+
             else -> 0L
         },
         isResultsLeaderboardFresh = alreadyClosed && isResultsLeaderboardFresh,

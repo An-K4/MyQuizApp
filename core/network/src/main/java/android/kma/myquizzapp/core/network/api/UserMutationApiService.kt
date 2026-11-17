@@ -4,12 +4,12 @@ import android.kma.myquizzapp.core.common.result.Result
 import android.kma.myquizzapp.core.network.dto.AuthDataDto
 import android.kma.myquizzapp.core.network.dto.AvatarRequestDto
 import android.kma.myquizzapp.core.network.dto.AvatarResponseDto
-import android.kma.myquizzapp.core.network.dto.UserProfilePatchDto
-import retrofit2.http.Body
-import retrofit2.http.PATCH
-import retrofit2.http.HTTP
 import android.kma.myquizzapp.core.network.dto.ChangePasswordDto
 import android.kma.myquizzapp.core.network.dto.DeactivateAccountDto
+import android.kma.myquizzapp.core.network.dto.UserProfilePatchDto
+import retrofit2.http.Body
+import retrofit2.http.HTTP
+import retrofit2.http.PATCH
 
 /** PreserveCaseRetrofit: fileUrl/avatarUrl are camelCase, nested user is snake_case. */
 interface UserMutationApiService {

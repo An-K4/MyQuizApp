@@ -76,7 +76,8 @@ class TokenAuthenticatorTest {
         assertEquals(3, server.requestCount)
 
         server.takeRequest()                                  // #1 /games (cookie cũ)
-        val refreshReq = server.takeRequest()                 // #2 /auth/refresh — phải kèm refreshToken
+        val refreshReq =
+            server.takeRequest()                 // #2 /auth/refresh — phải kèm refreshToken
         assertTrue(refreshReq.path!!.contains("auth/refresh"))
         assertTrue(refreshReq.getHeader("Cookie")!!.contains("refreshToken=refresh-token"))
         val retryReq = server.takeRequest()                   // #3 /games với cookie MỚI
@@ -96,7 +97,9 @@ class TokenAuthenticatorTest {
 
         assertEquals(401, response.code)                      // trả 401 gốc, không retry vô hạn
         assertEquals(2, server.requestCount)                  // chỉ 2 request: gốc + refresh
-        assertTrue(cookieStore.loadForHost(host).isEmpty())                     // cookie đã bị clear → UI về Login
+        assertTrue(
+            cookieStore.loadForHost(host).isEmpty()
+        )                     // cookie đã bị clear → UI về Login
     }
 
     /** Giả lập đã login từ trước: cặp cookie cũ còn hạn */
@@ -105,8 +108,24 @@ class TokenAuthenticatorTest {
         cookieStore.saveAll(
             host,
             listOf(
-                StoredCookie("accessToken", "old-token", host, "/", expires, secure = false, httpOnly = true),
-                StoredCookie("refreshToken", "refresh-token", host, "/", expires, secure = false, httpOnly = true)
+                StoredCookie(
+                    "accessToken",
+                    "old-token",
+                    host,
+                    "/",
+                    expires,
+                    secure = false,
+                    httpOnly = true
+                ),
+                StoredCookie(
+                    "refreshToken",
+                    "refresh-token",
+                    host,
+                    "/",
+                    expires,
+                    secure = false,
+                    httpOnly = true
+                )
             )
         )
     }

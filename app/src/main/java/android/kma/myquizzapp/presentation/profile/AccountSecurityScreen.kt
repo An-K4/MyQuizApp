@@ -63,7 +63,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import kotlinx.coroutines.flow.collect
 
 @Composable
 fun AccountSecurityScreen(
@@ -94,10 +93,16 @@ fun AccountSecurityScreenContent(
     snackbar: SnackbarHostState
 ) {
     val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
-    val cardSurface = if (isDark) MaterialTheme.colorScheme.surfaceVariant else FrontendColors.SoftBackground
-    val dangerSurface = if (isDark) MaterialTheme.colorScheme.errorContainer else FrontendColors.Danger.copy(alpha = 0.08f)
-    val dangerForeground = if (isDark) MaterialTheme.colorScheme.onErrorContainer else FrontendColors.Danger
-    val dangerBorder = if (isDark) MaterialTheme.colorScheme.error.copy(alpha = 0.45f) else FrontendColors.Danger.copy(alpha = 0.28f)
+    val cardSurface =
+        if (isDark) MaterialTheme.colorScheme.surfaceVariant else FrontendColors.SoftBackground
+    val dangerSurface =
+        if (isDark) MaterialTheme.colorScheme.errorContainer else FrontendColors.Danger.copy(alpha = 0.08f)
+    val dangerForeground =
+        if (isDark) MaterialTheme.colorScheme.onErrorContainer else FrontendColors.Danger
+    val dangerBorder =
+        if (isDark) MaterialTheme.colorScheme.error.copy(alpha = 0.45f) else FrontendColors.Danger.copy(
+            alpha = 0.28f
+        )
 
     Scaffold(
         topBar = {
@@ -142,6 +147,7 @@ fun AccountSecurityScreenContent(
                         )
                     }
                 }
+
                 else -> {
                     item {
                         Column(
@@ -226,7 +232,14 @@ fun AccountSecurityScreenContent(
                     }
                 }
             }
-            state.message?.let { message -> item { Text(message, color = MaterialTheme.colorScheme.error) } }
+            state.message?.let { message ->
+                item {
+                    Text(
+                        message,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            }
             if (state.cleanupPending) item {
                 QuizPrimaryButton(
                     text = "Dọn phiên trên thiết bị",
@@ -278,7 +291,13 @@ fun AccountSecurityScreenContent(
 
 /** Each field owns only its visibility toggle; password values stay in state. */
 @Composable
-private fun SecretField(label: String, value: String, onChange: (String) -> Unit, enabled: Boolean, error: String?) {
+private fun SecretField(
+    label: String,
+    value: String,
+    onChange: (String) -> Unit,
+    enabled: Boolean,
+    error: String?
+) {
     var visible by remember { mutableStateOf(false) }
     OutlinedTextField(
         value = value,

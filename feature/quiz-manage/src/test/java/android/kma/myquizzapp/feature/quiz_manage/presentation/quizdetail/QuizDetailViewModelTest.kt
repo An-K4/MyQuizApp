@@ -23,7 +23,11 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
-import org.junit.Assert.*
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
@@ -50,7 +54,8 @@ class QuizDetailViewModelTest {
     /** Create inside runTest, after stubbing, so init cannot run before the test body. */
     private fun createViewModel(isOwner: Boolean = true) {
         coEvery { getQuiz(1L) } returns Result.Success(QuizWithOwnership(quiz, isOwner))
-        viewModel = QuizDetailViewModel(getQuiz, deleteQuiz, SavedStateHandle(mapOf("quizId" to 1L)))
+        viewModel =
+            QuizDetailViewModel(getQuiz, deleteQuiz, SavedStateHandle(mapOf("quizId" to 1L)))
         store.put("detail", viewModel)
     }
 
@@ -92,32 +97,36 @@ class QuizDetailViewModelTest {
     }
 
     @Test
-    fun `double tap sends one delete and blocks dismiss and reload while in flight`() = runTest(dispatcher) {
-        createViewModel()
-        val response = CompletableDeferred<Result<Unit>>()
-        coEvery { deleteQuiz(1L) } coAnswers { response.await() }
-        advanceUntilIdle()
-        viewModel.onIntent(QuizDetailIntent.DeleteQuizClicked)
-        viewModel.onIntent(QuizDetailIntent.DeleteQuizConfirmed)
-        viewModel.onIntent(QuizDetailIntent.DeleteQuizConfirmed)
-        viewModel.onIntent(QuizDetailIntent.DeleteQuizDismissed)
-        viewModel.onIntent(QuizDetailIntent.LoadQuizDetail)
-        assertTrue(viewModel.uiState.value.isDeleting)
-        assertTrue(viewModel.uiState.value.isConfirmingDelete)
-        runCurrent()
-        coVerify(exactly = 1) { deleteQuiz(1L) }
-        coVerify(exactly = 1) { getQuiz(1L) }
-        response.complete(Result.Success(Unit))
-        advanceUntilIdle()
-        assertNull(viewModel.uiState.value.quiz)
-        assertFalse(viewModel.uiState.value.isOwner)
-        assertEquals(QuizDetailEffect.QuizDeleted, viewModel.effect.first())
-    }
+    fun `double tap sends one delete and blocks dismiss and reload while in flight`() =
+        runTest(dispatcher) {
+            createViewModel()
+            val response = CompletableDeferred<Result<Unit>>()
+            coEvery { deleteQuiz(1L) } coAnswers { response.await() }
+            advanceUntilIdle()
+            viewModel.onIntent(QuizDetailIntent.DeleteQuizClicked)
+            viewModel.onIntent(QuizDetailIntent.DeleteQuizConfirmed)
+            viewModel.onIntent(QuizDetailIntent.DeleteQuizConfirmed)
+            viewModel.onIntent(QuizDetailIntent.DeleteQuizDismissed)
+            viewModel.onIntent(QuizDetailIntent.LoadQuizDetail)
+            assertTrue(viewModel.uiState.value.isDeleting)
+            assertTrue(viewModel.uiState.value.isConfirmingDelete)
+            runCurrent()
+            coVerify(exactly = 1) { deleteQuiz(1L) }
+            coVerify(exactly = 1) { getQuiz(1L) }
+            response.complete(Result.Success(Unit))
+            advanceUntilIdle()
+            assertNull(viewModel.uiState.value.quiz)
+            assertFalse(viewModel.uiState.value.isOwner)
+            assertEquals(QuizDetailEffect.QuizDeleted, viewModel.effect.first())
+        }
 
     @Test
     fun `transient delete error keeps confirmation for deliberate retry`() = runTest(dispatcher) {
         createViewModel()
-        coEvery { deleteQuiz(1L) } returnsMany listOf(Result.Error(AppError.Network), Result.Success(Unit))
+        coEvery { deleteQuiz(1L) } returnsMany listOf(
+            Result.Error(AppError.Network),
+            Result.Success(Unit)
+        )
         advanceUntilIdle()
         viewModel.onIntent(QuizDetailIntent.DeleteQuizClicked)
         viewModel.onIntent(QuizDetailIntent.DeleteQuizConfirmed)
@@ -133,19 +142,23 @@ class QuizDetailViewModelTest {
     }
 
     @Test
-    fun `missing quiz while deleting clears stale data and emits resource missing`() = runTest(dispatcher) {
-        createViewModel()
-        val error = AppError.Api("QUIZ_NOT_FOUND")
-        coEvery { deleteQuiz(1L) } returns Result.Error(error)
-        advanceUntilIdle()
-        viewModel.onIntent(QuizDetailIntent.DeleteQuizClicked)
-        viewModel.onIntent(QuizDetailIntent.DeleteQuizConfirmed)
-        advanceUntilIdle()
-        assertNull(viewModel.uiState.value.quiz)
-        assertFalse(viewModel.uiState.value.isConfirmingDelete)
-        assertFalse(viewModel.uiState.value.isDeleting)
-        assertEquals(QuizDetailEffect.ResourceMissing(error.toUserMessage()), viewModel.effect.first())
-    }
+    fun `missing quiz while deleting clears stale data and emits resource missing`() =
+        runTest(dispatcher) {
+            createViewModel()
+            val error = AppError.Api("QUIZ_NOT_FOUND")
+            coEvery { deleteQuiz(1L) } returns Result.Error(error)
+            advanceUntilIdle()
+            viewModel.onIntent(QuizDetailIntent.DeleteQuizClicked)
+            viewModel.onIntent(QuizDetailIntent.DeleteQuizConfirmed)
+            advanceUntilIdle()
+            assertNull(viewModel.uiState.value.quiz)
+            assertFalse(viewModel.uiState.value.isConfirmingDelete)
+            assertFalse(viewModel.uiState.value.isDeleting)
+            assertEquals(
+                QuizDetailEffect.ResourceMissing(error.toUserMessage()),
+                viewModel.effect.first()
+            )
+        }
 
     @Test
     fun `missing quiz on reload clears existing quiz and owner privileges`() = runTest(dispatcher) {
@@ -157,7 +170,10 @@ class QuizDetailViewModelTest {
         advanceUntilIdle()
         assertNull(viewModel.uiState.value.quiz)
         assertFalse(viewModel.uiState.value.isOwner)
-        assertEquals(QuizDetailEffect.ResourceMissing(error.toUserMessage()), viewModel.effect.first())
+        assertEquals(
+            QuizDetailEffect.ResourceMissing(error.toUserMessage()),
+            viewModel.effect.first()
+        )
     }
 
     @Test

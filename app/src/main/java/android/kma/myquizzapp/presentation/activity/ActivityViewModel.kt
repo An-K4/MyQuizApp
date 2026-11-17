@@ -2,22 +2,21 @@ package android.kma.myquizzapp.presentation.activity
 
 import android.kma.myquizzapp.core.common.error.toUserMessage
 import android.kma.myquizzapp.core.common.model.GameHistoryRole
-import android.kma.myquizzapp.core.common.model.SessionState
 import android.kma.myquizzapp.core.common.model.SessionIdentity
 import android.kma.myquizzapp.core.common.model.SessionSnapshot
-import android.kma.myquizzapp.domain.activity.ObserveActivitySessionUseCase
+import android.kma.myquizzapp.core.common.model.SessionState
 import android.kma.myquizzapp.core.common.result.Result
 import android.kma.myquizzapp.domain.activity.LoadGameHistoryUseCase
+import android.kma.myquizzapp.domain.activity.ObserveActivitySessionUseCase
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -65,7 +64,10 @@ class ActivityViewModel @Inject constructor(
         val state = _uiState.value
         if (role == GameHistoryRole.HOSTED && state.session !is SessionState.LoggedIn) return
         _uiState.update { it.copy(selectedRole = role) }
-        if (!listState(role).hasLoaded && !listState(role).isInitialLoading) load(role, reset = true)
+        if (!listState(role).hasLoaded && !listState(role).isInitialLoading) load(
+            role,
+            reset = true
+        )
     }
 
     /** Server history có thể đổi khi màn được giữ trong back stack lúc người dùng chơi. */
@@ -140,6 +142,7 @@ class ActivityViewModel @Inject constructor(
                         appendErrorMessage = null
                     )
                 }
+
                 is Result.Error -> updateList(role) {
                     val message = result.error.toUserMessage()
                     if (reset) {
@@ -159,7 +162,10 @@ class ActivityViewModel @Inject constructor(
     private fun listState(role: GameHistoryRole): HistoryListState =
         if (role == GameHistoryRole.PLAYED) _uiState.value.played else _uiState.value.hosted
 
-    private fun updateList(role: GameHistoryRole, transform: (HistoryListState) -> HistoryListState) {
+    private fun updateList(
+        role: GameHistoryRole,
+        transform: (HistoryListState) -> HistoryListState
+    ) {
         _uiState.update { state ->
             if (role == GameHistoryRole.PLAYED) state.copy(played = transform(state.played))
             else state.copy(hosted = transform(state.hosted))

@@ -1,9 +1,17 @@
 package android.kma.myquizzapp.core.ui.components
 
+import android.content.res.Configuration
 import android.kma.myquizzapp.core.ui.theme.ComponentColors
+import android.kma.myquizzapp.core.ui.theme.MyQuizAppTheme
 import android.kma.myquizzapp.core.ui.theme.Primary
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
@@ -11,19 +19,27 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import android.content.res.Configuration
-import android.kma.myquizzapp.core.ui.theme.MyQuizAppTheme
-import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.semantics.*
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.error
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.*
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -72,8 +88,14 @@ fun SixCharacterCodeFieldContent(
             value = value,
             onValueChange = { incoming ->
                 val text = normalizeSixCharacterCode(incoming.text, kind)
-                val from = normalizeSixCharacterCode(incoming.text.take(incoming.selection.start), kind).length.coerceAtMost(text.length)
-                val to = normalizeSixCharacterCode(incoming.text.take(incoming.selection.end), kind).length.coerceAtMost(text.length)
+                val from = normalizeSixCharacterCode(
+                    incoming.text.take(incoming.selection.start),
+                    kind
+                ).length.coerceAtMost(text.length)
+                val to = normalizeSixCharacterCode(
+                    incoming.text.take(incoming.selection.end),
+                    kind
+                ).length.coerceAtMost(text.length)
                 onValueChange(TextFieldValue(text, TextRange(from, to)))
             },
             enabled = enabled, singleLine = true,
@@ -85,10 +107,11 @@ fun SixCharacterCodeFieldContent(
             keyboardActions = keyboardActions,
             textStyle = MaterialTheme.typography.bodyLarge.copy(color = Color.Transparent),
             cursorBrush = SolidColor(Color.Transparent),
-            modifier = Modifier.fillMaxWidth().onFocusChanged { onFocusChange(it.isFocused) }.semantics {
-                contentDescription = label
-                if (errorMessage != null) error(errorMessage)
-            },
+            modifier = Modifier.fillMaxWidth().onFocusChanged { onFocusChange(it.isFocused) }
+                .semantics {
+                    contentDescription = label
+                    if (errorMessage != null) error(errorMessage)
+                },
             decorationBox = { innerTextField ->
                 Box {
                     // Native editing/selection remains available underneath the visual cells.
@@ -103,18 +126,25 @@ fun SixCharacterCodeFieldContent(
                                 modifier = Modifier.weight(1f).heightIn(min = 56.dp),
                                 color = if (active) tint else surface,
                                 shape = RoundedCornerShape(12.dp),
-                                border = BorderStroke(if (active) 2.dp else 1.dp, when {
-                                    errorMessage != null -> danger
-                                    active -> Primary
-                                    else -> border
-                                }),
+                                border = BorderStroke(
+                                    if (active) 2.dp else 1.dp, when {
+                                        errorMessage != null -> danger
+                                        active -> Primary
+                                        else -> border
+                                    }
+                                ),
                             ) {
-                                Box(Modifier.padding(vertical = 10.dp), contentAlignment = Alignment.Center) {
+                                Box(
+                                    Modifier.padding(vertical = 10.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
                                     Text(
                                         value.text.getOrNull(index)?.toString().orEmpty(),
                                         color = foreground.copy(alpha = if (enabled) 1f else 0.45f),
                                         style = MaterialTheme.typography.headlineSmall.copy(
-                                            fontSize = 24.sp, lineHeight = 32.sp, fontWeight = FontWeight.Bold,
+                                            fontSize = 24.sp,
+                                            lineHeight = 32.sp,
+                                            fontWeight = FontWeight.Bold,
                                         ),
                                     )
                                 }
@@ -125,37 +155,83 @@ fun SixCharacterCodeFieldContent(
             },
         )
         if (errorMessage != null) {
-            Text(errorMessage, color = danger, style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.padding(top = 8.dp))
+            Text(
+                errorMessage, color = danger, style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(top = 8.dp)
+            )
         }
     }
 }
 
 @Preview(name = "OTP Light", showBackground = true, widthDp = 390)
-@Preview(name = "OTP Dark", showBackground = true, widthDp = 390, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(
+    name = "OTP Dark",
+    showBackground = true,
+    widthDp = 390,
+    uiMode = Configuration.UI_MODE_NIGHT_YES
+)
 @Composable
 private fun OtpCodeFieldPreview() {
     MyQuizAppTheme {
         Surface(color = MaterialTheme.colorScheme.background) {
             Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                SixCharacterCodeFieldContent(TextFieldValue(), {}, SixCharacterCodeKind.Otp, false, {})
-                SixCharacterCodeFieldContent(TextFieldValue("482", TextRange(2)), {}, SixCharacterCodeKind.Otp, true, {})
-                SixCharacterCodeFieldContent(TextFieldValue("123456"), {}, SixCharacterCodeKind.Otp, false, {}, enabled = false)
-                SixCharacterCodeFieldContent(TextFieldValue("123"), {}, SixCharacterCodeKind.Otp, false, {}, errorMessage = "Vui lòng nhập đủ 6 chữ số")
+                SixCharacterCodeFieldContent(
+                    TextFieldValue(),
+                    {},
+                    SixCharacterCodeKind.Otp,
+                    false,
+                    {})
+                SixCharacterCodeFieldContent(
+                    TextFieldValue("482", TextRange(2)),
+                    {},
+                    SixCharacterCodeKind.Otp,
+                    true,
+                    {})
+                SixCharacterCodeFieldContent(
+                    TextFieldValue("123456"),
+                    {},
+                    SixCharacterCodeKind.Otp,
+                    false,
+                    {},
+                    enabled = false
+                )
+                SixCharacterCodeFieldContent(
+                    TextFieldValue("123"),
+                    {},
+                    SixCharacterCodeKind.Otp,
+                    false,
+                    {},
+                    errorMessage = "Vui lòng nhập đủ 6 chữ số"
+                )
             }
         }
     }
 }
 
 @Preview(name = "Room Code Light", showBackground = true, widthDp = 390)
-@Preview(name = "Room Code Dark", showBackground = true, widthDp = 390, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(
+    name = "Room Code Dark",
+    showBackground = true,
+    widthDp = 390,
+    uiMode = Configuration.UI_MODE_NIGHT_YES
+)
 @Composable
 private fun RoomCodeFieldPreview() {
     MyQuizAppTheme {
         Surface(color = MaterialTheme.colorScheme.background) {
             Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                SixCharacterCodeFieldContent(TextFieldValue("AB2", TextRange(3)), {}, SixCharacterCodeKind.Room, true, {})
-                SixCharacterCodeFieldContent(TextFieldValue("AB23CD"), {}, SixCharacterCodeKind.Room, false, {})
+                SixCharacterCodeFieldContent(
+                    TextFieldValue("AB2", TextRange(3)),
+                    {},
+                    SixCharacterCodeKind.Room,
+                    true,
+                    {})
+                SixCharacterCodeFieldContent(
+                    TextFieldValue("AB23CD"),
+                    {},
+                    SixCharacterCodeKind.Room,
+                    false,
+                    {})
             }
         }
     }

@@ -6,6 +6,7 @@ sealed interface CreateRoomEffect {
         val socketToken: String,
         val sessionCode: String
     ) : CreateRoomEffect
+
     data object RequireAuthentication : CreateRoomEffect
     data class ResourceMissing(val message: String) : CreateRoomEffect
 }

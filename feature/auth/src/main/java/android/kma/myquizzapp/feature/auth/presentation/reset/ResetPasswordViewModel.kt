@@ -1,15 +1,15 @@
 package android.kma.myquizzapp.feature.auth.presentation.reset
 
-import androidx.lifecycle.SavedStateHandle
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
+import android.kma.myquizzapp.core.common.error.AppError
+import android.kma.myquizzapp.core.common.error.toUserMessage
+import android.kma.myquizzapp.core.common.result.Result
 import android.kma.myquizzapp.feature.auth.domain.usecase.CompleteResetUseCase
 import android.kma.myquizzapp.feature.auth.domain.usecase.GetResetTicketUseCase
 import android.kma.myquizzapp.feature.auth.domain.usecase.VerifyResetTokenUseCase
 import android.kma.myquizzapp.feature.auth.presentation.validation.AuthValidator
-import android.kma.myquizzapp.core.common.error.AppError
-import android.kma.myquizzapp.core.common.error.toUserMessage
-import android.kma.myquizzapp.core.common.result.Result
+import androidx.lifecycle.SavedStateHandle
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -36,9 +36,12 @@ class ResetPasswordViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
 
-    private val ticketArg: String? = savedStateHandle.get<String>("ticket")?.takeIf { it.isNotBlank() }
-    private val tokenArg: String? = savedStateHandle.get<String>("token")?.takeIf { it.isNotBlank() }
-    private val emailArg: String? = savedStateHandle.get<String>("email")?.takeIf { it.isNotBlank() }
+    private val ticketArg: String? =
+        savedStateHandle.get<String>("ticket")?.takeIf { it.isNotBlank() }
+    private val tokenArg: String? =
+        savedStateHandle.get<String>("token")?.takeIf { it.isNotBlank() }
+    private val emailArg: String? =
+        savedStateHandle.get<String>("email")?.takeIf { it.isNotBlank() }
 
     private val _uiState = MutableStateFlow(ResetPasswordUiState())
     val uiState = _uiState.asStateFlow()
@@ -52,6 +55,7 @@ class ResetPasswordViewModel @Inject constructor(
                 _uiState.update { it.copy(ticket = ticketArg, email = emailArg.orEmpty()) }
                 peekTicket(ticketArg)
             }
+
             tokenArg != null -> verifyToken(tokenArg)
             else -> _uiState.update {
                 it.copy(ticketError = "Link đặt lại mật khẩu không hợp lệ, vui lòng thực hiện lại từ đầu.")
@@ -62,11 +66,17 @@ class ResetPasswordViewModel @Inject constructor(
     fun onIntent(intent: ResetPasswordIntent) {
         when (intent) {
             is ResetPasswordIntent.PasswordChanged -> _uiState.update {
-                it.copy(newPassword = intent.value, passwordError = null, confirmPasswordError = null)
+                it.copy(
+                    newPassword = intent.value,
+                    passwordError = null,
+                    confirmPasswordError = null
+                )
             }
+
             is ResetPasswordIntent.ConfirmPasswordChanged -> _uiState.update {
                 it.copy(confirmPassword = intent.value, confirmPasswordError = null)
             }
+
             ResetPasswordIntent.Submit -> submit()
             ResetPasswordIntent.NavigateBack -> viewModelScope.launch {
                 _effect.send(ResetPasswordEffect.NavigateToLogin)
@@ -83,8 +93,12 @@ class ResetPasswordViewModel @Inject constructor(
             when (val result = getResetTicketUseCase(ticket)) {
                 is Result.Success -> _uiState.update {
                     // Keep the email passed from OTP for display; deep links use the server address.
-                    it.copy(email = emailArg ?: result.data.email, ticketExpiresAt = result.data.expiresAt)
+                    it.copy(
+                        email = emailArg ?: result.data.email,
+                        ticketExpiresAt = result.data.expiresAt
+                    )
                 }
+
                 is Result.Error -> if (result.error != AppError.Network) {
                     _uiState.update { it.copy(ticketError = result.error.toUserMessage()) }
                 }
@@ -105,6 +119,7 @@ class ResetPasswordViewModel @Inject constructor(
                         ticketExpiresAt = result.data.expiresAt
                     )
                 }
+
                 is Result.Error -> {
                     Timber.e("Reset: verify token FAILED - ${result.error}")
                     _uiState.update { it.copy(ticketError = result.error.toUserMessage()) }
@@ -120,8 +135,14 @@ class ResetPasswordViewModel @Inject constructor(
 
         // Pure validation rules live in AuthValidator; this ViewModel owns UI state and submission.
         val passwordError = AuthValidator.resetPasswordError(state.newPassword)
-        val confirmPasswordError = AuthValidator.confirmPasswordError(state.newPassword, state.confirmPassword)
-        _uiState.update { it.copy(passwordError = passwordError, confirmPasswordError = confirmPasswordError) }
+        val confirmPasswordError =
+            AuthValidator.confirmPasswordError(state.newPassword, state.confirmPassword)
+        _uiState.update {
+            it.copy(
+                passwordError = passwordError,
+                confirmPasswordError = confirmPasswordError
+            )
+        }
         if (passwordError != null || confirmPasswordError != null) return
 
         _uiState.update { it.copy(isLoading = true) }
@@ -131,6 +152,7 @@ class ResetPasswordViewModel @Inject constructor(
                     _effect.send(ResetPasswordEffect.ShowMessage("Đặt lại mật khẩu thành công! Vui lòng đăng nhập."))
                     _effect.send(ResetPasswordEffect.NavigateToLogin)
                 }
+
                 is Result.Error -> {
                     // RESET_TICKET_INVALID (quá 10 phút) / RESET_PASSWORD_REUSED —
                     // đã có message tiếng Việt trong AppErrorExt.

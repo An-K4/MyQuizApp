@@ -20,13 +20,18 @@ data class User(
 
 @Serializable
 enum class UserRole {
-    @SerialName("admin") ADMIN,
-    @SerialName("moderator") MODERATOR,
-    @SerialName("user") USER
+    @SerialName("admin")
+    ADMIN,
+    @SerialName("moderator")
+    MODERATOR,
+    @SerialName("user")
+    USER
 }
 
 @Serializable
 enum class AuthProvider {
-    @SerialName("local") LOCAL,
-    @SerialName("google") GOOGLE
+    @SerialName("local")
+    LOCAL,
+    @SerialName("google")
+    GOOGLE
 }
