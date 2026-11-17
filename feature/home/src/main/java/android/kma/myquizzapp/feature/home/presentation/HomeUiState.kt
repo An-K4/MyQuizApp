@@ -37,12 +37,14 @@ data class HomeUiState(
      * lẫn vào giữa các section gợi ý. Backend đã lọc section rỗng nên khách
      * đơn giản là không nhận được section này — không cần empty state.
      */
-    val continueSection: HomeSection? get() =
-        homeSections.firstOrNull { it.sectionType == SECTION_TYPE_CONTINUE }
+    val continueSection: HomeSection?
+        get() =
+            homeSections.firstOrNull { it.sectionType == SECTION_TYPE_CONTINUE }
 
     /** Các section gợi ý, giữ đúng thứ tự `position` do backend sắp xếp. */
-    val discoverySections: List<HomeSection> get() =
-        homeSections.filterNot { it.sectionType == SECTION_TYPE_CONTINUE }
+    val discoverySections: List<HomeSection>
+        get() =
+            homeSections.filterNot { it.sectionType == SECTION_TYPE_CONTINUE }
 }
 
 private const val SECTION_TYPE_CONTINUE = "continue"
@@ -78,4 +80,4 @@ val HomeSection.discoverTopic: String?
 
 val HomeSection.hasSeeMore: Boolean
     get() = sectionType in PAGINABLE_SECTION_TYPES &&
-        (sectionType != "category" || discoverTopic != null)
+            (sectionType != "category" || discoverTopic != null)

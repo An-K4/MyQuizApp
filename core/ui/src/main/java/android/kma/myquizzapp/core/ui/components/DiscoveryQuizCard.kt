@@ -3,9 +3,18 @@ package android.kma.myquizzapp.core.ui.components
 import android.content.res.Configuration
 import android.kma.myquizzapp.core.ui.theme.ComponentColors
 import android.kma.myquizzapp.core.ui.theme.MyQuizAppTheme
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.*
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -46,7 +55,7 @@ fun DiscoveryQuizCard(
                 // An absent category reserves space only: no visible or accessible fake label.
                 Surface(
                     modifier = if (hasCategory) Modifier
-                        else Modifier.alpha(0f).clearAndSetSemantics {},
+                    else Modifier.alpha(0f).clearAndSetSemantics {},
                     shape = RoundedCornerShape(50),
                     color = ComponentColors.selectedSurface,
                 ) {
@@ -75,7 +84,11 @@ fun DiscoveryQuizCard(
                     minLines = if (uniformGrid) 2 else 1,
                     maxLines = if (uniformGrid) 2 else Int.MAX_VALUE,
                     overflow = TextOverflow.Ellipsis,
-                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp, lineHeight = 16.sp, letterSpacing = 0.sp),
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        fontSize = 11.sp,
+                        lineHeight = 16.sp,
+                        letterSpacing = 0.sp
+                    ),
                 )
             }
         }
@@ -83,15 +96,32 @@ fun DiscoveryQuizCard(
 }
 
 @Preview(name = "Discovery Quiz Light", showBackground = true, widthDp = 390)
-@Preview(name = "Discovery Quiz Dark", showBackground = true, widthDp = 390, uiMode = Configuration.UI_MODE_NIGHT_YES)
-@Preview(name = "Discovery Equal Cards Large Text", showBackground = true, widthDp = 480, fontScale = 1.5f)
+@Preview(
+    name = "Discovery Quiz Dark",
+    showBackground = true,
+    widthDp = 390,
+    uiMode = Configuration.UI_MODE_NIGHT_YES
+)
+@Preview(
+    name = "Discovery Equal Cards Large Text",
+    showBackground = true,
+    widthDp = 480,
+    fontScale = 1.5f
+)
 @Composable
 private fun DiscoveryQuizCardPreview() {
     MyQuizAppTheme {
         Surface {
             Row(Modifier.padding(20.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 DiscoveryQuizCard("Đố vui vũ trụ", "Khoa học", "12 câu • 350 lượt chơi", null, {})
-                DiscoveryQuizCard("Một tên quiz dài để kiểm tra bố cục", null, "20 câu • 500 lượt chơi", null, {}, enabled = false)
+                DiscoveryQuizCard(
+                    "Một tên quiz dài để kiểm tra bố cục",
+                    null,
+                    "20 câu • 500 lượt chơi",
+                    null,
+                    {},
+                    enabled = false
+                )
             }
         }
     }
@@ -103,22 +133,38 @@ private fun DiscoveryQuizCardPreview() {
 private fun DiscoveryQuizCardHomePreview() {
     MyQuizAppTheme {
         Surface {
-            DiscoveryQuizCard("Đố vui vũ trụ", "Khoa học", "12 câu • 350 lượt chơi", null, {}, Modifier.padding(20.dp).width(220.dp))
+            DiscoveryQuizCard(
+                "Đố vui vũ trụ",
+                "Khoa học",
+                "12 câu • 350 lượt chơi",
+                null,
+                {},
+                Modifier.padding(20.dp).width(220.dp)
+            )
         }
     }
 }
 
 @Preview(name = "Discovery Equal Grid", showBackground = true, widthDp = 390)
-@Preview(name = "Discovery Equal Grid Large Text", showBackground = true, widthDp = 320, fontScale = 1.5f)
+@Preview(
+    name = "Discovery Equal Grid Large Text",
+    showBackground = true,
+    widthDp = 320,
+    fontScale = 1.5f
+)
 @Composable
 private fun DiscoveryQuizGridPreview() {
     MyQuizAppTheme {
         Surface {
             Row(Modifier.padding(20.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                DiscoveryQuizCard("Đố vui vũ trụ", "Khoa học", "12 câu • 350 lượt chơi", null, {},
-                    Modifier.weight(1f), uniformGrid = true)
-                DiscoveryQuizCard("Một tên quiz dài để kiểm tra bố cục", null, "30 câu • 420 lượt chơi", null, {},
-                    Modifier.weight(1f), uniformGrid = true)
+                DiscoveryQuizCard(
+                    "Đố vui vũ trụ", "Khoa học", "12 câu • 350 lượt chơi", null, {},
+                    Modifier.weight(1f), uniformGrid = true
+                )
+                DiscoveryQuizCard(
+                    "Một tên quiz dài để kiểm tra bố cục", null, "30 câu • 420 lượt chơi", null, {},
+                    Modifier.weight(1f), uniformGrid = true
+                )
             }
         }
     }

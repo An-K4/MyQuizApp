@@ -50,7 +50,12 @@ class GameHistoryDetailViewModelTest {
     @Test
     fun `host loads summary without requesting personal answers`() = runTest(dispatcher) {
         val repository = mockk<GameSessionRepository>()
-        coEvery { repository.getGameHistorySummary(91, null) } returns Result.Success(summary(isHost = true))
+        coEvery {
+            repository.getGameHistorySummary(
+                91,
+                null
+            )
+        } returns Result.Success(summary(isHost = true))
         val viewModel = viewModel(repository)
 
         runCurrent()
@@ -64,7 +69,12 @@ class GameHistoryDetailViewModelTest {
     fun `player loads summary then own answers`() = runTest(dispatcher) {
         val repository = mockk<GameSessionRepository>()
         val review = GameReview(900, 9, 10, 10, emptyList())
-        coEvery { repository.getGameHistorySummary(91, null) } returns Result.Success(summary(isHost = false))
+        coEvery {
+            repository.getGameHistorySummary(
+                91,
+                null
+            )
+        } returns Result.Success(summary(isHost = false))
         coEvery { repository.getGameHistoryAnswers(91, null) } returns Result.Success(review)
         val viewModel = viewModel(repository)
 
@@ -79,9 +89,14 @@ class GameHistoryDetailViewModelTest {
     @Test
     fun `review disabled is a normal section state`() = runTest(dispatcher) {
         val repository = mockk<GameSessionRepository>()
-        coEvery { repository.getGameHistorySummary(91, null) } returns Result.Success(summary(isHost = false))
+        coEvery {
+            repository.getGameHistorySummary(
+                91,
+                null
+            )
+        } returns Result.Success(summary(isHost = false))
         coEvery { repository.getGameHistoryAnswers(91, null) } returns
-            Result.Error(AppError.Api("GAME_REVIEW_DISABLED"))
+                Result.Error(AppError.Api("GAME_REVIEW_DISABLED"))
         val viewModel = viewModel(repository)
 
         runCurrent()
@@ -96,7 +111,13 @@ class GameHistoryDetailViewModelTest {
         return GameHistoryDetailViewModel(
             loadHistorySummary = LoadGameHistorySummaryUseCase(repository, guestStore),
             loadHistoryAnswers = LoadGameHistoryAnswersUseCase(repository, guestStore),
-            observeSession = ObserveHistorySessionUseCase(FakeSessionRepository(SessionState.LoggedIn(user()))),
+            observeSession = ObserveHistorySessionUseCase(
+                FakeSessionRepository(
+                    SessionState.LoggedIn(
+                        user()
+                    )
+                )
+            ),
             savedStateHandle = SavedStateHandle(mapOf("sessionId" to 91L))
         )
     }
@@ -125,6 +146,11 @@ private class FakeSessionRepository(initial: SessionState) : SessionRepository {
     private val mutable = MutableStateFlow(initial)
     override val state: StateFlow<SessionState> = mutable
     override suspend fun refresh() = Unit
-    override fun onAuthenticated(user: User) { mutable.value = SessionState.LoggedIn(user) }
-    override fun onSignedOut() { mutable.value = SessionState.Guest }
+    override fun onAuthenticated(user: User) {
+        mutable.value = SessionState.LoggedIn(user)
+    }
+
+    override fun onSignedOut() {
+        mutable.value = SessionState.Guest
+    }
 }

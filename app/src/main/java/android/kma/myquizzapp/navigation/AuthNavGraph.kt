@@ -1,15 +1,15 @@
 package android.kma.myquizzapp.navigation
 
-import androidx.navigation.NavGraphBuilder
-import androidx.navigation.NavHostController
-import androidx.navigation.compose.composable
-import androidx.navigation.compose.navigation
-import androidx.navigation.toRoute
 import android.kma.myquizzapp.feature.auth.presentation.forgot.ForgotPasswordScreen
 import android.kma.myquizzapp.feature.auth.presentation.login.LoginScreen
 import android.kma.myquizzapp.feature.auth.presentation.otp.OtpVerificationScreen
 import android.kma.myquizzapp.feature.auth.presentation.register.RegisterScreen
 import android.kma.myquizzapp.feature.auth.presentation.reset.ResetPasswordScreen
+import androidx.navigation.NavGraphBuilder
+import androidx.navigation.NavHostController
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.navigation
+import androidx.navigation.toRoute
 
 /**
  * Authentication navigation graph.

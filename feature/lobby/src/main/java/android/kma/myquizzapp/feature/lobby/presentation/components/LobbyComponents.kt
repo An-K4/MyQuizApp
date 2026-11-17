@@ -6,7 +6,11 @@ import android.kma.myquizzapp.core.ui.theme.FrontendColors
 import android.kma.myquizzapp.core.ui.theme.Primary
 import android.kma.myquizzapp.feature.lobby.presentation.hostlobby.ConnectionStatus
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
@@ -70,14 +74,21 @@ internal fun LobbyPlayerAvatar(
     if (!player.playerAvatar.isNullOrBlank() && !LocalInspectionMode.current) {
         Avatar(player.playerAvatar, contentDescription = null, size = size, modifier = modifier)
     } else {
-        val accents = listOf(Primary, FrontendColors.Info, FrontendColors.Warning, FrontendColors.SuccessForeground)
+        val accents = listOf(
+            Primary,
+            FrontendColors.Info,
+            FrontendColors.Warning,
+            FrontendColors.SuccessForeground
+        )
         val accent = accents[Math.floorMod(player.id, accents.size.toLong()).toInt()]
         Surface(modifier.size(size), shape = CircleShape, color = accent.copy(alpha = 0.08f)) {
             Box(contentAlignment = Alignment.Center) {
                 Text(
                     player.playerName.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }
                         .takeLast(2).joinToString("") { it.take(1).uppercase() }.ifEmpty { "?" },
-                    color = accent, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold,
+                    color = accent,
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
                 )
             }
         }
@@ -100,12 +111,19 @@ internal fun LobbyStatusBadge(label: String, tone: LobbyBadgeTone, modifier: Mod
         LobbyBadgeTone.Danger -> MaterialTheme.colorScheme.errorContainer
     }
     Row(
-        modifier = modifier.background(background, RoundedCornerShape(50)).padding(horizontal = 7.dp, vertical = 5.dp),
+        modifier = modifier.background(background, RoundedCornerShape(50))
+            .padding(horizontal = 7.dp, vertical = 5.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(Modifier.size(5.dp).background(foreground, CircleShape))
-        Text(label, modifier = Modifier.weight(1f, fill = false), color = foreground, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold)
+        Text(
+            label,
+            modifier = Modifier.weight(1f, fill = false),
+            color = foreground,
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.SemiBold
+        )
     }
 }
 
@@ -124,7 +142,9 @@ internal object LobbyColors {
     val border: Color
         @Composable get() = if (dark) MaterialTheme.colorScheme.outline else FrontendColors.Border
     val neutralSurface: Color
-        @Composable get() = if (dark) MaterialTheme.colorScheme.surfaceVariant else FrontendColors.Border.copy(alpha = 0.55f)
+        @Composable get() = if (dark) MaterialTheme.colorScheme.surfaceVariant else FrontendColors.Border.copy(
+            alpha = 0.55f
+        )
     val successSurface: Color
         @Composable get() = if (dark) MaterialTheme.colorScheme.surfaceVariant else FrontendColors.CorrectAnswerBackground
     val successForeground: Color

@@ -36,7 +36,10 @@ internal fun Quiz.displayAuthorName(): String = owner?.fullname?.trim()?.takeIf 
     ?: "Tác giả không còn khả dụng"
 
 /** Absolute date from server data; never invent a relative date or show a raw timestamp. */
-internal fun formatQuizCreatedDate(createdAt: String, zoneId: ZoneId = ZoneId.systemDefault()): String? =
+internal fun formatQuizCreatedDate(
+    createdAt: String,
+    zoneId: ZoneId = ZoneId.systemDefault()
+): String? =
     runCatching {
         Instant.parse(createdAt).atZone(zoneId).format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
     }.getOrNull()

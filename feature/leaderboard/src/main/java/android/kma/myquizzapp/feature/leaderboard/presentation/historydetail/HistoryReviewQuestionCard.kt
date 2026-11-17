@@ -64,7 +64,10 @@ internal fun HistoryReviewQuestionCard(item: GameReviewItem, modifier: Modifier 
                 contentDescription = "Ảnh minh họa câu ${item.questionIndex + 1}",
                 modifier = Modifier.clip(RoundedCornerShape(12.dp))
             )
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
                 Icon(
                     imageVector = when (review.tone) {
                         HistoryAnswerTone.Correct -> Icons.Outlined.CheckCircle
@@ -75,18 +78,43 @@ internal fun HistoryReviewQuestionCard(item: GameReviewItem, modifier: Modifier 
                     tint = statusColor,
                     modifier = Modifier.size(16.dp)
                 )
-                Text(review.statusText, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, color = statusColor)
+                Text(
+                    review.statusText,
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = statusColor
+                )
             }
             review.answers.forEach { answer -> HistoryReviewAnswer(answer, colors) }
-            review.notice?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = colors.muted) }
+            review.notice?.let {
+                Text(
+                    it,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.muted
+                )
+            }
             item.explanation?.takeIf(String::isNotBlank)?.let {
                 Text(it, style = MaterialTheme.typography.bodyMedium, color = colors.muted)
             }
             val details = buildList {
                 if (item.isLate) add("Trả lời muộn")
-                item.timeTakenSeconds?.let { add("${String.format(Locale.getDefault(), "%.2f", it)} giây") }
+                item.timeTakenSeconds?.let {
+                    add(
+                        "${
+                            String.format(
+                                Locale.getDefault(),
+                                "%.2f",
+                                it
+                            )
+                        } giây"
+                    )
+                }
             }.joinToString(" • ")
-            if (details.isNotBlank()) Text(details, style = MaterialTheme.typography.bodySmall, color = colors.muted)
+            if (details.isNotBlank()) Text(
+                details,
+                style = MaterialTheme.typography.bodySmall,
+                color = colors.muted
+            )
         }
     }
 }
@@ -114,9 +142,19 @@ private fun HistoryReviewAnswer(answer: HistoryAnswerUi, colors: HistoryDetailCo
         shape = RoundedCornerShape(16.dp),
         color = background
     ) {
-        Row(Modifier.padding(12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.Top) {
+        Row(
+            Modifier.padding(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.Top
+        ) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                answer.caption?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = foreground) }
+                answer.caption?.let {
+                    Text(
+                        it,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = foreground
+                    )
+                }
                 Text(
                     text = answer.optionLabel?.let { "$it. ${answer.text}" } ?: answer.text,
                     style = MaterialTheme.typography.bodyMedium,
@@ -137,18 +175,29 @@ private fun HistoryReviewAnswer(answer: HistoryAnswerUi, colors: HistoryDetailCo
 }
 
 @Preview(name = "Review — chọn một, đúng, có ảnh", showBackground = true, widthDp = 390)
-@Preview(name = "Review — tối", showBackground = true, widthDp = 390, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(
+    name = "Review — tối",
+    showBackground = true,
+    widthDp = 390,
+    uiMode = Configuration.UI_MODE_NIGHT_YES
+)
 @Composable
 private fun HistorySingleCorrectPreview() = HistoryReviewPreview(HistoryDetailPreviewData.items[0])
 
 @Preview(name = "Review — chọn một, sai", showBackground = true, widthDp = 390)
 @Composable
-private fun HistorySingleWrongPreview() = HistoryReviewPreview(HistoryDetailPreviewData.items[0].copy(
-    questionImage = null, questionText = "Ai là người phát minh ra động cơ hơi nước?",
-    answerOptions = listOf(PublicAnswerOption("a", "Isaac Newton"), PublicAnswerOption("b", "Thomas Edison"), PublicAnswerOption("c", "James Watt")),
-    yourAnswers = listOf("b"), correctAnswers = listOf("c"), isCorrect = false, scoreEarned = 0,
-    explanation = "James Watt đã hoàn thiện động cơ hơi nước năm 1769."
-))
+private fun HistorySingleWrongPreview() = HistoryReviewPreview(
+    HistoryDetailPreviewData.items[0].copy(
+        questionImage = null, questionText = "Ai là người phát minh ra động cơ hơi nước?",
+        answerOptions = listOf(
+            PublicAnswerOption("a", "Isaac Newton"),
+            PublicAnswerOption("b", "Thomas Edison"),
+            PublicAnswerOption("c", "James Watt")
+        ),
+        yourAnswers = listOf("b"), correctAnswers = listOf("c"), isCorrect = false, scoreEarned = 0,
+        explanation = "James Watt đã hoàn thiện động cơ hơi nước năm 1769."
+    )
+)
 
 @Preview(name = "Review — chọn nhiều, sai một lựa chọn", showBackground = true, widthDp = 390)
 @Composable
@@ -156,13 +205,19 @@ private fun HistoryMultipleWrongPreview() = HistoryReviewPreview(HistoryDetailPr
 
 @Preview(name = "Review — chọn nhiều, thiếu lựa chọn đúng", showBackground = true, widthDp = 390)
 @Composable
-private fun HistoryMultipleIncompletePreview() = HistoryReviewPreview(HistoryDetailPreviewData.items[1].copy(yourAnswers = listOf("2")))
+private fun HistoryMultipleIncompletePreview() =
+    HistoryReviewPreview(HistoryDetailPreviewData.items[1].copy(yourAnswers = listOf("2")))
 
 @Preview(name = "Review — trả lời ngắn, đúng", showBackground = true, widthDp = 390)
 @Composable
 private fun HistoryShortAnswerPreview() = HistoryReviewPreview(HistoryDetailPreviewData.items[2])
 
-@Preview(name = "Review — trả lời dài, sai, màn hẹp", showBackground = true, widthDp = 320, fontScale = 1.3f)
+@Preview(
+    name = "Review — trả lời dài, sai, màn hẹp",
+    showBackground = true,
+    widthDp = 320,
+    fontScale = 1.3f
+)
 @Composable
 private fun HistoryLongAnswerPreview() = HistoryReviewPreview(HistoryDetailPreviewData.items[3])
 
@@ -172,9 +227,11 @@ private fun HistorySkippedPreview() = HistoryReviewPreview(HistoryDetailPreviewD
 
 @Preview(name = "Review — thiếu đáp án đối chiếu", showBackground = true, widthDp = 390)
 @Composable
-private fun HistoryMissingKeyPreview() = HistoryReviewPreview(HistoryDetailPreviewData.items[0].copy(
-    questionImage = null, correctAnswers = emptyList(), isCorrect = false, scoreEarned = 0
-))
+private fun HistoryMissingKeyPreview() = HistoryReviewPreview(
+    HistoryDetailPreviewData.items[0].copy(
+        questionImage = null, correctAnswers = emptyList(), isCorrect = false, scoreEarned = 0
+    )
+)
 
 @Composable
 private fun HistoryReviewPreview(item: GameReviewItem) {

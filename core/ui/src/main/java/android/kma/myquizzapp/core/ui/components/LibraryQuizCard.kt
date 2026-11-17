@@ -4,13 +4,25 @@ import android.content.res.Configuration
 import android.kma.myquizzapp.core.ui.theme.ComponentColors
 import android.kma.myquizzapp.core.ui.theme.FrontendColors
 import android.kma.myquizzapp.core.ui.theme.MyQuizAppTheme
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material3.*
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -73,12 +85,17 @@ fun LibraryQuizCard(
                 Text(
                     text = metadataText,
                     color = ComponentColors.muted,
-                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp, lineHeight = 16.sp),
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        fontSize = 11.sp,
+                        lineHeight = 16.sp
+                    ),
                 )
                 Surface(
                     shape = RoundedCornerShape(50),
                     color = if (isPublic) ComponentColors.successSurface
-                        else if (isDark) MaterialTheme.colorScheme.surface else FrontendColors.Border.copy(alpha = 0.65f),
+                    else if (isDark) MaterialTheme.colorScheme.surface else FrontendColors.Border.copy(
+                        alpha = 0.65f
+                    ),
                 ) {
                     Text(
                         text = if (isPublic) "Công khai" else "Riêng tư",
@@ -111,7 +128,13 @@ fun LibraryQuizCard(
                     )
                     DropdownMenuItem(
                         text = { Text("Xóa quiz", color = danger) },
-                        leadingIcon = { Icon(Icons.Default.DeleteOutline, contentDescription = null, tint = danger) },
+                        leadingIcon = {
+                            Icon(
+                                Icons.Default.DeleteOutline,
+                                contentDescription = null,
+                                tint = danger
+                            )
+                        },
                         onClick = {
                             onMenuExpandedChange(false)
                             onDeleteClick()
@@ -124,16 +147,50 @@ fun LibraryQuizCard(
 }
 
 @Preview(name = "Library Cards Light", showBackground = true, widthDp = 390)
-@Preview(name = "Library Cards Dark", showBackground = true, widthDp = 390, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(
+    name = "Library Cards Dark",
+    showBackground = true,
+    widthDp = 390,
+    uiMode = Configuration.UI_MODE_NIGHT_YES
+)
 @Preview(name = "Library Cards Large Text", showBackground = true, widthDp = 320, fontScale = 1.5f)
 @Composable
 private fun LibraryQuizCardPreview() {
     MyQuizAppTheme {
         Surface(color = MaterialTheme.colorScheme.background) {
             Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                LibraryQuizCard("Luyện thi trắc nghiệm Sinh học 12", "10 câu hỏi", null, true, false, {}, {}, {}, {})
-                LibraryQuizCard("Quiz vui cuối tuần", "15 câu hỏi", null, false, false, {}, {}, {}, {})
-                LibraryQuizCard("Quiz đang được xử lý", "10 câu hỏi", null, true, false, {}, {}, {}, {}, enabled = false)
+                LibraryQuizCard(
+                    "Luyện thi trắc nghiệm Sinh học 12",
+                    "10 câu hỏi",
+                    null,
+                    true,
+                    false,
+                    {},
+                    {},
+                    {},
+                    {})
+                LibraryQuizCard(
+                    "Quiz vui cuối tuần",
+                    "15 câu hỏi",
+                    null,
+                    false,
+                    false,
+                    {},
+                    {},
+                    {},
+                    {})
+                LibraryQuizCard(
+                    "Quiz đang được xử lý",
+                    "10 câu hỏi",
+                    null,
+                    true,
+                    false,
+                    {},
+                    {},
+                    {},
+                    {},
+                    enabled = false
+                )
             }
         }
     }

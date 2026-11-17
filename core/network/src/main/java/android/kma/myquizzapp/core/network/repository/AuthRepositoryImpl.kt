@@ -1,23 +1,23 @@
 ﻿package android.kma.myquizzapp.core.network.repository
 
 import android.kma.myquizzapp.core.common.cookie.CookieStore
+import android.kma.myquizzapp.core.common.model.ResetTicket
+import android.kma.myquizzapp.core.common.model.ResetTicketStatus
 import android.kma.myquizzapp.core.common.model.User
 import android.kma.myquizzapp.core.common.repository.AuthRepository
 import android.kma.myquizzapp.core.common.result.Result
 import android.kma.myquizzapp.core.common.result.map
-import android.kma.myquizzapp.core.common.model.ResetTicket
-import android.kma.myquizzapp.core.common.model.ResetTicketStatus
 import android.kma.myquizzapp.core.network.api.AuthApiService
 import android.kma.myquizzapp.core.network.api.PasswordResetApiService
 import android.kma.myquizzapp.core.network.api.UserApiService
 import android.kma.myquizzapp.core.network.dto.CompleteResetRequest
 import android.kma.myquizzapp.core.network.dto.ForgotPasswordRequest
-import timber.log.Timber
 import android.kma.myquizzapp.core.network.dto.GoogleOneTapRequest
 import android.kma.myquizzapp.core.network.dto.LoginRequest
 import android.kma.myquizzapp.core.network.dto.RegisterRequest
 import android.kma.myquizzapp.core.network.dto.VerifyResetOtpRequest
 import android.kma.myquizzapp.core.network.dto.VerifyResetTokenRequest
+import timber.log.Timber
 import javax.inject.Inject
 
 class AuthRepositoryImpl @Inject constructor(
@@ -28,7 +28,7 @@ class AuthRepositoryImpl @Inject constructor(
 ) : AuthRepository {
 
     override suspend fun login(email: String, password: String): Result<User> =
-        // Cookie đã được PersistentCookieJar.saveFromResponse() lưu vào Room
+    // Cookie đã được PersistentCookieJar.saveFromResponse() lưu vào Room
         // TRƯỚC khi dòng này chạy — repository không cần động vào token.
         authApi.login(LoginRequest(email, password)).map { it.user.toDomain() }
 

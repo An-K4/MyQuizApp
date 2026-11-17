@@ -3,14 +3,28 @@ package android.kma.myquizzapp.core.ui.components
 import android.content.res.Configuration
 import android.kma.myquizzapp.core.ui.theme.FrontendColors
 import android.kma.myquizzapp.core.ui.theme.MyQuizAppTheme
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.ScrollState
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.*
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -27,7 +41,8 @@ import androidx.compose.ui.unit.sp
 fun gameStartCountdownSeconds(targetEpochMs: Long?, offsetMs: Long, nowMillis: Long): Int? {
     if (targetEpochMs == null) return null
     val left = targetEpochMs - (nowMillis + offsetMs)
-    return if (left <= 0L) 0 else ((left + 999L) / 1_000L).coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+    return if (left <= 0L) 0 else ((left + 999L) / 1_000L).coerceAtMost(Int.MAX_VALUE.toLong())
+        .toInt()
 }
 
 @Composable
@@ -54,29 +69,40 @@ fun GameStartCountdownContent(
     subtitle: String? = null,
     onRetry: (() -> Unit)? = null,
 ) {
-    Box(modifier.fillMaxSize().background(countdownPageColor()), contentAlignment = Alignment.Center) {
+    Box(
+        modifier.fillMaxSize().background(countdownPageColor()),
+        contentAlignment = Alignment.Center
+    ) {
         Column(
             Modifier.fillMaxWidth().verticalScroll(scrollState).padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(24.dp),
         ) {
-            Text("Chuẩn bị bắt đầu", style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+            Text(
+                "Chuẩn bị bắt đầu", style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold, textAlign = TextAlign.Center
+            )
             Surface(
                 shape = CircleShape,
                 color = if (isSystemInDarkTheme()) MaterialTheme.colorScheme.primaryContainer else FrontendColors.BrandTint,
             ) {
-                Box(Modifier.sizeIn(minWidth = 160.dp, minHeight = 160.dp).padding(24.dp),
-                    contentAlignment = Alignment.Center) {
-                    Text(seconds?.takeIf { it > 0 }?.toString() ?: "—",
+                Box(
+                    Modifier.sizeIn(minWidth = 160.dp, minHeight = 160.dp).padding(24.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        seconds?.takeIf { it > 0 }?.toString() ?: "—",
                         color = MaterialTheme.colorScheme.primary, fontSize = 72.sp,
                         fontWeight = FontWeight.ExtraBold, textAlign = TextAlign.Center,
                         modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
                 }
             }
-            if (!subtitle.isNullOrBlank()) Text(subtitle, style = MaterialTheme.typography.titleMedium,
-                textAlign = TextAlign.Center)
-            Text(message, style = MaterialTheme.typography.bodyLarge,
+            if (!subtitle.isNullOrBlank()) Text(
+                subtitle, style = MaterialTheme.typography.titleMedium,
+                textAlign = TextAlign.Center
+            )
+            Text(
+                message, style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center,
                 modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
             if (onRetry != null) QuizPrimaryButton("Kết nối lại", onRetry)
@@ -98,36 +124,64 @@ fun GameStartCountdownScreenContent(
     Scaffold(
         modifier = modifier.fillMaxSize(), containerColor = countdownPageColor(),
         snackbarHost = snackbarHost,
-        topBar = { TopAppBar(title = { Text(title, style = MaterialTheme.typography.titleMedium) },
-            actions = actions,
-            colors = TopAppBarDefaults.topAppBarColors(containerColor = countdownPageColor())) },
+        topBar = {
+            TopAppBar(
+                title = { Text(title, style = MaterialTheme.typography.titleMedium) },
+                actions = actions,
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = countdownPageColor())
+            )
+        },
     ) { padding ->
-        GameStartCountdownContent(seconds, message,
-            Modifier.padding(padding).consumeWindowInsets(padding), onRetry = onRetry)
+        GameStartCountdownContent(
+            seconds, message,
+            Modifier.padding(padding).consumeWindowInsets(padding), onRetry = onRetry
+        )
     }
 }
 
 @Preview(name = "Countdown", showBackground = true, widthDp = 390, heightDp = 844)
 @Composable
 private fun CountdownPreview() = MyQuizAppTheme {
-    GameStartCountdownScreenContent(3, "Câu hỏi đầu tiên sắp xuất hiện. Hãy sẵn sàng!", "Chuẩn bị vào trận")
+    GameStartCountdownScreenContent(
+        3,
+        "Câu hỏi đầu tiên sắp xuất hiện. Hãy sẵn sàng!",
+        "Chuẩn bị vào trận"
+    )
 }
 
-@Preview(name = "Countdown paused dark", showBackground = true, widthDp = 390, heightDp = 844,
-    uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(
+    name = "Countdown paused dark", showBackground = true, widthDp = 390, heightDp = 844,
+    uiMode = Configuration.UI_MODE_NIGHT_YES
+)
 @Composable
 private fun CountdownPausedPreview() = MyQuizAppTheme {
-    GameStartCountdownScreenContent(null, "Trận đang tạm dừng — chờ Host tiếp tục.", "Chuẩn bị vào trận")
+    GameStartCountdownScreenContent(
+        null,
+        "Trận đang tạm dừng — chờ Host tiếp tục.",
+        "Chuẩn bị vào trận"
+    )
 }
 
-@Preview(name = "Countdown retry large font", showBackground = true, widthDp = 320, heightDp = 640, fontScale = 1.5f)
+@Preview(
+    name = "Countdown retry large font",
+    showBackground = true,
+    widthDp = 320,
+    heightDp = 640,
+    fontScale = 1.5f
+)
 @Composable
 private fun CountdownRetryPreview() = MyQuizAppTheme {
-    GameStartCountdownScreenContent(null, "Không thể kết nối lại. Hãy kiểm tra mạng rồi thử lại.",
+    GameStartCountdownScreenContent(
+        null, "Không thể kết nối lại. Hãy kiểm tra mạng rồi thử lại.",
         "Chuẩn bị vào trận", onRetry = {})
 }
 
-@Preview(name = "Countdown waiting for server", showBackground = true, widthDp = 390, heightDp = 844)
+@Preview(
+    name = "Countdown waiting for server",
+    showBackground = true,
+    widthDp = 390,
+    heightDp = 844
+)
 @Composable
 private fun CountdownWaitingPreview() = MyQuizAppTheme {
     GameStartCountdownScreenContent(0, "Đang chờ máy chủ mở câu hỏi đầu tiên…", "Chuẩn bị vào trận")

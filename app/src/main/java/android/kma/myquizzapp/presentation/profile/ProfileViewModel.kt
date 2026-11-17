@@ -5,10 +5,10 @@ import android.kma.myquizzapp.core.common.error.toUserMessage
 import android.kma.myquizzapp.core.common.model.SessionUserToken
 import android.kma.myquizzapp.core.common.model.User
 import android.kma.myquizzapp.core.common.model.userOrNull
-import android.kma.myquizzapp.domain.profile.LoadProfileStatsUseCase
-import android.kma.myquizzapp.domain.profile.ObserveProfileSessionUseCase
 import android.kma.myquizzapp.core.common.result.Result
 import android.kma.myquizzapp.domain.profile.AvatarUpdateResult
+import android.kma.myquizzapp.domain.profile.LoadProfileStatsUseCase
+import android.kma.myquizzapp.domain.profile.ObserveProfileSessionUseCase
 import android.kma.myquizzapp.domain.profile.ProfileDraft
 import android.kma.myquizzapp.domain.profile.SaveProfileUseCase
 import android.kma.myquizzapp.domain.profile.UpdateAvatarUseCase
@@ -17,16 +17,15 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
-import javax.inject.Inject
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 @HiltViewModel
 class ProfileViewModel @Inject constructor(
@@ -76,23 +75,31 @@ class ProfileViewModel @Inject constructor(
                 val user = _uiState.value.user ?: return
                 setDraft(ProfileDraft.from(user))
             }
+
             is ProfileIntent.ChangeFullname -> changeDraft { copy(fullname = intent.value) }
             is ProfileIntent.ChangePhone -> changeDraft { copy(phone = intent.value) }
             is ProfileIntent.ChangeDescription -> changeDraft { copy(description = intent.value) }
             ProfileIntent.SaveProfile -> save()
             ProfileIntent.RequestCloseEdit -> if (!_uiState.value.isBusy) {
-                if (_uiState.value.draft?.isDirty == true) _uiState.update { it.copy(showDiscardConfirmation = true) }
+                if (_uiState.value.draft?.isDirty == true) _uiState.update {
+                    it.copy(
+                        showDiscardConfirmation = true
+                    )
+                }
                 else discardDraft()
             }
+
             ProfileIntent.KeepEditing -> _uiState.update { it.copy(showDiscardConfirmation = false) }
             ProfileIntent.DiscardEdits -> if (!_uiState.value.isBusy) discardDraft()
             is ProfileIntent.AvatarPicked -> if (_uiState.value.canEdit && intent.token == ownerToken && ownerToken != null) {
                 _uiState.update { it.copy(selectedAvatarUri = intent.uri, avatarError = null) }
             }
+
             ProfileIntent.ConfirmAvatar -> uploadAvatar()
             ProfileIntent.CancelAvatar -> if (!_uiState.value.isBusy && _uiState.value.pendingAvatar == null) {
                 _uiState.update { it.copy(selectedAvatarUri = null, avatarError = null) }
             }
+
             ProfileIntent.VerifyAvatar -> verifyAvatar()
             ProfileIntent.Logout -> logout()
         }
@@ -105,12 +112,21 @@ class ProfileViewModel @Inject constructor(
             when (val result = loadProfileStats()) {
                 is Result.Success -> if (observeSession.captureToken() == token) {
                     _uiState.update {
-                        it.copy(profileStats = result.data, isLoadingStats = false, profileStatsError = null)
+                        it.copy(
+                            profileStats = result.data,
+                            isLoadingStats = false,
+                            profileStatsError = null
+                        )
                     }
                 }
+
                 is Result.Error -> if (observeSession.captureToken() == token) {
                     _uiState.update {
-                        it.copy(profileStats = null, isLoadingStats = false, profileStatsError = result.error.toUserMessage())
+                        it.copy(
+                            profileStats = null,
+                            isLoadingStats = false,
+                            profileStatsError = result.error.toUserMessage()
+                        )
                     }
                 }
             }
@@ -146,7 +162,14 @@ class ProfileViewModel @Inject constructor(
 
     private fun discardDraft() {
         clearDraft()
-        _uiState.update { it.copy(draft = null, profileError = null, phoneServerError = null, showDiscardConfirmation = false) }
+        _uiState.update {
+            it.copy(
+                draft = null,
+                profileError = null,
+                phoneServerError = null,
+                showDiscardConfirmation = false
+            )
+        }
     }
 
     private fun save() {
@@ -154,7 +177,13 @@ class ProfileViewModel @Inject constructor(
         val draft = state.draft ?: return
         val token = ownerToken ?: return
         if (state.isBusy || !draft.isDirty || draft.errors().hasErrors) return
-        _uiState.update { it.copy(isSavingProfile = true, profileError = null, phoneServerError = null) }
+        _uiState.update {
+            it.copy(
+                isSavingProfile = true,
+                profileError = null,
+                phoneServerError = null
+            )
+        }
         actionJob = viewModelScope.launch {
             val result = saveProfile(draft, token)
             if (observeSession.captureToken() != token) return@launch
@@ -163,6 +192,7 @@ class ProfileViewModel @Inject constructor(
                     discardDraft()
                     _effect.send(ProfileEffect.ShowMessage("Đã cập nhật hồ sơ"))
                 }
+
                 is Result.Error -> _uiState.update {
                     it.copy(
                         profileError = if (result.error.hasApiCode("AUTH_PHONE_TAKEN")) null else result.error.toUserMessage(),
@@ -202,16 +232,32 @@ class ProfileViewModel @Inject constructor(
         if (observeSession.captureToken() != token) return
         when (result) {
             AvatarUpdateResult.Saved -> {
-                _uiState.update { it.copy(selectedAvatarUri = null, pendingAvatar = null, isUpdatingAvatar = false, avatarError = null) }
+                _uiState.update {
+                    it.copy(
+                        selectedAvatarUri = null,
+                        pendingAvatar = null,
+                        isUpdatingAvatar = false,
+                        avatarError = null
+                    )
+                }
                 _effect.send(ProfileEffect.ShowMessage("Đã cập nhật ảnh đại diện"))
             }
+
             is AvatarUpdateResult.NeedsVerification -> _uiState.update {
-                it.copy(isUpdatingAvatar = false, pendingAvatar = result,
-                    avatarError = "Chưa xác định được kết quả lưu ảnh. Hãy kiểm tra lại; ứng dụng không gửi lại lệnh lưu.")
+                it.copy(
+                    isUpdatingAvatar = false, pendingAvatar = result,
+                    avatarError = "Chưa xác định được kết quả lưu ảnh. Hãy kiểm tra lại; ứng dụng không gửi lại lệnh lưu."
+                )
             }
+
             is AvatarUpdateResult.Failed -> _uiState.update {
-                it.copy(isUpdatingAvatar = false, pendingAvatar = null, avatarError = result.error.toUserMessage())
+                it.copy(
+                    isUpdatingAvatar = false,
+                    pendingAvatar = null,
+                    avatarError = result.error.toUserMessage()
+                )
             }
+
             AvatarUpdateResult.SessionChanged -> reconcileSession()
         }
     }

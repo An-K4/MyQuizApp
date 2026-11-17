@@ -31,12 +31,12 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ChevronRight
-import androidx.compose.material.icons.outlined.PersonOutline
 import androidx.compose.material.icons.outlined.Logout
+import androidx.compose.material.icons.outlined.PersonOutline
 import androidx.compose.material.icons.outlined.Security
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -77,7 +77,6 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import kotlinx.coroutines.flow.collect
 
 @Composable
 fun ProfileScreen(
@@ -91,10 +90,11 @@ fun ProfileScreen(
     val snackbar = remember { SnackbarHostState() }
     val lifecycleOwner = LocalLifecycleOwner.current
     var pickerOwner by remember { mutableStateOf<SessionUserToken?>(null) }
-    val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        uri?.let { viewModel.onIntent(ProfileIntent.AvatarPicked(it.toString(), pickerOwner)) }
-        pickerOwner = null
-    }
+    val picker =
+        rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+            uri?.let { viewModel.onIntent(ProfileIntent.AvatarPicked(it.toString(), pickerOwner)) }
+            pickerOwner = null
+        }
     DisposableEffect(lifecycleOwner, viewModel) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) viewModel.onIntent(ProfileIntent.RefreshStats)
@@ -152,9 +152,13 @@ fun ProfileScreenContent(
     ) { innerPadding ->
         Box(Modifier.fillMaxSize().padding(innerPadding)) {
             when {
-                uiState.isLoading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                uiState.isLoading -> Box(
+                    Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
                     CircularProgressIndicator()
                 }
+
                 uiState.isConfirmedGuest -> GuestProfileContent(onSignIn)
                 else -> SignedInProfileContent(uiState, onIntent, onOpenSecurity)
             }
@@ -166,7 +170,13 @@ fun ProfileScreenContent(
             onDismissRequest = { onIntent(ProfileIntent.KeepEditing) },
             title = { Text("Bỏ thay đổi?") },
             text = { Text("Thông tin vừa chỉnh sửa chưa được lưu.") },
-            confirmButton = { TextButton(onClick = { onIntent(ProfileIntent.DiscardEdits) }) { Text("Bỏ thay đổi") } },
+            confirmButton = {
+                TextButton(onClick = { onIntent(ProfileIntent.DiscardEdits) }) {
+                    Text(
+                        "Bỏ thay đổi"
+                    )
+                }
+            },
             dismissButton = { TextButton(onClick = { onIntent(ProfileIntent.KeepEditing) }) { Text("Tiếp tục sửa") } }
         )
     }
@@ -192,9 +202,17 @@ private fun SignedInProfileContent(
             ) {
                 Avatar(user.avatar, contentDescription = "Ảnh đại diện", size = 88.dp)
                 Spacer(Modifier.height(8.dp))
-                Text(user.fullname, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+                Text(
+                    user.fullname,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.SemiBold
+                )
                 Spacer(Modifier.height(2.dp))
-                Text(user.email, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    user.email,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
         item { ProfileStatsCard(state, onRetry = { onIntent(ProfileIntent.RefreshStats) }) }
@@ -229,9 +247,16 @@ private fun SignedInProfileContent(
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
                 shape = RoundedCornerShape(16.dp)
             ) {
-                Icon(Icons.Outlined.Logout, contentDescription = null, modifier = Modifier.size(18.dp))
+                Icon(
+                    Icons.Outlined.Logout,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
                 Spacer(Modifier.width(8.dp))
-                Text(if (state.isLoggingOut) "Đang đăng xuất…" else "Đăng xuất", fontWeight = FontWeight.SemiBold)
+                Text(
+                    if (state.isLoggingOut) "Đang đăng xuất…" else "Đăng xuất",
+                    fontWeight = FontWeight.SemiBold
+                )
             }
         }
     }
@@ -283,7 +308,12 @@ private fun ProfileStatsCard(state: ProfileUiState, onRetry: () -> Unit) {
 }
 
 @Composable
-private fun ProfileStat(value: Int?, label: String, isLoading: Boolean, modifier: Modifier = Modifier) {
+private fun ProfileStat(
+    value: Int?,
+    label: String,
+    isLoading: Boolean,
+    modifier: Modifier = Modifier
+) {
     Column(
         modifier = modifier.padding(horizontal = 4.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -298,7 +328,11 @@ private fun ProfileStat(value: Int?, label: String, isLoading: Boolean, modifier
                 fontWeight = FontWeight.SemiBold
             )
         }
-        Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(
+            label,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 
@@ -310,13 +344,24 @@ private fun ProfileActionRow(
     onClick: () -> Unit
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth().clickable(enabled = enabled, role = Role.Button, onClick = onClick)
+        modifier = Modifier.fillMaxWidth()
+            .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 17.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
-        Text(label, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+        Icon(
+            icon,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(22.dp)
+        )
+        Text(
+            label,
+            modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Medium
+        )
         Icon(
             Icons.Outlined.ChevronRight,
             contentDescription = null,
@@ -340,12 +385,23 @@ private fun ProfileEditorDialog(
         title = { Text("Chỉnh sửa thông tin cá nhân") },
         text = {
             Column(
-                Modifier.fillMaxWidth().heightIn(max = 360.dp).verticalScroll(rememberScrollState()),
+                Modifier.fillMaxWidth().heightIn(max = 360.dp)
+                    .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Avatar(state.user?.avatar, contentDescription = "Ảnh đại diện hiện tại", size = 64.dp)
-                    TextButton(onClick = onPickAvatar, enabled = state.canEdit) { Text("Đổi ảnh đại diện") }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Avatar(
+                        state.user?.avatar,
+                        contentDescription = "Ảnh đại diện hiện tại",
+                        size = 64.dp
+                    )
+                    TextButton(
+                        onClick = onPickAvatar,
+                        enabled = state.canEdit
+                    ) { Text("Đổi ảnh đại diện") }
                 }
                 OutlinedTextField(
                     value = state.user?.email.orEmpty(), onValueChange = {},
@@ -353,26 +409,44 @@ private fun ProfileEditorDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
                 OutlinedTextField(
-                    value = draft.fullname, onValueChange = { onIntent(ProfileIntent.ChangeFullname(it)) },
-                    enabled = !state.isBusy, label = { Text("Họ tên") }, singleLine = true,
+                    value = draft.fullname,
+                    onValueChange = { onIntent(ProfileIntent.ChangeFullname(it)) },
+                    enabled = !state.isBusy,
+                    label = { Text("Họ tên") },
+                    singleLine = true,
                     isError = errors.fullname != null,
-                    supportingText = { Text(errors.fullname ?: "${draft.fullname.trim().length}/100") },
+                    supportingText = {
+                        Text(
+                            errors.fullname ?: "${draft.fullname.trim().length}/100"
+                        )
+                    },
                     modifier = Modifier.fillMaxWidth()
                 )
                 val phoneError = errors.phone ?: state.phoneServerError
                 OutlinedTextField(
-                    value = draft.phone, onValueChange = { onIntent(ProfileIntent.ChangePhone(it)) },
-                    enabled = !state.isBusy, label = { Text("Số điện thoại") }, singleLine = true,
+                    value = draft.phone,
+                    onValueChange = { onIntent(ProfileIntent.ChangePhone(it)) },
+                    enabled = !state.isBusy,
+                    label = { Text("Số điện thoại") },
+                    singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                     isError = phoneError != null,
                     supportingText = { Text(phoneError ?: "Để trống để xóa số điện thoại") },
                     modifier = Modifier.fillMaxWidth()
                 )
                 OutlinedTextField(
-                    value = draft.description, onValueChange = { onIntent(ProfileIntent.ChangeDescription(it)) },
-                    enabled = !state.isBusy, label = { Text("Giới thiệu") }, minLines = 3, maxLines = 5,
+                    value = draft.description,
+                    onValueChange = { onIntent(ProfileIntent.ChangeDescription(it)) },
+                    enabled = !state.isBusy,
+                    label = { Text("Giới thiệu") },
+                    minLines = 3,
+                    maxLines = 5,
                     isError = errors.description != null,
-                    supportingText = { Text(errors.description ?: "${draft.description.trim().length}/200") },
+                    supportingText = {
+                        Text(
+                            errors.description ?: "${draft.description.trim().length}/200"
+                        )
+                    },
                     modifier = Modifier.fillMaxWidth()
                 )
                 state.profileError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
@@ -383,12 +457,18 @@ private fun ProfileEditorDialog(
                 onClick = { onIntent(ProfileIntent.SaveProfile) },
                 enabled = !state.isBusy && draft.isDirty && !errors.hasErrors && state.phoneServerError == null
             ) {
-                if (state.isSavingProfile) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                if (state.isSavingProfile) CircularProgressIndicator(
+                    Modifier.size(18.dp),
+                    strokeWidth = 2.dp
+                )
                 else Text("Lưu thay đổi")
             }
         },
         dismissButton = {
-            TextButton(onClick = { onIntent(ProfileIntent.RequestCloseEdit) }, enabled = !state.isBusy) { Text("Hủy") }
+            TextButton(
+                onClick = { onIntent(ProfileIntent.RequestCloseEdit) },
+                enabled = !state.isBusy
+            ) { Text("Hủy") }
         }
     )
 }
@@ -406,8 +486,15 @@ private fun AvatarPreviewDialog(state: ProfileUiState, onIntent: (ProfileIntent)
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Avatar(state.selectedAvatarUri, contentDescription = "Xem trước ảnh đại diện", size = 160.dp)
-                Text("Ảnh sẽ được resize/nén trước khi tải lên. Chưa có thao tác crop ảnh.", style = MaterialTheme.typography.bodySmall)
+                Avatar(
+                    state.selectedAvatarUri,
+                    contentDescription = "Xem trước ảnh đại diện",
+                    size = 160.dp
+                )
+                Text(
+                    "Ảnh sẽ được resize/nén trước khi tải lên. Chưa có thao tác crop ảnh.",
+                    style = MaterialTheme.typography.bodySmall
+                )
                 state.avatarError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             }
         },
@@ -416,7 +503,10 @@ private fun AvatarPreviewDialog(state: ProfileUiState, onIntent: (ProfileIntent)
                 onClick = { onIntent(if (pending) ProfileIntent.VerifyAvatar else ProfileIntent.ConfirmAvatar) },
                 enabled = !state.isBusy
             ) {
-                if (state.isUpdatingAvatar) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                if (state.isUpdatingAvatar) CircularProgressIndicator(
+                    Modifier.size(18.dp),
+                    strokeWidth = 2.dp
+                )
                 else Text(if (pending) "Kiểm tra lại" else "Cập nhật ảnh")
             }
         },
@@ -435,9 +525,16 @@ private fun GuestProfileContent(onSignIn: () -> Unit) {
         Modifier.fillMaxSize().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Text("Bạn đang chơi với tư cách khách", style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center)
+        Text(
+            "Bạn đang chơi với tư cách khách",
+            style = MaterialTheme.typography.titleMedium,
+            textAlign = TextAlign.Center
+        )
         Spacer(Modifier.height(8.dp))
-        Text("Đăng nhập để tạo quiz, mở phòng chơi và lưu lịch sử những trận đã tham gia.", textAlign = TextAlign.Center)
+        Text(
+            "Đăng nhập để tạo quiz, mở phòng chơi và lưu lịch sử những trận đã tham gia.",
+            textAlign = TextAlign.Center
+        )
         Spacer(Modifier.height(20.dp))
         QuizPrimaryButton(text = "Đăng ký/Đăng nhập", onClick = onSignIn)
     }
@@ -450,10 +547,17 @@ private fun ProfilePreview() {
     MyQuizAppTheme {
         ProfileScreenContent(
             ProfileUiState(
-                session = SessionState.LoggedIn(User(
-                    id = 1, fullname = "Nguyễn Hoàng Long", email = "hoanglong@gmail.com", phone = "+84901234567",
-                    description = "Cùng học và chơi quiz", createdAt = "2026-10-06", updatedAt = "2026-10-06"
-                )),
+                session = SessionState.LoggedIn(
+                    User(
+                        id = 1,
+                        fullname = "Nguyễn Hoàng Long",
+                        email = "hoanglong@gmail.com",
+                        phone = "+84901234567",
+                        description = "Cùng học và chơi quiz",
+                        createdAt = "2026-10-06",
+                        updatedAt = "2026-10-06"
+                    )
+                ),
                 profileStats = ProfileStats(participatedSessionCount = 42, createdQuizCount = 12)
             ), {}, {}, {}, remember { SnackbarHostState() }
         )
@@ -466,10 +570,12 @@ private fun ProfileStatsLoadingPreview() {
     MyQuizAppTheme {
         ProfileScreenContent(
             ProfileUiState(
-                session = SessionState.LoggedIn(User(
-                    id = 1, fullname = "Người chơi", email = "player@example.com",
-                    createdAt = "2026-08-24", updatedAt = "2026-08-30"
-                )),
+                session = SessionState.LoggedIn(
+                    User(
+                        id = 1, fullname = "Người chơi", email = "player@example.com",
+                        createdAt = "2026-08-24", updatedAt = "2026-08-30"
+                    )
+                ),
                 isLoadingStats = true
             ), {}, {}, {}, remember { SnackbarHostState() }
         )
@@ -482,7 +588,15 @@ private fun ProfileStatsErrorPreview() {
     MyQuizAppTheme {
         ProfileScreenContent(
             ProfileUiState(
-                session = SessionState.LoggedIn(User(id = 1, fullname = "Người chơi", email = "player@example.com", createdAt = "2026-08-24", updatedAt = "2026-08-30")),
+                session = SessionState.LoggedIn(
+                    User(
+                        id = 1,
+                        fullname = "Người chơi",
+                        email = "player@example.com",
+                        createdAt = "2026-08-24",
+                        updatedAt = "2026-08-30"
+                    )
+                ),
                 profileStatsError = "SERVER_ERROR"
             ), {}, {}, {}, remember { SnackbarHostState() }
         )
@@ -493,8 +607,13 @@ private fun ProfileStatsErrorPreview() {
 @Composable
 private fun ProfileEditPreview() {
     val user = User(
-        id = 1, fullname = "Nguyễn Hoàng Long", email = "hoanglong@gmail.com", phone = "+84901234567",
-        description = "Cùng học và chơi quiz", createdAt = "2026-10-06", updatedAt = "2026-10-06"
+        id = 1,
+        fullname = "Nguyễn Hoàng Long",
+        email = "hoanglong@gmail.com",
+        phone = "+84901234567",
+        description = "Cùng học và chơi quiz",
+        createdAt = "2026-10-06",
+        updatedAt = "2026-10-06"
     )
     MyQuizAppTheme {
         ProfileScreenContent(
@@ -508,6 +627,11 @@ private fun ProfileEditPreview() {
 @Composable
 private fun GuestPreview() {
     MyQuizAppTheme {
-        ProfileScreenContent(ProfileUiState(session = SessionState.Guest), {}, {}, {}, remember { SnackbarHostState() })
+        ProfileScreenContent(
+            ProfileUiState(session = SessionState.Guest),
+            {},
+            {},
+            {},
+            remember { SnackbarHostState() })
     }
 }

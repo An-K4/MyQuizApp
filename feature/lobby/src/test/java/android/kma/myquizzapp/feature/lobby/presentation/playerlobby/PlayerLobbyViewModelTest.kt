@@ -10,9 +10,9 @@ import android.kma.myquizzapp.feature.lobby.presentation.hostlobby.ConnectionSta
 import androidx.lifecycle.SavedStateHandle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestDispatcher
 import kotlinx.coroutines.test.resetMain
@@ -50,17 +50,18 @@ class PlayerLobbyViewModelTest {
     fun tearDown() = Dispatchers.resetMain()
 
     @Test
-    fun `reconnect exhaustion exposes retry and retry starts fresh connection`() = runTest(dispatcher) {
-        runCurrent()
-        socket.emit(GameEvent.Failed(null, "CLIENT_RECONNECT_EXHAUSTED"))
-        runCurrent()
-        assertEquals(ConnectionStatus.RECONNECT_FAILED, viewModel.uiState.value.connection)
+    fun `reconnect exhaustion exposes retry and retry starts fresh connection`() =
+        runTest(dispatcher) {
+            runCurrent()
+            socket.emit(GameEvent.Failed(null, "CLIENT_RECONNECT_EXHAUSTED"))
+            runCurrent()
+            assertEquals(ConnectionStatus.RECONNECT_FAILED, viewModel.uiState.value.connection)
 
-        viewModel.onIntent(PlayerLobbyIntent.Retry)
-        runCurrent()
-        assertEquals(ConnectionStatus.CONNECTING, viewModel.uiState.value.connection)
-        assertEquals(listOf("player-token", "player-token"), socket.tokens)
-    }
+            viewModel.onIntent(PlayerLobbyIntent.Retry)
+            runCurrent()
+            assertEquals(ConnectionStatus.CONNECTING, viewModel.uiState.value.connection)
+            assertEquals(listOf("player-token", "player-token"), socket.tokens)
+        }
 
     @Test
     fun `connected rejoins lobby after every reconnect`() = runTest(dispatcher) {
@@ -71,6 +72,7 @@ class PlayerLobbyViewModelTest {
         assertEquals(2, socket.joinCalls)
         assertEquals(ConnectionStatus.CONNECTED, viewModel.uiState.value.connection)
     }
+
     @Test
     fun `confirmed leave emits leave before disconnect when connected`() = runTest(dispatcher) {
         runCurrent()
@@ -122,9 +124,11 @@ private class FakePlayerLobbySocketRepository : PlayerGameSocketRepository {
     override suspend fun disconnect() {
         leaveActions += "disconnect"
     }
+
     override suspend fun leaveLobby() {
         leaveActions += "leave"
     }
+
     override suspend fun submitAnswer(answer: PlayerAnswer): Result<AnswerAck> = error("Not used")
     override suspend fun requestNextQuestion() = Unit
     override suspend fun sync() = Unit

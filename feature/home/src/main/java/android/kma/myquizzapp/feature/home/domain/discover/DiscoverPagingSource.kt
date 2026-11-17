@@ -29,6 +29,7 @@ class DiscoverPagingSource(
                     nextKey = if (page?.hasMore == true) page.nextCursor else null
                 )
             }
+
             is Result.Error -> LoadResult.Error(RuntimeException(result.error.toUserMessage()))
         }
     }

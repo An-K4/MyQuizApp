@@ -2,11 +2,11 @@ package android.kma.myquizzapp.feature.quiz_manage.presentation.quizmanagelist
 
 import android.kma.myquizzapp.core.common.error.isMissingResource
 import android.kma.myquizzapp.core.common.error.toUserMessage
-import android.kma.myquizzapp.core.common.result.Result
 import android.kma.myquizzapp.core.common.model.MyQuizzesParams
 import android.kma.myquizzapp.core.common.model.QuizSummary
-import android.kma.myquizzapp.feature.quiz_manage.domain.usecase.GetMyQuizzesUseCase
+import android.kma.myquizzapp.core.common.result.Result
 import android.kma.myquizzapp.feature.quiz_manage.domain.usecase.DeleteQuizUseCase
+import android.kma.myquizzapp.feature.quiz_manage.domain.usecase.GetMyQuizzesUseCase
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.paging.PagingData
@@ -14,8 +14,6 @@ import androidx.paging.cachedIn
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.flow.receiveAsFlow
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -24,7 +22,9 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -71,8 +71,10 @@ class QuizManageListViewModel @Inject constructor(
         when (intent) {
             is QuizManageListIntent.VisibilityChanged ->
                 _uiState.update { it.copy(visibility = intent.visibility) }
+
             is QuizManageListIntent.SortChanged ->
                 _uiState.update { it.copy(sort = intent.sort) }
+
             is QuizManageListIntent.KeywordChanged ->
                 _uiState.update { it.copy(keyword = intent.keyword) }
             // N16: Screen bắn intent này khi ON_RESUME (quay lại từ chi tiết/sửa/xóa).
@@ -82,11 +84,13 @@ class QuizManageListViewModel @Inject constructor(
                     _uiState.update { it.copy(deleteTarget = intent.target, deleteError = null) }
                 }
             }
+
             QuizManageListIntent.DeleteQuizDismissed -> {
                 if (!_uiState.value.isDeleting) {
                     _uiState.update { it.copy(deleteTarget = null, deleteError = null) }
                 }
             }
+
             QuizManageListIntent.DeleteQuizConfirmed -> deleteQuiz()
         }
     }
@@ -102,15 +106,28 @@ class QuizManageListViewModel @Inject constructor(
         viewModelScope.launch {
             when (val result = deleteQuizUseCase(target.id)) {
                 is Result.Success -> {
-                    _uiState.update { it.copy(deleteTarget = null, isDeleting = false, deleteError = null) }
+                    _uiState.update {
+                        it.copy(
+                            deleteTarget = null,
+                            isDeleting = false,
+                            deleteError = null
+                        )
+                    }
                     refresh() // Preserve filters/sort and replace the Paging generation.
                     _effect.send(QuizManageListEffect.ShowMessage("Đã xóa quiz."))
                 }
+
                 is Result.Error -> {
                     val message = result.error.toUserMessage()
                     if (result.error.isMissingResource("QUIZ_NOT_FOUND")) {
                         // It may have been removed elsewhere; do not leave a stale card/dialog.
-                        _uiState.update { it.copy(deleteTarget = null, isDeleting = false, deleteError = null) }
+                        _uiState.update {
+                            it.copy(
+                                deleteTarget = null,
+                                isDeleting = false,
+                                deleteError = null
+                            )
+                        }
                         refresh()
                         _effect.send(QuizManageListEffect.ShowMessage(message))
                     } else {

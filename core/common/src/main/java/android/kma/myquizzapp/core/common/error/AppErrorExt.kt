@@ -26,6 +26,7 @@ private fun apiCodeToMessage(code: String): String = when (code) {
     "AUTH_PHONE_TAKEN" -> "Số điện thoại này đã được đăng ký"
     "AUTH_TOKEN_MISSING", "AUTH_TOKEN_INVALID", "AUTH_REFRESH_INVALID" ->
         "Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại"
+
     "AUTH_GOOGLE_FAILED" -> "Đăng nhập Google thất bại, vui lòng thử lại"
     "AUTH_GOOGLE_EMAIL_UNVERIFIED" -> "Tài khoản Google chưa xác minh email"
     "AUTH_GOOGLE_ONLY" -> "Tài khoản này đăng nhập bằng Google, không có mật khẩu"

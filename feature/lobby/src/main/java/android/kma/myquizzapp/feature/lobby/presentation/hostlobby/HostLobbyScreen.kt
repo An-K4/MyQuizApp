@@ -22,7 +22,22 @@ import android.kma.myquizzapp.feature.lobby.presentation.components.LobbyPlayerS
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyGridState
@@ -38,7 +53,23 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material.icons.outlined.Settings
-import androidx.compose.material3.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -204,11 +235,19 @@ fun HostLobbyScreenContent(
         topBar = {
             TopAppBar(
                 title = {
-                    Text("Phòng chờ Host", fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(
+                        "Phòng chờ Host",
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Rời phòng chờ")
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Rời phòng chờ"
+                        )
                     }
                 },
                 actions = {
@@ -228,7 +267,8 @@ fun HostLobbyScreenContent(
         LazyVerticalGrid(
             columns = GridCells.Adaptive(minCellWidth),
             state = gridState,
-            modifier = Modifier.fillMaxSize().padding(innerPadding).consumeWindowInsets(innerPadding),
+            modifier = Modifier.fillMaxSize().padding(innerPadding)
+                .consumeWindowInsets(innerPadding),
             contentPadding = PaddingValues(horizontal = 20.dp, vertical = 20.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -237,15 +277,23 @@ fun HostLobbyScreenContent(
                 Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
                     SessionCodeCard(uiState.sessionCode, onCopyCode, onCopyLink)
                     if (uiState.connection != ConnectionStatus.CONNECTED) {
-                        ConnectionNotice(uiState.connection, onRetry = { onIntent(HostLobbyIntent.Retry) })
+                        ConnectionNotice(
+                            uiState.connection,
+                            onRetry = { onIntent(HostLobbyIntent.Retry) })
                     }
                     QuizSecondaryButton(
                         text = if (uiState.sessionStatus == null || uiState.canEditConfig) "Sửa cấu hình phòng"
-                            else "Không thể sửa cấu hình",
+                        else "Không thể sửa cấu hình",
                         onClick = { onIntent(HostLobbyIntent.OpenConfigSheet) },
                         enabled = uiState.canEditConfig && !uiState.isStarting,
                         modifier = Modifier.fillMaxWidth(),
-                        trailingIcon = { Icon(Icons.Outlined.Settings, null, Modifier.size(18.dp)) },
+                        trailingIcon = {
+                            Icon(
+                                Icons.Outlined.Settings,
+                                null,
+                                Modifier.size(18.dp)
+                            )
+                        },
                     )
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text(
@@ -258,6 +306,7 @@ fun HostLobbyScreenContent(
                                 !uiState.hasLobbySnapshot -> "Đang tải danh sách người chơi..."
                                 uiState.connection != ConnectionStatus.CONNECTED ->
                                     "${uiState.connectedPlayerCount} đang kết nối ở lần đồng bộ gần nhất"
+
                                 else -> "${uiState.connectedPlayerCount} đang kết nối"
                             },
                             style = MaterialTheme.typography.bodySmall,
@@ -267,12 +316,18 @@ fun HostLobbyScreenContent(
                 }
             }
             when {
-                !uiState.hasLobbySnapshot -> item(key = "players-loading", span = { GridItemSpan(maxLineSpan) }) {
+                !uiState.hasLobbySnapshot -> item(
+                    key = "players-loading",
+                    span = { GridItemSpan(maxLineSpan) }) {
                     LoadingPlayers()
                 }
-                uiState.players.isEmpty() -> item(key = "players-empty", span = { GridItemSpan(maxLineSpan) }) {
+
+                uiState.players.isEmpty() -> item(
+                    key = "players-empty",
+                    span = { GridItemSpan(maxLineSpan) }) {
                     EmptyPlayers()
                 }
+
                 else -> items(uiState.players, key = { "player-${it.id}" }) { player ->
                     HostLobbyPlayerCard(player)
                 }
@@ -291,7 +346,14 @@ private fun SessionCodeCard(
     Surface(modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp), color = Color.Transparent) {
         Column(
             modifier = Modifier
-                .background(Brush.verticalGradient(listOf(FrontendColors.ResultGradientMiddle, Primary)))
+                .background(
+                    Brush.verticalGradient(
+                        listOf(
+                            FrontendColors.ResultGradientMiddle,
+                            Primary
+                        )
+                    )
+                )
                 .padding(horizontal = 20.dp, vertical = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -303,22 +365,40 @@ private fun SessionCodeCard(
             )
             Text(
                 sessionCode, color = FrontendColors.PageBackground,
-                style = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.Bold, letterSpacing = 5.sp),
+                style = MaterialTheme.typography.headlineLarge.copy(
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 5.sp
+                ),
                 textAlign = TextAlign.Center,
             )
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
             ) {
-                RoomCopyButton("Copy mã", onCopyCode, isLink = false, modifier = Modifier.weight(1f))
-                RoomCopyButton("Copy link", onCopyLink, isLink = true, modifier = Modifier.weight(1f))
+                RoomCopyButton(
+                    "Copy mã",
+                    onCopyCode,
+                    isLink = false,
+                    modifier = Modifier.weight(1f)
+                )
+                RoomCopyButton(
+                    "Copy link",
+                    onCopyLink,
+                    isLink = true,
+                    modifier = Modifier.weight(1f)
+                )
             }
         }
     }
 }
 
 @Composable
-private fun RoomCopyButton(text: String, onClick: () -> Unit, isLink: Boolean, modifier: Modifier = Modifier) {
+private fun RoomCopyButton(
+    text: String,
+    onClick: () -> Unit,
+    isLink: Boolean,
+    modifier: Modifier = Modifier
+) {
     Button(
         onClick = onClick,
         modifier = modifier.heightIn(min = 48.dp),
@@ -330,9 +410,16 @@ private fun RoomCopyButton(text: String, onClick: () -> Unit, isLink: Boolean, m
         ),
         elevation = null,
     ) {
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Text(text, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
-            Icon(if (isLink) Icons.Outlined.Link else Icons.Outlined.ContentCopy, null, Modifier.size(16.dp))
+            Icon(
+                if (isLink) Icons.Outlined.Link else Icons.Outlined.ContentCopy,
+                null,
+                Modifier.size(16.dp)
+            )
         }
     }
 }
@@ -385,7 +472,11 @@ private fun ConnectionNotice(status: ConnectionStatus, onRetry: () -> Unit) {
 
 @Composable
 private fun HostLobbyPlayerCard(player: LobbyPlayer, modifier: Modifier = Modifier) {
-    Surface(modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp), color = LobbyColors.softSurface) {
+    Surface(
+        modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        color = LobbyColors.softSurface
+    ) {
         Column(
             Modifier.padding(horizontal = 8.dp, vertical = 12.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -415,7 +506,11 @@ private fun LoadingPlayers() {
 
 @Composable
 private fun EmptyPlayers() {
-    Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp), color = LobbyColors.softSurface) {
+    Surface(
+        Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        color = LobbyColors.softSurface
+    ) {
         Column(
             Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(8.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -423,7 +518,9 @@ private fun EmptyPlayers() {
             Text("Chưa có người chơi", fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
             Text(
                 "Chia sẻ mã phòng hoặc link ở trên để mời mọi người tham gia.",
-                style = MaterialTheme.typography.bodySmall, color = LobbyColors.muted, textAlign = TextAlign.Center,
+                style = MaterialTheme.typography.bodySmall,
+                color = LobbyColors.muted,
+                textAlign = TextAlign.Center,
             )
         }
     }
@@ -447,7 +544,8 @@ private fun ConfigSheetContent(
             color = LobbyColors.foreground,
         )
         Column(
-            Modifier.weight(1f, fill = false).fillMaxWidth().verticalScroll(scrollState).padding(20.dp),
+            Modifier.weight(1f, fill = false).fillMaxWidth().verticalScroll(scrollState)
+                .padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             when {
@@ -458,22 +556,48 @@ private fun ConfigSheetContent(
                     CircularProgressIndicator(Modifier.size(24.dp), color = Primary)
                     Text("Đang tải thiết lập của chế độ chơi...", color = LobbyColors.muted)
                 }
+
                 mode == null || form == null -> {
                     Text("Chưa tải được thiết lập của phòng này.", color = LobbyColors.muted)
-                    QuizSecondaryButton("Thử lại", onClick = { onIntent(HostLobbyIntent.RetryLoadSpec) })
+                    QuizSecondaryButton(
+                        "Thử lại",
+                        onClick = { onIntent(HostLobbyIntent.RetryLoadSpec) })
                 }
+
                 else -> {
                     GameModeConfigEditor(
                         mode = mode, form = form, invalidKeys = uiState.invalidConfigKeys,
                         enabled = uiState.isConfigFormEnabled,
-                        onToggle = { key, checked -> onIntent(HostLobbyIntent.ToggleChanged(key, checked)) },
-                        onNumberChange = { key, value -> onIntent(HostLobbyIntent.NumberChanged(key, value)) },
-                        onChoiceChange = { key, value -> onIntent(HostLobbyIntent.ChoiceChanged(key, value)) },
+                        onToggle = { key, checked ->
+                            onIntent(
+                                HostLobbyIntent.ToggleChanged(
+                                    key,
+                                    checked
+                                )
+                            )
+                        },
+                        onNumberChange = { key, value ->
+                            onIntent(
+                                HostLobbyIntent.NumberChanged(
+                                    key,
+                                    value
+                                )
+                            )
+                        },
+                        onChoiceChange = { key, value ->
+                            onIntent(
+                                HostLobbyIntent.ChoiceChanged(
+                                    key,
+                                    value
+                                )
+                            )
+                        },
                     )
                     if (uiState.invalidConfigKeys.isNotEmpty()) {
                         Text(
                             "Kiểm tra các thiết lập được đánh dấu.",
-                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
                         )
                     }
                 }
@@ -481,7 +605,8 @@ private fun ConfigSheetContent(
         }
         HorizontalDivider(color = LobbyColors.border)
         Row(
-            Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 20.dp, vertical = 12.dp)
+            Modifier.fillMaxWidth().navigationBarsPadding()
+                .padding(horizontal = 20.dp, vertical = 12.dp)
                 .height(IntrinsicSize.Min),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
@@ -499,14 +624,26 @@ private fun ConfigSheetContent(
 }
 
 private const val EMPTY_ROOM_TITLE = "Phòng chưa có ai"
-private const val EMPTY_ROOM_MESSAGE = "Chưa có người chơi nào vào phòng. Bắt đầu bây giờ thì những người vào sau chỉ tham gia được nếu phòng bật cho vào giữa trận."
+private const val EMPTY_ROOM_MESSAGE =
+    "Chưa có người chơi nào vào phòng. Bắt đầu bây giờ thì những người vào sau chỉ tham gia được nếu phòng bật cho vào giữa trận."
 private const val LEAVE_ROOM_TITLE = "Rời phòng chờ?"
-private const val LEAVE_ROOM_MESSAGE = "Bạn sẽ ngắt kết nối và rời màn phòng chờ. Thao tác này không hủy phòng chơi."
+private const val LEAVE_ROOM_MESSAGE =
+    "Bạn sẽ ngắt kết nối và rời màn phòng chờ. Thao tác này không hủy phòng chơi."
 
 // Six fixed previews only: do not multiply combinations through parameter providers.
 // Local samples have no ViewModel, socket, clipboard or production effects.
 private fun hostLobbyPreviewState(): HostLobbyUiState {
-    val names = listOf("Minh Anh", "Hoàng Long", "Thảo Vy", "Quang Huy", "Tuấn Kiệt", "Quốc Tuấn", "Mai Lan", "Đức Anh", "Ngọc Hà")
+    val names = listOf(
+        "Minh Anh",
+        "Hoàng Long",
+        "Thảo Vy",
+        "Quang Huy",
+        "Tuấn Kiệt",
+        "Quốc Tuấn",
+        "Mai Lan",
+        "Đức Anh",
+        "Ngọc Hà"
+    )
     return HostLobbyUiState(
         sessionCode = "582910", sessionStatus = SessionStatus.LOBBY,
         connection = ConnectionStatus.CONNECTED, mode = GameMode.CLASSIC,
@@ -533,7 +670,13 @@ private fun HostLobbyScreenContentPreview() {
     MyQuizAppTheme { HostLobbyPreviewContent(hostLobbyPreviewState()) }
 }
 
-@Preview(name = "Host lobby Small / large text", showBackground = true, widthDp = 320, heightDp = 568, fontScale = 1.3f)
+@Preview(
+    name = "Host lobby Small / large text",
+    showBackground = true,
+    widthDp = 320,
+    heightDp = 568,
+    fontScale = 1.3f
+)
 @Composable
 private fun HostLobbySmallPreview() {
     MyQuizAppTheme { HostLobbyPreviewContent(hostLobbyPreviewState()) }
@@ -545,7 +688,12 @@ private fun HostLobbyEmptyPreview() {
     MyQuizAppTheme { HostLobbyPreviewContent(hostLobbyPreviewState().copy(players = emptyList())) }
 }
 
-@Preview(name = "Host lobby Connection failed", showBackground = true, widthDp = 390, heightDp = 844)
+@Preview(
+    name = "Host lobby Connection failed",
+    showBackground = true,
+    widthDp = 390,
+    heightDp = 844
+)
 @Composable
 private fun HostLobbyReconnectPreview() {
     MyQuizAppTheme {
@@ -558,14 +706,20 @@ private fun hostLobbyPreviewForm(): RoomConfigForm {
     val toggle = BooleanSettingUiState(false, true)
     return RoomConfigForm(
         perQuestionSeconds = NumberSettingUiState("20", 0, 600, true, null, true),
-        autoAdvance = toggle, totalMatchSeconds = NumberSettingUiState("600", 1, 3600, true, null, true),
+        autoAdvance = toggle,
+        totalMatchSeconds = NumberSettingUiState("600", 1, 3600, true, null, true),
         maxPlayers = NumberSettingUiState("100", 1, 200, false, null, true),
-        allowLateJoin = toggle, allowGuests = toggle.copy(value = true),
+        allowLateJoin = toggle,
+        allowGuests = toggle.copy(value = true),
         showCorrectAnswer = toggle.copy(value = true),
         showLeaderboard = ChoiceSettingUiState("end_only", listOf("never", "end_only"), true),
         lives = NumberSettingUiState("3", 1, 10, true, null, true),
-        allowAnswerLate = toggle, shuffleQuestions = toggle, shuffleOptions = toggle,
-        showHint = toggle, reviewMode = toggle.copy(value = true), speedBonus = toggle.copy(value = true),
+        allowAnswerLate = toggle,
+        shuffleQuestions = toggle,
+        shuffleOptions = toggle,
+        showHint = toggle,
+        reviewMode = toggle.copy(value = true),
+        speedBonus = toggle.copy(value = true),
         negativeMarking = toggle,
     )
 }

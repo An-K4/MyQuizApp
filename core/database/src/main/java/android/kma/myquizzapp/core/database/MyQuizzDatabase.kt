@@ -1,13 +1,13 @@
 ﻿package android.kma.myquizzapp.core.database
 
-import androidx.room.Database
-import androidx.room.RoomDatabase
 import android.kma.myquizzapp.core.database.dao.CookieDao
 import android.kma.myquizzapp.core.database.dao.GameHistoryDao
 import android.kma.myquizzapp.core.database.dao.QuizCacheDao
 import android.kma.myquizzapp.core.database.entity.CachedQuizEntity
 import android.kma.myquizzapp.core.database.entity.CookieEntity
 import android.kma.myquizzapp.core.database.entity.GameHistoryEntity
+import androidx.room.Database
+import androidx.room.RoomDatabase
 
 @Database(
     entities = [CookieEntity::class, CachedQuizEntity::class, GameHistoryEntity::class],

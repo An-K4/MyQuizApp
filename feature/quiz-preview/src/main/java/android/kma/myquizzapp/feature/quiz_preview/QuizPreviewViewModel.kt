@@ -1,15 +1,13 @@
 package android.kma.myquizzapp.feature.quiz_preview
 
-import android.kma.myquizzapp.feature.quiz_preview.domain.usecase.LoadQuizPreviewUseCase
-
 import android.kma.myquizzapp.core.common.error.toUserMessage
 import android.kma.myquizzapp.core.common.model.QuestionType
 import android.kma.myquizzapp.core.common.result.Result
+import android.kma.myquizzapp.feature.quiz_preview.domain.usecase.LoadQuizPreviewUseCase
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
-import javax.inject.Inject
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
@@ -20,6 +18,7 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 @HiltViewModel
 class QuizPreviewViewModel internal constructor(
@@ -29,7 +28,7 @@ class QuizPreviewViewModel internal constructor(
 ) : ViewModel() {
     @Inject
     constructor(loadQuizPreview: LoadQuizPreviewUseCase, savedStateHandle: SavedStateHandle) :
-        this(loadQuizPreview, savedStateHandle, { System.nanoTime() / 1_000_000L })
+            this(loadQuizPreview, savedStateHandle, { System.nanoTime() / 1_000_000L })
 
     private val quizId: Long = checkNotNull(savedStateHandle["quizId"])
 
@@ -57,9 +56,13 @@ class QuizPreviewViewModel internal constructor(
             is QuizPreviewIntent.ChangeText -> {
                 val state = _uiState.value
                 if (state.phase == PreviewPhase.QUESTION &&
-                    state.currentQuestion?.questionType in setOf(QuestionType.SHORT_ANSWER, QuestionType.LONG_ANSWER)
+                    state.currentQuestion?.questionType in setOf(
+                        QuestionType.SHORT_ANSWER,
+                        QuestionType.LONG_ANSWER
+                    )
                 ) _uiState.update { it.copy(textAnswer = intent.value) }
             }
+
             QuizPreviewIntent.Submit -> submit()
             QuizPreviewIntent.Skip -> grade(answered = false)
             QuizPreviewIntent.Next -> advance()
@@ -84,6 +87,7 @@ class QuizPreviewViewModel internal constructor(
                         )
                         if (result.data.questions.isNotEmpty()) startRun()
                     }
+
                     is Result.Error -> _uiState.value = QuizPreviewUiState(
                         isLoading = false, errorMessage = result.error.toUserMessage(),
                     )
@@ -155,7 +159,12 @@ class QuizPreviewViewModel internal constructor(
             while (isActive) {
                 val leftMillis = (deadline - monotonicMillis()).coerceAtLeast(0L)
                 val left = ((leftMillis + 999L) / 1_000L).toInt()
-                _uiState.update { it.copy(remainingSeconds = left, remainingTimeMillis = leftMillis) }
+                _uiState.update {
+                    it.copy(
+                        remainingSeconds = left,
+                        remainingTimeMillis = leftMillis
+                    )
+                }
                 if (left == 0) {
                     _uiState.update { it.copy(isLate = true) }
                     break

@@ -2,9 +2,9 @@ package android.kma.myquizzapp.domain.profile
 
 import android.kma.myquizzapp.core.common.repository.ProfileStatsRepository
 import android.kma.myquizzapp.core.common.result.Result
-import javax.inject.Inject
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import javax.inject.Inject
 
 data class ProfileStats(
     val participatedSessionCount: Int,

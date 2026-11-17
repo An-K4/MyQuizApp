@@ -15,15 +15,23 @@ import org.junit.Test
 
 class GameHistoryDetailPresentationTest {
     private val options = listOf(
-        PublicAnswerOption("0", "Alpha"), PublicAnswerOption("1", "Beta"), PublicAnswerOption("2", "Gamma")
+        PublicAnswerOption("0", "Alpha"),
+        PublicAnswerOption("1", "Beta"),
+        PublicAnswerOption("2", "Gamma")
     )
+
     private fun item() = GameReviewItem(
         questionIndex = 0, answered = true, isCorrect = false, isLate = false, scoreEarned = 0
     )
 
     @Test
     fun `single correct shows only the relevant answer including zero id`() {
-        val ui = item().copy(answerOptions = options, yourAnswers = listOf("0"), correctAnswers = listOf("0"), isCorrect = true).toHistoryReviewUi()
+        val ui = item().copy(
+            answerOptions = options,
+            yourAnswers = listOf("0"),
+            correctAnswers = listOf("0"),
+            isCorrect = true
+        ).toHistoryReviewUi()
         assertEquals(HistoryAnswerTone.Correct, ui.tone)
         assertEquals(1, ui.answers.size)
         assertEquals("A", ui.answers.single().optionLabel)
@@ -32,14 +40,24 @@ class GameHistoryDetailPresentationTest {
 
     @Test
     fun `single wrong keeps snapshot labels and excludes unselected distractors`() {
-        val ui = item().copy(answerOptions = options, yourAnswers = listOf("1"), correctAnswers = listOf("2")).toHistoryReviewUi()
+        val ui = item().copy(
+            answerOptions = options,
+            yourAnswers = listOf("1"),
+            correctAnswers = listOf("2")
+        ).toHistoryReviewUi()
         assertEquals(listOf("B", "C"), ui.answers.map { it.optionLabel })
-        assertEquals(listOf(HistoryAnswerTone.Incorrect, HistoryAnswerTone.Correct), ui.answers.map { it.tone })
+        assertEquals(
+            listOf(HistoryAnswerTone.Incorrect, HistoryAnswerTone.Correct),
+            ui.answers.map { it.tone })
     }
 
     @Test
     fun `incomplete multiple set does not recolor a correct selected option`() {
-        val ui = item().copy(answerOptions = options, yourAnswers = listOf("0"), correctAnswers = listOf("0", "1")).toHistoryReviewUi()
+        val ui = item().copy(
+            answerOptions = options,
+            yourAnswers = listOf("0"),
+            correctAnswers = listOf("0", "1")
+        ).toHistoryReviewUi()
         assertEquals(HistoryAnswerTone.Incorrect, ui.tone)
         assertEquals(listOf("A", "B"), ui.answers.map { it.optionLabel })
         assertTrue(ui.answers.all { it.tone == HistoryAnswerTone.Correct })
@@ -49,13 +67,27 @@ class GameHistoryDetailPresentationTest {
 
     @Test
     fun `multiple choice colors only chosen wrong options red`() {
-        val ui = item().copy(answerOptions = options, yourAnswers = listOf("0", "2"), correctAnswers = listOf("0", "1")).toHistoryReviewUi()
-        assertEquals(listOf(HistoryAnswerTone.Correct, HistoryAnswerTone.Correct, HistoryAnswerTone.Incorrect), ui.answers.map { it.tone })
+        val ui = item().copy(
+            answerOptions = options,
+            yourAnswers = listOf("0", "2"),
+            correctAnswers = listOf("0", "1")
+        ).toHistoryReviewUi()
+        assertEquals(
+            listOf(
+                HistoryAnswerTone.Correct,
+                HistoryAnswerTone.Correct,
+                HistoryAnswerTone.Incorrect
+            ), ui.answers.map { it.tone })
     }
 
     @Test
     fun `accepted text trusts server result instead of comparing text locally`() {
-        val ui = item().copy(yourAnswers = listOf("  HÀ NỘI  "), correctAnswers = listOf("Hanoi"), isCorrect = true, scoreEarned = 900).toHistoryReviewUi()
+        val ui = item().copy(
+            yourAnswers = listOf("  HÀ NỘI  "),
+            correctAnswers = listOf("Hanoi"),
+            isCorrect = true,
+            scoreEarned = 900
+        ).toHistoryReviewUi()
         assertEquals(HistoryAnswerTone.Correct, ui.tone)
         assertEquals(1, ui.answers.size)
         assertEquals("  HÀ NỘI  ", ui.answers.single().text)
@@ -67,14 +99,21 @@ class GameHistoryDetailPresentationTest {
     fun `wrong long text has separate submitted and correct blocks without truncation`() {
         val answer = "Dòng thứ nhất\nDòng thứ hai"
         val key = "Nội dung đáp án dài\nGiữ nguyên xuống dòng"
-        val ui = item().copy(yourAnswers = listOf(answer), correctAnswers = listOf(key)).toHistoryReviewUi()
+        val ui = item().copy(yourAnswers = listOf(answer), correctAnswers = listOf(key))
+            .toHistoryReviewUi()
         assertEquals(listOf(answer, key), ui.answers.map { it.text })
-        assertEquals(listOf(HistoryAnswerTone.Incorrect, HistoryAnswerTone.Correct), ui.answers.map { it.tone })
+        assertEquals(
+            listOf(HistoryAnswerTone.Incorrect, HistoryAnswerTone.Correct),
+            ui.answers.map { it.tone })
     }
 
     @Test
     fun `unanswered text has no fake red submitted block`() {
-        val ui = item().copy(answered = false, yourAnswers = listOf("stale"), correctAnswers = listOf("Key")).toHistoryReviewUi()
+        val ui = item().copy(
+            answered = false,
+            yourAnswers = listOf("stale"),
+            correctAnswers = listOf("Key")
+        ).toHistoryReviewUi()
         assertEquals(HistoryAnswerTone.Neutral, ui.tone)
         assertEquals(1, ui.answers.size)
         assertEquals("Key", ui.answers.single().text)
@@ -83,7 +122,12 @@ class GameHistoryDetailPresentationTest {
 
     @Test
     fun `unanswered choices ignore stale selected keys`() {
-        val ui = item().copy(answered = false, answerOptions = options, yourAnswers = listOf("1"), correctAnswers = listOf("0")).toHistoryReviewUi()
+        val ui = item().copy(
+            answered = false,
+            answerOptions = options,
+            yourAnswers = listOf("1"),
+            correctAnswers = listOf("0")
+        ).toHistoryReviewUi()
         assertEquals(listOf("A"), ui.answers.map { it.optionLabel })
         assertEquals("Đáp án đúng", ui.answers.single().caption)
     }
@@ -97,7 +141,11 @@ class GameHistoryDetailPresentationTest {
 
     @Test
     fun `unknown option ids do not become invented answer text`() {
-        val ui = item().copy(answerOptions = options, yourAnswers = listOf("missing-id"), correctAnswers = listOf("0")).toHistoryReviewUi()
+        val ui = item().copy(
+            answerOptions = options,
+            yourAnswers = listOf("missing-id"),
+            correctAnswers = listOf("0")
+        ).toHistoryReviewUi()
         assertEquals(1, ui.answers.size)
         assertFalse(ui.answers.any { it.text.contains("missing-id") })
         assertTrue(ui.notice.orEmpty().isNotBlank())
@@ -137,9 +185,15 @@ class GameHistoryDetailPresentationTest {
     @Test
     fun `room code replaces room name with nullable and blank fallback`() {
         val summary = GameHistorySummary(
-            sessionId = 91, sessionName = "Friday room", sessionCode = " AB7CDE ",
-            gameMode = GameMode.CLASSIC, sessionStatus = SessionStatus.FINISHED,
-            config = GameConfig(), totalPlayers = 2, totalQuestions = 10, viewer = GameHistoryViewer(true)
+            sessionId = 91,
+            sessionName = "Friday room",
+            sessionCode = " AB7CDE ",
+            gameMode = GameMode.CLASSIC,
+            sessionStatus = SessionStatus.FINISHED,
+            config = GameConfig(),
+            totalPlayers = 2,
+            totalQuestions = 10,
+            viewer = GameHistoryViewer(true)
         )
         assertEquals("Mã phòng: AB7CDE", summary.historyRoomLabel())
         assertEquals("Phòng: Friday room", summary.copy(sessionCode = null).historyRoomLabel())
@@ -151,7 +205,10 @@ class GameHistoryDetailPresentationTest {
     @Test
     fun `only cancelled sessions display a status badge`() {
         for (status in SessionStatus.entries) {
-            if (status == SessionStatus.CANCELLED) assertEquals("Đã hủy", status.historyStatusLabel())
+            if (status == SessionStatus.CANCELLED) assertEquals(
+                "Đã hủy",
+                status.historyStatusLabel()
+            )
             else assertNull(status.historyStatusLabel())
         }
     }

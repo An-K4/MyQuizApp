@@ -54,6 +54,7 @@ class QuizDetailViewModel @Inject constructor(
                     _uiState.update { it.copy(isConfirmingDelete = true, deleteError = null) }
                 }
             }
+
             is QuizDetailIntent.DeleteQuizDismissed -> {
                 // Đang xóa dở thì không cho đóng dialog — nút đã disable ở UI,
                 // đây là lớp chặn thứ hai cho onDismissRequest (bấm ra ngoài dialog).
@@ -61,13 +62,21 @@ class QuizDetailViewModel @Inject constructor(
                     _uiState.update { it.copy(isConfirmingDelete = false, deleteError = null) }
                 }
             }
+
             is QuizDetailIntent.DeleteQuizConfirmed -> deleteQuiz()
         }
     }
 
     private fun loadQuizDetail() {
         if (_uiState.value.isLoading || _uiState.value.isDeleting) return
-        _uiState.update { it.copy(isLoading = true, error = null, isConfirmingDelete = false, deleteError = null) }
+        _uiState.update {
+            it.copy(
+                isLoading = true,
+                error = null,
+                isConfirmingDelete = false,
+                deleteError = null
+            )
+        }
         viewModelScope.launch {
             when (val result = getQuizWithOwnershipUseCase(quizId)) {
                 is Result.Success -> {
@@ -80,12 +89,15 @@ class QuizDetailViewModel @Inject constructor(
                         )
                     }
                 }
+
                 is Result.Error -> {
                     val message = result.error.toUserMessage()
                     if (result.error.isMissingResource("QUIZ_NOT_FOUND")) {
                         _uiState.update {
-                            it.copy(quiz = null, isOwner = false, isLoading = false,
-                                isConfirmingDelete = false, deleteError = null)
+                            it.copy(
+                                quiz = null, isOwner = false, isLoading = false,
+                                isConfirmingDelete = false, deleteError = null
+                            )
                         }
                         _effect.send(QuizDetailEffect.ResourceMissing(message))
                     } else {
@@ -99,21 +111,33 @@ class QuizDetailViewModel @Inject constructor(
     private fun deleteQuiz() {
         val state = _uiState.value
         if (!state.isOwner || state.quiz == null || !state.isConfirmingDelete ||
-            state.isLoading || state.error != null || state.isDeleting) return
+            state.isLoading || state.error != null || state.isDeleting
+        ) return
         // Claim before launch, not inside it, so two taps cannot send two DELETEs.
         _uiState.update { it.copy(isDeleting = true, deleteError = null) }
         viewModelScope.launch {
             when (val result = deleteQuizUseCase(quizId)) {
                 is Result.Success -> {
-                    _uiState.update { it.copy(quiz = null, isOwner = false, isDeleting = false, isConfirmingDelete = false, deleteError = null) }
+                    _uiState.update {
+                        it.copy(
+                            quiz = null,
+                            isOwner = false,
+                            isDeleting = false,
+                            isConfirmingDelete = false,
+                            deleteError = null
+                        )
+                    }
                     _effect.send(QuizDetailEffect.QuizDeleted)
                 }
+
                 is Result.Error -> {
                     val message = result.error.toUserMessage()
                     if (result.error.isMissingResource("QUIZ_NOT_FOUND")) {
                         _uiState.update {
-                            it.copy(quiz = null, isOwner = false, isDeleting = false,
-                                isConfirmingDelete = false, deleteError = null)
+                            it.copy(
+                                quiz = null, isOwner = false, isDeleting = false,
+                                isConfirmingDelete = false, deleteError = null
+                            )
                         }
                         _effect.send(QuizDetailEffect.ResourceMissing(message))
                     } else {

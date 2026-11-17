@@ -19,30 +19,30 @@ private val LightColorScheme = lightColorScheme(
     onPrimary = OnPrimary,
     primaryContainer = PrimaryContainer,
     onPrimaryContainer = OnPrimaryContainer,
-    
+
     secondary = Secondary,
     onSecondary = OnSecondary,
     secondaryContainer = SecondaryContainer,
     onSecondaryContainer = OnSecondaryContainer,
-    
+
     tertiary = Tertiary,
     onTertiary = OnTertiary,
     tertiaryContainer = TertiaryContainer,
     onTertiaryContainer = OnTertiaryContainer,
-    
+
     error = Error,
     onError = OnError,
     errorContainer = ErrorContainer,
     onErrorContainer = OnErrorContainer,
-    
+
     background = LightBackground,
     onBackground = LightOnBackground,
-    
+
     surface = Surface,
     onSurface = OnSurface,
     surfaceVariant = SurfaceVariant,
     onSurfaceVariant = OnSurfaceVariant,
-    
+
     outline = Outline,
     outlineVariant = OutlineVariant
 )
@@ -55,30 +55,30 @@ private val DarkColorScheme = darkColorScheme(
     onPrimary = OnPrimary,
     primaryContainer = OnPrimaryContainer,
     onPrimaryContainer = PrimaryContainer,
-    
+
     secondary = Secondary,
     onSecondary = OnSecondary,
     secondaryContainer = OnSecondaryContainer,
     onSecondaryContainer = SecondaryContainer,
-    
+
     tertiary = Tertiary,
     onTertiary = OnTertiary,
     tertiaryContainer = OnTertiaryContainer,
     onTertiaryContainer = TertiaryContainer,
-    
+
     error = Error,
     onError = OnError,
     errorContainer = OnErrorContainer,
     onErrorContainer = ErrorContainer,
-    
+
     background = DarkBackground,
     onBackground = DarkOnBackground,
-    
+
     surface = DarkBackground,
     onSurface = DarkOnBackground,
     surfaceVariant = OnSurfaceVariant,
     onSurfaceVariant = SurfaceVariant,
-    
+
     outline = Outline,
     outlineVariant = OutlineVariant
 )
@@ -95,7 +95,7 @@ fun MyQuizAppTheme(
     content: @Composable () -> Unit
 ) {
     val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
-    
+
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {

@@ -43,12 +43,15 @@ internal fun HistoryQuestionStatCard(stat: QuestionStat, modifier: Modifier = Mo
         ) {
             Surface(shape = CircleShape, color = colors.summary) {
                 Box(
-                    modifier = Modifier.defaultMinSize(minWidth = 44.dp, minHeight = 44.dp).padding(8.dp),
+                    modifier = Modifier.defaultMinSize(minWidth = 44.dp, minHeight = 44.dp)
+                        .padding(8.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         "${stat.questionIndex + 1}",
-                        modifier = Modifier.clearAndSetSemantics { contentDescription = "Câu ${stat.questionIndex + 1}" },
+                        modifier = Modifier.clearAndSetSemantics {
+                            contentDescription = "Câu ${stat.questionIndex + 1}"
+                        },
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = colors.accent
@@ -56,7 +59,11 @@ internal fun HistoryQuestionStatCard(stat: QuestionStat, modifier: Modifier = Mo
                 }
             }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(accuracy.text, style = MaterialTheme.typography.bodyMedium, color = colors.foreground)
+                Text(
+                    accuracy.text,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = colors.foreground
+                )
                 val progress = accuracy.progress
                 Box(
                     modifier = Modifier.fillMaxWidth().height(6.dp)
@@ -64,7 +71,10 @@ internal fun HistoryQuestionStatCard(stat: QuestionStat, modifier: Modifier = Mo
                         .clip(CircleShape).background(colors.track)
                 ) {
                     if (progress != null && progress > 0f) {
-                        Box(Modifier.fillMaxWidth(progress).fillMaxHeight().clip(CircleShape).background(FrontendColors.Success))
+                        Box(
+                            Modifier.fillMaxWidth(progress).fillMaxHeight().clip(CircleShape)
+                                .background(FrontendColors.Success)
+                        )
                     }
                 }
             }
@@ -73,8 +83,18 @@ internal fun HistoryQuestionStatCard(stat: QuestionStat, modifier: Modifier = Mo
 }
 
 @Preview(name = "Thống kê Host — đúng, sai, chưa có lượt", showBackground = true, widthDp = 390)
-@Preview(name = "Thống kê Host — tối", showBackground = true, widthDp = 390, uiMode = Configuration.UI_MODE_NIGHT_YES)
-@Preview(name = "Thống kê Host — hẹp/chữ lớn", showBackground = true, widthDp = 320, fontScale = 1.3f)
+@Preview(
+    name = "Thống kê Host — tối",
+    showBackground = true,
+    widthDp = 390,
+    uiMode = Configuration.UI_MODE_NIGHT_YES
+)
+@Preview(
+    name = "Thống kê Host — hẹp/chữ lớn",
+    showBackground = true,
+    widthDp = 320,
+    fontScale = 1.3f
+)
 @Composable
 private fun HistoryQuestionStatsPreview() {
     MyQuizAppTheme {

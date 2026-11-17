@@ -12,14 +12,13 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
-import javax.inject.Inject
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 @HiltViewModel
 class GameHistoryDetailViewModel @Inject constructor(
@@ -89,10 +88,15 @@ class GameHistoryDetailViewModel @Inject constructor(
             when (result) {
                 is Result.Success -> {
                     _uiState.update {
-                        it.copy(summary = result.data, isSummaryLoading = false, summaryError = null)
+                        it.copy(
+                            summary = result.data,
+                            isSummaryLoading = false,
+                            summaryError = null
+                        )
                     }
                     if (result.data.viewer.playerId != null) loadAnswers()
                 }
+
                 is Result.Error -> _uiState.update {
                     it.copy(isSummaryLoading = false, summaryError = result.error.toUserMessage())
                 }
@@ -114,6 +118,7 @@ class GameHistoryDetailViewModel @Inject constructor(
                 is Result.Success -> _uiState.update {
                     it.copy(review = result.data, isAnswersLoading = false, answersError = null)
                 }
+
                 is Result.Error -> {
                     val disabled = result.error.hasApiCode("GAME_REVIEW_DISABLED")
                     _uiState.update {

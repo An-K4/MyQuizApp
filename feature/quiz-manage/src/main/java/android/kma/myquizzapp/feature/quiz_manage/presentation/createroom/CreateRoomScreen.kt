@@ -10,7 +10,18 @@ import android.kma.myquizzapp.core.ui.theme.FrontendColors
 import android.kma.myquizzapp.core.ui.theme.MyQuizAppTheme
 import android.kma.myquizzapp.core.ui.theme.Primary
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -18,7 +29,19 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.outlined.SportsEsports
-import androidx.compose.material3.*
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -49,6 +72,7 @@ fun CreateRoomScreen(
             when (effect) {
                 is CreateRoomEffect.NavigateToHostLobby ->
                     onNavigateToHostLobby(effect.gameId, effect.socketToken, effect.sessionCode)
+
                 CreateRoomEffect.RequireAuthentication -> onRequireAuthentication()
                 is CreateRoomEffect.ResourceMissing -> onResourceMissing(effect.message)
             }
@@ -103,6 +127,7 @@ fun CreateRoomScreenContent(
                 onRetry = { onIntent(CreateRoomIntent.RetryLoadModes) },
                 modifier = contentModifier,
             )
+
             else -> CreateRoomForm(
                 state = uiState,
                 onIntent = onIntent,
@@ -131,12 +156,22 @@ private fun CreateRoomForm(
                 onValueChange = { onIntent(CreateRoomIntent.SessionNameChanged(it)) },
                 enabled = editable,
                 supportingText = "Từ 2 đến 100 ký tự",
-                leadingIcon = { Icon(Icons.Outlined.SportsEsports, contentDescription = null, modifier = Modifier.size(20.dp)) },
+                leadingIcon = {
+                    Icon(
+                        Icons.Outlined.SportsEsports,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp)
+                    )
+                },
             )
         }
         item(key = "modes") {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Chọn chế độ chơi", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text(
+                    "Chọn chế độ chơi",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     items(state.modes, key = { it.mode.name }) { descriptor ->
                         val selected = state.selectedMode == descriptor.mode
@@ -144,9 +179,17 @@ private fun CreateRoomForm(
                             selected = selected,
                             enabled = editable,
                             onClick = { onIntent(CreateRoomIntent.ModeSelected(descriptor.mode)) },
-                            label = { Text(modeLabel(descriptor.mode), fontWeight = FontWeight.SemiBold) },
+                            label = {
+                                Text(
+                                    modeLabel(descriptor.mode),
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            },
                             shape = RoundedCornerShape(12.dp),
-                            border = BorderStroke(1.dp, if (selected) Primary else RoomColors.border),
+                            border = BorderStroke(
+                                1.dp,
+                                if (selected) Primary else RoomColors.border
+                            ),
                             colors = FilterChipDefaults.filterChipColors(
                                 containerColor = RoomColors.surface,
                                 labelColor = RoomColors.foreground,
@@ -170,15 +213,40 @@ private fun CreateRoomForm(
         val form = state.modeConfig
         if (mode != null && form != null) item(key = mode.name) {
             Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                Text("Cấu hình nâng cao", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text(
+                    "Cấu hình nâng cao",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
                 GameModeConfigEditor(
                     mode = mode,
                     form = form,
                     invalidKeys = state.invalidConfigKeys,
                     enabled = editable,
-                    onToggle = { key, checked -> onIntent(CreateRoomIntent.ToggleChanged(key, checked)) },
-                    onNumberChange = { key, value -> onIntent(CreateRoomIntent.NumberChanged(key, value)) },
-                    onChoiceChange = { key, value -> onIntent(CreateRoomIntent.ChoiceChanged(key, value)) },
+                    onToggle = { key, checked ->
+                        onIntent(
+                            CreateRoomIntent.ToggleChanged(
+                                key,
+                                checked
+                            )
+                        )
+                    },
+                    onNumberChange = { key, value ->
+                        onIntent(
+                            CreateRoomIntent.NumberChanged(
+                                key,
+                                value
+                            )
+                        )
+                    },
+                    onChoiceChange = { key, value ->
+                        onIntent(
+                            CreateRoomIntent.ChoiceChanged(
+                                key,
+                                value
+                            )
+                        )
+                    },
                 )
             }
         }
@@ -207,14 +275,23 @@ private fun CreateRoomActions(state: CreateRoomUiState, onIntent: (CreateRoomInt
             // The action is fixed: feedback must stay visible without scrolling to the form end.
             if (state.validationErrors.isNotEmpty() || state.errorMessage != null) {
                 Column(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(top = 12.dp),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp)
+                        .padding(top = 12.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
                     state.validationErrors.forEach {
-                        Text("• $it", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                        Text(
+                            "• $it",
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall
+                        )
                     }
                     state.errorMessage?.let {
-                        Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                        Text(
+                            it,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall
+                        )
                     }
                 }
             }
@@ -233,13 +310,21 @@ private fun CreateRoomActions(state: CreateRoomUiState, onIntent: (CreateRoomInt
 
 @Composable
 private fun LoadingContent(modifier: Modifier = Modifier) {
-    Column(modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+    Column(
+        modifier.fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
         CircularProgressIndicator()
     }
 }
 
 @Composable
-private fun EmptyModesContent(message: String?, onRetry: () -> Unit, modifier: Modifier = Modifier) {
+private fun EmptyModesContent(
+    message: String?,
+    onRetry: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     Column(
         modifier.fillMaxSize().padding(20.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -276,7 +361,13 @@ private object RoomColors {
 }
 
 @Preview(name = "Create room Light", showBackground = true, widthDp = 390, heightDp = 844)
-@Preview(name = "Create room Dark", showBackground = true, widthDp = 390, heightDp = 844, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(
+    name = "Create room Dark",
+    showBackground = true,
+    widthDp = 390,
+    heightDp = 844,
+    uiMode = Configuration.UI_MODE_NIGHT_YES
+)
 @Composable
 private fun CreateRoomScreenContentPreview(
     @PreviewParameter(CreateRoomPreviewProvider::class) state: CreateRoomUiState,
@@ -286,10 +377,19 @@ private fun CreateRoomScreenContentPreview(
     }
 }
 
-@Preview(name = "Create room Small", showBackground = true, widthDp = 320, heightDp = 568, fontScale = 1.3f)
+@Preview(
+    name = "Create room Small",
+    showBackground = true,
+    widthDp = 320,
+    heightDp = 568,
+    fontScale = 1.3f
+)
 @Composable
 private fun CreateRoomSmallPreview() {
     MyQuizAppTheme {
-        CreateRoomScreenContent(uiState = createRoomPreviewState(GameMode.CLASSIC), onNavigateBack = {}, onIntent = {})
+        CreateRoomScreenContent(
+            uiState = createRoomPreviewState(GameMode.CLASSIC),
+            onNavigateBack = {},
+            onIntent = {})
     }
 }

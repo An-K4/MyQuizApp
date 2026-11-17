@@ -52,9 +52,16 @@ private fun AvatarPlaceholder() {
 }
 
 @Preview(name = "Avatar Fallback · Light", showBackground = true, widthDp = 390)
-@Preview(name = "Avatar Fallback · Dark", showBackground = true, widthDp = 390,
-    uiMode = Configuration.UI_MODE_NIGHT_YES)
-@Preview(name = "Avatar Fallback · Large text", showBackground = true, widthDp = 320, fontScale = 1.5f)
+@Preview(
+    name = "Avatar Fallback · Dark", showBackground = true, widthDp = 390,
+    uiMode = Configuration.UI_MODE_NIGHT_YES
+)
+@Preview(
+    name = "Avatar Fallback · Large text",
+    showBackground = true,
+    widthDp = 320,
+    fontScale = 1.5f
+)
 @Composable
 private fun AvatarFallbackPreview() {
     MyQuizAppTheme {
@@ -66,9 +73,11 @@ private fun AvatarFallbackPreview() {
                     Avatar("https://preview.invalid/avatar.png", "Avatar đang tải", size = 64.dp)
                 }
                 // Cùng placeholder mà nhánh onError dùng, không cần mạng trong Preview.
-                Box(Modifier.size(64.dp).clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.surfaceVariant),
-                    contentAlignment = Alignment.Center) {
+                Box(
+                    Modifier.size(64.dp).clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                    contentAlignment = Alignment.Center
+                ) {
                     AvatarPlaceholder()
                 }
             }

@@ -1,14 +1,14 @@
 package android.kma.myquizzapp.feature.auth.presentation.register
 
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
-import android.kma.myquizzapp.feature.auth.domain.usecase.RegisterUseCase
-import android.kma.myquizzapp.feature.auth.presentation.validation.AuthValidator
 import android.kma.myquizzapp.core.common.error.toUserMessage
 import android.kma.myquizzapp.core.common.result.Result
 import android.kma.myquizzapp.core.common.validator.EmailValidator
 import android.kma.myquizzapp.core.common.validator.PasswordValidator
 import android.kma.myquizzapp.core.common.validator.ValidationResult
+import android.kma.myquizzapp.feature.auth.domain.usecase.RegisterUseCase
+import android.kma.myquizzapp.feature.auth.presentation.validation.AuthValidator
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -40,15 +40,19 @@ class RegisterViewModel @Inject constructor(
             is RegisterIntent.EmailChanged -> _uiState.update {
                 it.copy(email = intent.value, emailError = null)
             }
+
             is RegisterIntent.PasswordChanged -> _uiState.update {
                 it.copy(password = intent.value, passwordError = null)
             }
+
             is RegisterIntent.FullnameChanged -> _uiState.update {
                 it.copy(fullname = intent.value, fullnameError = null)
             }
+
             is RegisterIntent.PhoneChanged -> _uiState.update {
                 it.copy(phone = intent.value, phoneError = null)
             }
+
             RegisterIntent.Submit -> submit()
         }
     }

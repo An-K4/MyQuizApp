@@ -115,7 +115,7 @@ class JoinRoomViewModel @Inject constructor(
                     it.copy(
                         isSubmitting = false,
                         errorMessage = "Chưa xác định được bạn đang đăng nhập hay vào với " +
-                            "tư cách khách. Kiểm tra kết nối rồi thử lại."
+                                "tư cách khách. Kiểm tra kết nối rồi thử lại."
                     )
                 }
             }
@@ -175,6 +175,7 @@ private fun AppError.toLookupMessage(): String = when {
 private fun RoomLookup.closedReason(): String = when (status) {
     SessionStatus.ACTIVE, SessionStatus.PAUSED ->
         "Trận đã bắt đầu và phòng không cho vào muộn"
+
     SessionStatus.FINISHED -> "Trận này đã kết thúc"
     SessionStatus.CANCELLED -> "Phòng này đã bị hủy"
     SessionStatus.LOBBY -> "Phòng không nhận thêm người chơi"

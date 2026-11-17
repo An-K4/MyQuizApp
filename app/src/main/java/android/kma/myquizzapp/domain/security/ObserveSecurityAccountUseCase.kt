@@ -9,7 +9,11 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 
-data class SecurityAccount(val token: SessionUserToken?, val loading: Boolean, val googleOnly: Boolean)
+data class SecurityAccount(
+    val token: SessionUserToken?,
+    val loading: Boolean,
+    val googleOnly: Boolean
+)
 
 /** Read-only application boundary. Presentation never accesses SessionRepository directly. */
 class ObserveSecurityAccountUseCase @Inject constructor(private val session: SessionRepository) {

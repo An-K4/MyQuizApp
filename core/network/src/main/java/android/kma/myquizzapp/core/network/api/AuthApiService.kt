@@ -1,6 +1,5 @@
 ﻿package android.kma.myquizzapp.core.network.api
 
-import android.kma.myquizzapp.core.common.error.AppError
 import android.kma.myquizzapp.core.common.result.Result
 import android.kma.myquizzapp.core.network.dto.AuthDataDto
 import android.kma.myquizzapp.core.network.dto.GoogleOneTapRequest
@@ -21,7 +20,7 @@ interface AuthApiService {
 
     @POST("auth/logout")
     suspend fun logout(): Result<Unit>
-    
+
     @POST("auth/refresh")
     suspend fun refresh(): Result<Unit>
     // N16.5: 4 endpoint reset password chuyển sang PasswordResetApiService (Json riêng,

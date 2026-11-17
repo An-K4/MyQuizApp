@@ -68,12 +68,18 @@ class SocketAckMapperTest {
 
     @Test
     fun `khong co ack thanh loi timeout chu khong treo`() {
-        assertEquals(Result.Error(AppError.Api(SocketAckMapper.CODE_ACK_TIMEOUT)), mapper.toConfigUpdateAck(SocketAckResult.Timeout))
+        assertEquals(
+            Result.Error(AppError.Api(SocketAckMapper.CODE_ACK_TIMEOUT)),
+            mapper.toConfigUpdateAck(SocketAckResult.Timeout)
+        )
     }
 
     @Test
     fun `mat ket noi thanh code rieng cua client`() {
-        assertEquals(Result.Error(AppError.Api(SocketAckMapper.CODE_NOT_CONNECTED)), mapper.toConfigUpdateAck(SocketAckResult.NotConnected))
+        assertEquals(
+            Result.Error(AppError.Api(SocketAckMapper.CODE_NOT_CONNECTED)),
+            mapper.toConfigUpdateAck(SocketAckResult.NotConnected)
+        )
     }
 
     @Test

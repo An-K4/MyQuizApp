@@ -58,11 +58,18 @@ data class GameConfig(
 }
 
 @Serializable
-enum class Pacing { @SerialName("host") HOST, @SerialName("self") SELF }
+enum class Pacing {
+    @SerialName("host")
+    HOST, @SerialName("self")
+    SELF
+}
 
 @Serializable
 enum class ShowLeaderboard {
-    @SerialName("never") NEVER,
-    @SerialName("between_questions") BETWEEN_QUESTIONS,
-    @SerialName("end_only") END_ONLY
+    @SerialName("never")
+    NEVER,
+    @SerialName("between_questions")
+    BETWEEN_QUESTIONS,
+    @SerialName("end_only")
+    END_ONLY
 }

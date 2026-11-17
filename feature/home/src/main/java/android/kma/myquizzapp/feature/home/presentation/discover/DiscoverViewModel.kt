@@ -40,10 +40,12 @@ class DiscoverViewModel @Inject constructor(
                 }
                 query.value = intent.query
             }
+
             is DiscoverIntent.SortChanged -> {
                 _uiState.update { it.copy(sort = intent.sort) }
                 updateQuery()
             }
+
             is DiscoverIntent.QuizClicked -> viewModelScope.launch {
                 _effect.send(DiscoverEffect.NavigateToQuizDetail(intent.quizId))
             }

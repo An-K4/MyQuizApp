@@ -13,7 +13,8 @@ sealed interface AvatarUpdateResult {
     data object Saved : AvatarUpdateResult
     data object SessionChanged : AvatarUpdateResult
     data class Failed(val error: AppError) : AvatarUpdateResult
-    data class NeedsVerification(val publicUrl: String, val token: SessionUserToken) : AvatarUpdateResult
+    data class NeedsVerification(val publicUrl: String, val token: SessionUserToken) :
+        AvatarUpdateResult
 }
 
 /** Never replay avatar PATCH: backend deletes the previously stored file before updating DB. */
@@ -24,8 +25,13 @@ class UpdateAvatarUseCase @Inject constructor(
 ) {
     suspend operator fun invoke(bytes: ByteArray, token: SessionUserToken): AvatarUpdateResult {
         if (!isCurrent(token)) return AvatarUpdateResult.SessionChanged
-        if (bytes.isEmpty() || bytes.size > MAX_BYTES) return AvatarUpdateResult.Failed(AppError.Api("FILE_TOO_LARGE"))
-        val presign = when (val result = storage.presignUpload("image/jpeg", "avatars", bytes.size.toLong())) {
+        if (bytes.isEmpty() || bytes.size > MAX_BYTES) return AvatarUpdateResult.Failed(
+            AppError.Api(
+                "FILE_TOO_LARGE"
+            )
+        )
+        val presign = when (val result =
+            storage.presignUpload("image/jpeg", "avatars", bytes.size.toLong())) {
             is Result.Success -> result.data
             is Result.Error -> return failed(result.error, token)
         }
@@ -36,8 +42,13 @@ class UpdateAvatarUseCase @Inject constructor(
         }
         if (!isCurrent(token)) return AvatarUpdateResult.SessionChanged
         return when (val result = users.updateAvatar(presign.publicUrl)) {
-            is Result.Success -> if (session.applyAvatarUpdate(token, result.data)) AvatarUpdateResult.Saved
-                else AvatarUpdateResult.SessionChanged
+            is Result.Success -> if (session.applyAvatarUpdate(
+                    token,
+                    result.data
+                )
+            ) AvatarUpdateResult.Saved
+            else AvatarUpdateResult.SessionChanged
+
             is Result.Error -> {
                 if (result.error.isSessionTerminal || !isUncertainWrite(result.error)) {
                     return failed(result.error, token)
@@ -56,6 +67,7 @@ class UpdateAvatarUseCase @Inject constructor(
                 else if (result.data.avatar == publicUrl) AvatarUpdateResult.Saved
                 else AvatarUpdateResult.Failed(AppError.Api("CLIENT_AVATAR_NOT_APPLIED"))
             }
+
             is Result.Error -> {
                 if (result.error.isSessionTerminal) failed(result.error, token)
                 else AvatarUpdateResult.NeedsVerification(publicUrl, token)
@@ -78,5 +90,7 @@ class UpdateAvatarUseCase @Inject constructor(
         return AvatarUpdateResult.Failed(error)
     }
 
-    companion object { const val MAX_BYTES = 2 * 1024 * 1024 }
+    companion object {
+        const val MAX_BYTES = 2 * 1024 * 1024
+    }
 }

@@ -7,8 +7,8 @@ import android.kma.myquizzapp.core.common.repository.GameSessionRepository
 import android.kma.myquizzapp.core.common.repository.ProfileStatsRepository
 import android.kma.myquizzapp.core.common.repository.QuizRepository
 import android.kma.myquizzapp.core.common.repository.SessionRepository
-import android.kma.myquizzapp.core.common.repository.UserRepository
 import android.kma.myquizzapp.core.common.repository.StorageRepository
+import android.kma.myquizzapp.core.common.repository.UserRepository
 import android.kma.myquizzapp.core.network.ConnectivityNetworkMonitor
 import android.kma.myquizzapp.core.network.repository.AuthRepositoryImpl
 import android.kma.myquizzapp.core.network.repository.GameSessionRepositoryImpl
@@ -16,8 +16,8 @@ import android.kma.myquizzapp.core.network.repository.InMemoryGameResultReposito
 import android.kma.myquizzapp.core.network.repository.ProfileStatsRepositoryImpl
 import android.kma.myquizzapp.core.network.repository.QuizRepositoryImpl
 import android.kma.myquizzapp.core.network.repository.SessionRepositoryImpl
-import android.kma.myquizzapp.core.network.repository.UserRepositoryImpl
 import android.kma.myquizzapp.core.network.repository.StorageRepositoryImpl
+import android.kma.myquizzapp.core.network.repository.UserRepositoryImpl
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn

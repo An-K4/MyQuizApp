@@ -1,5 +1,6 @@
 package android.kma.myquizzapp.core.network.repository
 
+import android.kma.myquizzapp.core.common.cookie.CookieStore
 import android.kma.myquizzapp.core.common.error.isSessionTerminal
 import android.kma.myquizzapp.core.common.model.SessionState
 import android.kma.myquizzapp.core.common.model.SessionUserToken
@@ -8,24 +9,23 @@ import android.kma.myquizzapp.core.common.model.userOrNull
 import android.kma.myquizzapp.core.common.repository.AuthRepository
 import android.kma.myquizzapp.core.common.repository.SessionRepository
 import android.kma.myquizzapp.core.common.result.Result
-import javax.inject.Inject
-import javax.inject.Singleton
-import android.kma.myquizzapp.core.common.cookie.CookieStore
-import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import timber.log.Timber
+import javax.inject.Inject
+import javax.inject.Singleton
 
 @Singleton
 class SessionRepositoryImpl internal constructor(
@@ -33,7 +33,8 @@ class SessionRepositoryImpl internal constructor(
     private val scope: CoroutineScope,
     private val cookieStore: CookieStore? = null
 ) : SessionRepository {
-    @Inject constructor(authRepository: AuthRepository, cookieStore: CookieStore) : this(
+    @Inject
+    constructor(authRepository: AuthRepository, cookieStore: CookieStore) : this(
         authRepository, CoroutineScope(SupervisorJob() + Dispatchers.Default), cookieStore
     )
 
@@ -43,7 +44,9 @@ class SessionRepositoryImpl internal constructor(
     private var generation = 0L
     private var revision = 0L
     private val inFlightLock = Mutex()
+
     private data class RefreshJob(val revision: Long, val job: Deferred<Unit>)
+
     private var inFlight: RefreshJob? = null
 
     override suspend fun refresh() {
@@ -74,6 +77,7 @@ class SessionRepositoryImpl internal constructor(
                     revision++
                     _state.value = SessionState.LoggedIn(result.data)
                 }
+
                 is Result.Error -> if (result.error.isSessionTerminal) {
                     generation++
                     revision++
@@ -99,40 +103,44 @@ class SessionRepositoryImpl internal constructor(
         _state.value.userOrNull?.let { SessionUserToken(it.id, generation) }
     }
 
-    override fun snapshot(): android.kma.myquizzapp.core.common.model.SessionSnapshot = synchronized(stateLock) {
-        android.kma.myquizzapp.core.common.model.SessionSnapshot(_state.value, generation)
-    }
+    override fun snapshot(): android.kma.myquizzapp.core.common.model.SessionSnapshot =
+        synchronized(stateLock) {
+            android.kma.myquizzapp.core.common.model.SessionSnapshot(_state.value, generation)
+        }
 
     private fun matches(token: SessionUserToken): Boolean =
         token.generation == generation && token.userId == _state.value.userOrNull?.id
 
-    override fun applyUserUpdate(token: SessionUserToken, user: User): Boolean = synchronized(stateLock) {
-        if (!matches(token) || user.id != token.userId) return@synchronized false
-        revision++
-        _state.value = SessionState.LoggedIn(user)
-        true
-    }
-
-    override fun applyAvatarUpdate(token: SessionUserToken, avatarUrl: String): Boolean = synchronized(stateLock) {
-        if (!matches(token)) return@synchronized false
-        val current = _state.value.userOrNull ?: return@synchronized false
-        revision++
-        _state.value = SessionState.LoggedIn(current.copy(avatar = avatarUrl))
-        true
-    }
-
-    override suspend fun clearSession(token: SessionUserToken): Boolean = withContext(Dispatchers.IO + NonCancellable) {
+    override fun applyUserUpdate(token: SessionUserToken, user: User): Boolean =
         synchronized(stateLock) {
-            if (!matches(token)) return@synchronized false
-            val store = cookieStore ?: return@synchronized false
-            // One critical section: no newer published login can be cleared by a stale response.
-            runBlocking { store.clear() }
-            generation++
+            if (!matches(token) || user.id != token.userId) return@synchronized false
             revision++
-            _state.value = SessionState.Guest
+            _state.value = SessionState.LoggedIn(user)
             true
         }
-    }
+
+    override fun applyAvatarUpdate(token: SessionUserToken, avatarUrl: String): Boolean =
+        synchronized(stateLock) {
+            if (!matches(token)) return@synchronized false
+            val current = _state.value.userOrNull ?: return@synchronized false
+            revision++
+            _state.value = SessionState.LoggedIn(current.copy(avatar = avatarUrl))
+            true
+        }
+
+    override suspend fun clearSession(token: SessionUserToken): Boolean =
+        withContext(Dispatchers.IO + NonCancellable) {
+            synchronized(stateLock) {
+                if (!matches(token)) return@synchronized false
+                val store = cookieStore ?: return@synchronized false
+                // One critical section: no newer published login can be cleared by a stale response.
+                runBlocking { store.clear() }
+                generation++
+                revision++
+                _state.value = SessionState.Guest
+                true
+            }
+        }
 
     override fun invalidateSession(token: SessionUserToken): Boolean = synchronized(stateLock) {
         if (!matches(token)) return@synchronized false

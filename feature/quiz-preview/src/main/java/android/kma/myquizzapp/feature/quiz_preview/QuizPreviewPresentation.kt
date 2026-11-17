@@ -44,10 +44,12 @@ internal fun previewTimeIsCritical(
 
 internal fun previewPrimaryLabel(state: QuizPreviewUiState): String = when {
     state.phase == PreviewPhase.QUESTION &&
-        state.currentQuestion?.questionType != android.kma.myquizzapp.core.common.model.QuestionType.MULTIPLE_CHOICE ->
+            state.currentQuestion?.questionType != android.kma.myquizzapp.core.common.model.QuestionType.MULTIPLE_CHOICE ->
         "Gửi đáp án"
+
     state.phase == PreviewPhase.FEEDBACK &&
-        state.currentIndex + 1 >= state.quiz.orEmptyQuestionCount() -> "Xem tổng kết"
+            state.currentIndex + 1 >= state.quiz.orEmptyQuestionCount() -> "Xem tổng kết"
+
     else -> "Câu tiếp theo"
 }
 

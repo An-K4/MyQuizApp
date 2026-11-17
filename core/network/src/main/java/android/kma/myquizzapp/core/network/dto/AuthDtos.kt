@@ -1,8 +1,8 @@
 ﻿package android.kma.myquizzapp.core.network.dto
 
 import android.kma.myquizzapp.core.common.model.AuthProvider
-import android.kma.myquizzapp.core.common.model.UserRole
 import android.kma.myquizzapp.core.common.model.User
+import android.kma.myquizzapp.core.common.model.UserRole
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 

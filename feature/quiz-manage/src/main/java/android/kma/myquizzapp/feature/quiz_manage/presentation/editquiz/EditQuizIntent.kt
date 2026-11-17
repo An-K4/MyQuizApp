@@ -32,7 +32,9 @@ sealed interface EditQuizIntent {
     data class HintChanged(val localId: String, val value: String) : EditQuizIntent
     data class ExplanationChanged(val localId: String, val value: String) : EditQuizIntent
 
-    data class OptionChanged(val localId: String, val index: Int, val value: String) : EditQuizIntent
+    data class OptionChanged(val localId: String, val index: Int, val value: String) :
+        EditQuizIntent
+
     data class AddOption(val localId: String) : EditQuizIntent
     data class RemoveOption(val localId: String, val index: Int) : EditQuizIntent
     data class ToggleCorrectIndex(val localId: String, val index: Int) : EditQuizIntent

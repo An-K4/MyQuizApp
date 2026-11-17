@@ -95,9 +95,9 @@ data class HostGameUiState(
 
     val isFinished: Boolean
         get() = ended != null ||
-            phase == GamePhase.FINISHED ||
-            sessionStatus == SessionStatus.FINISHED ||
-            sessionStatus == SessionStatus.CANCELLED
+                phase == GamePhase.FINISHED ||
+                sessionStatus == SessionStatus.FINISHED ||
+                sessionStatus == SessionStatus.CANCELLED
 
     val isPaused: Boolean get() = sessionStatus == SessionStatus.PAUSED
 
@@ -105,18 +105,19 @@ data class HostGameUiState(
     val isClassic: Boolean get() = mode == GameMode.CLASSIC && !isSelfPaced
     val usesClassicQuestionLayout: Boolean
         get() = isClassic && !isFinished && question?.index == index && question != null &&
-            (phase == GamePhase.QUESTION_ACTIVE || phase == GamePhase.QUESTION_LOCKED)
+                (phase == GamePhase.QUESTION_ACTIVE || phase == GamePhase.QUESTION_LOCKED)
+
     /** One shell for the entire question cycle, including between-question results. */
     val usesClassicRoundLayout: Boolean
         get() = isClassic && !isFinished &&
-            (phase == GamePhase.QUESTION_ACTIVE || phase == GamePhase.QUESTION_LOCKED ||
-                phase == GamePhase.SHOWING_RESULTS)
+                (phase == GamePhase.QUESTION_ACTIVE || phase == GamePhase.QUESTION_LOCKED ||
+                        phase == GamePhase.SHOWING_RESULTS)
     val isShowingQuestionResults: Boolean get() = phase == GamePhase.SHOWING_RESULTS
     val canAdvanceFromResults: Boolean
         get() = isClassic && isShowingQuestionResults && canAdvance
     val canCloseClassicQuestion: Boolean
         get() = usesClassicQuestionLayout && phase == GamePhase.QUESTION_ACTIVE &&
-            sessionStatus == SessionStatus.ACTIVE && canAdvance
+                sessionStatus == SessionStatus.ACTIVE && canAdvance
     val isMarathon: Boolean get() = mode == GameMode.MARATHON
     val hasSnapshot: Boolean
         get() = question != null || leaderboard.rows.isNotEmpty() || ended != null
@@ -141,23 +142,23 @@ data class HostGameUiState(
      */
     val canAdvance: Boolean
         get() = isManualAdvanceVisible && isOnline && !isSendingCommand && !isPaused &&
-            (
-                phase == GamePhase.QUESTION_ACTIVE ||
-                    phase == GamePhase.QUESTION_LOCKED ||
-                    phase == GamePhase.SHOWING_RESULTS
-                )
+                (
+                        phase == GamePhase.QUESTION_ACTIVE ||
+                                phase == GamePhase.QUESTION_LOCKED ||
+                                phase == GamePhase.SHOWING_RESULTS
+                        )
 
     /** `game:pause` chỉ hợp lệ khi trận active, `game:resume` chỉ khi đang tạm dừng. */
     val canPauseOrResume: Boolean
         get() = isOnline && !isSendingCommand && !isFinished &&
-            (sessionStatus == SessionStatus.ACTIVE || isPaused)
+                (sessionStatus == SessionStatus.ACTIVE || isPaused)
 
     val pauseLabel: String get() = if (isPaused) "Tiếp tục" else "Tạm dừng"
 
     /** `game:end` từ lobby trả GAME_NOT_STARTED, từ trận đã xong trả GAME_NOT_ACTIVE. */
     val canEndGame: Boolean
         get() = isOnline && !isSendingCommand && !isFinished &&
-            sessionStatus != null && sessionStatus != SessionStatus.LOBBY
+                sessionStatus != null && sessionStatus != SessionStatus.LOBBY
 
     /** Để UI biết có nên cho bấm "Xem đáp án" hay hiện lời giải thích vì sao không có. */
     val canRevealAnswer: Boolean get() = !isSelfPaced && hasAnswerKey && question != null

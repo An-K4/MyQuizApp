@@ -22,7 +22,13 @@ class GameModeConfigPreviewProvider : PreviewParameterProvider<GameMode> {
 
 /** The shared editor also used in Host Lobby; fixtures do not represent backend constraints. */
 @Preview(name = "Shared lobby config Light", showBackground = true, widthDp = 390, heightDp = 700)
-@Preview(name = "Shared lobby config Dark", showBackground = true, widthDp = 390, heightDp = 700, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(
+    name = "Shared lobby config Dark",
+    showBackground = true,
+    widthDp = 390,
+    heightDp = 700,
+    uiMode = Configuration.UI_MODE_NIGHT_YES
+)
 @Composable
 private fun GameModeConfigEditorPreview(
     @PreviewParameter(GameModeConfigPreviewProvider::class) mode: GameMode,
@@ -49,7 +55,14 @@ private fun GameModeConfigEditorPreview(
     MyQuizAppTheme {
         Surface(color = ComponentColors.surface) {
             Column(Modifier.verticalScroll(rememberScrollState()).padding(20.dp)) {
-                GameModeConfigEditor(mode, form, emptySet(), true, { _, _ -> }, { _, _ -> }, { _, _ -> })
+                GameModeConfigEditor(
+                    mode,
+                    form,
+                    emptySet(),
+                    true,
+                    { _, _ -> },
+                    { _, _ -> },
+                    { _, _ -> })
             }
         }
     }

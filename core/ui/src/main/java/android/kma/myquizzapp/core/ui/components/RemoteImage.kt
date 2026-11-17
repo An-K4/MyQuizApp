@@ -28,8 +28,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.platform.LocalInspectionMode
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
@@ -130,32 +130,44 @@ internal fun RemoteImagePlaceholder(state: RemoteImageLoadState) {
 }
 
 @Preview(name = "Image Fallback · Light", showBackground = true, widthDp = 390)
-@Preview(name = "Image Fallback · Dark", showBackground = true, widthDp = 390,
-    uiMode = Configuration.UI_MODE_NIGHT_YES)
-@Preview(name = "Image Fallback · Narrow, large text", showBackground = true, widthDp = 320, fontScale = 1.5f)
+@Preview(
+    name = "Image Fallback · Dark", showBackground = true, widthDp = 390,
+    uiMode = Configuration.UI_MODE_NIGHT_YES
+)
+@Preview(
+    name = "Image Fallback · Narrow, large text",
+    showBackground = true,
+    widthDp = 320,
+    fontScale = 1.5f
+)
 @Composable
 private fun RemoteImageFallbackPreview() {
     MyQuizAppTheme {
         Surface {
             Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 // Các state được dựng trực tiếp, Preview không giả vờ tải request mạng.
-                RemoteImageLoadState.entries.filter { it != RemoteImageLoadState.Success }.forEach { state ->
-                    Text(state.label, style = MaterialTheme.typography.labelMedium)
-                    Box(
-                        Modifier.fillMaxWidth().aspectRatio(16f / 9f)
-                            .background(MaterialTheme.colorScheme.surfaceVariant),
-                        contentAlignment = Alignment.Center,
-                        propagateMinConstraints = true,
-                    ) { RemoteImagePlaceholder(state) }
-                }
+                RemoteImageLoadState.entries.filter { it != RemoteImageLoadState.Success }
+                    .forEach { state ->
+                        Text(state.label, style = MaterialTheme.typography.labelMedium)
+                        Box(
+                            Modifier.fillMaxWidth().aspectRatio(16f / 9f)
+                                .background(MaterialTheme.colorScheme.surfaceVariant),
+                            contentAlignment = Alignment.Center,
+                            propagateMinConstraints = true,
+                        ) { RemoteImagePlaceholder(state) }
+                    }
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Box(Modifier.size(72.dp).background(MaterialTheme.colorScheme.surfaceVariant),
-                        contentAlignment = Alignment.Center, propagateMinConstraints = true) {
+                    Box(
+                        Modifier.size(72.dp).background(MaterialTheme.colorScheme.surfaceVariant),
+                        contentAlignment = Alignment.Center, propagateMinConstraints = true
+                    ) {
                         RemoteImagePlaceholder(RemoteImageLoadState.Error)
                     }
-                    Box(Modifier.size(width = 82.dp, height = 106.dp)
-                        .background(MaterialTheme.colorScheme.surfaceVariant),
-                        contentAlignment = Alignment.Center, propagateMinConstraints = true) {
+                    Box(
+                        Modifier.size(width = 82.dp, height = 106.dp)
+                            .background(MaterialTheme.colorScheme.surfaceVariant),
+                        contentAlignment = Alignment.Center, propagateMinConstraints = true
+                    ) {
                         RemoteImagePlaceholder(RemoteImageLoadState.Error)
                     }
                 }

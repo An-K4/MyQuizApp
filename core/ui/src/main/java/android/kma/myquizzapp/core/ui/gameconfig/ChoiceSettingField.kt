@@ -102,7 +102,11 @@ fun ChoiceSettingFieldContent(
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
             ) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text(optionLabel(state.value), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        optionLabel(state.value),
+                        Modifier.weight(1f),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
                     Spacer(Modifier.width(12.dp))
                     Icon(Icons.Default.ExpandMore, contentDescription = null)
                 }
@@ -135,16 +139,40 @@ fun leaderboardOptionLabel(value: String): String = when (value) {
 }
 
 @Preview(name = "Leaderboard choice Light", showBackground = true, widthDp = 390)
-@Preview(name = "Leaderboard choice Dark", showBackground = true, widthDp = 390, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(
+    name = "Leaderboard choice Dark",
+    showBackground = true,
+    widthDp = 390,
+    uiMode = Configuration.UI_MODE_NIGHT_YES
+)
 @Composable
 private fun ChoiceSettingFieldPreview() {
     MyQuizAppTheme {
         Surface(color = ComponentColors.surface) {
             Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                val editable = ChoiceSettingUiState("between_questions", listOf("never", "between_questions", "end_only"), true)
-                ChoiceSettingField("Hiện bảng xếp hạng", editable, true, ::leaderboardOptionLabel, {})
-                ChoiceSettingField("Chế độ giới hạn lựa chọn", editable.copy(value = "end_only", options = listOf("never", "end_only")), true, ::leaderboardOptionLabel, {})
-                ChoiceSettingField("Thiết lập bị khóa", editable.copy(editable = false), true, ::leaderboardOptionLabel, {})
+                val editable = ChoiceSettingUiState(
+                    "between_questions",
+                    listOf("never", "between_questions", "end_only"),
+                    true
+                )
+                ChoiceSettingField(
+                    "Hiện bảng xếp hạng",
+                    editable,
+                    true,
+                    ::leaderboardOptionLabel,
+                    {})
+                ChoiceSettingField(
+                    "Chế độ giới hạn lựa chọn",
+                    editable.copy(value = "end_only", options = listOf("never", "end_only")),
+                    true,
+                    ::leaderboardOptionLabel,
+                    {})
+                ChoiceSettingField(
+                    "Thiết lập bị khóa",
+                    editable.copy(editable = false),
+                    true,
+                    ::leaderboardOptionLabel,
+                    {})
             }
         }
     }

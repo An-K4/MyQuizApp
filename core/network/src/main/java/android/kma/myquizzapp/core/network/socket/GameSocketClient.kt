@@ -1,16 +1,16 @@
 package android.kma.myquizzapp.core.network.socket
 
 import android.content.Context
-import android.net.ConnectivityManager
-import android.net.Network
-import android.net.NetworkCapabilities
 import android.kma.myquizzapp.core.common.model.DisconnectReason
 import android.kma.myquizzapp.core.common.model.GameEvent
 import android.kma.myquizzapp.core.network.BuildConfig
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
+import dagger.hilt.android.qualifiers.ApplicationContext
 import io.socket.client.Ack
 import io.socket.client.IO
 import io.socket.client.Socket
-import dagger.hilt.android.qualifiers.ApplicationContext
 import io.socket.engineio.client.transports.WebSocket
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -139,9 +139,13 @@ class GameSocketClient @Inject constructor(
         }
 
         val networkCallback = object : ConnectivityManager.NetworkCallback() {
-            override fun onCapabilitiesChanged(network: Network, capabilities: NetworkCapabilities) {
-                val isValidated = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
-                    capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+            override fun onCapabilitiesChanged(
+                network: Network,
+                capabilities: NetworkCapabilities
+            ) {
+                val isValidated =
+                    capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+                            capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
                 val wasValidated = networkValidated.getAndSet(isValidated)
                 if (isValidated && !wasValidated && !socket.connected()) {
                     connectErrorCount.set(0)
@@ -251,7 +255,7 @@ class GameSocketClient @Inject constructor(
         val network = activeNetwork ?: return false
         val capabilities = getNetworkCapabilities(network) ?: return false
         return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
-            capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+                capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
     }
 
     private fun String?.toDisconnectReason(): DisconnectReason = when (this) {

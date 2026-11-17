@@ -1,21 +1,18 @@
 ﻿package android.kma.myquizzapp.core.network.di
 
 import android.kma.myquizzapp.core.common.cookie.CookieStore
-import android.kma.myquizzapp.core.common.repository.AuthRepository
 import android.kma.myquizzapp.core.network.BuildConfig
 import android.kma.myquizzapp.core.network.api.AuthApiService
 import android.kma.myquizzapp.core.network.api.GameApiService
 import android.kma.myquizzapp.core.network.api.PasswordResetApiService
 import android.kma.myquizzapp.core.network.api.QuizApiService
 import android.kma.myquizzapp.core.network.api.StorageApiService
-import android.kma.myquizzapp.core.network.api.UserMutationApiService
 import android.kma.myquizzapp.core.network.api.UserApiService
+import android.kma.myquizzapp.core.network.api.UserMutationApiService
 import android.kma.myquizzapp.core.network.cookie.PersistentCookieJar
 import android.kma.myquizzapp.core.network.cookie.TokenAuthenticator
-import android.kma.myquizzapp.core.network.repository.AuthRepositoryImpl
 import android.kma.myquizzapp.core.network.result.ResultCallAdapterFactory
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
-import dagger.Binds
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -27,7 +24,6 @@ import okhttp3.Authenticator
 import okhttp3.CookieJar
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
-
 import retrofit2.Retrofit
 import retrofit2.create
 import java.util.concurrent.TimeUnit
@@ -41,9 +37,11 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideJson(): Json = Json {
-        namingStrategy = JsonNamingStrategy.SnakeCase  // ← quiz_name ↔ quizName, cấu hình 1 lần cho toàn app
+        namingStrategy =
+            JsonNamingStrategy.SnakeCase  // ← quiz_name ↔ quizName, cấu hình 1 lần cho toàn app
         ignoreUnknownKeys = true                       // backend thêm field mới → app không crash
-        coerceInputValues = true                       // null rơi vào field có default → dùng default
+        coerceInputValues =
+            true                       // null rơi vào field có default → dùng default
         explicitNulls = false
     }
 

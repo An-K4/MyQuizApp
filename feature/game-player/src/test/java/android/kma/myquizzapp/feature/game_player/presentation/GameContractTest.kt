@@ -1,8 +1,8 @@
 package android.kma.myquizzapp.feature.game_player.presentation
 
-import android.kma.myquizzapp.core.common.model.PublicAnswerOption
 import android.kma.myquizzapp.core.common.model.AnswerStats
 import android.kma.myquizzapp.core.common.model.LeaderboardRow
+import android.kma.myquizzapp.core.common.model.PublicAnswerOption
 import android.kma.myquizzapp.core.common.model.PublicQuestion
 import android.kma.myquizzapp.core.common.model.QuestionResults
 import android.kma.myquizzapp.core.common.model.SessionStatus
@@ -55,7 +55,10 @@ class GameContractTest {
 
     @Test
     fun `missing correct answer produces neutral result`() {
-        assertEquals(QuestionOutcome.HIDDEN, evaluateOutcome("short_answer", listOf("Hanoi"), emptyList()))
+        assertEquals(
+            QuestionOutcome.HIDDEN,
+            evaluateOutcome("short_answer", listOf("Hanoi"), emptyList())
+        )
     }
 
     @Test

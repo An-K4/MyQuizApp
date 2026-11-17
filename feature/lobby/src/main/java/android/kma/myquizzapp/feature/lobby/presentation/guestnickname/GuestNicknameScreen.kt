@@ -1,16 +1,20 @@
 package android.kma.myquizzapp.feature.lobby.presentation.guestnickname
 
 import android.content.res.Configuration
-import android.kma.myquizzapp.core.ui.theme.MyQuizAppTheme
-import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.tooling.preview.PreviewParameter
-import androidx.compose.ui.tooling.preview.PreviewParameterProvider
 import android.kma.myquizzapp.core.common.validator.NicknameValidator
 import android.kma.myquizzapp.core.ui.components.QuizPrimaryButton
 import android.kma.myquizzapp.core.ui.theme.FrontendColors
+import android.kma.myquizzapp.core.ui.theme.MyQuizAppTheme
 import android.kma.myquizzapp.core.ui.theme.Primary
 import androidx.compose.foundation.ScrollState
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -18,7 +22,20 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.*
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Snackbar
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -32,6 +49,9 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.tooling.preview.PreviewParameter
+import androidx.compose.ui.tooling.preview.PreviewParameterProvider
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -61,6 +81,7 @@ fun GuestNicknameScreen(
                     effect.playerId,
                     effect.socketToken
                 )
+
                 is GuestNicknameEffect.ExitWithMessage -> onExitWithMessage(effect.message)
             }
         }
@@ -224,7 +245,8 @@ private fun GuestNicknameField(
             singleLine = true,
             isError = error != null,
             shape = RoundedCornerShape(16.dp),
-            modifier = Modifier.fillMaxWidth().semantics { contentDescription = "Biệt danh của bạn" },
+            modifier = Modifier.fillMaxWidth()
+                .semantics { contentDescription = "Biệt danh của bạn" },
             textStyle = MaterialTheme.typography.bodyLarge.copy(
                 fontWeight = FontWeight.SemiBold,
                 textAlign = TextAlign.Center,
@@ -312,7 +334,13 @@ class GuestNicknamePreviewProvider : PreviewParameterProvider<GuestNicknameUiSta
 }
 
 @Preview(name = "Guest nickname Light", showBackground = true, widthDp = 390, heightDp = 844)
-@Preview(name = "Guest nickname Dark", showBackground = true, widthDp = 390, heightDp = 844, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(
+    name = "Guest nickname Dark",
+    showBackground = true,
+    widthDp = 390,
+    heightDp = 844,
+    uiMode = Configuration.UI_MODE_NIGHT_YES
+)
 @Composable
 private fun GuestNicknameScreenContentPreview(
     @PreviewParameter(GuestNicknamePreviewProvider::class) state: GuestNicknameUiState,
@@ -331,8 +359,19 @@ private fun GuestNicknameScreenContentPreview(
     }
 }
 
-@Preview(name = "Guest nickname Small", showBackground = true, widthDp = 320, heightDp = 568, fontScale = 1.3f)
-@Preview(name = "Guest nickname Short viewport", showBackground = true, widthDp = 390, heightDp = 360)
+@Preview(
+    name = "Guest nickname Small",
+    showBackground = true,
+    widthDp = 320,
+    heightDp = 568,
+    fontScale = 1.3f
+)
+@Preview(
+    name = "Guest nickname Short viewport",
+    showBackground = true,
+    widthDp = 390,
+    heightDp = 360
+)
 @Composable
 private fun GuestNicknameSmallPreview() {
     MyQuizAppTheme {

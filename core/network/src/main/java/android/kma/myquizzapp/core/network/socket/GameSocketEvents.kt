@@ -1,5 +1,8 @@
 package android.kma.myquizzapp.core.network.socket
 
+import android.kma.myquizzapp.core.network.socket.GameSocketEvents.HOST_QUESTION
+
+
 /**
  * Tên event của namespace `/game`, copy nguyên văn từ backend
  * (docs/socket.channels.ts). Đặt một chỗ để không rải string literal khắp code —

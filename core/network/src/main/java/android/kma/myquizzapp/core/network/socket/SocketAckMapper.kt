@@ -55,7 +55,8 @@ class SocketAckMapper @Inject constructor(
         val dto = runCatching {
             json.decodeFromString(AnswerAckDto.serializer(), raw)
         }.onFailure { Timber.e(it, "Parse ack question:answer thất bại: %s", raw) }
-            .getOrNull() ?: return Result.Error(AppError.Api(GameEventMapper.CODE_CLIENT_PARSE_ERROR))
+            .getOrNull()
+            ?: return Result.Error(AppError.Api(GameEventMapper.CODE_CLIENT_PARSE_ERROR))
         if (!dto.accepted) return Result.Error(AppError.Api(GameEventMapper.CODE_CLIENT_PARSE_ERROR))
         return Result.Success(dto.toDomain())
     }

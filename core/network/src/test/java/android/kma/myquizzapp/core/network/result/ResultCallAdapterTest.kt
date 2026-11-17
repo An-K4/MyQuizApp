@@ -2,6 +2,7 @@ package android.kma.myquizzapp.core.network.result
 
 import android.kma.myquizzapp.core.common.error.AppError
 import android.kma.myquizzapp.core.common.result.Result
+import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
@@ -14,7 +15,6 @@ import org.junit.Before
 import org.junit.Test
 import retrofit2.Call
 import retrofit2.Retrofit
-import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 import retrofit2.http.GET
 
 class ResultCallAdapterTest {

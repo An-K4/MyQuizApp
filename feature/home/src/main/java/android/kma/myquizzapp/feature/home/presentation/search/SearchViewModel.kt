@@ -1,10 +1,10 @@
 package android.kma.myquizzapp.feature.home.presentation.search
 
 import android.kma.myquizzapp.core.common.error.toUserMessage
+import android.kma.myquizzapp.core.common.result.Result
+import android.kma.myquizzapp.feature.home.domain.usecase.SearchQuizzesUseCase
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import android.kma.myquizzapp.feature.home.domain.usecase.SearchQuizzesUseCase
-import android.kma.myquizzapp.core.common.result.Result
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.ensureActive
@@ -110,6 +110,7 @@ class SearchViewModel @Inject constructor(
                         )
                     }
                 }
+
                 is Result.Error -> {
                     _uiState.update {
                         it.copy(
@@ -147,6 +148,7 @@ class SearchViewModel @Inject constructor(
                         error = null
                     )
                 }
+
                 is Result.Error -> _uiState.update {
                     it.copy(isLoadingMore = false, error = result.error.toUserMessage())
                 }

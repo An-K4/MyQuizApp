@@ -74,9 +74,11 @@ class HomeViewModel @Inject constructor(
             is HomeIntent.NavigateToSearch -> viewModelScope.launch {
                 emitEffect(HomeEffect.NavigateToSearch)
             }
+
             is HomeIntent.QuizCardClicked -> viewModelScope.launch {
                 emitEffect(HomeEffect.NavigateToQuizDetail(intent.quizId))
             }
+
             is HomeIntent.Retry -> retry()
         }
     }
@@ -98,6 +100,7 @@ class HomeViewModel @Inject constructor(
                         )
                     }
                 }
+
                 is Result.Error -> {
                     _contentState.update {
                         it.copy(

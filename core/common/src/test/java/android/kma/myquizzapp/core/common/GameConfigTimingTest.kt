@@ -1,7 +1,6 @@
 package android.kma.myquizzapp.core.common
 
 import android.kma.myquizzapp.core.common.model.GameConfig
-import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Test

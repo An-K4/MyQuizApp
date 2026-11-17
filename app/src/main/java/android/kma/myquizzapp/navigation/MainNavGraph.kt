@@ -1,19 +1,19 @@
 package android.kma.myquizzapp.navigation
 
+import android.kma.myquizzapp.feature.home.presentation.HomeScreen
+import android.kma.myquizzapp.feature.home.presentation.discover.DiscoverScreen
+import android.kma.myquizzapp.feature.home.presentation.search.SearchScreen
+import android.kma.myquizzapp.feature.leaderboard.presentation.historydetail.GameHistoryDetailScreen
+import android.kma.myquizzapp.feature.lobby.presentation.joinroom.JoinRoomCard
+import android.kma.myquizzapp.presentation.activity.ActivityScreen
+import android.kma.myquizzapp.presentation.profile.AccountSecurityScreen
+import android.kma.myquizzapp.presentation.profile.ProfileScreen
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.composable
 import androidx.navigation.toRoute
-import android.kma.myquizzapp.feature.home.presentation.HomeScreen
-import android.kma.myquizzapp.feature.home.presentation.search.SearchScreen
-import android.kma.myquizzapp.feature.home.presentation.discover.DiscoverScreen
-import android.kma.myquizzapp.feature.lobby.presentation.joinroom.JoinRoomCard
-import android.kma.myquizzapp.feature.leaderboard.presentation.historydetail.GameHistoryDetailScreen
-import android.kma.myquizzapp.presentation.activity.ActivityScreen
-import android.kma.myquizzapp.presentation.profile.ProfileScreen
-import android.kma.myquizzapp.presentation.profile.AccountSecurityScreen
 
 /**
  * Main application navigation graph.

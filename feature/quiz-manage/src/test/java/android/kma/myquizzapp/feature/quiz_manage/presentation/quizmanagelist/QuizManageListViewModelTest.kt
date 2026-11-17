@@ -1,6 +1,5 @@
 package android.kma.myquizzapp.feature.quiz_manage.presentation.quizmanagelist
 
-import android.util.Log
 import android.kma.myquizzapp.core.common.error.AppError
 import android.kma.myquizzapp.core.common.error.toUserMessage
 import android.kma.myquizzapp.core.common.model.MyQuizzesSort
@@ -9,17 +8,17 @@ import android.kma.myquizzapp.core.common.repository.QuizRepository
 import android.kma.myquizzapp.core.common.result.Result
 import android.kma.myquizzapp.feature.quiz_manage.domain.usecase.DeleteQuizUseCase
 import android.kma.myquizzapp.feature.quiz_manage.domain.usecase.GetMyQuizzesUseCase
+import android.util.Log
 import androidx.lifecycle.ViewModelStore
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
+import io.mockk.mockk
 import io.mockk.mockkStatic
 import io.mockk.unmockkStatic
-import io.mockk.mockk
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -30,7 +29,11 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
-import org.junit.Assert.*
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
@@ -49,7 +52,8 @@ class QuizManageListViewModelTest {
         mockkStatic(Log::class)
         every { Log.isLoggable(any(), any()) } returns false
         repository = mockk()
-        viewModel = QuizManageListViewModel(GetMyQuizzesUseCase(repository), DeleteQuizUseCase(repository))
+        viewModel =
+            QuizManageListViewModel(GetMyQuizzesUseCase(repository), DeleteQuizUseCase(repository))
         store = ViewModelStore().also { it.put("library", viewModel) }
     }
 
@@ -100,7 +104,14 @@ class QuizManageListViewModelTest {
         viewModel.onIntent(QuizManageListIntent.DeleteQuizClicked(target))
         viewModel.onIntent(QuizManageListIntent.DeleteQuizConfirmed)
         viewModel.onIntent(QuizManageListIntent.DeleteQuizDismissed)
-        viewModel.onIntent(QuizManageListIntent.DeleteQuizClicked(QuizDeleteTarget(99L, "Quiz khác")))
+        viewModel.onIntent(
+            QuizManageListIntent.DeleteQuizClicked(
+                QuizDeleteTarget(
+                    99L,
+                    "Quiz khác"
+                )
+            )
+        )
         assertEquals(target, viewModel.uiState.value.deleteTarget)
         runCurrent()
         response.complete(Result.Success(Unit))
@@ -111,7 +122,10 @@ class QuizManageListViewModelTest {
 
     @Test
     fun `network failure preserves dialog and allows explicit retry`() = runTest(dispatcher) {
-        coEvery { repository.deleteQuiz(target.id) } returnsMany listOf(Result.Error(AppError.Network), Result.Success(Unit))
+        coEvery { repository.deleteQuiz(target.id) } returnsMany listOf(
+            Result.Error(AppError.Network),
+            Result.Success(Unit)
+        )
         viewModel.onIntent(QuizManageListIntent.DeleteQuizClicked(target))
         viewModel.onIntent(QuizManageListIntent.DeleteQuizConfirmed)
         advanceUntilIdle()
@@ -168,23 +182,27 @@ class QuizManageListViewModelTest {
     }
 
     @Test
-    fun `missing quiz clears stale confirmation and refreshes without success message`() = runTest(dispatcher) {
-        val error = AppError.Api("QUIZ_NOT_FOUND")
-        coEvery { repository.deleteQuiz(target.id) } returns Result.Error(error)
-        var generations = 0
-        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
-            viewModel.quizzes.collect { generations++ }
+    fun `missing quiz clears stale confirmation and refreshes without success message`() =
+        runTest(dispatcher) {
+            val error = AppError.Api("QUIZ_NOT_FOUND")
+            coEvery { repository.deleteQuiz(target.id) } returns Result.Error(error)
+            var generations = 0
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                viewModel.quizzes.collect { generations++ }
+            }
+            runCurrent()
+            val beforeDelete = generations
+            viewModel.onIntent(QuizManageListIntent.DeleteQuizClicked(target))
+            viewModel.onIntent(QuizManageListIntent.DeleteQuizConfirmed)
+            runCurrent()
+            assertNull(viewModel.uiState.value.deleteTarget)
+            assertFalse(viewModel.uiState.value.isDeleting)
+            assertTrue(generations > beforeDelete)
+            assertEquals(
+                QuizManageListEffect.ShowMessage(error.toUserMessage()),
+                viewModel.effect.first()
+            )
         }
-        runCurrent()
-        val beforeDelete = generations
-        viewModel.onIntent(QuizManageListIntent.DeleteQuizClicked(target))
-        viewModel.onIntent(QuizManageListIntent.DeleteQuizConfirmed)
-        runCurrent()
-        assertNull(viewModel.uiState.value.deleteTarget)
-        assertFalse(viewModel.uiState.value.isDeleting)
-        assertTrue(generations > beforeDelete)
-        assertEquals(QuizManageListEffect.ShowMessage(error.toUserMessage()), viewModel.effect.first())
-    }
 
     @Test
     fun `transient failure does not replace Paging generation`() = runTest(dispatcher) {

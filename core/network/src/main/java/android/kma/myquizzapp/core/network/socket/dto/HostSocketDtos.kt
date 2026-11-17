@@ -4,11 +4,6 @@ import android.kma.myquizzapp.core.common.model.AnswerProgress
 import android.kma.myquizzapp.core.common.model.AnswerStats
 import android.kma.myquizzapp.core.common.model.AnsweredQuestionSnapshot
 import android.kma.myquizzapp.core.common.model.EliminatedPlayer
-import android.kma.myquizzapp.core.common.model.PlayerAwaitingNext
-import android.kma.myquizzapp.core.common.model.PlayerFinished
-import android.kma.myquizzapp.core.common.model.PlayerQuestionStarted
-import android.kma.myquizzapp.core.common.model.PlayerQuestionTimeout
-import android.kma.myquizzapp.core.common.model.PlayerStateSnapshot
 import android.kma.myquizzapp.core.common.model.GameConfig
 import android.kma.myquizzapp.core.common.model.GameCountdown
 import android.kma.myquizzapp.core.common.model.GameEnded
@@ -21,6 +16,11 @@ import android.kma.myquizzapp.core.common.model.HostLeaderboardRow
 import android.kma.myquizzapp.core.common.model.HostPlayerProgress
 import android.kma.myquizzapp.core.common.model.HostQuestion
 import android.kma.myquizzapp.core.common.model.LeaderboardRow
+import android.kma.myquizzapp.core.common.model.PlayerAwaitingNext
+import android.kma.myquizzapp.core.common.model.PlayerFinished
+import android.kma.myquizzapp.core.common.model.PlayerQuestionStarted
+import android.kma.myquizzapp.core.common.model.PlayerQuestionTimeout
+import android.kma.myquizzapp.core.common.model.PlayerStateSnapshot
 import android.kma.myquizzapp.core.common.model.PublicAnswerOption
 import android.kma.myquizzapp.core.common.model.PublicQuestion
 import android.kma.myquizzapp.core.common.model.QuestionResults
@@ -71,6 +71,7 @@ internal fun JsonElement?.toAnswerKeys(): List<String> = when {
     this is JsonArray -> mapNotNull { item ->
         item.toOptionKey().takeIf { it.isNotBlank() }
     }
+
     else -> listOfNotNull(toOptionKey().takeIf { it.isNotBlank() })
 }
 
@@ -91,7 +92,7 @@ internal fun JsonObject?.toAnswerStats(): AnswerStats {
     // Preserve a legacy flat payload, but never mistake aggregate metadata for option IDs.
     // If distribution is explicitly present but malformed, do not fall back to outer fields.
     val buckets = if (containsKey("distribution")) this["distribution"] as? JsonObject
-        else JsonObject(filterKeys { it != KEY_TOTAL && it != "correct" })
+    else JsonObject(filterKeys { it != KEY_TOTAL && it != "correct" })
     val distribution = buckets?.entries?.mapNotNull { (key, value) ->
         val count = (value as? JsonPrimitive)?.content?.toIntOrNull() ?: return@mapNotNull null
         key to count

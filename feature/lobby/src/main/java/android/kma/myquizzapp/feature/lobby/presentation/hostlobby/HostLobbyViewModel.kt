@@ -4,7 +4,6 @@ import android.kma.myquizzapp.core.common.error.AppError
 import android.kma.myquizzapp.core.common.error.toUserMessage
 import android.kma.myquizzapp.core.common.model.ConfigUpdateAck
 import android.kma.myquizzapp.core.common.model.DisconnectReason
-import android.kma.myquizzapp.core.common.model.GameConfig
 import android.kma.myquizzapp.core.common.model.GameConfigKey
 import android.kma.myquizzapp.core.common.model.GameEvent
 import android.kma.myquizzapp.core.common.model.GameModeDescriptor
@@ -17,6 +16,7 @@ import android.kma.myquizzapp.feature.lobby.domain.usecase.GetGameModesUseCase
 import android.kma.myquizzapp.feature.lobby.domain.usecase.LookupRoomUseCase
 import android.kma.myquizzapp.feature.lobby.domain.usecase.RefreshHostTokenUseCase
 import android.kma.myquizzapp.feature.lobby.domain.usecase.UpdateRoomConfigUseCase
+import android.kma.myquizzapp.feature.lobby.presentation.hostlobby.HostLobbyViewModel.Companion.FATAL_CODES
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -192,7 +192,8 @@ class HostLobbyViewModel @Inject constructor(
     private fun onLobbyUpdated(event: GameEvent.LobbyUpdated) {
         _uiState.update { state ->
             val config = event.lobby.config
-            val stillInLobby = event.lobby.sessionStatus == android.kma.myquizzapp.core.common.model.SessionStatus.LOBBY
+            val stillInLobby =
+                event.lobby.sessionStatus == android.kma.myquizzapp.core.common.model.SessionStatus.LOBBY
             val keepSheetOpen = state.isConfigSheetOpen && stillInLobby
             state.copy(
                 players = event.lobby.players,
@@ -228,6 +229,7 @@ class HostLobbyViewModel @Inject constructor(
                         socketToken = result.data
                         connect()
                     }
+
                     is Result.Error -> exit(result.error.toUserMessage())
                 }
             }
@@ -391,7 +393,12 @@ class HostLobbyViewModel @Inject constructor(
         val state = _uiState.value
         if (state.isSavingConfig) return
         if (!state.canEditConfig) {
-            _uiState.update { it.copy(isConfigSheetOpen = false, configNotice = MESSAGE_LOBBY_ONLY) }
+            _uiState.update {
+                it.copy(
+                    isConfigSheetOpen = false,
+                    configNotice = MESSAGE_LOBBY_ONLY
+                )
+            }
             return
         }
         val descriptor = state.descriptor ?: return
@@ -428,7 +435,13 @@ class HostLobbyViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
-            _uiState.update { it.copy(isSavingConfig = true, errorMessage = null, configNotice = null) }
+            _uiState.update {
+                it.copy(
+                    isSavingConfig = true,
+                    errorMessage = null,
+                    configNotice = null
+                )
+            }
             when (val result = updateRoomConfig(patch)) {
                 is Result.Success -> applyAck(result.data, descriptor)
                 is Result.Error -> _uiState.update {
@@ -461,6 +474,7 @@ class HostLobbyViewModel @Inject constructor(
         !ack.changed && ack.ignored.isEmpty() -> "Máy chủ không ghi nhận thay đổi nào."
         ack.ignored.isNotEmpty() ->
             "Đã lưu. Máy chủ bỏ qua ${ack.ignored.size} thiết lập không áp được cho chế độ này."
+
         else -> "Đã lưu cấu hình phòng."
     }
 

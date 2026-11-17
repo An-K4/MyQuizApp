@@ -6,13 +6,13 @@ import android.kma.myquizzapp.core.common.model.Question
 import android.kma.myquizzapp.core.common.model.QuestionType
 import android.kma.myquizzapp.core.common.model.Quiz
 import android.kma.myquizzapp.core.common.result.Result
+import android.kma.myquizzapp.core.common.validator.QuizEditorErrors
+import android.kma.myquizzapp.core.common.validator.QuizEditorValidator
 import android.kma.myquizzapp.feature.quiz_manage.domain.model.QuizDraft
 import android.kma.myquizzapp.feature.quiz_manage.domain.usecase.GetQuizDetailUseCase
 import android.kma.myquizzapp.feature.quiz_manage.domain.usecase.UpdateQuizWithAssetsUseCase
-import android.kma.myquizzapp.core.common.validator.QuizEditorValidator
-import android.kma.myquizzapp.core.common.validator.QuizEditorErrors
-import android.kma.myquizzapp.feature.quiz_manage.presentation.components.toValidationInput
 import android.kma.myquizzapp.feature.quiz_manage.presentation.components.QuestionDraft
+import android.kma.myquizzapp.feature.quiz_manage.presentation.components.toValidationInput
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -63,21 +63,52 @@ class EditQuizViewModel @Inject constructor(
     fun onIntent(intent: EditQuizIntent) {
         if (_uiState.value.isSubmitting) return
         if ((_uiState.value.isLoading || _uiState.value.loadError != null) &&
-            intent != EditQuizIntent.LoadQuiz && intent != EditQuizIntent.Retry) return
+            intent != EditQuizIntent.LoadQuiz && intent != EditQuizIntent.Retry
+        ) return
         when (intent) {
             is EditQuizIntent.LoadQuiz, is EditQuizIntent.Retry -> loadQuiz()
 
             // Mọi intent thay đổi nội dung đều đánh dấu isDirty = true — dùng cho
             // dialog "Bỏ thay đổi chưa lưu?" khi thoát (frontend: emit('dirty', true)).
-            is EditQuizIntent.QuizNameChanged -> _uiState.update { it.copy(quizName = intent.value, isDirty = true) }
-            is EditQuizIntent.QuizDescriptionChanged -> _uiState.update { it.copy(quizDescription = intent.value, isDirty = true) }
-            is EditQuizIntent.QuizLanguageChanged -> _uiState.update { it.copy(quizLanguage = intent.value, isDirty = true) }
-            is EditQuizIntent.QuizCategoryChanged -> _uiState.update { it.copy(quizCategory = intent.value, isDirty = true) }
-            is EditQuizIntent.IsPublicChanged -> _uiState.update { it.copy(isPublic = intent.value, isDirty = true) }
+            is EditQuizIntent.QuizNameChanged -> _uiState.update {
+                it.copy(
+                    quizName = intent.value,
+                    isDirty = true
+                )
+            }
+
+            is EditQuizIntent.QuizDescriptionChanged -> _uiState.update {
+                it.copy(
+                    quizDescription = intent.value,
+                    isDirty = true
+                )
+            }
+
+            is EditQuizIntent.QuizLanguageChanged -> _uiState.update {
+                it.copy(
+                    quizLanguage = intent.value,
+                    isDirty = true
+                )
+            }
+
+            is EditQuizIntent.QuizCategoryChanged -> _uiState.update {
+                it.copy(
+                    quizCategory = intent.value,
+                    isDirty = true
+                )
+            }
+
+            is EditQuizIntent.IsPublicChanged -> _uiState.update {
+                it.copy(
+                    isPublic = intent.value,
+                    isDirty = true
+                )
+            }
 
             is EditQuizIntent.PickCoverImage -> _uiState.update {
                 it.copy(coverImageUri = intent.uri, coverRemoved = false, isDirty = true)
             }
+
             is EditQuizIntent.RemoveCoverImage -> _uiState.update {
                 it.copy(coverImageUri = null, coverRemoved = true, isDirty = true)
             }
@@ -85,6 +116,7 @@ class EditQuizViewModel @Inject constructor(
             is EditQuizIntent.AddQuestion -> _uiState.update {
                 it.copy(questions = it.questions + QuestionDraft(), isDirty = true)
             }
+
             is EditQuizIntent.RemoveQuestion -> _uiState.update { state ->
                 // Luôn giữ lại ít nhất 1 câu — backend từ chối questions: [] (QUIZ_NO_QUESTIONS).
                 if (state.questions.size <= 1) state
@@ -93,33 +125,57 @@ class EditQuizViewModel @Inject constructor(
                     isDirty = true
                 )
             }
+
             is EditQuizIntent.PickQuestionImage -> updateQuestion(intent.localId) { it.copy(imageUri = intent.uri) }
             // Xóa ảnh câu hỏi xóa được thật: questions bị replace toàn bộ nên câu mới
             // không có question_image (khác cover quiz — metadata không clear được).
             is EditQuizIntent.RemoveQuestionImage -> updateQuestion(intent.localId) {
                 it.copy(imageUri = null, existingImageUrl = null)
             }
+
             is EditQuizIntent.QuestionTypeChanged -> updateQuestion(intent.localId) {
                 // Đổi loại câu reset trạng thái đáp án để dữ liệu thừa không lọt vào payload.
                 if (it.questionType == intent.type) it else
-                    it.copy(questionType = intent.type, correctIndexes = emptySet(), correctText = "")
+                    it.copy(
+                        questionType = intent.type,
+                        correctIndexes = emptySet(),
+                        correctText = ""
+                    )
             }
-            is EditQuizIntent.QuestionTextChanged -> updateQuestion(intent.localId) { it.copy(questionText = intent.value) }
+
+            is EditQuizIntent.QuestionTextChanged -> updateQuestion(intent.localId) {
+                it.copy(
+                    questionText = intent.value
+                )
+            }
+
             is EditQuizIntent.TimePresetSelected -> updateQuestion(intent.localId) {
                 if (intent.seconds !in listOf(10, 20, 30, 60)) it else
                     it.copy(timeLimit = intent.seconds.toString(), usesCustomTime = false)
             }
-            is EditQuizIntent.CustomTimeSelected -> updateQuestion(intent.localId) { it.copy(usesCustomTime = true) }
+
+            is EditQuizIntent.CustomTimeSelected -> updateQuestion(intent.localId) {
+                it.copy(
+                    usesCustomTime = true
+                )
+            }
+
             is EditQuizIntent.TimeLimitChanged -> updateQuestion(intent.localId) { it.copy(timeLimit = intent.value) }
             is EditQuizIntent.HintChanged -> updateQuestion(intent.localId) { it.copy(questionHint = intent.value) }
-            is EditQuizIntent.ExplanationChanged -> updateQuestion(intent.localId) { it.copy(explanation = intent.value) }
+            is EditQuizIntent.ExplanationChanged -> updateQuestion(intent.localId) {
+                it.copy(
+                    explanation = intent.value
+                )
+            }
 
             is EditQuizIntent.OptionChanged -> updateQuestion(intent.localId) { q ->
                 q.copy(options = q.options.mapIndexed { i, v -> if (i == intent.index) intent.value else v })
             }
+
             is EditQuizIntent.AddOption -> updateQuestion(intent.localId) { q ->
                 if (q.options.size >= 4) q else q.copy(options = q.options + "")
             }
+
             is EditQuizIntent.RemoveOption -> updateQuestion(intent.localId) { q ->
                 if (q.options.size <= 2 || intent.index !in q.options.indices) q
                 else q.copy(
@@ -131,6 +187,7 @@ class EditQuizViewModel @Inject constructor(
                         .toSet()
                 )
             }
+
             is EditQuizIntent.ToggleCorrectIndex -> updateQuestion(intent.localId) { q ->
                 if (!q.isChoiceType || intent.index !in q.options.indices) return@updateQuestion q
                 val newIndexes = when {
@@ -140,7 +197,12 @@ class EditQuizViewModel @Inject constructor(
                 }
                 q.copy(correctIndexes = newIndexes)
             }
-            is EditQuizIntent.CorrectTextChanged -> updateQuestion(intent.localId) { it.copy(correctText = intent.value) }
+
+            is EditQuizIntent.CorrectTextChanged -> updateQuestion(intent.localId) {
+                it.copy(
+                    correctText = intent.value
+                )
+            }
 
             is EditQuizIntent.Submit -> submit()
             is EditQuizIntent.ErrorShown -> _uiState.update { it.copy(errorMessage = null) }
@@ -197,6 +259,7 @@ class EditQuizViewModel @Inject constructor(
         when (val ca = correctAnswer) {
             is JsonArray -> correctIndexes =
                 ca.mapNotNull { (it as? JsonPrimitive)?.intOrNull }.toSet()
+
             is JsonPrimitive -> correctText = ca.contentOrNull.orEmpty()
             // null/không parse được → editor bắt chọn lại đáp án khi validate.
             else -> Unit
@@ -226,10 +289,22 @@ class EditQuizViewModel @Inject constructor(
         if (state.isSubmitting) return
         val errors = validate(state)
         if (errors.hasErrors) {
-            _uiState.update { it.copy(validationErrors = errors, validationAttempt = it.validationAttempt + 1, errorMessage = null) }
+            _uiState.update {
+                it.copy(
+                    validationErrors = errors,
+                    validationAttempt = it.validationAttempt + 1,
+                    errorMessage = null
+                )
+            }
             return
         }
-        _uiState.update { it.copy(isSubmitting = true, validationErrors = QuizEditorErrors(), errorMessage = null) }
+        _uiState.update {
+            it.copy(
+                isSubmitting = true,
+                validationErrors = QuizEditorErrors(),
+                errorMessage = null
+            )
+        }
 
         viewModelScope.launch {
             // Build QuizDraft từ UI state — validation đã xong ở trên
@@ -250,6 +325,7 @@ class EditQuizViewModel @Inject constructor(
                     _uiState.update { it.copy(isSubmitting = false, isDirty = false) }
                     _effect.send(EditQuizEffect.QuizUpdated(result.data.id))
                 }
+
                 is Result.Error -> failSubmit(result.error.toUserMessage())
             }
         }

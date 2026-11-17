@@ -121,11 +121,19 @@ fun PlayerLobbyScreenContent(
         topBar = {
             TopAppBar(
                 title = {
-                    Text("Phòng chờ", fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(
+                        "Phòng chờ",
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Rời phòng chờ")
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Rời phòng chờ"
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -167,6 +175,7 @@ fun PlayerLobbyScreenContent(
                                     !uiState.hasLobbySnapshot -> "Đang tải danh sách người chơi..."
                                     uiState.connection == ConnectionStatus.CONNECTED ->
                                         "${uiState.connectedPlayerCount} người đang kết nối"
+
                                     else -> "${uiState.connectedPlayerCount} người kết nối ở lần đồng bộ gần nhất"
                                 },
                                 style = MaterialTheme.typography.bodySmall,
@@ -176,12 +185,20 @@ fun PlayerLobbyScreenContent(
                     }
                 }
                 when {
-                    !uiState.hasLobbySnapshot -> item(key = "loading", span = { GridItemSpan(maxLineSpan) }) {
-                        Box(Modifier.fillMaxWidth().heightIn(min = 100.dp), contentAlignment = Alignment.Center) {
+                    !uiState.hasLobbySnapshot -> item(
+                        key = "loading",
+                        span = { GridItemSpan(maxLineSpan) }) {
+                        Box(
+                            Modifier.fillMaxWidth().heightIn(min = 100.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
                             CircularProgressIndicator(Modifier.size(28.dp), color = Primary)
                         }
                     }
-                    uiState.players.isEmpty() -> item(key = "empty", span = { GridItemSpan(maxLineSpan) }) {
+
+                    uiState.players.isEmpty() -> item(
+                        key = "empty",
+                        span = { GridItemSpan(maxLineSpan) }) {
                         Text(
                             "Chưa có thông tin người chơi trong phòng.",
                             modifier = Modifier.fillMaxWidth().padding(vertical = 20.dp),
@@ -190,6 +207,7 @@ fun PlayerLobbyScreenContent(
                             color = LobbyColors.muted,
                         )
                     }
+
                     else -> items(uiState.players, key = { "player-${it.id}" }) { player ->
                         PlayerLobbyCard(player, isMe = player.id == uiState.myPlayerId)
                     }
@@ -248,9 +266,14 @@ private fun MyPlayerCard(player: LobbyPlayer?, hasSnapshot: Boolean) {
         ) {
             if (player != null) LobbyPlayerAvatar(player, size = 40.dp)
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text("Bạn là:", style = MaterialTheme.typography.bodySmall, color = LobbyColors.muted)
                 Text(
-                    player?.playerName ?: if (hasSnapshot) "Chưa có thông tin của bạn" else "Đang tải thông tin...",
+                    "Bạn là:",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = LobbyColors.muted
+                )
+                Text(
+                    player?.playerName
+                        ?: if (hasSnapshot) "Chưa có thông tin của bạn" else "Đang tải thông tin...",
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.Bold,
                     color = LobbyColors.foreground,
@@ -329,11 +352,22 @@ private fun PlayerConnectionFooter(status: ConnectionStatus, onRetry: () -> Unit
 }
 
 private const val LEAVE_ROOM_TITLE = "Rời phòng chờ?"
-private const val LEAVE_ROOM_MESSAGE = "Bạn sẽ rời phòng chơi và quay về màn trước. Bạn có thể nhập mã phòng để tham gia lại nếu phòng còn cho phép."
+private const val LEAVE_ROOM_MESSAGE =
+    "Bạn sẽ rời phòng chơi và quay về màn trước. Bạn có thể nhập mã phòng để tham gia lại nếu phòng còn cho phép."
 
 // Six fixed, network-free previews. No parameter-provider combinations.
 private fun playerLobbyPreviewState(): PlayerLobbyUiState {
-    val names = listOf("Minh Anh", "Hoàng Long", "Thảo Vy", "Quang Huy", "Tuấn Kiệt", "Quốc Tuấn", "Mai Lan", "Đức Anh", "Ngọc Hà")
+    val names = listOf(
+        "Minh Anh",
+        "Hoàng Long",
+        "Thảo Vy",
+        "Quang Huy",
+        "Tuấn Kiệt",
+        "Quốc Tuấn",
+        "Mai Lan",
+        "Đức Anh",
+        "Ngọc Hà"
+    )
     return PlayerLobbyUiState(
         sessionStatus = SessionStatus.LOBBY,
         connection = ConnectionStatus.CONNECTED,
@@ -362,7 +396,13 @@ private fun PlayerLobbyMainPreview() {
     MyQuizAppTheme { PlayerLobbyPreviewContent(playerLobbyPreviewState()) }
 }
 
-@Preview(name = "Player lobby Small / large text", showBackground = true, widthDp = 320, heightDp = 568, fontScale = 1.3f)
+@Preview(
+    name = "Player lobby Small / large text",
+    showBackground = true,
+    widthDp = 320,
+    heightDp = 568,
+    fontScale = 1.3f
+)
 @Composable
 private fun PlayerLobbySmallPreview() {
     MyQuizAppTheme { PlayerLobbyPreviewContent(playerLobbyPreviewState()) }
@@ -374,7 +414,12 @@ private fun PlayerLobbyConnectingPreview() {
     MyQuizAppTheme { PlayerLobbyPreviewContent(PlayerLobbyUiState(myPlayerId = 6)) }
 }
 
-@Preview(name = "Player lobby Connection failed", showBackground = true, widthDp = 390, heightDp = 844)
+@Preview(
+    name = "Player lobby Connection failed",
+    showBackground = true,
+    widthDp = 390,
+    heightDp = 844
+)
 @Composable
 private fun PlayerLobbyConnectionFailedPreview() {
     MyQuizAppTheme {
@@ -382,7 +427,12 @@ private fun PlayerLobbyConnectionFailedPreview() {
     }
 }
 
-@Preview(name = "Player lobby Lives / missing identity", showBackground = true, widthDp = 390, heightDp = 844)
+@Preview(
+    name = "Player lobby Lives / missing identity",
+    showBackground = true,
+    widthDp = 390,
+    heightDp = 844
+)
 @Composable
 private fun PlayerLobbyLivesPreview() {
     val state = playerLobbyPreviewState()
@@ -391,7 +441,10 @@ private fun PlayerLobbyLivesPreview() {
             state.copy(
                 myPlayerId = 100,
                 players = listOf(
-                    state.players[0].copy(playerName = "Người chơi có biệt danh dài để kiểm tra bố cục", lives = 3),
+                    state.players[0].copy(
+                        playerName = "Người chơi có biệt danh dài để kiểm tra bố cục",
+                        lives = 3
+                    ),
                     state.players[1].copy(lives = 0, status = "eliminated"),
                     state.players[2].copy(lives = 1, status = "finished"),
                     state.players[3].copy(status = "future-status"),

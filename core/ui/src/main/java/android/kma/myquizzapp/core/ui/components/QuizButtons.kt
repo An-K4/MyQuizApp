@@ -1,23 +1,39 @@
 package android.kma.myquizzapp.core.ui.components
 
+import android.content.res.Configuration
 import android.kma.myquizzapp.core.ui.theme.ComponentColors
 import android.kma.myquizzapp.core.ui.theme.FrontendColors
+import android.kma.myquizzapp.core.ui.theme.MyQuizAppTheme
 import android.kma.myquizzapp.core.ui.theme.Primary
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
-import androidx.compose.material3.*
-import android.content.res.Configuration
-import android.kma.myquizzapp.core.ui.theme.MyQuizAppTheme
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -84,10 +100,12 @@ private fun QuizActionButton(
             leadingIcon()
             Spacer(Modifier.width(12.dp))
         }
-        Text(text, style = MaterialTheme.typography.labelLarge.copy(
-            fontSize = 14.sp, lineHeight = 20.sp,
-            letterSpacing = 0.sp, fontWeight = FontWeight.Bold,
-        ))
+        Text(
+            text, style = MaterialTheme.typography.labelLarge.copy(
+                fontSize = 14.sp, lineHeight = 20.sp,
+                letterSpacing = 0.sp, fontWeight = FontWeight.Bold,
+            )
+        )
         if (trailingIcon != null) {
             Spacer(Modifier.width(4.dp))
             trailingIcon()
@@ -101,7 +119,8 @@ private fun QuizActionButton(
             content = content,
         )
     } else {
-        val borderColor = if (style == ActionStyle.Danger) ComponentColors.dangerForeground else ComponentColors.border
+        val borderColor =
+            if (style == ActionStyle.Danger) ComponentColors.dangerForeground else ComponentColors.border
         OutlinedButton(
             onClick = onClick, modifier = buttonModifier, enabled = active,
             shape = RoundedCornerShape(16.dp), colors = colors,
@@ -113,7 +132,12 @@ private fun QuizActionButton(
 }
 
 @Preview(name = "Primary Light", showBackground = true, widthDp = 390)
-@Preview(name = "Primary Dark", showBackground = true, widthDp = 390, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(
+    name = "Primary Dark",
+    showBackground = true,
+    widthDp = 390,
+    uiMode = Configuration.UI_MODE_NIGHT_YES
+)
 @Composable
 private fun QuizPrimaryButtonPreview() {
     MyQuizAppTheme {
@@ -128,7 +152,12 @@ private fun QuizPrimaryButtonPreview() {
 }
 
 @Preview(name = "Secondary Light", showBackground = true, widthDp = 390)
-@Preview(name = "Secondary Dark", showBackground = true, widthDp = 390, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(
+    name = "Secondary Dark",
+    showBackground = true,
+    widthDp = 390,
+    uiMode = Configuration.UI_MODE_NIGHT_YES
+)
 @Composable
 private fun QuizSecondaryButtonPreview() {
     MyQuizAppTheme {
@@ -143,7 +172,12 @@ private fun QuizSecondaryButtonPreview() {
 }
 
 @Preview(name = "Danger Light", showBackground = true, widthDp = 390)
-@Preview(name = "Danger Dark", showBackground = true, widthDp = 390, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(
+    name = "Danger Dark",
+    showBackground = true,
+    widthDp = 390,
+    uiMode = Configuration.UI_MODE_NIGHT_YES
+)
 @Composable
 private fun QuizDangerButtonPreview() {
     MyQuizAppTheme {
@@ -153,7 +187,12 @@ private fun QuizDangerButtonPreview() {
                     Icon(Icons.AutoMirrored.Filled.ExitToApp, null, Modifier.size(16.dp))
                 })
                 QuizDangerButton("Đang xử lý", {}, Modifier.fillMaxWidth(), loading = true)
-                QuizDangerButton("Vô hiệu hóa tài khoản", {}, Modifier.fillMaxWidth(), enabled = false)
+                QuizDangerButton(
+                    "Vô hiệu hóa tài khoản",
+                    {},
+                    Modifier.fillMaxWidth(),
+                    enabled = false
+                )
             }
         }
     }

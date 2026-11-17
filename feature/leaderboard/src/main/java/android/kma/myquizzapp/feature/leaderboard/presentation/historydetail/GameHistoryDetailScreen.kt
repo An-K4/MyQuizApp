@@ -94,24 +94,34 @@ fun GameHistoryDetailScreenContent(
                 state = state, listState = listState,
                 modifier = Modifier.fillMaxSize().padding(padding), onIntent = onIntent
             )
+
             state.summaryError != null -> Column(
                 Modifier.fillMaxSize().padding(padding).padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                Text(state.summaryError, color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center)
+                Text(
+                    state.summaryError,
+                    color = MaterialTheme.colorScheme.error,
+                    textAlign = TextAlign.Center
+                )
                 QuizSecondaryButton(
                     text = "Thử lại", onClick = { onIntent(GameHistoryDetailIntent.RetrySummary) },
                     modifier = Modifier.padding(top = 16.dp)
                 )
             }
+
             else -> Column(
                 Modifier.fillMaxSize().padding(padding),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
                 CircularProgressIndicator()
-                Text("Đang tải chi tiết trận…", Modifier.padding(top = 12.dp), style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    "Đang tải chi tiết trận…",
+                    Modifier.padding(top = 12.dp),
+                    style = MaterialTheme.typography.bodyMedium
+                )
             }
         }
     }
@@ -139,9 +149,11 @@ private fun HistoryDetailContent(
                 summary.leaderboardHiddenByConfig -> item(key = "leaderboard-hidden") {
                     HistoryNoticeCard("Bảng xếp hạng không khả dụng.")
                 }
+
                 summary.leaderboard.isEmpty() -> item(key = "leaderboard-empty") {
                     HistoryNoticeCard("Chưa có dữ liệu xếp hạng.")
                 }
+
                 else -> items(summary.leaderboard, key = { "leaderboard:${it.id}" }) { row ->
                     LeaderboardPlayerCard(
                         rankLabel = row.rank.toString(), playerName = row.playerName,
@@ -163,20 +175,31 @@ private fun HistoryDetailContent(
             val review = state.review
             when {
                 state.isAnswersLoading -> item(key = "answers-loading") {
-                    Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(
+                        Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
                         CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-                        Text("Đang tải câu trả lời…", style = MaterialTheme.typography.bodyMedium, color = colors.muted)
+                        Text(
+                            "Đang tải câu trả lời…",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = colors.muted
+                        )
                     }
                 }
+
                 state.reviewDisabled -> item(key = "review-disabled") {
                     HistoryNoticeCard("Phòng này không cho xem lại đáp án.")
                 }
+
                 state.answersError != null -> item(key = "answers-error") {
                     HistoryNoticeCard(
                         state.answersError, isError = true,
                         onRetry = { onIntent(GameHistoryDetailIntent.RetryAnswers) }
                     )
                 }
+
                 review != null -> {
                     item(key = "review-overview") {
                         Text(
@@ -187,7 +210,9 @@ private fun HistoryDetailContent(
                     if (state.reviewItems.isEmpty()) {
                         item(key = "review-empty") { HistoryNoticeCard("Chưa có câu hỏi để xem lại.") }
                     } else {
-                        items(state.reviewItems, key = { "review:${it.questionIndex}:${it.questionId}" }) {
+                        items(
+                            state.reviewItems,
+                            key = { "review:${it.questionIndex}:${it.questionId}" }) {
                             HistoryReviewQuestionCard(it)
                         }
                     }
@@ -206,71 +231,149 @@ private fun HistorySectionHeading(text: String) {
 }
 
 @Composable
-private fun HistoryNoticeCard(text: String, isError: Boolean = false, onRetry: (() -> Unit)? = null) {
+private fun HistoryNoticeCard(
+    text: String,
+    isError: Boolean = false,
+    onRetry: (() -> Unit)? = null
+) {
     val colors = historyDetailColors()
     Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), color = colors.card) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(text, style = MaterialTheme.typography.bodyMedium, color = if (isError) colors.incorrect else colors.muted)
+            Text(
+                text,
+                style = MaterialTheme.typography.bodyMedium,
+                color = if (isError) colors.incorrect else colors.muted
+            )
             if (onRetry != null) QuizSecondaryButton("Thử lại", onRetry)
         }
     }
 }
 
 @Preview(name = "Chi tiết trận — Player", showBackground = true, widthDp = 390, heightDp = 844)
-@Preview(name = "Chi tiết trận — tối", showBackground = true, widthDp = 390, heightDp = 844, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(
+    name = "Chi tiết trận — tối",
+    showBackground = true,
+    widthDp = 390,
+    heightDp = 844,
+    uiMode = Configuration.UI_MODE_NIGHT_YES
+)
 @Composable
 private fun HistoryDetailPlayerPreview() = HistoryScreenPreview(HistoryDetailPreviewData.state())
 
 @Preview(name = "Chi tiết trận — Host", showBackground = true, widthDp = 390, heightDp = 1000)
 @Composable
-private fun HistoryDetailHostPreview() = HistoryScreenPreview(HistoryDetailPreviewData.state(host = true))
+private fun HistoryDetailHostPreview() =
+    HistoryScreenPreview(HistoryDetailPreviewData.state(host = true))
 
-@Preview(name = "Chi tiết trận — hẹp/chữ lớn, đã hủy", showBackground = true, widthDp = 320, heightDp = 844, fontScale = 1.3f)
+@Preview(
+    name = "Chi tiết trận — hẹp/chữ lớn, đã hủy",
+    showBackground = true,
+    widthDp = 320,
+    heightDp = 844,
+    fontScale = 1.3f
+)
 @Composable
 private fun HistoryDetailNarrowPreview() {
     val state = HistoryDetailPreviewData.state()
-    HistoryScreenPreview(state.copy(summary = state.summary?.copy(
-        sessionStatus = SessionStatus.CANCELLED, sessionCode = null,
-        quiz = state.summary?.quiz?.copy(image = null)
-    )))
+    HistoryScreenPreview(
+        state.copy(
+            summary = state.summary?.copy(
+                sessionStatus = SessionStatus.CANCELLED, sessionCode = null,
+                quiz = state.summary?.quiz?.copy(image = null)
+            )
+        )
+    )
 }
 
-@Preview(name = "Chi tiết trận — đang tải tổng quan", showBackground = true, widthDp = 390, heightDp = 844)
+@Preview(
+    name = "Chi tiết trận — đang tải tổng quan",
+    showBackground = true,
+    widthDp = 390,
+    heightDp = 844
+)
 @Composable
-private fun HistoryDetailLoadingPreview() = HistoryScreenPreview(GameHistoryDetailUiState(gameId = 91))
+private fun HistoryDetailLoadingPreview() =
+    HistoryScreenPreview(GameHistoryDetailUiState(gameId = 91))
 
-@Preview(name = "Chi tiết trận — lỗi tổng quan", showBackground = true, widthDp = 390, heightDp = 844)
+@Preview(
+    name = "Chi tiết trận — lỗi tổng quan",
+    showBackground = true,
+    widthDp = 390,
+    heightDp = 844
+)
 @Composable
-private fun HistoryDetailSummaryErrorPreview() = HistoryScreenPreview(GameHistoryDetailUiState(
-    gameId = 91, isSummaryLoading = false, summaryError = "Không thể tải chi tiết trận. Vui lòng thử lại."
-))
+private fun HistoryDetailSummaryErrorPreview() = HistoryScreenPreview(
+    GameHistoryDetailUiState(
+        gameId = 91,
+        isSummaryLoading = false,
+        summaryError = "Không thể tải chi tiết trận. Vui lòng thử lại."
+    )
+)
 
-@Preview(name = "Chi tiết trận — đang tải câu trả lời", showBackground = true, widthDp = 390, heightDp = 844)
+@Preview(
+    name = "Chi tiết trận — đang tải câu trả lời",
+    showBackground = true,
+    widthDp = 390,
+    heightDp = 844
+)
 @Composable
-private fun HistoryDetailAnswersLoadingPreview() = HistoryScreenPreview(HistoryDetailPreviewData.state().copy(
-    isAnswersLoading = true, review = null
-))
+private fun HistoryDetailAnswersLoadingPreview() = HistoryScreenPreview(
+    HistoryDetailPreviewData.state().copy(
+        isAnswersLoading = true, review = null
+    )
+)
 
-@Preview(name = "Chi tiết trận — review bị tắt", showBackground = true, widthDp = 390, heightDp = 844)
+@Preview(
+    name = "Chi tiết trận — review bị tắt",
+    showBackground = true,
+    widthDp = 390,
+    heightDp = 844
+)
 @Composable
-private fun HistoryDetailReviewDisabledPreview() = HistoryScreenPreview(HistoryDetailPreviewData.state().copy(
-    reviewDisabled = true, review = null
-))
+private fun HistoryDetailReviewDisabledPreview() = HistoryScreenPreview(
+    HistoryDetailPreviewData.state().copy(
+        reviewDisabled = true, review = null
+    )
+)
 
-@Preview(name = "Chi tiết trận — lỗi câu trả lời", showBackground = true, widthDp = 390, heightDp = 844)
+@Preview(
+    name = "Chi tiết trận — lỗi câu trả lời",
+    showBackground = true,
+    widthDp = 390,
+    heightDp = 844
+)
 @Composable
-private fun HistoryDetailAnswersErrorPreview() = HistoryScreenPreview(HistoryDetailPreviewData.state().copy(
-    answersError = "Chưa tải được câu trả lời. Tổng quan trận vẫn được giữ lại.", review = null
-))
+private fun HistoryDetailAnswersErrorPreview() = HistoryScreenPreview(
+    HistoryDetailPreviewData.state().copy(
+        answersError = "Chưa tải được câu trả lời. Tổng quan trận vẫn được giữ lại.", review = null
+    )
+)
 
-@Preview(name = "Chi tiết trận — Host chưa có thống kê", showBackground = true, widthDp = 390, heightDp = 844)
+@Preview(
+    name = "Chi tiết trận — Host chưa có thống kê",
+    showBackground = true,
+    widthDp = 390,
+    heightDp = 844
+)
 @Composable
 private fun HistoryDetailEmptyHostPreview() {
     val state = HistoryDetailPreviewData.state(host = true)
-    HistoryScreenPreview(state.copy(summary = state.summary?.copy(leaderboard = emptyList(), perQuestion = emptyList())))
+    HistoryScreenPreview(
+        state.copy(
+            summary = state.summary?.copy(
+                leaderboard = emptyList(),
+                perQuestion = emptyList()
+            )
+        )
+    )
 }
 
-@Preview(name = "Chi tiết trận — danh sách câu hỏi rỗng", showBackground = true, widthDp = 390, heightDp = 844)
+@Preview(
+    name = "Chi tiết trận — danh sách câu hỏi rỗng",
+    showBackground = true,
+    widthDp = 390,
+    heightDp = 844
+)
 @Composable
 private fun HistoryDetailEmptyReviewPreview() {
     val state = HistoryDetailPreviewData.state()

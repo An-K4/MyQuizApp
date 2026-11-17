@@ -19,7 +19,7 @@ import android.kma.myquizzapp.core.common.result.Result
  * Implementation: QuizRepositoryImpl trong core:network
  */
 interface QuizRepository {
-    
+
     /**
      * Lấy home content với sections (featured, trending, newest, continue...).
      * 
@@ -28,7 +28,7 @@ interface QuizRepository {
      * - Authenticated: thêm "continue" section
      */
     suspend fun getHomeContent(): Result<List<HomeSection>>
-    
+
     /**
      * Search quiz công khai theo keyword — cursor pagination (N16.5).
      * 
@@ -39,11 +39,16 @@ interface QuizRepository {
     suspend fun searchQuizzes(keyword: String, cursor: String?, limit: Int): Result<List<QuizCard>>
 
     /** Public-only browse, gọi /search bằng HTTP client không cookie. */
-    suspend fun searchPublicQuizzes(category: String?, sort: String, cursor: String?, limit: Int): Result<List<QuizCard>>
+    suspend fun searchPublicQuizzes(
+        category: String?,
+        sort: String,
+        cursor: String?,
+        limit: Int
+    ): Result<List<QuizCard>>
 
     /** Public feed sắp theo hot_score, có thể lọc chính xác theo quiz_category. */
     suspend fun getQuizFeed(topic: String?, cursor: String?, limit: Int): Result<List<QuizCard>>
-    
+
     /**
      * Lấy 1 trang danh sách quiz của user hiện tại (N13-14).
      *
@@ -54,14 +59,14 @@ interface QuizRepository {
      * trong data — dùng cho MyQuizzesPagingSource (feature:quiz-manage, Paging 3).
      */
     suspend fun getMyQuizzes(params: MyQuizzesParams): Result<List<QuizSummary>>
-    
+
     /**
      * Lấy full quiz detail với questions array.
      * 
      * Endpoint: GET /v1/quizzes/id/:quizId (optionalAuth)
      */
     suspend fun getQuizDetail(quizId: Long): Result<Quiz>
-    
+
     /**
      * Tạo quiz mới cùng toàn bộ câu hỏi trong 1 lần gọi (N13-14).
      *
@@ -69,7 +74,7 @@ interface QuizRepository {
      * backend từ chối với QUIZ_NO_QUESTIONS nếu không (quiz.service.ts).
      */
     suspend fun createQuiz(newQuiz: NewQuiz): Result<Quiz>
-    
+
     /**
      * Cập nhật quiz (N16). Metadata patch từng field; `patch.questions` nếu != null
      * thì THAY THẾ toàn bộ danh sách câu hỏi (backend replaceQuizQuestions).

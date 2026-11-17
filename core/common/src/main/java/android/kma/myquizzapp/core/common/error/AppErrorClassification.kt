@@ -25,5 +25,5 @@ val AppError.isSessionTerminal: Boolean
  */
 fun AppError.isMissingResource(vararg resourceCodes: String): Boolean =
     this is AppError.NotFound ||
-        this is AppError.Gone ||
-        (this is AppError.Api && (code == "GONE" || code in resourceCodes))
+            this is AppError.Gone ||
+            (this is AppError.Api && (code == "GONE" || code in resourceCodes))

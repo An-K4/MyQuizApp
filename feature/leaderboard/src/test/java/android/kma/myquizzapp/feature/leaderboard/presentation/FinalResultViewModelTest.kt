@@ -80,7 +80,8 @@ class FinalResultViewModelTest {
 
     @Test
     fun `disabled review never calls endpoint`() = runTest(dispatcher) {
-        val stored = StoredGameResult(7, 9, GameEnded(reviewEnabled = false), GameMode.SOLO, "token")
+        val stored =
+            StoredGameResult(7, 9, GameEnded(reviewEnabled = false), GameMode.SOLO, "token")
         val games = FakeGameSessionRepository(reviewResult = Result.Success(review()))
         val viewModel = viewModel(FakeResultRepository(stored), games)
 
@@ -115,8 +116,22 @@ class FinalResultViewModelTest {
         val restored = GameResults(
             mode = GameMode.SOLO,
             reviewEnabled = true,
-            leaderboard = listOf(LeaderboardRow(rank = 1, id = 9, playerName = "Kiro", playerScore = 1200)),
-            perQuestion = listOf(QuestionStat(questionId = 3, questionIndex = 0, answerCount = 2, correctCount = 1))
+            leaderboard = listOf(
+                LeaderboardRow(
+                    rank = 1,
+                    id = 9,
+                    playerName = "Kiro",
+                    playerScore = 1200
+                )
+            ),
+            perQuestion = listOf(
+                QuestionStat(
+                    questionId = 3,
+                    questionIndex = 0,
+                    answerCount = 2,
+                    correctCount = 1
+                )
+            )
         )
         val games = FakeGameSessionRepository(resultsResult = Result.Success(restored))
         val viewModel = viewModel(FakeResultRepository(null), games)
@@ -135,7 +150,14 @@ class FinalResultViewModelTest {
     fun `REST fallback never exposes leaderboard hidden by config`() = runTest(dispatcher) {
         val restored = GameResults(
             showLeaderboard = ShowLeaderboard.NEVER,
-            leaderboard = listOf(LeaderboardRow(rank = 1, id = 9, playerName = "Kiro", playerScore = 1200))
+            leaderboard = listOf(
+                LeaderboardRow(
+                    rank = 1,
+                    id = 9,
+                    playerName = "Kiro",
+                    playerScore = 1200
+                )
+            )
         )
         val games = FakeGameSessionRepository(resultsResult = Result.Success(restored))
         val viewModel = viewModel(FakeResultRepository(null), games)
@@ -180,17 +202,20 @@ class FinalResultViewModelTest {
     }
 
     @Test
-    fun `review keeps exact server question types from the transient game result`() = runTest(dispatcher) {
-        val types = mapOf(10L to "multiple_choice", 11L to "multiple_select")
-        val stored = StoredGameResult(7, 9, GameEnded(reviewEnabled = true), GameMode.SOLO, "token",
-            reviewQuestionTypes = types)
-        val vm = viewModel(FakeResultRepository(stored), FakeGameSessionRepository())
-        assertEquals(types, vm.uiState.value.reviewQuestionTypes)
-        vm.handleIntent(FinalResultIntent.ToggleReview)
-        runCurrent()
-        assertEquals(types, vm.uiState.value.reviewQuestionTypes)
-        assertNull(vm.uiState.value.reviewQuestionTypes[99L])
-    }
+    fun `review keeps exact server question types from the transient game result`() =
+        runTest(dispatcher) {
+            val types = mapOf(10L to "multiple_choice", 11L to "multiple_select")
+            val stored = StoredGameResult(
+                7, 9, GameEnded(reviewEnabled = true), GameMode.SOLO, "token",
+                reviewQuestionTypes = types
+            )
+            val vm = viewModel(FakeResultRepository(stored), FakeGameSessionRepository())
+            assertEquals(types, vm.uiState.value.reviewQuestionTypes)
+            vm.handleIntent(FinalResultIntent.ToggleReview)
+            runCurrent()
+            assertEquals(types, vm.uiState.value.reviewQuestionTypes)
+            assertNull(vm.uiState.value.reviewQuestionTypes[99L])
+        }
 
 
     private fun viewModel(results: GameResultRepository, games: GameSessionRepository) =
@@ -233,8 +258,13 @@ private class FakeGameSessionRepository(
         includeTotal: Boolean
     ): Result<List<android.kma.myquizzapp.core.common.model.GameHistoryItem>> = error("unused")
 
-    override suspend fun getGameHistorySummary(gameId: Long, guestId: String?): Result<android.kma.myquizzapp.core.common.model.GameHistorySummary> = error("unused")
-    override suspend fun getGameHistoryAnswers(gameId: Long, guestId: String?): Result<GameReview> = error("unused")
+    override suspend fun getGameHistorySummary(
+        gameId: Long,
+        guestId: String?
+    ): Result<android.kma.myquizzapp.core.common.model.GameHistorySummary> = error("unused")
+
+    override suspend fun getGameHistoryAnswers(gameId: Long, guestId: String?): Result<GameReview> =
+        error("unused")
 
     override suspend fun getGameResults(gameId: Long): Result<GameResults> {
         resultsCalls += 1
@@ -247,8 +277,14 @@ private class FakeGameSessionRepository(
     }
 
     override suspend fun getGameModes(): Result<List<GameModeDescriptor>> = error("unused")
-    override suspend fun createGameSession(params: CreateGameSessionParams): Result<CreateGameSessionResult> = error("unused")
+    override suspend fun createGameSession(params: CreateGameSessionParams): Result<CreateGameSessionResult> =
+        error("unused")
+
     override suspend fun getHostToken(gameId: Long): Result<String> = error("unused")
     override suspend fun lookupRoom(sessionCode: String): Result<RoomLookup> = error("unused")
-    override suspend fun joinRoom(sessionCode: String, playerName: String?, guestId: String?): Result<JoinRoomResult> = error("unused")
+    override suspend fun joinRoom(
+        sessionCode: String,
+        playerName: String?,
+        guestId: String?
+    ): Result<JoinRoomResult> = error("unused")
 }

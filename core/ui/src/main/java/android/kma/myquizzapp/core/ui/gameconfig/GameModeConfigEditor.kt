@@ -2,14 +2,14 @@ package android.kma.myquizzapp.core.ui.gameconfig
 
 import android.kma.myquizzapp.core.common.model.GameConfigKey
 import android.kma.myquizzapp.core.common.model.GameMode
+import android.kma.myquizzapp.core.ui.theme.ComponentColors
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.font.FontWeight
-import android.kma.myquizzapp.core.ui.theme.ComponentColors
+import androidx.compose.ui.unit.dp
 
 /**
  * Form sửa cấu hình theo từng chế độ chơi.
@@ -63,11 +63,21 @@ private fun ClassicModeEditor(scope: EditorScope) {
     ModeSettingsColumn {
         SettingsSection("Thời gian") {
             PerQuestionSecondsField(scope)
-            BooleanSetting(scope, "Tự chuyển câu", GameConfigKey.AUTO_ADVANCE, scope.form.autoAdvance)
+            BooleanSetting(
+                scope,
+                "Tự chuyển câu",
+                GameConfigKey.AUTO_ADVANCE,
+                scope.form.autoAdvance
+            )
         }
         LobbySettings(scope, includeLateJoin = true)
         SettingsSection("Luồng câu hỏi") {
-            BooleanSetting(scope, "Hiện đáp án đúng", GameConfigKey.SHOW_CORRECT_ANSWER, scope.form.showCorrectAnswer)
+            BooleanSetting(
+                scope,
+                "Hiện đáp án đúng",
+                GameConfigKey.SHOW_CORRECT_ANSWER,
+                scope.form.showCorrectAnswer
+            )
             LeaderboardSetting(scope)
             CommonStudySettings(scope)
         }
@@ -80,11 +90,21 @@ private fun SoloModeEditor(scope: EditorScope) {
     ModeSettingsColumn {
         SettingsSection("Nhịp tự do") {
             PerQuestionSecondsField(scope)
-            BooleanSetting(scope, "Tự chuyển câu", GameConfigKey.AUTO_ADVANCE, scope.form.autoAdvance)
+            BooleanSetting(
+                scope,
+                "Tự chuyển câu",
+                GameConfigKey.AUTO_ADVANCE,
+                scope.form.autoAdvance
+            )
         }
         LobbySettings(scope, includeLateJoin = true)
         SettingsSection("Hiển thị") {
-            BooleanSetting(scope, "Hiện đáp án đúng", GameConfigKey.SHOW_CORRECT_ANSWER, scope.form.showCorrectAnswer)
+            BooleanSetting(
+                scope,
+                "Hiện đáp án đúng",
+                GameConfigKey.SHOW_CORRECT_ANSWER,
+                scope.form.showCorrectAnswer
+            )
             LeaderboardSetting(scope)
             CommonStudySettings(scope)
         }
@@ -101,7 +121,12 @@ private fun SurvivalModeEditor(scope: EditorScope) {
         }
         LobbySettings(scope, includeLateJoin = true)
         SettingsSection("Hiển thị") {
-            BooleanSetting(scope, "Hiện đáp án đúng", GameConfigKey.SHOW_CORRECT_ANSWER, scope.form.showCorrectAnswer)
+            BooleanSetting(
+                scope,
+                "Hiện đáp án đúng",
+                GameConfigKey.SHOW_CORRECT_ANSWER,
+                scope.form.showCorrectAnswer
+            )
             LeaderboardSetting(scope)
             CommonStudySettings(scope)
         }
@@ -125,7 +150,12 @@ private fun MarathonModeEditor(scope: EditorScope) {
         }
         LobbySettings(scope, includeLateJoin = true)
         SettingsSection("Hiển thị") {
-            BooleanSetting(scope, "Hiện đáp án đúng", GameConfigKey.SHOW_CORRECT_ANSWER, scope.form.showCorrectAnswer)
+            BooleanSetting(
+                scope,
+                "Hiện đáp án đúng",
+                GameConfigKey.SHOW_CORRECT_ANSWER,
+                scope.form.showCorrectAnswer
+            )
             LeaderboardSetting(scope)
             CommonStudySettings(scope)
         }
@@ -151,7 +181,12 @@ private fun ModeSettingsColumn(content: @Composable () -> Unit) {
 @Composable
 private fun SettingsSection(title: String, content: @Composable () -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = ComponentColors.foreground)
+        Text(
+            title,
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Bold,
+            color = ComponentColors.foreground
+        )
         content()
     }
 }
@@ -159,9 +194,19 @@ private fun SettingsSection(title: String, content: @Composable () -> Unit) {
 @Composable
 private fun LobbySettings(scope: EditorScope, includeLateJoin: Boolean) {
     SettingsSection("Phòng chờ") {
-        NumberSetting(scope, "Số người chơi tối đa", GameConfigKey.MAX_PLAYERS, scope.form.maxPlayers)
+        NumberSetting(
+            scope,
+            "Số người chơi tối đa",
+            GameConfigKey.MAX_PLAYERS,
+            scope.form.maxPlayers
+        )
         if (includeLateJoin) {
-            BooleanSetting(scope, "Cho phép vào muộn", GameConfigKey.ALLOW_LATE_JOIN, scope.form.allowLateJoin)
+            BooleanSetting(
+                scope,
+                "Cho phép vào muộn",
+                GameConfigKey.ALLOW_LATE_JOIN,
+                scope.form.allowLateJoin
+            )
         }
         BooleanSetting(scope, "Cho phép khách", GameConfigKey.ALLOW_GUESTS, scope.form.allowGuests)
     }
@@ -169,7 +214,12 @@ private fun LobbySettings(scope: EditorScope, includeLateJoin: Boolean) {
 
 @Composable
 private fun CommonStudySettings(scope: EditorScope) {
-    BooleanSetting(scope, "Trộn câu hỏi", GameConfigKey.SHUFFLE_QUESTIONS, scope.form.shuffleQuestions)
+    BooleanSetting(
+        scope,
+        "Trộn câu hỏi",
+        GameConfigKey.SHUFFLE_QUESTIONS,
+        scope.form.shuffleQuestions
+    )
     BooleanSetting(scope, "Trộn lựa chọn", GameConfigKey.SHUFFLE_OPTIONS, scope.form.shuffleOptions)
     BooleanSetting(scope, "Hiện gợi ý", GameConfigKey.SHOW_HINT, scope.form.showHint)
     BooleanSetting(
@@ -185,7 +235,12 @@ private fun ScoringSettings(scope: EditorScope, includeNegativeMarking: Boolean)
     SettingsSection("Tính điểm") {
         BooleanSetting(scope, "Thưởng tốc độ", GameConfigKey.SPEED_BONUS, scope.form.speedBonus)
         if (includeNegativeMarking) {
-            BooleanSetting(scope, "Trừ điểm khi sai", GameConfigKey.NEGATIVE_MARKING, scope.form.negativeMarking)
+            BooleanSetting(
+                scope,
+                "Trừ điểm khi sai",
+                GameConfigKey.NEGATIVE_MARKING,
+                scope.form.negativeMarking
+            )
         }
     }
 }

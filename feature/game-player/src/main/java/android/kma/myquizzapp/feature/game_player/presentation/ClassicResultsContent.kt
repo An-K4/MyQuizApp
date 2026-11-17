@@ -11,23 +11,45 @@ import android.kma.myquizzapp.core.ui.theme.FrontendColors
 import android.kma.myquizzapp.core.ui.theme.MyQuizAppTheme
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Cancel
+import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material3.*
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.semantics.*
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -47,30 +69,61 @@ internal fun ClassicResultsScreenContent(
 ) {
     val dark = isSystemInDarkTheme()
     val page = if (dark) MaterialTheme.colorScheme.background else FrontendColors.PageBackground
-    Scaffold(modifier = modifier.fillMaxSize(), containerColor = page,
+    Scaffold(
+        modifier = modifier.fillMaxSize(), containerColor = page,
         snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
-            TopAppBar(title = { Text("Kết quả câu hỏi", fontWeight = FontWeight.Bold, fontSize = 20.sp) },
-                navigationIcon = { IconButton(onClick = onRequestExit) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, "Rời màn chơi")
-                } }, colors = TopAppBarDefaults.topAppBarColors(containerColor = page))
+            TopAppBar(
+                title = {
+                    Text(
+                        "Kết quả câu hỏi",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 20.sp
+                    )
+                },
+                navigationIcon = {
+                    IconButton(onClick = onRequestExit) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Rời màn chơi")
+                    }
+                }, colors = TopAppBarDefaults.topAppBarColors(containerColor = page)
+            )
         },
     ) { padding ->
-        LazyColumn(state = listState, modifier = Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding),
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding),
             contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
             // Timing is first so even a short results window or a large font keeps it visible.
             item {
-                Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surface,
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
-                    Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        state.question?.let { Text("Câu ${it.index + 1}/${it.total} · Cổ điển",
-                            color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLarge) }
-                        Text(waitText, fontWeight = FontWeight.SemiBold, modifier = Modifier.semantics {
-                            liveRegion = LiveRegionMode.Polite
-                        })
+                Surface(
+                    shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surface,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                ) {
+                    Column(
+                        Modifier.fillMaxWidth().padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        state.question?.let {
+                            Text(
+                                "Câu ${it.index + 1}/${it.total} · Cổ điển",
+                                color = MaterialTheme.colorScheme.primary,
+                                style = MaterialTheme.typography.labelLarge
+                            )
+                        }
+                        Text(
+                            waitText,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.semantics {
+                                liveRegion = LiveRegionMode.Polite
+                            })
                         if (state.connection == GameConnection.RECONNECT_FAILED) {
-                            QuizPrimaryButton("Kết nối lại", onRetry, modifier = Modifier.fillMaxWidth())
+                            QuizPrimaryButton(
+                                "Kết nối lại",
+                                onRetry,
+                                modifier = Modifier.fillMaxWidth()
+                            )
                         }
                     }
                 }
@@ -81,22 +134,43 @@ internal fun ClassicResultsScreenContent(
                     item(key = "current-streak") { ClassicStreakBadge(label) }
                 }
                 if (state.visiblePersonalResult != null || state.canShowClassicRank) item {
-                    Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surface,
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
-                        Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Text("Thành tích của bạn", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Surface(
+                        shape = RoundedCornerShape(20.dp),
+                        color = MaterialTheme.colorScheme.surface,
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                    ) {
+                        Column(
+                            Modifier.fillMaxWidth().padding(20.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Text(
+                                "Thành tích của bạn",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
                             state.visiblePersonalResult?.let { result ->
-                                Text("Tổng điểm: ${result.totalScore}", style = MaterialTheme.typography.titleMedium)
+                                Text(
+                                    "Tổng điểm: ${result.totalScore}",
+                                    style = MaterialTheme.typography.titleMedium
+                                )
                             }
                             if (state.canShowClassicRank) {
                                 if (state.isResultsLeaderboardFresh && state.playerRank != null) {
-                                    Text("Thứ hạng: #${state.playerRank}", style = MaterialTheme.typography.titleMedium)
+                                    Text(
+                                        "Thứ hạng: #${state.playerRank}",
+                                        style = MaterialTheme.typography.titleMedium
+                                    )
                                     if (state.visiblePersonalResult == null && state.playerScore != null) {
-                                        Text("Tổng điểm: ${state.playerScore}", style = MaterialTheme.typography.titleMedium)
+                                        Text(
+                                            "Tổng điểm: ${state.playerScore}",
+                                            style = MaterialTheme.typography.titleMedium
+                                        )
                                     }
                                 } else {
-                                    Text("Chưa có thứ hạng của bạn trong dữ liệu vừa nhận.",
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(
+                                        "Chưa có thứ hạng của bạn trong dữ liệu vừa nhận.",
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
                                 }
                             }
                         }
@@ -113,14 +187,17 @@ internal fun ClassicResultsScreenContent(
 private fun ClassicStreakBadge(label: String) {
     val dark = isSystemInDarkTheme()
     Surface(
-        modifier = Modifier.fillMaxWidth().wrapContentWidth(Alignment.CenterHorizontally).clearAndSetSemantics { contentDescription = label },
+        modifier = Modifier.fillMaxWidth().wrapContentWidth(Alignment.CenterHorizontally)
+            .clearAndSetSemantics { contentDescription = label },
         shape = RoundedCornerShape(50),
         color = if (dark) Color(0xFF3F2E13) else Color(0xFFFFF7DF),
         contentColor = if (dark) Color(0xFFFFD98A) else Color(0xFF8A4B00),
     ) {
-        Text("$label 🔥", Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+        Text(
+            "$label 🔥", Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
             style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold,
-            fontSize = 14.sp, lineHeight = 20.sp)
+            fontSize = 14.sp, lineHeight = 20.sp
+        )
     }
 }
 
@@ -143,19 +220,29 @@ internal fun ClassicOutcomeCard(state: GameUiState, compact: Boolean = false) {
         ClassicResultKind.INCORRECT -> Icons.Outlined.Cancel
         else -> Icons.Outlined.Info
     }
-    Surface(color = background, contentColor = foreground, shape = RoundedCornerShape(24.dp),
-        modifier = Modifier.fillMaxWidth().semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite }) {
-        Column(Modifier.padding(if (compact) 16.dp else 24.dp),
+    Surface(
+        color = background, contentColor = foreground, shape = RoundedCornerShape(24.dp),
+        modifier = Modifier.fillMaxWidth()
+            .semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite }) {
+        Column(
+            Modifier.padding(if (compact) 16.dp else 24.dp),
             horizontalAlignment = if (compact) Alignment.Start else Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
             if (!compact) Icon(icon, null, Modifier.size(52.dp))
-            Text(classicResultTitle(state), style = if (compact) MaterialTheme.typography.titleMedium
-                else MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+            Text(
+                classicResultTitle(state), style = if (compact) MaterialTheme.typography.titleMedium
+                else MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold
+            )
             if (!compact) classicQuestionScoreLabel(state)?.let { scoreLabel ->
-                Surface(color = foreground.copy(alpha = 0.12f), contentColor = foreground,
-                    shape = RoundedCornerShape(50)) {
-                    Text(scoreLabel, Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                        style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+                Surface(
+                    color = foreground.copy(alpha = 0.12f), contentColor = foreground,
+                    shape = RoundedCornerShape(50)
+                ) {
+                    Text(
+                        scoreLabel, Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold
+                    )
                 }
             }
             Text(classicResultDescription(state), style = MaterialTheme.typography.bodyMedium)
@@ -163,14 +250,23 @@ internal fun ClassicOutcomeCard(state: GameUiState, compact: Boolean = false) {
     }
 }
 
-private fun classicResultFixture() = GameUiState(connection = GameConnection.CONNECTED,
-    mode = GameMode.CLASSIC, phase = GamePhaseUi.Results(), showCorrectAnswer = true,
-    showLeaderboard = ShowLeaderboard.BETWEEN_QUESTIONS, isInputLocked = true,
+private fun classicResultFixture() = GameUiState(
+    connection = GameConnection.CONNECTED,
+    mode = GameMode.CLASSIC,
+    phase = GamePhaseUi.Results(),
+    showCorrectAnswer = true,
+    showLeaderboard = ShowLeaderboard.BETWEEN_QUESTIONS,
+    isInputLocked = true,
     question = PublicQuestion(3, 15, 4, "multiple_choice", "Không lặp lại câu hỏi trong tổng kết"),
-    results = QuestionResults(3, 4, correctAnswers = listOf("b")), outcome = QuestionOutcome.CORRECT,
-    acceptedAnswerKeys = listOf("b"), hasAnswerAttempt = true,
-    isResultsLeaderboardFresh = true, playerRank = 4, playerScore = 3420,
-    personalResult = classicPersonalResultFixture())
+    results = QuestionResults(3, 4, correctAnswers = listOf("b")),
+    outcome = QuestionOutcome.CORRECT,
+    acceptedAnswerKeys = listOf("b"),
+    hasAnswerAttempt = true,
+    isResultsLeaderboardFresh = true,
+    playerRank = 4,
+    playerScore = 3420,
+    personalResult = classicPersonalResultFixture()
+)
 
 private fun classicPersonalResultFixture() = PersonalQuestionResult(
     index = 3, questionId = 4, answered = true, isCorrect = true,
@@ -180,29 +276,86 @@ private fun classicPersonalResultFixture() = PersonalQuestionResult(
 
 @Composable
 private fun ClassicResultFixture(state: GameUiState) {
-    MyQuizAppTheme { ClassicResultsScreenContent(state, "Câu tiếp theo sẽ bắt đầu sau: 1s", {}, {},
-        rememberLazyListState(), remember { SnackbarHostState() }) }
+    MyQuizAppTheme {
+        ClassicResultsScreenContent(
+            state, "Câu tiếp theo sẽ bắt đầu sau: 1s", {}, {},
+            rememberLazyListState(), remember { SnackbarHostState() })
+    }
 }
+
 @Preview(name = "Kết quả - Đúng", widthDp = 390, showBackground = true)
-@Preview(name = "Kết quả - Đúng dark", widthDp = 390, showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
-@Preview(name = "Kết quả - Streak, hẹp, chữ lớn", widthDp = 320, fontScale = 1.3f, showBackground = true)
-@Composable private fun ClassicCorrectResultPreview() = ClassicResultFixture(classicResultFixture())
-@Preview(name = "Kết quả - Sai, hẹp, chữ lớn", widthDp = 320, fontScale = 1.3f, showBackground = true)
-@Composable private fun ClassicIncorrectResultPreview() = ClassicResultFixture(classicResultFixture().copy(
-    outcome = QuestionOutcome.INCORRECT, acceptedAnswerKeys = listOf("a"),
-    personalResult = classicPersonalResultFixture().copy(isCorrect = false, scoreEarned = 0, streak = 0)))
+@Preview(
+    name = "Kết quả - Đúng dark",
+    widthDp = 390,
+    showBackground = true,
+    uiMode = Configuration.UI_MODE_NIGHT_YES
+)
+@Preview(
+    name = "Kết quả - Streak, hẹp, chữ lớn",
+    widthDp = 320,
+    fontScale = 1.3f,
+    showBackground = true
+)
+@Composable
+private fun ClassicCorrectResultPreview() = ClassicResultFixture(classicResultFixture())
+
+@Preview(
+    name = "Kết quả - Sai, hẹp, chữ lớn",
+    widthDp = 320,
+    fontScale = 1.3f,
+    showBackground = true
+)
+@Composable
+private fun ClassicIncorrectResultPreview() = ClassicResultFixture(
+    classicResultFixture().copy(
+        outcome = QuestionOutcome.INCORRECT, acceptedAnswerKeys = listOf("a"),
+        personalResult = classicPersonalResultFixture().copy(
+            isCorrect = false,
+            scoreEarned = 0,
+            streak = 0
+        )
+    )
+)
+
 @Preview(name = "Kết quả - Chưa trả lời", widthDp = 390, showBackground = true)
-@Composable private fun ClassicUnansweredResultPreview() = ClassicResultFixture(classicResultFixture().copy(
-    acceptedAnswerKeys = null, hasAnswerAttempt = false, outcome = QuestionOutcome.HIDDEN,
-    personalResult = classicPersonalResultFixture().copy(answered = false, isCorrect = null, scoreEarned = 0, streak = 0)))
+@Composable
+private fun ClassicUnansweredResultPreview() = ClassicResultFixture(
+    classicResultFixture().copy(
+        acceptedAnswerKeys = null, hasAnswerAttempt = false, outcome = QuestionOutcome.HIDDEN,
+        personalResult = classicPersonalResultFixture().copy(
+            answered = false,
+            isCorrect = null,
+            scoreEarned = 0,
+            streak = 0
+        )
+    )
+)
+
 @Preview(name = "Kết quả - Ẩn đáp án, chờ hạng", widthDp = 390, showBackground = true)
-@Composable private fun ClassicHiddenResultPreview() = ClassicResultFixture(classicResultFixture().copy(
-    showCorrectAnswer = false, outcome = QuestionOutcome.HIDDEN, results = QuestionResults(3), isResultsLeaderboardFresh = false))
+@Composable
+private fun ClassicHiddenResultPreview() = ClassicResultFixture(
+    classicResultFixture().copy(
+        showCorrectAnswer = false,
+        outcome = QuestionOutcome.HIDDEN,
+        results = QuestionResults(3),
+        isResultsLeaderboardFresh = false
+    )
+)
+
 @Preview(name = "Kết quả - Reconnect có kết quả riêng", widthDp = 390, showBackground = true)
-@Composable private fun ClassicRestoredResultPreview() = ClassicResultFixture(classicResultFixture().copy(
-    phase = GamePhaseUi.Results(restoredWithoutDetails = true), results = null, outcome = null,
-    acceptedAnswerKeys = null))
+@Composable
+private fun ClassicRestoredResultPreview() = ClassicResultFixture(
+    classicResultFixture().copy(
+        phase = GamePhaseUi.Results(restoredWithoutDetails = true), results = null, outcome = null,
+        acceptedAnswerKeys = null
+    )
+)
+
 @Preview(name = "Kết quả - Thiếu kết quả riêng", widthDp = 390, showBackground = true)
-@Composable private fun ClassicMissingPersonalResultPreview() = ClassicResultFixture(classicResultFixture().copy(
-    phase = GamePhaseUi.Results(restoredWithoutDetails = true), results = null, outcome = null,
-    acceptedAnswerKeys = null, personalResult = null))
+@Composable
+private fun ClassicMissingPersonalResultPreview() = ClassicResultFixture(
+    classicResultFixture().copy(
+        phase = GamePhaseUi.Results(restoredWithoutDetails = true), results = null, outcome = null,
+        acceptedAnswerKeys = null, personalResult = null
+    )
+)

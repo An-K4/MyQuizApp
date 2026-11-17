@@ -11,10 +11,13 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class LoadProfileStatsUseCaseTest {
-    @Test fun `combines exact server totals`() = runTest {
-        val useCase = LoadProfileStatsUseCase(FakeProfileStatsRepository(
-            sessions = Result.Success(17), quizzes = Result.Success(4)
-        ))
+    @Test
+    fun `combines exact server totals`() = runTest {
+        val useCase = LoadProfileStatsUseCase(
+            FakeProfileStatsRepository(
+                sessions = Result.Success(17), quizzes = Result.Success(4)
+            )
+        )
 
         assertEquals(
             Result.Success(ProfileStats(participatedSessionCount = 17, createdQuizCount = 4)),
@@ -22,11 +25,14 @@ class LoadProfileStatsUseCaseTest {
         )
     }
 
-    @Test fun `does not provide partial totals when one request fails`() = runTest {
+    @Test
+    fun `does not provide partial totals when one request fails`() = runTest {
         val error = Result.Error(AppError.Network)
-        val useCase = LoadProfileStatsUseCase(FakeProfileStatsRepository(
-            sessions = Result.Success(17), quizzes = error
-        ))
+        val useCase = LoadProfileStatsUseCase(
+            FakeProfileStatsRepository(
+                sessions = Result.Success(17), quizzes = error
+            )
+        )
 
         assertTrue(useCase() is Result.Error)
     }

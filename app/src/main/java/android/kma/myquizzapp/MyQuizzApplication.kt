@@ -8,7 +8,7 @@ import timber.log.Timber
 class MyQuizzApplication : Application() {
     override fun onCreate() {
         super.onCreate()
-        
+
         // Plant Timber debug tree for logging
         if (BuildConfig.DEBUG) {
             Timber.plant(Timber.DebugTree())

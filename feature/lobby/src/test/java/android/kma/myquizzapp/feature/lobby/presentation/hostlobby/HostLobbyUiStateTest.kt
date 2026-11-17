@@ -18,17 +18,20 @@ class HostLobbyUiStateTest {
 
     @Test
     fun `total keeps disconnected and unknown players but connected count is exact`() {
-        val state = HostLobbyUiState(players = listOf(
-            player(1, "connected"), player(2, "disconnected"), player(3, "connected"),
-            player(4, "finished"), player(5, "eliminated"), player(6, "future-status"),
-        ))
+        val state = HostLobbyUiState(
+            players = listOf(
+                player(1, "connected"), player(2, "disconnected"), player(3, "connected"),
+                player(4, "finished"), player(5, "eliminated"), player(6, "future-status"),
+            )
+        )
         assertEquals(6, state.playerCount)
         assertEquals(2, state.connectedPlayerCount)
     }
 
     @Test
     fun `new snapshot updates connected count without removing offline roster entries`() {
-        val before = HostLobbyUiState(players = listOf(player(1, "connected"), player(2, "connected")))
+        val before =
+            HostLobbyUiState(players = listOf(player(1, "connected"), player(2, "connected")))
         val after = before.copy(players = listOf(player(1, "connected"), player(2, "disconnected")))
         assertEquals(2, before.connectedPlayerCount)
         assertEquals(2, after.playerCount)
@@ -45,7 +48,10 @@ class HostLobbyUiStateTest {
 
     @Test
     fun `start stays disabled during reconnect saving starting or non lobby status`() {
-        val ready = HostLobbyUiState(sessionStatus = SessionStatus.LOBBY, connection = ConnectionStatus.CONNECTED)
+        val ready = HostLobbyUiState(
+            sessionStatus = SessionStatus.LOBBY,
+            connection = ConnectionStatus.CONNECTED
+        )
         assertTrue(ready.canStartGame)
         ConnectionStatus.entries.filter { it != ConnectionStatus.CONNECTED }.forEach {
             assertFalse(ready.copy(connection = it).canStartGame)

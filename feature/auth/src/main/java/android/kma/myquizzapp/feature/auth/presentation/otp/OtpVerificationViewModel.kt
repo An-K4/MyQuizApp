@@ -1,12 +1,12 @@
 package android.kma.myquizzapp.feature.auth.presentation.otp
 
+import android.kma.myquizzapp.core.common.error.toUserMessage
+import android.kma.myquizzapp.core.common.result.Result
+import android.kma.myquizzapp.feature.auth.domain.usecase.ForgotPasswordUseCase
+import android.kma.myquizzapp.feature.auth.domain.usecase.VerifyResetOtpUseCase
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import android.kma.myquizzapp.feature.auth.domain.usecase.ForgotPasswordUseCase
-import android.kma.myquizzapp.feature.auth.domain.usecase.VerifyResetOtpUseCase
-import android.kma.myquizzapp.core.common.error.toUserMessage
-import android.kma.myquizzapp.core.common.result.Result
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
@@ -58,6 +58,7 @@ class OtpVerificationViewModel @Inject constructor(
                     _uiState.update { it.copy(otp = intent.value) }
                 }
             }
+
             OtpVerificationIntent.Verify -> verify()
             OtpVerificationIntent.ResendCode -> resendCode()
             OtpVerificationIntent.NavigateBack -> viewModelScope.launch {
@@ -93,6 +94,7 @@ class OtpVerificationViewModel @Inject constructor(
                         )
                     )
                 }
+
                 is Result.Error -> {
                     // RESET_OTP_INVALID / RESET_OTP_EXPIRED / RESET_OTP_ATTEMPTS —
                     // toUserMessage đã map sẵn tiếng Việt (AppErrorExt).
@@ -119,6 +121,7 @@ class OtpVerificationViewModel @Inject constructor(
                     _effect.send(OtpVerificationEffect.ShowMessage("Đã gửi lại mã OTP đến email của bạn"))
                     startResendCountdown()
                 }
+
                 is Result.Error -> {
                     Timber.e("OTP Verify: Resend FAILED - ${result.error}")
                     _effect.send(OtpVerificationEffect.ShowMessage(result.error.toUserMessage()))

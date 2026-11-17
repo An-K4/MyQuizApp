@@ -1,12 +1,14 @@
 ﻿package android.kma.myquizzapp.auth
 
-import androidx.test.ext.junit.runners.AndroidJUnit4
 import android.kma.myquizzapp.core.common.repository.AuthRepository
 import android.kma.myquizzapp.core.common.result.Result
+import androidx.test.ext.junit.runners.AndroidJUnit4
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import kotlinx.coroutines.test.runTest
-import org.junit.Assert.*
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -98,6 +100,7 @@ class AuthIntegrationTest {
                 assertEquals(email, user.email)
                 assertNotNull("User should have ID", user.id)
             }
+
             is Result.Error -> {
                 // If 401, account doesn't exist - that's expected behavior
                 // If you want strict test, seed backend first
@@ -124,7 +127,7 @@ class AuthIntegrationTest {
             assertTrue(
                 "Should be Unauthorized or Api error",
                 result.error is android.kma.myquizzapp.core.common.error.AppError.Unauthorized ||
-                result.error is android.kma.myquizzapp.core.common.error.AppError.Api
+                        result.error is android.kma.myquizzapp.core.common.error.AppError.Api
             )
         }
     }
@@ -141,7 +144,7 @@ class AuthIntegrationTest {
         val email = "test@example.com"
         val password = "Test@123"
         val loginResult = authRepository.login(email, password)
-        
+
         // Skip test if login failed (no seeded account)
         if (loginResult is Result.Error) {
             println("Skipping getCurrentUser test - no seeded account")
@@ -168,7 +171,7 @@ class AuthIntegrationTest {
         val email = "test@example.com"
         val password = "Test@123"
         val loginResult = authRepository.login(email, password)
-        
+
         // Skip if login failed
         if (loginResult is Result.Error) {
             println("Skipping logout test - no seeded account")
@@ -210,12 +213,12 @@ class AuthIntegrationTest {
         // This test verifies setup only
         // Actual refresh is tested manually or with time manipulation
         assertNotNull("AuthRepository should be injected", authRepository)
-        
+
         // In a real scenario, you'd:
         // 1. Mock time or use expired token
         // 2. Call getCurrentUser()
         // 3. Verify it succeeds (refresh happened automatically)
-        
+
         println("Token refresh is configured via TokenAuthenticator in NetworkModule")
         println("Manual test: Login, wait 15min, call any endpoint - should auto-refresh")
     }

@@ -3,7 +3,14 @@ package android.kma.myquizzapp.feature.auth.presentation
 import android.content.res.Configuration
 import android.kma.myquizzapp.core.ui.theme.FrontendColors
 import android.kma.myquizzapp.core.ui.theme.MyQuizAppTheme
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -11,7 +18,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Email
 import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material.icons.outlined.VisibilityOff
-import androidx.compose.material3.*
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.luminance
@@ -58,7 +71,10 @@ internal fun PasswordResetFormField(
             leadingIcon = { Icon(icon, null, Modifier.size(20.dp)) },
             trailingIcon = if (passwordVisible != null) {
                 {
-                    IconButton(onClick = { onPasswordVisibilityChange(!passwordVisible) }, enabled = enabled) {
+                    IconButton(
+                        onClick = { onPasswordVisibilityChange(!passwordVisible) },
+                        enabled = enabled
+                    ) {
                         Icon(
                             if (passwordVisible) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility,
                             if (passwordVisible) "Ẩn mật khẩu" else "Hiện mật khẩu",
@@ -69,7 +85,9 @@ internal fun PasswordResetFormField(
             } else null,
             visualTransformation = if (passwordVisible == false) PasswordVisualTransformation() else VisualTransformation.None,
             isError = error != null,
-            supportingText = if (error != null) { { Text(error) } } else null,
+            supportingText = if (error != null) {
+                { Text(error) }
+            } else null,
             enabled = enabled,
             keyboardOptions = keyboardOptions,
             keyboardActions = keyboardActions,
@@ -91,14 +109,36 @@ internal fun PasswordResetFormField(
 }
 
 @Preview(name = "Reset Field Light", showBackground = true, widthDp = 390)
-@Preview(name = "Reset Field Dark", showBackground = true, widthDp = 390, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(
+    name = "Reset Field Dark",
+    showBackground = true,
+    widthDp = 390,
+    uiMode = Configuration.UI_MODE_NIGHT_YES
+)
 @Composable
 private fun PasswordResetFormFieldPreview() {
     MyQuizAppTheme {
         Surface {
             Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                PasswordResetFormField("Email đã đăng ký", "", "email@domain.com", {}, Icons.Outlined.Email, KeyboardOptions.Default, true)
-                PasswordResetFormField("Email đã đăng ký", "invalid", "email@domain.com", {}, Icons.Outlined.Email, KeyboardOptions.Default, true, error = "Email không hợp lệ")
+                PasswordResetFormField(
+                    "Email đã đăng ký",
+                    "",
+                    "email@domain.com",
+                    {},
+                    Icons.Outlined.Email,
+                    KeyboardOptions.Default,
+                    true
+                )
+                PasswordResetFormField(
+                    "Email đã đăng ký",
+                    "invalid",
+                    "email@domain.com",
+                    {},
+                    Icons.Outlined.Email,
+                    KeyboardOptions.Default,
+                    true,
+                    error = "Email không hợp lệ"
+                )
             }
         }
     }

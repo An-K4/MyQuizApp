@@ -10,7 +10,7 @@ import java.text.NumberFormat
 internal fun hostFinalStandings(state: HostGameUiState): List<LeaderboardRow> =
     state.ended?.leaderboard.orEmpty().takeIf {
         state.isFinished && !state.isFinalResultLoading && state.finalResultError == null &&
-            state.mode != GameMode.PRACTICE
+                state.mode != GameMode.PRACTICE
     }.orEmpty()
 
 private fun hostFinalPodiumPlayers(state: HostGameUiState): List<LeaderboardRow> =

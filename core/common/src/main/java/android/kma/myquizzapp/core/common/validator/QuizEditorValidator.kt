@@ -24,7 +24,12 @@ data class QuizEditorErrors(
     val general: List<String> = emptyList(),
 ) {
     val messages: List<String>
-        get() = listOfNotNull(name, description, language, category) + general + questions.values.flatten()
+        get() = listOfNotNull(
+            name,
+            description,
+            language,
+            category
+        ) + general + questions.values.flatten()
     val hasErrors: Boolean get() = messages.isNotEmpty()
 }
 
@@ -58,7 +63,8 @@ object QuizEditorValidator {
         if (seconds == null || seconds !in 5..600) add("thời gian phải từ 5 đến 600 giây.")
         if (q.hint.trim().length > 255) add("gợi ý tối đa 255 ký tự.")
         if (q.explanation.trim().length > 255) add("giải thích tối đa 255 ký tự.")
-        val choice = q.type == QuestionType.MULTIPLE_CHOICE || q.type == QuestionType.MULTIPLE_SELECT
+        val choice =
+            q.type == QuestionType.MULTIPLE_CHOICE || q.type == QuestionType.MULTIPLE_SELECT
         if (choice) {
             if (q.options.size !in 2..4) add("cần từ 2 đến 4 lựa chọn.")
             q.options.forEachIndexed { index, option ->

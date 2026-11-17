@@ -1,21 +1,21 @@
 package android.kma.myquizzapp.feature.lobby.presentation.joinroom
 
 import android.content.res.Configuration
+import android.kma.myquizzapp.core.ui.components.RoomCodeEntryCard
 import android.kma.myquizzapp.core.ui.theme.MyQuizAppTheme
 import androidx.compose.foundation.layout.padding
-import android.kma.myquizzapp.core.ui.components.RoomCodeEntryCard
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.text.TextRange
-import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -62,7 +62,10 @@ fun JoinRoomCard(
     var codeFocused by remember { mutableStateOf(false) }
     val codeValue = TextFieldValue(
         uiState.sessionCode,
-        TextRange(codeSelection.start.coerceIn(0, uiState.sessionCode.length), codeSelection.end.coerceIn(0, uiState.sessionCode.length)),
+        TextRange(
+            codeSelection.start.coerceIn(0, uiState.sessionCode.length),
+            codeSelection.end.coerceIn(0, uiState.sessionCode.length)
+        ),
     )
 
     LaunchedEffect(Unit) {
@@ -151,13 +154,19 @@ private fun GuestBlockedDialog(onDismiss: () -> Unit, onLogin: () -> Unit) {
 }
 
 @Preview(name = "Join Room Light", showBackground = true, widthDp = 390)
-@Preview(name = "Join Room Dark", showBackground = true, widthDp = 390, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(
+    name = "Join Room Dark",
+    showBackground = true,
+    widthDp = 390,
+    uiMode = Configuration.UI_MODE_NIGHT_YES
+)
 @Composable
 private fun JoinRoomCardPreview() = JoinRoomPreview(JoinRoomUiState(sessionCode = "AB23CD"))
 
 @Preview(name = "Join Room Error", showBackground = true, widthDp = 390)
 @Composable
-private fun JoinRoomCardErrorPreview() = JoinRoomPreview(JoinRoomUiState(sessionCode = "AB23CD", codeError = "Không tìm thấy phòng"))
+private fun JoinRoomCardErrorPreview() =
+    JoinRoomPreview(JoinRoomUiState(sessionCode = "AB23CD", codeError = "Không tìm thấy phòng"))
 
 @Preview(name = "Join Room Guest Blocked", showBackground = true, widthDp = 390)
 @Composable
@@ -167,7 +176,12 @@ private fun JoinRoomGuestBlockedPreview() = JoinRoomPreview(JoinRoomUiState(gues
 private fun JoinRoomPreview(state: JoinRoomUiState) {
     MyQuizAppTheme {
         JoinRoomCardContent(
-            state, TextFieldValue(state.sessionCode, TextRange(state.sessionCode.length)), {}, false, {}, {},
+            state,
+            TextFieldValue(state.sessionCode, TextRange(state.sessionCode.length)),
+            {},
+            false,
+            {},
+            {},
             modifier = Modifier.padding(20.dp),
         )
     }

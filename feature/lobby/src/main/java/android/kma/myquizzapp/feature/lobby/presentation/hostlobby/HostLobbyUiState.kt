@@ -96,9 +96,9 @@ data class HostLobbyUiState(
      */
     val canStartGame: Boolean
         get() = canEditConfig &&
-            connection == ConnectionStatus.CONNECTED &&
-            !isStarting &&
-            !isSavingConfig
+                connection == ConnectionStatus.CONNECTED &&
+                !isStarting &&
+                !isSavingConfig
 }
 
 /** Origin của web app — dùng dụng link chia sẻ phòng. */

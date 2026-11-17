@@ -1,9 +1,14 @@
 package android.kma.myquizzapp.feature.quiz_manage.presentation.quizdetail
 
-import android.kma.myquizzapp.core.common.model.*
+import android.kma.myquizzapp.core.common.model.AnswerOption
+import android.kma.myquizzapp.core.common.model.Question
+import android.kma.myquizzapp.core.common.model.QuestionType
+import android.kma.myquizzapp.core.common.model.Quiz
+import android.kma.myquizzapp.core.common.model.QuizOwner
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonPrimitive
-import org.junit.Assert.*
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 import java.time.ZoneId
 
@@ -13,9 +18,16 @@ class QuizDetailPresentationTest {
         questionText = "Câu hỏi", timeLimit = seconds,
         answerOptions = listOf(AnswerOption(11L, "Lựa chọn A"), AnswerOption(12L, "Lựa chọn B")),
     )
+
     private fun quiz(questions: List<Question>) = Quiz(
-        id = 1L, quizOwner = 99L, quizName = "Quiz", quizLanguage = "vi", isPublic = true,
-        createdAt = "2026-10-10T00:00:00Z", updatedAt = "2026-10-10T00:00:00Z", questions = questions,
+        id = 1L,
+        quizOwner = 99L,
+        quizName = "Quiz",
+        quizLanguage = "vi",
+        isPublic = true,
+        createdAt = "2026-10-10T00:00:00Z",
+        updatedAt = "2026-10-10T00:00:00Z",
+        questions = questions,
     )
 
     @Test
@@ -52,8 +64,14 @@ class QuizDetailPresentationTest {
     fun `missing or blank owner uses neutral label not numeric owner ID`() {
         val source = quiz(emptyList())
         assertEquals("Tác giả không còn khả dụng", source.displayAuthorName())
-        assertEquals("Tác giả không còn khả dụng", source.copy(owner = QuizOwner(99L, "  ")).displayAuthorName())
-        assertEquals("Hoàng Long", source.copy(owner = QuizOwner(99L, " Hoàng Long ")).displayAuthorName())
+        assertEquals(
+            "Tác giả không còn khả dụng",
+            source.copy(owner = QuizOwner(99L, "  ")).displayAuthorName()
+        )
+        assertEquals(
+            "Hoàng Long",
+            source.copy(owner = QuizOwner(99L, " Hoàng Long ")).displayAuthorName()
+        )
     }
 
     @Test
@@ -64,13 +82,19 @@ class QuizDetailPresentationTest {
             questionHint = "Gợi ý có thể tiết lộ đáp án", explanation = "Đáp án là A",
         )
         assertEquals(source.toQuestionPreviewUiModel(), withSecrets.toQuestionPreviewUiModel())
-        assertEquals(listOf("Lựa chọn A", "Lựa chọn B"), withSecrets.toQuestionPreviewUiModel().optionTexts)
+        assertEquals(
+            listOf("Lựa chọn A", "Lựa chọn B"),
+            withSecrets.toQuestionPreviewUiModel().optionTexts
+        )
         // The typed projection has no correctAnswer/hint/explanation fields to forward into the card.
     }
 
     @Test
     fun `date is formatted in requested timezone`() {
-        assertEquals("11/10/2026", formatQuizCreatedDate("2026-10-10T23:30:00Z", ZoneId.of("Asia/Ho_Chi_Minh")))
+        assertEquals(
+            "11/10/2026",
+            formatQuizCreatedDate("2026-10-10T23:30:00Z", ZoneId.of("Asia/Ho_Chi_Minh"))
+        )
     }
 
     @Test

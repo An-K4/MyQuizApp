@@ -46,20 +46,32 @@ private fun DeleteQuizPreviewContent(errorText: String? = null) {
     MyQuizAppTheme {
         Surface(color = MaterialTheme.colorScheme.background) {
             AppConfirmDialogContent(
-                title = "Xóa quiz này?", message = deleteQuizWarning("Khám phá Văn hóa Thế giới"),
-                confirmText = "Xóa vĩnh viễn", dismissText = "Giữ lại", variant = AppDialogVariant.Danger,
-                errorText = errorText, scrollState = rememberScrollState(),
-                onConfirm = {}, onDismiss = {}, modifier = Modifier.padding(20.dp),
+                title = "Xóa quiz này?",
+                message = deleteQuizWarning("Khám phá Văn hóa Thế giới"),
+                confirmText = "Xóa vĩnh viễn",
+                dismissText = "Giữ lại",
+                variant = AppDialogVariant.Danger,
+                errorText = errorText,
+                scrollState = rememberScrollState(),
+                onConfirm = {},
+                onDismiss = {},
+                modifier = Modifier.padding(20.dp),
             )
         }
     }
 }
 
 @Preview(name = "Delete Quiz Light", showBackground = true, widthDp = 390)
-@Preview(name = "Delete Quiz Dark", showBackground = true, widthDp = 390, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(
+    name = "Delete Quiz Dark",
+    showBackground = true,
+    widthDp = 390,
+    uiMode = Configuration.UI_MODE_NIGHT_YES
+)
 @Composable
 private fun ConfirmDeleteQuizDialogPreview() = DeleteQuizPreviewContent()
 
 @Preview(name = "Delete Quiz Error", showBackground = true, widthDp = 390)
 @Composable
-private fun ConfirmDeleteQuizDialogErrorPreview() = DeleteQuizPreviewContent("Không có kết nối mạng. Vui lòng thử lại.")
+private fun ConfirmDeleteQuizDialogErrorPreview() =
+    DeleteQuizPreviewContent("Không có kết nối mạng. Vui lòng thử lại.")

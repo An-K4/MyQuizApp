@@ -38,6 +38,7 @@ class ProfileStatsRepositoryImpl @Inject constructor(
     private fun <T> Result<T>.requiredTotal(): Result<Int> = when (this) {
         is Result.Success -> page?.total?.let { Result.Success(it) }
             ?: Result.Error(AppError.Api("SERVER_ERROR"))
+
         is Result.Error -> this
     }
 }

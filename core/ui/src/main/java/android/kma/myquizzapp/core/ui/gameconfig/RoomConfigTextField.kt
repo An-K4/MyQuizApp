@@ -73,15 +73,31 @@ fun RoomConfigTextField(
 }
 
 @Preview(name = "Room fields Light", showBackground = true, widthDp = 390)
-@Preview(name = "Room fields Dark", showBackground = true, widthDp = 390, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(
+    name = "Room fields Dark",
+    showBackground = true,
+    widthDp = 390,
+    uiMode = Configuration.UI_MODE_NIGHT_YES
+)
 @Composable
 private fun RoomConfigTextFieldPreview() {
     MyQuizAppTheme {
         Surface(color = ComponentColors.surface) {
             Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                RoomConfigTextField("Tên phòng", "Phòng chơi của tôi", {}, supportingText = "Từ 2 đến 100 ký tự")
+                RoomConfigTextField(
+                    "Tên phòng",
+                    "Phòng chơi của tôi",
+                    {},
+                    supportingText = "Từ 2 đến 100 ký tự"
+                )
                 RoomConfigTextField("Thời gian mỗi câu (giây)", "20", {})
-                RoomConfigTextField("Số người chơi tối đa", "0", {}, isError = true, supportingText = "Kiểm tra lại giới hạn cho phép")
+                RoomConfigTextField(
+                    "Số người chơi tối đa",
+                    "0",
+                    {},
+                    isError = true,
+                    supportingText = "Kiểm tra lại giới hạn cho phép"
+                )
                 RoomConfigTextField("Thiết lập bị khóa", "100", {}, enabled = false)
             }
         }

@@ -3,17 +3,30 @@ package android.kma.myquizzapp.feature.quiz_manage.presentation.components
 import android.content.res.Configuration
 import android.kma.myquizzapp.core.ui.components.AppConfirmDialogContent
 import android.kma.myquizzapp.core.ui.components.AppDialogVariant
-import android.kma.myquizzapp.core.ui.theme.MyQuizAppTheme
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.ui.tooling.preview.Preview
 import android.kma.myquizzapp.core.ui.components.RemoteImage
 import android.kma.myquizzapp.core.ui.theme.FrontendColors
+import android.kma.myquizzapp.core.ui.theme.MyQuizAppTheme
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Image
-import androidx.compose.material3.*
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -22,6 +35,7 @@ import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 
 /** Feature-local light design tokens with Material fallbacks for the existing dark theme. */
@@ -56,7 +70,12 @@ fun ImagePickerSection(
             )
             Row {
                 TextButton(onClick = onPick, enabled = enabled) { Text("Đổi ảnh") }
-                TextButton(onClick = onRemove, enabled = enabled) { Text("Xóa ảnh", color = MaterialTheme.colorScheme.error) }
+                TextButton(onClick = onRemove, enabled = enabled) {
+                    Text(
+                        "Xóa ảnh",
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
             }
         } else if (isCover) {
             val border = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
@@ -68,10 +87,22 @@ fun ImagePickerSection(
                     Canvas(Modifier.matchParentSize()) {
                         val inset = 1.dp.toPx()
                         drawRoundRect(
-                            color = border, topLeft = androidx.compose.ui.geometry.Offset(inset, inset),
-                            size = androidx.compose.ui.geometry.Size(size.width - inset * 2, size.height - inset * 2),
+                            color = border,
+                            topLeft = androidx.compose.ui.geometry.Offset(inset, inset),
+                            size = androidx.compose.ui.geometry.Size(
+                                size.width - inset * 2,
+                                size.height - inset * 2
+                            ),
                             cornerRadius = androidx.compose.ui.geometry.CornerRadius(20.dp.toPx()),
-                            style = Stroke(width = inset, pathEffect = PathEffect.dashPathEffect(floatArrayOf(8.dp.toPx(), 5.dp.toPx()))),
+                            style = Stroke(
+                                width = inset,
+                                pathEffect = PathEffect.dashPathEffect(
+                                    floatArrayOf(
+                                        8.dp.toPx(),
+                                        5.dp.toPx()
+                                    )
+                                )
+                            ),
                         )
                     }
                     Column(
@@ -79,11 +110,24 @@ fun ImagePickerSection(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        Icon(Icons.Default.Image, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(28.dp))
+                        Icon(
+                            Icons.Default.Image,
+                            null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(28.dp)
+                        )
                         Text("Chạm để tải ảnh bìa Quiz", color = EditorColors.foreground)
-                        Text("Khuyên dùng 16:9", style = MaterialTheme.typography.bodySmall, color = EditorColors.muted)
+                        Text(
+                            "Khuyên dùng 16:9",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = EditorColors.muted
+                        )
                         Surface(color = EditorColors.tint, shape = RoundedCornerShape(50)) {
-                            Text("Chọn ảnh", color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp))
+                            Text(
+                                "Chọn ảnh",
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)
+                            )
                         }
                     }
                 }
@@ -104,7 +148,12 @@ private fun Modifier.clipEditorImage() = this.then(
 
 /** Render plain dialog content, not a separate popup window, in Android Studio Preview. */
 @Preview(name = "Quiz Editor - Discard Changes", showBackground = true, widthDp = 390)
-@Preview(name = "Quiz Editor - Discard Dark", showBackground = true, widthDp = 390, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(
+    name = "Quiz Editor - Discard Dark",
+    showBackground = true,
+    widthDp = 390,
+    uiMode = Configuration.UI_MODE_NIGHT_YES
+)
 @Composable
 private fun QuizEditorDiscardPreview() {
     MyQuizAppTheme {
@@ -112,8 +161,12 @@ private fun QuizEditorDiscardPreview() {
             AppConfirmDialogContent(
                 title = "Bỏ thay đổi?",
                 message = "Bạn có thay đổi chưa được lưu. Thoát sẽ mất toàn bộ thay đổi này.",
-                confirmText = "Bỏ thay đổi", dismissText = "Ở lại", variant = AppDialogVariant.Danger,
-                onConfirm = {}, onDismiss = {}, scrollState = rememberScrollState(),
+                confirmText = "Bỏ thay đổi",
+                dismissText = "Ở lại",
+                variant = AppDialogVariant.Danger,
+                onConfirm = {},
+                onDismiss = {},
+                scrollState = rememberScrollState(),
             )
         }
     }

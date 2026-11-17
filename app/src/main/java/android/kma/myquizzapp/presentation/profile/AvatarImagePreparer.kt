@@ -6,18 +6,18 @@ import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Matrix
-import android.media.ExifInterface
-import android.net.Uri
 import android.kma.myquizzapp.core.common.error.AppError
 import android.kma.myquizzapp.core.common.result.Result
 import android.kma.myquizzapp.domain.profile.UpdateAvatarUseCase
+import android.media.ExifInterface
+import android.net.Uri
 import dagger.hilt.android.qualifiers.ApplicationContext
-import java.io.ByteArrayOutputStream
-import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
+import java.io.ByteArrayOutputStream
+import javax.inject.Inject
 
 /** Android-only URI/bitmap boundary; no crop UI and no upload/network orchestration here. */
 class AvatarImagePreparer @Inject constructor(
@@ -34,20 +34,30 @@ class AvatarImagePreparer @Inject constructor(
             var sample = 1
             while (bounds.outWidth / sample > MAX_EDGE || bounds.outHeight / sample > MAX_EDGE) sample *= 2
             val decoded = resolver.openInputStream(uri)?.use {
-                BitmapFactory.decodeStream(it, null, BitmapFactory.Options().apply { inSampleSize = sample })
+                BitmapFactory.decodeStream(
+                    it,
+                    null,
+                    BitmapFactory.Options().apply { inSampleSize = sample })
             } ?: return@withContext unreadable()
             bitmap = decoded
             ensureActive()
             val orientation = resolver.openInputStream(uri)?.use { stream ->
-                try { ExifInterface(stream).getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL) }
-                catch (_: java.io.IOException) { ExifInterface.ORIENTATION_NORMAL }
+                try {
+                    ExifInterface(stream).getAttributeInt(
+                        ExifInterface.TAG_ORIENTATION,
+                        ExifInterface.ORIENTATION_NORMAL
+                    )
+                } catch (_: java.io.IOException) {
+                    ExifInterface.ORIENTATION_NORMAL
+                }
             } ?: ExifInterface.ORIENTATION_NORMAL
             val oriented = orient(decoded, orientation)
             if (oriented !== decoded) decoded.recycle()
             bitmap = oriented
             // JPEG has no alpha. Composite transparent sources onto white rather than black.
             if (oriented.hasAlpha()) {
-                val opaque = Bitmap.createBitmap(oriented.width, oriented.height, Bitmap.Config.ARGB_8888)
+                val opaque =
+                    Bitmap.createBitmap(oriented.width, oriented.height, Bitmap.Config.ARGB_8888)
                 Canvas(opaque).apply { drawColor(Color.WHITE); drawBitmap(oriented, 0f, 0f, null) }
                 oriented.recycle()
                 bitmap = opaque
@@ -58,7 +68,12 @@ class AvatarImagePreparer @Inject constructor(
                 for (quality in listOf(90, 80, 70, 60, 50, 40)) {
                     ensureActive()
                     val bytes = ByteArrayOutputStream().use { output ->
-                        if (!current.compress(Bitmap.CompressFormat.JPEG, quality, output)) return@withContext unreadable()
+                        if (!current.compress(
+                                Bitmap.CompressFormat.JPEG,
+                                quality,
+                                output
+                            )
+                        ) return@withContext unreadable()
                         output.toByteArray()
                     }
                     if (bytes.isNotEmpty() && bytes.size <= UpdateAvatarUseCase.MAX_BYTES) {
@@ -86,7 +101,8 @@ class AvatarImagePreparer @Inject constructor(
         }
     }
 
-    private fun unreadable(): Result<ByteArray> = Result.Error(AppError.Api("CLIENT_IMAGE_UNREADABLE"))
+    private fun unreadable(): Result<ByteArray> =
+        Result.Error(AppError.Api("CLIENT_IMAGE_UNREADABLE"))
 
     private fun orient(source: Bitmap, orientation: Int): Bitmap {
         val matrix = Matrix().apply {
@@ -94,14 +110,30 @@ class AvatarImagePreparer @Inject constructor(
                 ExifInterface.ORIENTATION_FLIP_HORIZONTAL -> setScale(-1f, 1f)
                 ExifInterface.ORIENTATION_ROTATE_180 -> setRotate(180f)
                 ExifInterface.ORIENTATION_FLIP_VERTICAL -> setScale(1f, -1f)
-                ExifInterface.ORIENTATION_TRANSPOSE -> { setRotate(90f); postScale(-1f, 1f) }
+                ExifInterface.ORIENTATION_TRANSPOSE -> {
+                    setRotate(90f); postScale(-1f, 1f)
+                }
+
                 ExifInterface.ORIENTATION_ROTATE_90 -> setRotate(90f)
-                ExifInterface.ORIENTATION_TRANSVERSE -> { setRotate(270f); postScale(-1f, 1f) }
+                ExifInterface.ORIENTATION_TRANSVERSE -> {
+                    setRotate(270f); postScale(-1f, 1f)
+                }
+
                 ExifInterface.ORIENTATION_ROTATE_270 -> setRotate(270f)
             }
         }
-        return if (matrix.isIdentity) source else Bitmap.createBitmap(source, 0, 0, source.width, source.height, matrix, true)
+        return if (matrix.isIdentity) source else Bitmap.createBitmap(
+            source,
+            0,
+            0,
+            source.width,
+            source.height,
+            matrix,
+            true
+        )
     }
 
-    private companion object { const val MAX_EDGE = 1280 }
+    private companion object {
+        const val MAX_EDGE = 1280
+    }
 }

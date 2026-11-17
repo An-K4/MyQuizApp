@@ -21,7 +21,11 @@ internal data class OnlineReviewOptionUi(
     val displayText: String get() = if (selected && showSelectionCaption) "$text\nBạn đã chọn" else text
 }
 
-internal data class OnlineReviewResponseUi(val label: String, val text: String, val tone: OnlineReviewTone)
+internal data class OnlineReviewResponseUi(
+    val label: String,
+    val text: String,
+    val tone: OnlineReviewTone
+)
 
 internal data class OnlineReviewCardUi(
     val heading: String,
@@ -37,14 +41,18 @@ internal data class OnlineReviewCardUi(
 )
 
 /** Presentation only: no question-type inference, local grading or invented answer content. */
-internal fun GameReviewItem.toOnlineReviewCardUi(mode: GameMode?, questionType: String? = null): OnlineReviewCardUi {
+internal fun GameReviewItem.toOnlineReviewCardUi(
+    mode: GameMode?,
+    questionType: String? = null
+): OnlineReviewCardUi {
     val tone = when {
         !answered -> OnlineReviewTone.Skipped
         isCorrect -> OnlineReviewTone.Correct
         else -> OnlineReviewTone.Incorrect
     }
     val correctKeys = correctAnswers.map(String::reviewKey).filter(String::isNotEmpty).toSet()
-    val selectedKeys = if (answered) yourAnswers.map(String::reviewKey).filter(String::isNotEmpty).toSet()
+    val selectedKeys =
+        if (answered) yourAnswers.map(String::reviewKey).filter(String::isNotEmpty).toSet()
         else emptySet()
     val optionKeys = answerOptions.map { it.id.reviewKey() }.filter(String::isNotEmpty).toSet()
     val options = answerOptions.mapIndexed { index, option ->
@@ -57,7 +65,7 @@ internal fun GameReviewItem.toOnlineReviewCardUi(mode: GameMode?, questionType: 
                 ?: "Nội dung đáp án không còn khả dụng",
             selected = selected,
             showSelectionCaption = !(questionType == "multiple_choice" && selectedKeys.size == 1 &&
-                correctKeys.size == 1 && correctKeys.all { it in optionKeys }),
+                    correctKeys.size == 1 && correctKeys.all { it in optionKeys }),
             tone = when {
                 key.isNotEmpty() && key in correctKeys -> OnlineReviewTone.Correct
                 selected && correctKeys.isNotEmpty() -> OnlineReviewTone.Incorrect
@@ -66,15 +74,24 @@ internal fun GameReviewItem.toOnlineReviewCardUi(mode: GameMode?, questionType: 
         )
     }
     val responses = if (options.isEmpty()) buildList {
-        add(OnlineReviewResponseUi(
-            label = "Câu trả lời của bạn",
-            text = if (!answered) "Chưa trả lời"
-                else yourAnswers.filter(String::isNotBlank).takeIf { it.isNotEmpty() }?.joinToString("\n")
+        add(
+            OnlineReviewResponseUi(
+                label = "Câu trả lời của bạn",
+                text = if (!answered) "Chưa trả lời"
+                else yourAnswers.filter(String::isNotBlank).takeIf { it.isNotEmpty() }
+                    ?.joinToString("\n")
                     ?: "Không có dữ liệu câu trả lời",
-            tone = if (answered && yourAnswers.any(String::isNotBlank)) tone else OnlineReviewTone.Neutral,
-        ))
+                tone = if (answered && yourAnswers.any(String::isNotBlank)) tone else OnlineReviewTone.Neutral,
+            )
+        )
         correctAnswers.filter(String::isNotBlank).takeIf { it.isNotEmpty() }?.let {
-            add(OnlineReviewResponseUi("Đáp án đúng", it.joinToString("\n"), OnlineReviewTone.Correct))
+            add(
+                OnlineReviewResponseUi(
+                    "Đáp án đúng",
+                    it.joinToString("\n"),
+                    OnlineReviewTone.Correct
+                )
+            )
         }
     } else emptyList()
     val notices = buildList {
@@ -88,7 +105,8 @@ internal fun GameReviewItem.toOnlineReviewCardUi(mode: GameMode?, questionType: 
             } else if (answered && selectedKeys.isEmpty()) {
                 add("Không có dữ liệu lựa chọn đã gửi.")
             }
-            val unmatchedCorrect = correctAnswers.filter { it.isNotBlank() && it.reviewKey() !in optionKeys }
+            val unmatchedCorrect =
+                correctAnswers.filter { it.isNotBlank() && it.reviewKey() !in optionKeys }
             if (unmatchedCorrect.isNotEmpty()) {
                 add("Đáp án đúng không còn trong danh sách: ${unmatchedCorrect.joinToString(", ")}")
             }
@@ -97,14 +115,15 @@ internal fun GameReviewItem.toOnlineReviewCardUi(mode: GameMode?, questionType: 
     val locale = Locale.forLanguageTag("vi-VN")
     return OnlineReviewCardUi(
         heading = "Câu ${questionIndex + 1}",
-        questionText = questionText?.takeIf(String::isNotBlank) ?: "Nội dung câu hỏi không còn khả dụng",
+        questionText = questionText?.takeIf(String::isNotBlank)
+            ?: "Nội dung câu hỏi không còn khả dụng",
         tone = tone,
         options = options,
         responses = responses,
         notices = notices,
         explanation = explanation?.takeIf(String::isNotBlank),
         scoreText = if (mode == GameMode.PRACTICE) null
-            else "${NumberFormat.getIntegerInstance(locale).format(scoreEarned)} điểm",
+        else "${NumberFormat.getIntegerInstance(locale).format(scoreEarned)} điểm",
         timeText = timeTakenSeconds?.takeIf { it.isFinite() && it >= 0.0 }?.let {
             "${String.format(locale, "%.2f", it)} giây"
         },
@@ -116,9 +135,11 @@ internal fun onlineReviewSummary(review: GameReview, mode: GameMode?): String = 
     if (review.correctAnswersCount >= 0) {
         // Marathon repeats its question bank: never present attempts as x/bank-size.
         val finiteTotal = mode != GameMode.MARATHON && review.totalQuestions > 0 &&
-            review.correctAnswersCount <= review.totalQuestions
-        add(if (finiteTotal) "${review.correctAnswersCount}/${review.totalQuestions} câu đúng"
-            else "${review.correctAnswersCount} câu đúng")
+                review.correctAnswersCount <= review.totalQuestions
+        add(
+            if (finiteTotal) "${review.correctAnswersCount}/${review.totalQuestions} câu đúng"
+            else "${review.correctAnswersCount} câu đúng"
+        )
     }
     if (review.answeredCount >= 0) add("${review.answeredCount} lượt trả lời")
 }.joinToString(" • ").ifBlank { "Chưa có dữ liệu tổng kết câu trả lời." }

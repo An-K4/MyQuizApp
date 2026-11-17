@@ -46,7 +46,8 @@ internal fun HistorySummaryCard(
                 RemoteImage(
                     imageUrl = image,
                     contentDescription = summary.quiz?.name,
-                    modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f).clip(RoundedCornerShape(12.dp))
+                    modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f)
+                        .clip(RoundedCornerShape(12.dp))
                 )
             }
             Text(
@@ -84,25 +85,47 @@ internal fun HistorySummaryCard(
                 Text(it, style = MaterialTheme.typography.bodySmall, color = colors.muted)
             }
             summary.sessionStatus.historyStatusLabel()?.let {
-                Text(it, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, color = colors.incorrect)
+                Text(
+                    it,
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = colors.incorrect
+                )
             }
             if (summary.viewer.isHost) {
                 HorizontalDivider(color = colors.border)
-                Text("Bạn đã tổ chức trận này", style = MaterialTheme.typography.bodyMedium, color = colors.accent)
+                Text(
+                    "Bạn đã tổ chức trận này",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = colors.accent
+                )
             } else if (currentPlayer != null) {
                 HorizontalDivider(color = colors.border)
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("Thứ hạng", style = MaterialTheme.typography.bodySmall, color = colors.muted)
+                        Text(
+                            "Thứ hạng",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = colors.muted
+                        )
                         val rank = when {
                             currentPlayer.rank <= 0 -> "Chưa xếp hạng"
                             summary.totalPlayers > 0 -> "Hạng ${currentPlayer.rank}/${summary.totalPlayers}"
                             else -> "Hạng ${currentPlayer.rank}"
                         }
-                        Text(rank, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = colors.accent)
+                        Text(
+                            rank,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = colors.accent
+                        )
                     }
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("Tổng điểm", style = MaterialTheme.typography.bodySmall, color = colors.muted)
+                        Text(
+                            "Tổng điểm",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = colors.muted
+                        )
                         Text(
                             "${formatHistoryNumber(currentPlayer.playerScore)} điểm",
                             style = MaterialTheme.typography.titleMedium,
@@ -115,14 +138,23 @@ internal fun HistorySummaryCard(
                     currentPlayer.correctAnswersCount?.let { add("$it/${summary.totalQuestions} câu đúng") }
                     currentPlayer.streak?.let { add("Chuỗi đúng: $it") }
                 }.joinToString(" • ")
-                if (details.isNotBlank()) Text(details, style = MaterialTheme.typography.bodySmall, color = colors.muted)
+                if (details.isNotBlank()) Text(
+                    details,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.muted
+                )
             }
         }
     }
 }
 
 @Preview(name = "Tổng quan trận — Player", showBackground = true, widthDp = 390)
-@Preview(name = "Tổng quan trận — tối", showBackground = true, widthDp = 390, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(
+    name = "Tổng quan trận — tối",
+    showBackground = true,
+    widthDp = 390,
+    uiMode = Configuration.UI_MODE_NIGHT_YES
+)
 @Composable
 private fun HistorySummaryPreview() {
     MyQuizAppTheme {
@@ -135,7 +167,12 @@ private fun HistorySummaryPreview() {
     }
 }
 
-@Preview(name = "Tổng quan — Host, thiếu mã/ảnh, đã hủy", showBackground = true, widthDp = 320, fontScale = 1.3f)
+@Preview(
+    name = "Tổng quan — Host, thiếu mã/ảnh, đã hủy",
+    showBackground = true,
+    widthDp = 320,
+    fontScale = 1.3f
+)
 @Composable
 private fun HistorySummaryFallbackPreview() {
     MyQuizAppTheme {

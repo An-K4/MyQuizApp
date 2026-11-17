@@ -7,8 +7,8 @@ import android.kma.myquizzapp.core.common.model.GameConfigKey
 import android.kma.myquizzapp.core.common.model.GameConfigValue
 import android.kma.myquizzapp.core.common.model.GameEvent
 import android.kma.myquizzapp.core.common.model.GameModeDescriptor
-import android.kma.myquizzapp.core.common.model.GameReview
 import android.kma.myquizzapp.core.common.model.GameResults
+import android.kma.myquizzapp.core.common.model.GameReview
 import android.kma.myquizzapp.core.common.model.JoinRoomResult
 import android.kma.myquizzapp.core.common.model.RoomLookup
 import android.kma.myquizzapp.core.common.repository.GameSessionRepository
@@ -130,12 +130,14 @@ private class FakeLobbyGameSessionRepository : GameSessionRepository {
     override suspend fun createGameSession(
         params: CreateGameSessionParams
     ): Result<CreateGameSessionResult> = error("Not used")
+
     override suspend fun lookupRoom(sessionCode: String): Result<RoomLookup> = error("Not used")
     override suspend fun joinRoom(
         sessionCode: String,
         playerName: String?,
         guestId: String?
     ): Result<JoinRoomResult> = error("Not used")
+
     override suspend fun getGameHistory(
         role: android.kma.myquizzapp.core.common.model.GameHistoryRole,
         cursor: String?,
@@ -143,8 +145,15 @@ private class FakeLobbyGameSessionRepository : GameSessionRepository {
         guestId: String?,
         includeTotal: Boolean
     ): Result<List<android.kma.myquizzapp.core.common.model.GameHistoryItem>> = error("Not used")
-    override suspend fun getGameHistorySummary(gameId: Long, guestId: String?): Result<android.kma.myquizzapp.core.common.model.GameHistorySummary> = error("Not used")
-    override suspend fun getGameHistoryAnswers(gameId: Long, guestId: String?): Result<GameReview> = error("Not used")
+
+    override suspend fun getGameHistorySummary(
+        gameId: Long,
+        guestId: String?
+    ): Result<android.kma.myquizzapp.core.common.model.GameHistorySummary> = error("Not used")
+
+    override suspend fun getGameHistoryAnswers(gameId: Long, guestId: String?): Result<GameReview> =
+        error("Not used")
+
     override suspend fun getGameResults(gameId: Long): Result<GameResults> = error("Not used")
     override suspend fun getGameReview(
         gameId: Long,

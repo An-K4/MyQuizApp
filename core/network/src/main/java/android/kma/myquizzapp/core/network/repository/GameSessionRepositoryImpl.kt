@@ -6,8 +6,8 @@ import android.kma.myquizzapp.core.common.model.GameHistoryItem
 import android.kma.myquizzapp.core.common.model.GameHistoryRole
 import android.kma.myquizzapp.core.common.model.GameHistorySummary
 import android.kma.myquizzapp.core.common.model.GameModeDescriptor
-import android.kma.myquizzapp.core.common.model.GameReview
 import android.kma.myquizzapp.core.common.model.GameResults
+import android.kma.myquizzapp.core.common.model.GameReview
 import android.kma.myquizzapp.core.common.model.JoinRoomResult
 import android.kma.myquizzapp.core.common.model.RoomLookup
 import android.kma.myquizzapp.core.common.repository.GameSessionRepository

@@ -80,6 +80,7 @@ class GuestNicknameViewModel @Inject constructor(
                     when {
                         !room.allowGuests ->
                             exit("Phòng này vừa tắt chế độ cho khách tham gia")
+
                         !room.isOpenForJoin -> exit("Phòng không còn nhận người chơi")
                         room.isFull -> exit("Phòng đã đủ ${room.maxPlayers} người")
 
