@@ -2,6 +2,8 @@
 
 **Phạm vi:** Công việc bổ sung ngoài kế hoạch, thực hiện 13–15/8/2026 sau khi chốt M2 core (N6–N10)
 
+> **Đối chiếu sau này:** Đây là ghi chép lịch sử, không chứng minh App Link đã được Android xác minh trên deployment hiện tại. Roadmap cũ từng ghi có `assetlinks.json`, nhưng phản hồi Backend mới nói hiện domain chưa có; cần kiểm tra deployment. Android hiện xử lý token bằng verify đổi ticket trước complete, không dùng nguyên thiết kế endpoint cũ dưới đây. Xem [T12 và phản hồi Backend](../roadmap/04_security_performance_plan.md).
+
 ---
 
 ## 📚 TỔNG QUAN

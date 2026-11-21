@@ -5,7 +5,19 @@
 
 ---
 
-## BẢNG DANH MỤC 24 TÀI LIỆU TRI THỨC
+## TRI THỨC HAI MÔN — THEO LÔ
+
+Các file dưới đây lưu bài học kỹ thuật, không phải sổ trạng thái. Xem [roadmap chung](../roadmap/04_security_performance_plan.md) để theo dõi tiến độ.
+
+| Lô | File | Nội dung |
+|---|---|---|
+| 1 | [kn_24_lot_1_baseline_client.md](kn_24_lot_1_baseline_client.md) | Baseline, log, input, offline |
+| 2 | [kn_25_lot_2_session_keystore.md](kn_25_lot_2_session_keystore.md) | Cookie, phiên, mã hóa và backup |
+| 3 | [kn_26_lot_3_transport_components.md](kn_26_lot_3_transport_components.md) | TLS/pinning, deep link, permission |
+| 4 | [kn_27_lot_4_upload_socket.md](kn_27_lot_4_upload_socket.md) | Upload, anti-cheat và socket |
+| 5 | [kn_28_lot_5_performance_release.md](kn_28_lot_5_performance_release.md) | Hiệu năng, release và đo lường |
+
+## BẢNG DANH MỤC 24 TÀI LIỆU TRI THỨC LỊCH SỬ
 
 | STT | File tài liệu | Mốc | Chủ đề kỹ thuật & Bài học cốt lõi |
 | :---: | :--- | :---: | :--- |
