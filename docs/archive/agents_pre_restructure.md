@@ -1,0 +1,379 @@
+# AGENTS.md — Hướng dẫn cho agent làm việc tiếp trên dự án MyQuizApp
+
+> File này không thay thế `myquizz-review-backend-ke-hoach-50-ngay.md` (kế hoạch + trạng thái chi tiết từng ngày) — đây là tập hợp **quy tắc làm việc + kinh nghiệm + lưu ý** rút ra sau nhiều phiên, giúp agent mới khởi đầu nhanh hơn và không lặp lại sai lầm cũ. Đọc file này **trước**, rồi đọc file kế hoạch để biết đang ở đâu.
+>
+> **Checkpoint hiện tại — local main `346230b`:** đã commit Player self-paced 4 mode `97d3da1`, Host monitoring 4 mode `79cca21`, fallback ảnh có logo app + Discovery card `1e89275`, review cá nhân online dùng answer card mới `76b8585`, và single-choice chạm-là-gửi + bỏ nhãn thừa trong review `346230b`. Classic/chung cuộc Host–Player/Chơi thử local trước đó vẫn giữ. User báo ổn sau sửa 2 test rồi commit/checkout docs; agent đã xác minh local main ref, không tự chạy Gradle/render hoặc xác nhận full CI/E2E. N44 PARTIAL, N46 WIP; backend/privacy/session/deployment, BUG-13, max streak và release gates vẫn mở. Không audit lại 4 mode như chưa polish; bước bàn giao mới là tài liệu onboarding/code walkthrough, xem `N46_UI_PROGRESS.md` mục 5e và `CODE_WALKTHROUGH_HANDOFF_PROMPT.md`.
+
+---
+
+## 1. Luật số 1 (quan trọng nhất): KHÔNG tin tuyệt đối file thiết kế
+
+User đã nói rõ: **đừng tin tuyệt đối `quiz-app-android-design-document-v2.md`**, vì backend (`github.com/Ntd1411/myquizz`) có thể có commit/cập nhật mới bất cứ lúc nào. Design doc rất có thể đã lệc thời và chỉ mang tính tham khảo, **không phải tài liệu triển khai tuyệt đối**.
+
+→ **Trước khi implement bất kỳ tính năng nào đụng chạm backend (endpoint, schema request/response, socket event...), luôn đọc source backend thật trước** (controller/route/schema/service thật trong repo backend), rồi mới code client theo đúng cái đọc được — không suy diễn từ design doc.
+
+Đã có nhiều lần design doc khớp ~90% nhưng không hoàn toàn (xem mục 4 file kế hoạch chính — "6 điểm lệch"), và N15 cho thấy ngay cả khi backend đúng chuẩn, **client vẫn có thể tữ sinh bug** nếu tin nhầm giả định của chính mình (xem mục 3 dưới).
+
+---
+
+## 2. Kiến trúc & quy ước đã chốt (áp dụng nhất quán, không bửa lại)
+
+- **Clean Architecture + DIP**: interface domain đặt ở `core:common`, implementation đặt ở `core:network` (API thật) hoặc `core:database` (Room cache). Tầng trên (feature/ViewModel) chỉ phụ thuệc interface, không bao giờ import trực tiếp `core:network`/`core:database`.
+- **ViewModel → Use case → Repository là bắt buộc**: ViewModel không inject/gọi Repository trực tiếp, kể cả observe session/capture token. Không đặt business orchestration trong UI/navigation; DTO dừng ở data. N43 áp dụng ở ViewModel mới; debt lịch sử phải audit/report trước khi đề xuất sửa.
+- **UiState/Intent/Effect tách file riêng** cho mọi ViewModel (quy ước từ sau refactor `feature:auth` 22/8) — không gộp chung 1 file ViewModel khổng lồ.
+- **`Result<T>`** là wrapper chuẩn xuyên suốt domain/data (không throw exception qua boundary layer), pattern generic 1 tham số.
+- **`ResultCallAdapterFactory`** (Retrofit call adapter tự viết) xử lý `ApiEnvelope` chuẩn của backend ở tầng network, trả thẳng `Result<T>` lên trên — không phải mọi Repository tự unwrap envelope.
+- **Component dùng chung ở `core:ui`**: dùng `Avatar` cho avatar và `SettingSwitchRow` cho pattern text/description + switch; component core chỉ nhận primitive UI props, không import model/intent của feature.
+- **Paging 3**: list quản lý/search nhỏ giữ page-size = 3; riêng Discover dùng page-size = 12 (khớp default `/quizzes/feed`) để lấp viewport và prefetch 3 item trước cuối danh sách.
+- **Auth dùng cookie-based session**, không phải Bearer token — `PersistentCookieJar` gắn sẵn vào `OkHttpClient` chuẩn của app cho mọi request tới backend thật.
+- **Room cache là fallback/cache, không phải tính năng offline-first** — đừng thiết kế luồng đọc giả định app phải hoạt động đầy đủ khi offline. Từ N37, chỉ fallback cache cho lỗi mạng/server tạm thời; resource missing (`QUIZ_NOT_FOUND`/404 tương đương) phải xóa cache stale, không được làm sống lại dữ liệu đã bị xóa.
+- **`ProfileScreen` đặt ở module `app`**, không phải `feature:*`, vì gắn `Route.Profile` cấp app.
+- **Bottom Navigation thật đã có từ N19.5** — **4 tab** (từ N19.6): Trang chủ / Thư viện / Hoạt động / Hồ sơ — tab "Tham gia" đã bị xóa. `TopLevelTab` + `MainBottomBar` ở `app/navigation/MainScaffold.kt`; `Scaffold` bọc **ngoài** `NavHost` trong `AppNavGraph`, bar chỉ hiện khi destination hiện tại `hasRoute` một trong 4 tab — nhờ vậy màn con (Search, QuizDetail, editor) và toàn bộ màn game tự động ẩn bar, không cần logic ẩn/hiện riêng ở từng graph. Đổi tab bằng `NavHostController.navigateToTab` (`popUpTo<Route.Home>` + `saveState`/`restoreState`).
+- **Bottom nav chỉ chứa ĐIỂM ĐẾN, không chứa HÀNH ĐỘNG** — vì vậy KHÔNG có tab "Tạo quiz"; tạo quiz là FAB trong tab Thư viện, mở thẳng editor. Tab Thư viện trỏ trực tiếp `Route.MyQuizzes` (màn thật đã có từ N13), `Route.Library` placeholder đã bị xóa nên **trùng lặp `Route.Library` vs `Route.MyQuizzes` không còn tồn tại**.
+- **Session state chỉ có MỘT nguồn sự thật** (từ N19.6): `SessionRepository` `@Singleton` giữ `StateFlow<SessionState>` = `Unknown` / `Guest` / `LoggedIn(user)`; mọi UI **thu** từ đó qua `ObserveSessionUseCase`, không ViewModel nào tự gọi `getCurrentUser()` rồi tự giữ bản sao. Đăng nhập/đăng xuất ghi vào repository ⇒ mọi màn đổi theo cùng một khung hình. KHÔNG vá bằng `LifecycleEventEffect(ON_RESUME)`.
+- **`Unknown` khác `Guest`, đừng gộp**: gác đăng nhập thì cho `Unknown` đi qua (chỉ chặn khi `isConfirmedGuest`), còn rẽ nhánh join phòng thì bắt buộc đợi `refresh()` xong. **Lỗi mạng không bao giờ được dịch thành "đã đăng xuất"** — từ N37 chỉ code terminal session/auth thật mới chuyển sang `Guest`; mạng, timeout, 5xx và code server tạm thời giữ nguyên session.
+- **Gác đăng nhập đặt TRƯỚC khi điều hướng, không đặt trong màn đích**: `AuthRequiredDialog` (`core:ui`) + `requireAuth` do `AppNavGraph` sở hữu. Đúng 4 chốt: tab Thư viện (ở `onSelect`), FAB tạo quiz, nút "Tạo phòng chơi" ở QuizDetail, Profile (empty state). Chặn trong màn đích thì người dùng đã thấy màn hỏng và back stack có entry vô nghĩa. Khi xử lý click phải đọc `SessionRepository.state.value` hiện tại, không tin Compose snapshot đã capture vì logout và click chuyển tab có thể xảy ra trước frame recomposition kế tiếp.
+- **Bottom nav chứa ĐIỂM ĐẾN, nên màn chỉ-một-ô-nhập không được làm tab**: màn Join cũ (một ô nhập mã rồi điều hướng đi ngay) là HÀNH ĐỘNG; làm nó thành tab giữa nổi bật tạo ra hai destination cùng tự nhận "quan trọng nhất". N19.6 đã xóa `Route.JoinRoom` + tab Tham gia; ô nhập mã thành `JoinRoomCard` nhúng vào Home qua slot `roomCodeCard: @Composable () -> Unit` do `MainNavGraph` truyền vào — `feature:home` KHÔNG phụ thuộc `feature:lobby`.
+- **`SESSION_CODE_LENGTH = 6` và điều kiện là `==`, không phải `>=`**: server sinh mã dài đúng 6 (`generateSessionCode(len = 6)`, bảng chữ bỏ I/O/0/1) và **không validate độ dài ở schema nào** ⇒ client là chốt duy nhất.
+- **Profile chỉ còn thông tin + cài đặt** — mọi item điều hướng đã bị bỏ khỏi Profile (trước N19.5 Profile là cửa duy nhất vào "Quiz của tôi"). Avatar user hiển thị ở icon tab Hồ sơ, KHÔNG đặt ở TopBar Home nữa (tránh hiện avatar ở 2 nơi).
+
+- **N20 — config trong Host Lobby phải lấy server làm nguồn sự thật**: gửi patch qua `lobby:config-update`, chờ ACK có `{changed, config, ignored}`, rồi dựng lại form từ `ack.config`; không giữ state cục bộ làm kết quả cuối vì `normalizeConfig` có thể ghi đè giá trị. Baseline diff trong lobby là config thật của phòng, không phải default của mode.
+- **N20 — `game:start` không có ACK**: nút Bắt đầu chỉ được coi là thành công khi nhận broadcast `game:started`; phải có timeout 5 giây để hồi trạng thái nếu server không xác nhận. Không suy diễn `changed=false` là lệnh config bị từ chối.
+- **N20 — component cấu hình dùng chung nằm ở `core:ui/gameconfig`**: `feature:lobby` và `feature:quiz-manage` không được phụ thuộc nhau. Component chỉ giữ typed form/UI thuần; JSON/dotted path dừng ở network boundary.
+- **N20 — UX bottom sheet cấu hình**: chỉ giữ sheet mở khi lỗi xảy ra trước lúc gọi server, ví dụ field sai định dạng. Mọi kết quả sau khi đã gọi server đều đóng sheet và thông báo bằng snackbar.
+- **N24 — config liên quan nhau phải phản chiếu normalize ngay trên form**: backend ép `reviewMode=true → showCorrectAnswer=true`; tắt reveal phải tắt luôn review, bật review phải bật reveal. Marathon luôn reveal nên công tắc phải read-only, không cho người dùng lưu một giá trị chắc chắn bị server ghi đè.
+- **N24 — visibility là rule ở reducer, không chỉ ở Composable**: `showCorrectAnswer=false` phải xóa answer key + distribution trước khi state tới UI; `showLeaderboard=end_only|never` phải xóa rank/score/leaderboard live. Chỉ ẩn block Compose là chưa đủ vì state stale vẫn có thể bị render ở chỗ khác.
+- **N24 — pause Player đi qua `game:state.sessionStatus`**: backend không có event pause/resume riêng cho Player. Khóa ở cả control UI và intent/ViewModel; resume chỉ mở nếu phase vẫn Question và player chưa submit.
+- **N24/N35 — kết quả cuối trận là socket-first, REST recovery-only**: `game:ended` đã mang đủ leaderboard + `perQuestion`; còn `StoredGameResult` thì render ngay và không gọi `/results`. Chỉ khi process recreation làm mất transient result mới gọi `GET /games/{id}/results`; loading/error/retry của Results phải độc lập với Review.
+- **N35 — endpoint public không phải lý do tin dữ liệu public được phép hiển thị**: `/results` hiện trả full leaderboard cả khi `showLeaderboard=never`; Android phải đọc config và loại dữ liệu trước presentation state, nhưng vẫn phải báo backend vì client-side hiding không ngăn rò rỉ HTTP.
+- **N35 — aggregate stats khác answer sheet**: `perQuestion` là thống kê cả phòng, phải sort theo `questionIndex`, tính tỷ lệ với nhánh `answerCount=0`, và không trộn với Review riêng của Player.
+- **N37 — REST error map theo code trước status**: backend code là contract chi tiết; HTTP status chỉ là fallback khi envelope thiếu/hỏng. Không hiện raw exception, response body hoặc chuỗi HTTP cho người dùng. Phân loại authentication, terminal session, missing resource và transient failure phải dùng helper chung, không rải so sánh code ở từng màn.
+- **N37 — banner offline cấp app không chồng UI realtime**: banner chung phù hợp các màn REST; Host/Player Lobby và Host/Player Game đã có reconnect state riêng nên phải loại trừ để tránh hai thông báo mâu thuẫn. Dùng network `VALIDATED`, không chỉ `isConnected`.
+- **N37 — resource bị xóa khi màn đang mở không có push invalidation**: client chỉ biết ở request kế tiếp. Với quiz, có thể vẫn vào config từ Detail stale nhưng backend phải chặn lần submit tạo phòng; Back về Detail sẽ reload và điều hướng Home. Không polling chỉ để phát hiện delete.
+- **N38 — lịch sử server là nguồn sự thật**: `GET /games/history` đã có cursor riêng cho `played|hosted`; user dùng hai tab, guest chỉ `played`, tuyệt đối không merge hai cursor để tạo “Tất cả”. `GameHistoryDao/Entity` local đang không có consumer và không được nối vào UI vì sẽ thiếu trận từ thiết bị khác; row định danh bằng `sessionId`, không bằng room code có thể tái sử dụng.
+- **N20.5 — Discover public-only phải dùng HTTP client không cookie/authenticator**: `/quizzes/search` là optional-auth và khi có cookie sẽ trả thêm private/empty quiz của chính owner; màn Khám phá phải dùng `@PublicQuizApiService`, không tái dùng Retrofit authenticated.
+- **N20.5 — filter là query state, không phải title của màn**: TopAppBar luôn là “Khám phá”; `section_type` + `topic` chỉ chọn filter/sort ban đầu. Tất cả/Chơi nhiều nhất/Xu hướng là chip ngoài; topic và sort phụ nằm trong menu.
+- **N20.5 — pagination meta là camelCase dù payload quiz là snake_case**: `meta.pagination.nextCursor/hasMore` phải được khai báo alias `@JsonNames` khi dùng `JsonNamingStrategy.SnakeCase`; nếu không chúng rơi về null/false và Paging dừng đúng sau trang đầu.
+
+### 2.1. Quy ước Stateful/Stateless cho mọi Screen và UI Component
+
+Lấy `feature:auth/.../login/LoginScreen.kt` làm mẫu chuẩn. Mỗi màn hình phải tách rõ hai lớp:
+
+- **Stateful/Route composable** — thường mang tên `XxxScreen`: là integration boundary; được phép lấy `hiltViewModel()`, `collectAsStateWithLifecycle()`, collect `Effect` trong `LaunchedEffect`, giữ UI state cục bộ bằng `remember`/`rememberSaveable`, dùng `Context` hoặc platform API, và chuyển effect thành navigation/snackbar. Hàm này không dựng UI chi tiết; sau khi wiring xong phải gọi composable stateless.
+- **Stateless content composable** — thường mang tên `XxxScreenContent`: chỉ nhận `UiState`/primitive value và callback/intent từ ngoài, không tự lấy ViewModel, không gọi Hilt, không collect Flow, không sở hữu `NavController`, không tự điều hướng và không thực hiện business logic/I/O. State phải được hoist để hàm dễ Preview và test.
+- **Reusable component**: stateless by default; nhận value + callback thay vì giữ source of truth bên trong. Nếu thật sự cần stateful convenience wrapper cho state UI cục bộ, phải giữ một stateless overload/content làm API lõi và đặt tên hai hàm rõ ràng.
+- **Preview** gọi trực tiếp composable stateless với fake state/no-op callbacks; tối thiểu có trạng thái đại diện, ưu tiên cả Light/Dark như Login. Không Preview thông qua ViewModel/Hilt/navigation.
+- **Event flow**: UI event đi lên qua callback hoặc typed `Intent`; state đi xuống qua parameter. One-off effect chỉ được xử lý ở stateful boundary.
+- Có thể giữ state thuần hiển thị như password visibility ở stateful layer; state ảnh hưởng nghiệp vụ, validation hoặc cần sống qua process/navigation phải thuộc `UiState`/ViewModel. Dùng `rememberSaveable` khi state cần sống qua recreation/back-stack disposal.
+
+Khi tạo hoặc review screen/component mới, nếu không có lý do kỹ thuật được ghi rõ thì sai pattern trên được coi là architecture debt và phải sửa trước khi merge.
+
+**Baseline đã hoàn thành ngày 28/8/2026:** đã quét 14 `*Screen.kt` hiện có. `LoginScreen`, `RegisterScreen`, `SplashScreen` vốn đúng pattern; 11 màn còn lại đã được chuẩn hóa về `XxxScreen` + `XxxScreenContent`. Các reusable component giữ state cục bộ như menu/dropdown phải có stateless content lõi. `CreateQuizScreen` và `EditQuizScreen` dùng chung `QuizEditorContent` trong `feature:quiz-manage/presentation/components`.
+
+**Ownership cho các trường hợp đặc biệt:**
+- Photo Picker/Activity Result launcher, `BackHandler`, lifecycle effect, focus request và quan sát pagination bằng `snapshotFlow` nằm ở stateful boundary.
+- Stateless content được phép nhận UI object do wrapper sở hữu như `LazyListState`, `LazyPagingItems` hoặc `SnackbarHostState`; content không được tự lấy ViewModel, collect Flow, điều hướng hay thực hiện business I/O.
+- State hiển thị tạm thời như password visibility, menu expanded, dialog expanded có thể ở wrapper; state ảnh hưởng nghiệp vụ vẫn phải ở `UiState`/ViewModel.
+- Preview gọi trực tiếp content với fake state/no-op callback; với Paging có thể dùng `PagingData.empty()`.
+
+Chi tiết audit, inventory và checklist ở `knowledgement/ui_stateful_stateless_refactor.md`.
+
+---
+
+### 2.2. N46 — quy trình polish theo màn, không làm một mạch
+
+- Gameplay liên hoàn phải audit toàn chuỗi: initial UNKNOWN/Connecting → countdown → Question → feedback/Results → câu mới/Finished/recovery. Không để nhánh sau câu hoặc preparing shell quay về UI cũ. Hai layout Host không có nghĩa Player hay countdown cũng là cùng state machine.
+- Backend #21 thuộc **N24.5**, không UI-only: private result là server-authoritative, so cả index/question_id, idempotent, 0 khác thiếu, current streak không phải maxStreak. Snapshot chung null không tự xóa cache private cùng câu; privacy/phase mới phải chặn stale data. Đã triển khai Android tại `14fb62f`, badge/điểm câu `fc70509`; kế hoạch tại b005df3 là lịch sử. Không hứa key replay khi snapshot không chứa key; không workaround presence bằng delay/double-join hoặc tự tăng streak.
+
+- User giám sát từng màn. Đọc đúng ảnh trong `design/screens/` hoặc `design/components/`, đối chiếu source mới nhất, implement một mốc rồi dừng để user xem Preview/hiệu chỉnh. Không coi một lần duyệt component là duyệt toàn bộ UI.
+- `AnswerOptionItem.kt` là mẫu component đã được user chọn: stateless mặc định; value/state đi xuống, callback đi lên; Preview private ngay trong file, bọc `MyQuizAppTheme`, có Light/Dark và state đại diện. Nếu cần wrapper giữ UI state như focus thì phải có Content stateless lõi; không thêm wrapper dư thừa.
+- Tái sử dụng `QuizPrimaryButton`/`QuizSecondaryButton`/`QuizDangerButton` và `CustomClickableText`. Login: Khách ngay dưới Đăng nhập; Google là Secondary với icon trái sẵn có; chỉ span Đăng ký ngay là link, không dùng TextButton cho cả dòng.
+- Register: nhãn nằm trên field, thứ tự fullname/email/password/phone; phone dùng icon ống nghe theo user, không giữ icon khóa sai trong ảnh. Giữ validation/Intent/Effect/Use case/backend khi phạm vi chỉ UI.
+- Không biến selected thành correct; rank/score/reveal do caller/server quyết định. OTP 6 ASCII digits khác room 6 ASCII alphanumeric uppercase. Card rating optional, không bịa dữ liệu thật từ fixture Preview.
+- Card naming: `SearchQuizCard` là card ngang kết quả Search (tên cũ QuizListCard/QuizSummaryCard); `LibraryQuizCard` riêng cho quản lý quiz với badge/menu; `DiscoveryQuizCard` cho Home/Discover (grid uniformGrid, Home default). QuizCardItem đã xóa ở `d5571d6`. playCount là lượt chơi, không bịa rating/count/progress/resume.
+- Forgot/OTP/Reset giữ top app bar cũ, email/nhãn căn trái, không icon lớn/checklist; OTP 6 ô, dòng countdown + link resend gộp/căn giữa **dưới** nút xác nhận. Pure reset/confirm validation ở AuthValidator, không trim password hoặc thêm rule hoa/thường/ký tự đặc biệt từ ảnh.
+- Home giữ một LazyColumn với RoomCodeEntryCard 6 ô qua JoinRoomCard/slot; bottom nav giữ 4 destination. Search bỏ phần chưa có chức năng; Discover grid 2 cột + category/sort thật, không thêm tab Khám phá hay total giả.
+- `@Preview` không chứng minh render/build/test PASS. User duyệt hình thức khác evidence regression. Dark hiện fallback và contrast/touch target/font scale cần kiểm tra riêng trước khi đóng N46.
+- Ảnh `design/` chỉ local: main ignore `/design/`; docs không có `.gitignore`, `.git/info/exclude` đã thêm `/design/` áp dụng mọi nhánh, không commit. `.design/` là tên thư mục khác và không ignore `design/`; `??` là untracked nên không cần `git rm --cached`.
+- Sau source commit, user checkout docs rồi cập nhật targeted các tài liệu và `N46_UI_PROGRESS.md`; không copy đè snapshot cũ hoặc merge toàn bộ main vào docs. Không tự commit/push/chuyển branch. N44 PARTIAL/backend/privacy/session gates không bị waived.
+
+## 3. Bẫy (traps) đã gặp thật — đừng lặp lại
+
+### 3.1. `JsonNamingStrategy.SnakeCase` đè lên `@SerialName` (N15, xem chi tiết ở `knowledgement/n15_knowledgement.md`)
+
+App dùng 1 `Json` chung với `namingStrategy = JsonNamingStrategy.SnakeCase` cho đa số endpoint backend (vì backend chủ yếu dùng snake_case). **Sai lầm tưởng rằng khai `@SerialName("contentType")` tường minh sẽ "thoát" được namingStrategy chung** — KHÔNG đúng, vì `namingStrategy` áp transform lên **tên serial đã resolve** (tức chính là giá trị `@SerialName` khi có khai báo), không phân biệt đó là tên gốc hay tên đã override.
+
+→ **Khi endpoint có naming convention khác phần lớn backend, dùng Retrofit không naming strategy** — đừng rải `@SerialName` rồi tin là đủ. Sau refactor trước N17, Storage, Password Reset và Games dùng chung `@PreserveCaseJson`/`@PreserveCaseRetrofit`; chỉ tạo qualifier/client riêng khi behavior thực sự khác (ví dụ `@RawUploadOkHttpClient` không cookie/authenticator), không tạo một cặp Retrofit cho từng feature.
+
+→ Khi debug lỗi request/response không khớp kỳ vọng, luôn **xem Logcat OkHttp level BODY** để thấy byte thật trên wire, đừng chỉ đọc lại code DTO rồi kết luận "nhìn code thì đúng rồi".
+
+### 3.2. Backend hay trả response bọc lồng thêm 1 tầng resource key
+
+Nhiều endpoint không chỉ trả `ApiEnvelope<T>` chuẩn mà còn lồng thêm 1 key resource bên trong `data`, ví dụ: `{quiz: {...}}`, `{session: {...}}`, `{quizzes: [...]}`, `{presignedUrl: {...}}` (xem N15). → Khi viết DTO cho response mới, **luôn kiểm tra kỹ backend thật trả field gọc hay bọc trong 1 key con** — không giả định flat theo design doc.
+
+### 3.3. Gọi thẳng URL bên thứ 3 (không phải backend của mình)
+
+Khi cần PUT/GET trực tiếp lên 1 presigned URL (S3...) hay bất kỳ domain bên thứ 3 nào, **không dùng lại `OkHttpClient` chuẩn có cookieJar/authenticator của app** — tạo `OkHttpClient` riêng không mang theo thông tin đăng nhập nội bộ (xem `@RawUploadOkHttpClient`).
+
+### 3.4. Flag "skip first resume" trong `remember` bị reset khi Navigation dispose composition (N16)
+
+Màn cần "reload khi quay lại" (ON_RESUME) nhưng bỏ qua lần mở đầu → đừng giữ flag skip bằng `remember`: Navigation dispose composition của màn cũ khi điều hướng đi, nên flag reset mỗi lần quay lại và reload không bao giờ chạy. Fix: `rememberSaveable` (state ghi vào SavedState của NavBackStackEntry) hoặc giữ flag trong ViewModel. Với list Paging 3, đừng dựa vào `LazyPagingItems.refresh()` (không đáng tin khi flow đã `cachedIn`) — cho refresh đi qua ViewModel bằng intent và tạo Pager mới (pattern generation). Chi tiết: `knowledgement/n16_knowledgement.md` mục 1.
+
+### 3.5. Mọi user action phải có ít nhất 1 đường kích hoạt THẬT từ UI (bug sót N11–12, lộ ra khi test N16.5)
+
+SearchScreen gõ từ khóa nhưng "không có kết quả với mọi từ khóa": intent `SubmitSearch` tồn tại đầy đủ trong ViewModel nhưng **không có nút/handler nào trong UI gọi nó** (không nút tìm, không `keyboardActions`) — compile sạch, logic đúng, luồng chết vì thiếu mắt xích cuối. Tương tự click quiz card trỏ vào hàm TODO rỗng. → Khi viết/review màn mới, **trace ngược từ handler về UI**: mỗi intent phải có ít nhất 1 chỗ gọi thật. Đừng tin "nhìn code thì chắc chạy" — test luồng thật trên máy. Chi tiết: `knowledgement/n16_5_knowledgement.md` mục 4.
+
+### 3.6. Dynamic backend contract không đồng nghĩa render UI bằng raw map (N17)
+
+Bản đầu Create Room đưa `Map<String, JsonElement>` và dotted path xuyên từ DTO tới UiState/Intent/Composable, rồi dùng `configLabel(path)` để vá readability. Luồng vẫn one-way MVI nhưng vi phạm boundary sạch, mất type-safety và khó đọc cấu hình từng mode.
+
+→ JSON/snake_case/dotted path chỉ tồn tại trong `core:network`; domain dùng `GameConfigKey`/`GameConfigValue`/typed constraint; presentation dùng typed form. UI dispatch theo mode (`ClassicModeEditor`, `SoloModeEditor`...) để sở hữu layout/label, trong khi backend descriptor vẫn sở hữu default/min/max/nullable/options. Với conflict descriptor, **`locked` luôn thắng `editable`**.
+
+→ Flow tạo phòng gồm 2 REST request (`create game` rồi `host-token`): nếu request 1 thành công và request 2 lỗi, giữ `pendingSession`; retry chỉ request token, không tạo room lần hai. Chi tiết: `knowledgement/n17_knowledgement.md`.
+
+---
+
+### 3.7. Socket: contract lỗi thật là `{event, code}`, và reconnect KHÔNG tự join lại room (N18, xem `knowledgement/n18_knowledgement.md`)
+
+- Doc thiết kế ghi payload lỗi socket là `{event, message}` với prefix `UNAUTHORIZED:`/`FORBIDDEN:`/`CONFLICT:`/`GONE:`. **Sai.** Schema `SocketError` thật (`backend/src/docs/components/socket.doc.ts`) là `{ event: string, code: string }` — chỉ có code, không có message. Đừng parse prefix từ message.
+- Lỗi chỉ bắn qua event `error` khi client event KHÔNG có ack. Nếu event có ack (ví dụ `question:answer`) thì lỗi trả trong ack dưới dạng `{ error: { code } }`. Bắt một đường sẽ bỏ sót đường kia.
+- Không tạo nhánh `AppError` mới cho socket: `AppError.Api(code)` đã map sẵn ~60 code sang tiếng Việt từ N16.5.
+- **socket.io tự reconnect nhưng KHÔNG tự join lại room.** Phải gọi `lobby:join` sau MỌI lần nhận `Connected`, không phải một lần trong `init`. Nếu không, sau khi mạng trở lại socket vẫn "connected" mà không bao giờ nhận `lobby:updated` nữa — bug im lặng, không lộ ra khi test ở mạng tốt.
+- **N25 — transport readiness khác socket state.** Chỉ gọi/restart socket khi `ConnectivityManager` báo network có cả `INTERNET` và `VALIDATED`; finite retry phải có terminal state (`RECONNECT_FAILED`) và hành động Retry rõ ràng, không để UI treo vô hạn ở “đang kết nối”.
+- **N25 — snapshot đúng không chứng minh presence đúng.** Player có thể nhận đúng `game:state` nhưng backend vẫn giữ `status=disconnected`; phải kiểm tra riêng data-plane (snapshot/event) và control-plane (presence/eligibility/roster).
+- **N25 — race socket cũ/mới phải sửa ở server.** `onLeave` của socket cũ không được ghi đè socket mới hoặc kích hoạt auto-advance khi cùng Player còn connection hợp lệ. Fix bằng socket identity/generation hoặc active-socket count; Android không tự thêm delay/double-join nếu chưa được thống nhất.
+- **N25 — reconnect contract Android giữ nguyên:** `Connected → lobby:join → player:sync`. Nếu backend sửa nội bộ mà không đổi protocol thì Android không cần đổi; nếu backend thêm ACK cho `lobby:join`, lúc đó mới cân nhắc đợi ACK rồi sync.
+- Phân biệt 3 lý do disconnect: `io server disconnect` (server đá — socket.io KHÔNG retry, phải thoát màn), `io client disconnect` (do chính mình gọi — im lặng), còn lại là transport/mất mạng (giữ dữ liệu cũ, chờ socket.io tự thử lại).
+- Mapper event không bao giờ được throw: payload rác → trả `GameEvent.Failed(event, "CLIENT_PARSE_ERROR")`. Throw trong `callbackFlow` sẽ giết cả flow và mất mọi event sau đó.
+- Token socket có TTL riêng, ngắn hơn cookie đăng nhập. Gặp `GAME_TOKEN_INVALID` → refresh qua REST đúng MỘT lần (có guard chống vòng lặp refresh) rồi thoát nếu vẫn fail.
+- UiState realtime phải phân biệt "chưa có snapshot" với "snapshot rỗng" (cờ `hasLobbySnapshot`), và khi mất kết nối thì giữ nguyên dữ liệu cũ thay vì xóa về rỗng.
+
+### 3.8. Architecture Refactor Lessons (N18.5, 31/8-2/9/2026)
+
+**MVI Effect pattern phải consistent từ đầu:** Retrofitting Effect pattern vào 2 ViewModels (HomeViewModel, ProfileViewModel) đơn giản khi số lượng ít, nhưng nếu có 10-15 ViewModels đã dùng navigation methods/flags trong state thì chi phí refactor rất lớn. Thiết kế đúng từ đầu: navigation/one-shot events = Effect channel, KHÔNG BAO GIỜ là state flag hoặc method trong ViewModel. Effect là chuẩn tuyệt đối cho MVI, không có exception.
+
+**God methods >40-50 lines là dấu hiệu thiếu UseCase layer:** `CreateQuizViewModel.submit()` 50 dòng, `EditQuizViewModel.submit()` 65 dòng orchestrating upload + validation + DTO building — rõ ràng là business logic nhưng lại nằm ở presentation. Không nên "vá" bằng cách extract private methods trong ViewModel — phải extract UseCase để đưa logic xuống domain layer. Transfer objects (QuizDraft từ presentation xuống domain, QuizWithOwnership từ domain lên presentation) giúp data flow rõ ràng qua layer boundaries mà không ràng buộc lẫn nhau. ViewModels sau refactor giảm từ 50-65 dòng xuống ~30 dòng — chỉ còn validate input + build DTO + call UseCase + handle Result.
+
+**Layer violations: ViewModels KHÔNG BAO GIỜ gọi multiple repositories trực tiếp:** `QuizDetailViewModel` inject cả `QuizRepository` + `AuthRepository` rồi tự orchestrate "get quiz → get user → compare owner" vi phạm Clean Architecture — presentation không được biết cách coordinate domain logic. Phải tạo `GetQuizWithOwnershipUseCase` ở domain layer để encapsulate orchestration. ViewModel chỉ gọi 1 UseCase, UseCase mới gọi nhiều Repository.
+
+**Validation centralized scale tốt hơn scattered inline checks:** Pattern A (inline `if` trong ViewModel) dễ lặp lại logic, dễ lệch khi update requirement. Pattern B (private `validate()` method trong từng ViewModel) tốt hơn nhưng vẫn duplicate logic qua nhiều ViewModels. Pattern C (validators ở `:core:common`) cho phép reuse (`EmailValidator` dùng cho Login + Register, `QuizNameValidator` dùng cho Create + Edit), type-safe (`ValidationResult` sealed interface thay vì nullable String), testable (pure Kotlin, không phụ thuộc Android framework). Khi có 5-10 ViewModels dùng validation giống nhau, Pattern C tiết kiệm rất nhiều code và đảm bảo consistency.
+
+**Navigation modularization giúp parallel development và maintenance:** `AppNavGraph.kt` 267 dòng chứa tất cả routes khó maintain khi thêm features mới (conflict git, khó review, vi phạm SRP). Tách thành 4 graphs theo feature domain (Auth 5 routes, Main 6 routes, QuizManage 5 routes, Game 5 routes) giảm AppNavGraph còn 60 dòng (78%), mỗi feature có thể develop navigation riêng không conflict, dễ test riêng từng graph. Khi thêm feature mới chỉ cần tạo NavGraph mới và gọi trong AppNavGraph, không touch existing code.
+
+**Systematic refactor với incremental execution + mandatory review stops:** Workflow "xong từng việc dừng lại để tôi review" bắt lỗi sớm trong quá trình refactor 14 tasks (ví dụ: god method pattern phát hiện ngay khi làm CreateQuiz, áp dụng luôn cho EditQuiz). Build + test sau MỖI task (không đợi đến cuối) validate assumptions trước khi compound — sửa 1 task lỗi rẻ hơn rollback 3-4 tasks phụ thuộc. Tạo checklist chi tiết với ước tính thời gian giúp track progress và không overwhelm.
+
+### 3.9. Viết DTO phải đọc `*.service.ts`, KHÔNG tin tên key trong controller (N19, xem `knowledgement/n19_knowledgement.md`)
+
+- `getGameByCode` viết `success(res, { session })`, nhìn controller thì tưởng wire là `data.session` — nhưng `gameService.getLobby(code)` đã trả về `{ session, players, config }`, nên wire thật là **`data.session.session`** (lồng ba cấp). → **Khi viết DTO cho endpoint mới, đọc hàm service xem nó trả object gì; controller chỉ cho biết nó bọc thêm mấy tầng nữa.** Đây là bản mở rộng cụ thể của bẫy 3.2, và là điểm lệch #11 trong file kế hoạch.
+- **Đọc thông báo lỗi kotlinx như một manh mối, đừng chỉ đọc lại code DTO.** Log crash liệt kê 11/12 field của `GameSessionDto` là "missing", nhưng thiếu đúng field `config` — field DUY NHẤT không bị báo thiếu chính là tên key của wrapper còn sót. Suy luận này chỉ ra ngay tầng lồng thừa mà không cần thêm log nào.
+- **Không sửa backend một mình khi frontend web đã "sống chung" với bug** (`unwrap(res.data).session` của Vue đang dựa vào chính tầng lồng thừa này). Client Android tạm khớp theo wire thật, ghi rõ bug trong KDoc, và có **test hồi quy khóa shape** để khi backend sửa thì test đỏ ngay và biết phải đổi đồng thời cả hai client.
+- **`total_players` do server trả không đáng tin** trong snapshot lobby → tính lại từ `players.size` khi có mảng players.
+- **Trả kết quả về màn trước bằng `savedStateHandle` của back stack entry đích**, không dùng shared ViewModel hay singleton: `GameNavGraph` đặt `KEY_LOBBY_EXIT_MESSAGE` vào entry của màn sẽ hiện lên (helper `popWithMessage`), màn đó đọc và hiện snackbar rồi tự xóa key (`onExitMessageShown`) để không lặp lại khi quay lại lần sau.
+
+### 3.10. UI cấp app nằm NGOÀI `NavHost` thì không có back stack entry (N19.5, xem `knowledgement/n19_5_knowledgement.md`)
+
+- `MainBottomBar` sống ở `Scaffold` bọc ngoài `NavHost` → nó không thuộc `NavBackStackEntry` nào, nên **không dùng được `hiltViewModel()` scope theo destination**. Phải dùng ViewModel scope theo Activity (`CurrentUserViewModel`), và cho các màn bên trong báo ngược ra bằng callback (`mainGraph(onCurrentUserChanged = ...)`) vì bar không tự biết chuyện xảy ra trong NavHost (ví dụ user vừa đăng xuất).
+- **Trước khi nạp dữ liệu cho UI luôn hiển thị, phải kiểm tra repository có cache hay không.** `AuthRepositoryImpl.getCurrentUser()` gọi thẳng `GET /users/me`, KHÔNG cache → nếu nạp theo kiểu "mỗi lần bar recompose / mỗi lần đổi tab" thì mỗi cú chạm tab là một request. Cách làm đúng: chốt danh sách mốc refresh (dựng bar lần đầu, `ON_RESUME`, vừa RỜI `AuthGraph`, đăng xuất) + tự dedupe khi request trước còn đang bay.
+- **`Icon` của Material nhuộm nội dung theo `LocalContentColor`** — logo brand và avatar phải vẽ bằng `Image` để giữ nguyên màu. Đổi lại 2 tab đó mất tín hiệu chọn/không chọn bằng màu icon, chỉ còn indicator pill + màu nhãn; đây là đánh đổi có ý thức, không phải bug.
+- **Nhãn bottom nav tiếng Việt rất dễ tràn xuống dòng 2** và làm lệch chiều cao cả thanh nav. Tính cỡ chữ theo bề rộng màn hình dựa trên nhãn DÀI NHẤT (`rememberTabLabelFontSize`), kẹp 9–12sp, kèm `maxLines = 1` + `softWrap = false`. Hệ quả phải nhớ khi bảo trì: thêm một nhãn dài sẽ làm nhỏ chữ của TẤT CẢ tab.
+
+### 3.11. Một trang một vùng cuộn, và placeholder lỗi thuộc về từng KHỐI (N19.6, xem `knowledgement/n19_6_knowledgement.md`)
+
+- **Không lồng `Column(verticalScroll)` quanh `LazyColumn`** — hai vùng cuộn cùng chiều làm lazy list nhận ràng buộc chiều cao vô hạn. Một trang giữ đúng MỘT `LazyColumn`; phần tĩnh phía trên (ví dụ card nhập mã phòng) là `item` đầu tiên và cuộn đi được cùng nội dung.
+- **Đừng ghim khối cao gần nửa màn hình ở đầu trang.** Bản đầu của Home ghim card nhập mã cố định phía trên feed — nó chiếm chỗ suốt lúc người dùng lướt khám phá. Ghim chỉ dành cho thanh mỏng (search bar, filter chip).
+- **Không `fillMaxSize()` trong `item` của `LazyColumn`** (cùng lý do trên). `fillParentMaxHeight()` hợp luật nhưng làm khối cao bằng cả khung nhìn và đẩy nội dung phía trên trôi khỏi màn hình → dùng `heightIn(min = ...dp)`.
+- **Placeholder loading/lỗi/rỗng bọc trong `Card` của riêng khối đó**, không thay thế cả trang: khối không cần tải dữ liệu (ô nhập mã) thì không có cách nào để "lỗi", nên mất mạng vẫn phải vào phòng được bằng mã bạn bè gửi.
+- **Nhưng số vùng lỗi phải khớp số REQUEST, không khớp số khối UI**: `continue` và mọi section khám phá về từ CÙNG một `GET /quizzes/home` ⇒ tách hai placeholder chỉ tạo ra hai câu lỗi giống nhau kèm hai nút "Thử lại" gọi đúng một API. Muốn lỗi độc lập thật thì phải đổi sang endpoint riêng từng section, và ta cố tình KHÔNG làm vì mất cache 5 phút của `/home` và mất khả năng ops đổi thứ tự section bằng SQL.
+- **Nhận dạng section theo `section_type`, KHÔNG theo `title`**: `home_sections` là bảng dữ liệu ops sửa được (`title`, `position`, `is_active`) nên title đổi bất cứ lúc nào. Section không có nút "Xem thêm" vẫn hiện bình thường — trông như danh sách được chọn sẵn; ẩn nó đi mới là làm sai.
+- **`continue` là "quiz chơi dở", KHÔNG phải "phòng đang mở"**: `getContinuePlaying` trả về danh sách QuizCard, không có `session_code` lẫn socket token, và khóa vào `users.id` nên khách (nhận diện bằng `x-guest-id`) không bao giờ có dữ liệu ⇒ ẩn hoàn toàn với khách là đúng.
+
+---
+
+### 3.12. Config Host Lobby và lệnh không ACK (N20, xem `knowledgement/n20_knowledgement.md`)
+
+- `normalizeConfig` của server có thể cưỡng bức các field liên quan nhau; sau khi lưu phải dùng `ack.config` làm nguồn sự thật và dựng lại form từ đó.
+- Baseline của patch khi sửa trong lobby là config hiện tại của phòng. Dùng default của mode có thể làm thao tác đổi ngược một field biến mất thành patch rỗng mà không crash hay log.
+- `game:start`, `game:next`, `game:pause`, `game:resume` và `game:end` là fire-and-forget; xác nhận thành công bằng broadcast tiếp theo, không tự thêm ACK ở client. Riêng thao tác bắt đầu cần timeout để nút không treo khi mất mạng đúng lúc emit.
+- Khi thêm nhánh vào sealed class dùng chung như `GameEvent.GameStarted`, phải rà mọi `when` ở tất cả module tiêu thụ; không dùng `else` để che nhánh chưa xử lý.
+- Host Console phải rẽ nhánh theo `config.flow.pacing`: host-paced có một câu/phase chung; self-paced không có “câu hiện tại của phòng”, phải dựng dashboard từ `leaderboard:host` + `host:player-progress` + lifecycle events. Không render `game:state.question` hay nút `game:next` như Classic khi `pacing=self`.
+- Chốt lobby-only nằm trong hàm thật sự ghi config (`writeConfig`), không nhất thiết nằm ngay handler socket. Luôn đọc tới service/store thực thi cuối cùng.
+
+---
+
+### 3.13. Mixed naming trong cùng một response làm pagination chết im lặng (N20.5)
+
+- Backend quiz trả field dữ liệu dạng snake_case nhưng `meta.pagination` lại là camelCase (`nextCursor`, `hasMore`). Một `JsonNamingStrategy.SnakeCase` duy nhất không tự hiểu cả hai convention.
+- Triệu chứng rất dễ hiểu nhầm thành “backend chỉ có đúng page-size item”: data trang đầu parse bình thường, còn cursor rơi về `null` và `hasMore=false`, không crash và không có lỗi HTTP.
+- Với vài field camelCase lẻ trong envelope dùng chung, thêm `@JsonNames("nextCursor")`/`@JsonNames("hasMore")` và test bằng chính `NetworkModule.provideJson()`. Chỉ tách hẳn PreserveCase Retrofit khi toàn endpoint cần giữ case.
+- Mock data của frontend không phải dữ liệu production. Dùng nó để đối chiếu UI/khả năng render, không dùng số lượng mock để kết luận backend thật có cùng số row.
+
+---
+
+### 3.14. Review là REST document; snapshot self-paced phải theo từng Player (N29)
+
+- Đừng suy luận endpoint review từ tên feature hoặc socket events. Contract thật là `GET /games/{id}/review` với header `x-socket-token`, chỉ dùng sau khi session kết thúc; không tồn tại socket `game:review`.
+- Socket token là credential ngắn hạn: chỉ giữ in-memory để handoff Gameplay → Final Result; không đặt vào route/Bundle/DataStore và phải redact khỏi log cùng cookie/Authorization.
+- Endpoint xác thực bằng socket token phải dùng HTTP client không có cookie và không gắn `TokenAuthenticator`. Nếu không, `401 GAME_TOKEN_INVALID` có thể bị hiểu nhầm là access-token hết hạn, gây refresh cookie hoặc logout ngoài ý muốn.
+- Với `pacing=self`, `game:state` gửi cho Player phải được dựng theo đúng `Player` (`player.current_question_index` + question order đã shuffle riêng). Shared snapshot theo session khi Host pause/resume là bug backend; Android không được remap index, tự giữ question cũ hay đoán order để che lỗi server-authoritative.
+
+---
+
+### 3.15. Tab được giữ back stack phải refresh dữ liệu server có thể đổi (N38)
+
+- Bottom navigation dùng `saveState/restoreState`, nên ViewModel và cả empty state của tab vẫn sống khi người dùng đi chơi một trận rồi quay lại. `init { load() }` không chạy lần hai; build sạch nhưng UI vẫn thiếu bản ghi mới.
+- Với danh sách server-backed có thể đổi ngoài màn hiện tại, dùng lifecycle visibility để phát intent `Refresh` tải lại trang đầu. Đây là freshness của resource, khác hoàn toàn anti-pattern dùng `ON_RESUME` để dựng thêm một bản sao session state.
+- Refresh phải idempotent/dedupe: nếu initial load đang chạy thì bỏ qua, và luôn reset cursor của role hiện tại về trang đầu. Guest phải đọc UUID đã có bằng `getGuestIdOrNull()`; không sinh danh tính mới chỉ vì mở lịch sử.
+- Endpoint optional-auth không đồng nghĩa dùng public/no-cookie HTTP client. History phải dùng client có cookie để account được nhận diện; guest chỉ bổ sung `x-guest-id` khi không đăng nhập.
+
+### 3.16. Danh tính bền vững cho history detail và index theo Player không phải thứ tự canonical (N39)
+
+- Chi tiết lịch sử phải dùng danh tính bền vững: account cookie hoặc guest UUID đã lưu. Socket token chỉ phù hợp handoff tức thời Gameplay → Final Result; không được yêu cầu token cũ để mở lại lịch sử.
+- Khi một endpoint chỉ áp dụng cho participant, đừng gọi rồi coi `403` là flow bình thường của Host. Tải summary trước, đọc `viewer.playerId`, rồi mới quyết định có gọi answer sheet hay không. Summary và answers phải có loading/error/retry độc lập.
+- Dữ liệu bị cấu hình ẩn phải được backend lọc trước khi serialize. Trong thời gian backend chưa sửa, client vẫn loại dữ liệu trước presentation state nhưng phải ghi bug vì HTTP payload vẫn lộ.
+- `question_index` của self-paced + shuffle là vị trí riêng của từng Player, không phải số thứ tự canonical của câu hỏi. Aggregate báo cáo phải giữ identity bằng `question_id` và lấy nhãn/order ổn định từ quiz snapshot; không dùng `min(question_index)` và tuyệt đối không gộp các row trùng index ở Android.
+- Khi hai thẻ cùng ghi “Câu N”, trước hết kiểm tra identity thật và query aggregate; đừng vội kết luận dữ liệu bị nhân theo số lượt trả lời. UI label có thể sai dù count/grouping vẫn đúng.
+
+---
+
+### 3.17. Bảo mật tài khoản và Use case boundaries (N43)
+- ViewModel không được gọi Repository trực tiếp, kể cả chỉ observe/capture session. N43 inject 3 Use case; mutation/cleanup/validation ở domain, DTO/API ở data. Không mở rộng refactor legacy ngoài scope chưa được duyệt.
+- Đổi mật khẩu thường và quên mật khẩu có session policy khác nhau: contract PATCH password hiện không revoke sessions/clear cookie. Không tuyên bố mọi thiết bị đã đăng xuất nếu server không thực hiện.
+- Vô hiệu hóa là soft delete, cần password và confirmation; không hứa xóa dữ liệu hoặc tự khôi phục. Google-only không có password nên hiện chưa hỗ trợ hai mutation; local account liên kết Google vẫn giữ password local.
+- Mutation timeout/5xx có thể xảy ra sau DB write: không tự replay hoặc báo success giả. Cleanup retry chỉ dọn local; kiểm tra generation trước khi dọn để response cũ không ảnh hưởng phiên login đã publish. Transport/cookie races vẫn cần E2E thật.
+- Redact header không che password trong JSON và BASIC log vẫn có thể lộ ticket trong query. SafeHttpLogger chỉ ghi method/path/status, không body/header/query/exception message; password không ở SavedStateHandle/route/DataStore/Room, toString redact.
+- Refresh lỗi tạm thời không được clear cookie hoặc để 401 gốc bị hiểu là session terminal; map thành transport failure. Chỉ terminal thật mới kết thúc phiên.
+- Bổ sung test case, commit và user kiểm thử nhanh ổn là ba loại bằng chứng khác nhau; không suy ra build/unit test/CI đã pass khi chưa có log. Phiên cập nhật doc này không chạy E2E N44 và không xác minh backend fix/deployment mới.
+
+### 3.18. Session isolation và cookie-race evidence (N44)
+- Snapshot state + generation phải nhất quán; history response kiểm tra identity/epoch/request id trước publish. Đăng nhập lại cùng account vẫn là lifetime mới; không dùng user id đơn lẻ làm guard.
+- Activity/Profile/History Detail quan sát session qua Use case. Reset logout phải dọn saved tab stacks, không restore UI riêng tư cũ; navigation chỉ điều hướng, không điều phối mutation/API.
+- Session revision guard chỉ chặn state publication, không tự bảo vệ Set-Cookie/clear từ request cũ. Hai transport invariants đã FAIL bằng reproducer: terminal refresh cũ xóa cookie mới; response muộn phục hồi cookie sau logout.
+- Runtime capture mới không tái hiện Google guest; user tạm hoãn cả điều tra/fix. Không đóng bug hoặc release gate từ một capture xanh, không đổi assertion để cho diagnostic xanh. Kế hoạch transport còn lưu trong N44_INTEGRATION.md; không triển khai khi chưa được duyệt lại.
+- N44Session instrumentation đã gỡ; không giữ log DEBUG tạm hoặc request marker trên source. Không log credential/PII; không dùng delay, polling, forced state hay auto-login để che race.
+
+### 3.19. Màu internal xuyên module và Paging snapshot không đồng bộ (N46)
+
+- `ComponentColors` nằm tại core:ui/theme/ComponentColors.kt và là **internal theo module Kotlin**, không phải vì cùng namespace `android.kma.myquizzapp` mà feature truy cập được. Import từ feature gây compile error “Cannot access ... internal”. Feature dùng FrontendColors public (`Color.kt`) cho light và MaterialTheme.colorScheme cho dark như Login/Register; không mở public implementation helper tùy tiện. Bản sửa có trong `496dc36`/`d5571d6`.
+- User báo runtime `IndexOutOfBoundsException: index 3 in ItemSnapshotList size 3`, stack tại Paging `itemKey`/LazyGrid key map. Khi tách Content và truyền count theo composition nhưng key lambda đọc `LazyPagingItems` live, danh sách refresh/shrink có thể làm count/key lệch snapshot. Count, stable key và dữ liệu render phải dùng **cùng snapshot captured**; access live để prefetch phải guard index và identity. Không chỉ đổi get thành peek (sẽ mất prefetch), bỏ key hoặc nuốt exception. Discover fix nằm trong `d5571d6`; chưa có xác nhận retest sau sửa.
+- Search append error phải pause auto-load, retry cùng cursor và giữ list đã tải; first-page retry khác append retry. Guard loading phải được claim đồng bộ trước launch, cursor/query phải thuộc trang Success hiện tại. Validator thuần không đặt trong Composable; ViewModel orchestration vẫn qua Use case.
+- Đã viết test hoặc có Preview không có nghĩa chạy PASS. Sau source fix phải retest thao tác đã gây lỗi (đổi filter/sort từ nhiều item sang ít/rỗng + append/back/reopen), ghi evidence mới trước khi đóng checkpoint/gate.
+
+### 3.20. Card theo vai trò, dialog dùng chung và fixture coroutine (N46.9–N46.11)
+
+- Phân biệt SearchQuizCard (kết quả tìm kiếm), LibraryQuizCard (quản lý, badge/menu) và DiscoveryQuizCard (Home/Discover). QuizListCard là tên cũ đã đổi ở `19c6425`; không kéo feature model vào core UI chỉ để chia sẻ layout.
+- QuestionPreviewCard là card xem riêng ở feature, không phải QuestionEditorCard. Truyền projection UI không có correctAnswer/hint/explanation; AnswerOptionItem readOnly bỏ interaction/feedback. Ẩn trên UI không bảo vệ answer key do backend vẫn gửi: không đóng privacy gate bằng readonly.
+- User chốt card xem câu hỏi ở Quiz Detail mặc định expand; lưu các ID user đã collapse tại wrapper bằng rememberSaveable, không giữ một expanded ID duy nhất. Mixed duration phải bỏ ô thời gian chung, không lấy bừa câu đầu.
+- Dialog cấp app dùng core:ui AppConfirmDialog + stateless AppConfirmDialogContent. Feature recipe chỉ giữ copy/callback (auth-required hoặc cảnh báo hard delete). Normal dùng Secondary/Primary, danger dùng Secondary xám/QuizDangerButton, hàng nút full width chia đều. Preview trực tiếp Content; Dialog window riêng không bảo đảm xuất hiện trong static Preview. Loading khóa dismiss/action, lỗi giữ để retry; không migrate dialog khác khi chưa duyệt.
+- Loading/mutation phải claim đồng bộ trước launch; kiểm tra loaded/owner/confirmation ở ViewModel và vẫn qua Use case/backend. Reload bỏ stale confirmation, resource missing dọn state, lỗi tạm giữ target retry. Không coi icon chỉ hiện cho owner là đủ authorization.
+- Unit test coroutine: cấu hình mocks rồi tạo ViewModel **bên trong runTest**, tránh init được queue từ @Before chạy trước thân test. Không bỏ assertion hoặc nới guard để xanh. Lượt 11/10/2026 đã đối chiếu XML 29 test quiz-manage PASS (9 List + 10 Detail VM + 10 presentation); chưa chứng minh full build/CI/E2E, xem N46_UI_PROGRESS.md.
+
+### 3.21. Chơi thử local: feedback thủ công, timer và Use case boundary (N46.12)
+
+- Top bar “Chơi thử”; X là Skip, back là Exit có dialog. Single chấm ngay, 3 loại còn lại Submit rồi Next; feedback không auto-next. Correct key luôn xanh dù chưa chọn; đỏ chỉ cho option sai user đã chọn. Selection khác correctness, multiple-select vẫn exact set.
+- Critical timer hiện tại **≤30%**, không giữ rule 10% ban đầu; tính milliseconds, time_limit≤0 ẩn thanh. Editor vẫn chỉ tạo duration 5–600s, không thêm “không giới hạn” không được backend hỗ trợ. Hint trước trả lời, explanation sau feedback; điểm badge riêng là ước tính local, không history/play-count/multiplayer result.
+- LoadQuizPreviewUseCase đọc quiz/owner qua interfaces, ViewModel không inject Repository trực tiếp nữa. Không mang auto-next 2/4s hoặc mô tả dependency cũ của N41 sang source mới. Practice multiplayer pause/resume N29 là luồng khác, không bị đóng bởi polish Preview.
+
+### 3.22. Editor dùng chung: index đáp án, custom time và validation (N46.13)
+
+- QuestionDraft là model, QuestionEditorCard là soạn, QuestionPreviewCard là xem. QuizEditorContent dùng cho cả Create/Edit; đổi form chung phải chốt phạm vi cả hai màn, không tạo fork hoặc component trùng tên tùy tiện. Card/Content stateless, Screen sở hữu scroll/expansion/Photo Picker/back/dialog/effects.
+- Quyết định user: gộp một màn; 4 chip types; 2–4 options nhập trực tiếp trong hàng màu, **không viền con khi focus**; preset 10/20/30/60 + Khác; Thông tin bổ sung thu gọn; xóa câu ngay nhưng giữ một câu; **không reorder/tay nắm kéo**, autosave hoặc duplicate. Detail card mở mặc định không đồng nghĩa phần bổ sung của editor phải mở.
+- Custom time là flag usesCustomTime riêng, không suy ra chỉ từ giá trị string: nhập “30” trong chế độ Khác không được làm ô biến mất giữa thao tác. Edit duration ngoài preset phải prefill Custom; validator 5–600s, không nhận 0/rỗng.
+- QuizEditorValidator đặt core:common với input thuần, không Uri/feature model; Create/Edit cùng dùng. Trim rồi validate đúng như payload. Không filter option trống mà giữ correctIndexes cũ: sẽ đổi vị trí hoặc làm index vượt danh sách; yêu cầu mọi ô hiện có được điền, mapper trim giữ thứ tự. Xóa option phải remap index; chọn lại cùng loại không xóa answer key.
+- Claim loading/submitting **trước coroutine launch**; guard cả UI/intent để không double-submit hoặc sửa dữ liệu khi đang upload. Back/reload bị khóa trong mutation; fail giữ draft cho deliberate retry. validationAttempt tăng mỗi lần lỗi để cuộn tới lỗi đầu cả khi errors bằng lần trước. Test mocks/VM tạo trong runTest sau setup.
+- “Lưu & xuất bản” cho quiz public / “Lưu quiz” cho private chỉ là label; backend lưu ngay theo is_public, không thêm draft/publish endpoint. Upload vẫn lúc Submit, ảnh cũ giữ qua Use case; không coi deferred upload là xử lý hết object rác khi upload một phần rồi fail. PATCH clear-cover metadata vẫn là giới hạn có sẵn, chưa sửa.
+- 31 editor + 28 quiz-preview + 29 List/Detail = **88 XML PASS local** trong lượt cập nhật này; không suy ra full CI/build/APK SHA/E2E. 25 editor Preview là inventory source, user duyệt UI không thay kết quả render/IME/rotation/large-text trên máy thật. Màn tiếp theo cần user chọn và audit riêng.
+
+### 3.23. Profile/history theo dữ liệu thật và đồng bộ fake khi đổi interface (N46.14–N46.17)
+
+- Profile chỉ hiện **Lượt tham gia / Quiz đã tạo** từ `meta.total` server (`includeTotal=true`, limit=1), không lấy độ dài page và không bịa số lần Top 1. Thiếu total là lỗi/“—”, không ép thành 0. ViewModel → LoadProfileStatsUseCase → ProfileStatsRepository; token/session guard vẫn giữ.
+- Đổi avatar chỉ chuyển **lối vào** vào dialog Chỉnh sửa thông tin cá nhân; vẫn dùng pipeline preview/lưu avatar riêng N42, không coi là transaction chung với PATCH text. Email là disabled field, form dialog cuộn được; không thêm dòng giải thích email không đổi.
+- PlayedActivityCard và HostedActivityCard tách presentation, dùng chung frame; không ép Host có rank/score cá nhân. Count tab dùng total riêng từng role, chỉ request total ở đầu cursor chain; append không thay bằng item count. Player/Guest history detail bỏ full leaderboard; Host giữ bảng và thống kê, không đổi policy API/privacy.
+- Chi tiết trận là snapshot lịch sử: `session_code` chỉ hiển thị, `sessionId` mới là identity; không fetch quiz hiện tại để bù nội dung Host per-question. Giữ index server, answerCount làm mẫu số; không có lượt trả lời thì không bịa 0%. Review short/long tin `answered/isCorrect` từ server, không chấm lại bằng so text; lựa chọn đúng vẫn xanh khi cả bộ multi-select sai/thiếu. Card history riêng, chưa polish FinalResultScreen.
+- Thêm `includeTotal: Boolean` vào `GameSessionRepository.getGameHistory` đã làm fake cũ fail compile tại HostGame, FinalResult và HostLobby. **Đổi interface phải rà cả implementation/fake ở các module**, không chỉ consumer vừa làm. `--tests` chỉ lọc lúc chạy; toàn bộ test source của module vẫn compile trước. Fix `93c29e3`/`da0cbf3` chỉ thêm tham số, không bỏ assertion hoặc sửa production để test xanh.
+- Tool `search__search_content` đã trả rỗng cả khi biết chắc có chuỗi; không dùng kết quả rỗng đó để kết luận đã rà sạch. Lượt này dùng find_path + đọc batch 57 file test rồi kiểm tra chữ ký, phát hiện thêm HostLobby. Khi tool search thiếu tin cậy, ghi phạm vi đã đọc thật.
+- XML có thể tồn tại sau checkout và **cũ hơn source**: đối chiếu timestamp + tên testcase, không chỉ tests/failures. Lượt mới đọc 8 XML history/lobby/HostGame có 56 PASS; app XML 11/10 có 41 PASS nhưng AccountSecurityViewModelTest chỉ 5 case cũ, source hiện 7 case (3 case dialog mới, thay 1 cũ) nên regression dialog mới chưa được xác minh. Không gắn XML vào SHA/CI/E2E khi report không chứa SHA/run id.
+
+### 3.24. Lobby polish, Preview và đồng bộ Compose (N46.18–N46.21)
+
+- Tạo phòng và sheet Host dùng chung `core:ui/gameconfig`: `RoomConfigTextField`, switch và choice dropdown bo góc/full width. Giữ modes/config từ server, validation và host-token retry; không rút 5 mode thành 2 chế độ theo ảnh mẫu.
+- Biệt danh khách là **1–50 ký tự sau trim**, không 20 như ảnh 16; counter lấy `NicknameValidator.MAX_LENGTH`, không truncate raw input. Mã phòng đã truyền thì giữ badge; không thêm avatar/chọn ảnh chưa có. Preview nằm cuối `GuestNicknameScreen.kt`; đã bỏ BoxWithConstraints khi không dùng scope.
+- Host/Player lobby dùng `presentation/components/LobbyComponents.kt` trong feature:lobby: palette, avatar/initials và badge trạng thái có chữ, không chỉ màu. Roster giữ cả offline/unknown; chỉ status exact `connected` tính online. Trước snapshot không bịa 0; khi reconnect danh sách là lần đồng bộ gần nhất.
+- Host: toàn bộ header/card mã phòng và roster cuộn cùng nhau, footer Start cố định; back/system back có xác nhận, rời màn không hủy phòng. Phòng rỗng có cảnh báo nhưng không tự thêm minimum-player rule. Không nút kick/QR/chia sẻ native giả; hiện là Copy mã/Copy link và sửa config thật.
+- Player: footer connection/retry cố định; cả hero/identity/roster cuộn. Card người chơi dọc; tối đa 2 cột theo chiều rộng/font scale, không theo số người. Ngưỡng hiện tại là `2 × 140dp × max(fontScale, 1) + 50dp` (330dp ở font scale 1). Thẻ dài “Bạn là” tên đậm/plain, không hậu tố; trong lưới own item có **tên + (Bạn) đậm cùng màu foreground**, không tím riêng. Identity theo playerId, không so tên/account; lives chỉ hiện khi non-null, giữ cả 0.
+- Preview Host đã giảm từ tổ hợp 38 xuống 6 case cố định, Player cũng 6 case. Không nhân tích tất cả states × light/dark × size. `NoSuchMethodError getCurrentCompositeKeyHashCode` là dấu hiệu binary/runtime/tooling mismatch cần kiểm tra dependency, không kết luận do số Preview. Không nâng toolchain để chữa Preview khi chưa được duyệt.
+- Regression thật: pin ui-graphics 1.12.1 kéo AAR yêu cầu SDK 37/AGP 9.1 trong khi app SDK 36/AGP 8.13.2. `cc3b1c4` bỏ version pin runtime/ui-graphics để theo BOM 2025.06.01; không nâng SDK/AGP. Merge còn từng tham chiếu `LobbyComponents.kt` chưa track: kiểm tra untracked/source mới khi đề xuất commit, không chỉ modified files.
+- Lượt này agent không chạy Gradle/render; user review máy test không thay thế báo cáo suite/CI. Giữ retry/leave/socket/nav hiện có; lệnh leave không ACK không bảo đảm server đã xóa player. Chưa đóng presence/session/privacy gates.
+
+### 3.25. Chung cuộc và review sau polish — checkpoint `8844666`
+
+- Mẫu chung cuộc là ảnh **23**, không phải 24. Podium chỉ người thật và luôn giữ dạng podium; bảng hạng mở rộng lọc ID người thực trên podium, không dùng drop(3)/rank>3. Không có row còn lại thì ẩn toggle; personal card vẫn dùng full standings.
+- Player không có room per-question stats; Host có thống kê lượt trả lời, không question text/image/key. Ẩn UI không phải fix backend REST privacy. Không suy max streak/accuracy/total khi thiếu nguồn authoritative.
+- Chơi thử local không phải Solo/Practice online. Review tái dùng UI câu/ảnh/đáp án/giải thích, read-only; lưu selectedOptionIds lúc submit thay vì parse nhãn, skip lưu rỗng. Single-choice không lặp text “Bạn trả lời”; multi-select giữ text để xác định toàn bộ bộ đã gửi. Không tự tính lại điểm.
+- Checkpoint tiếp theo `346230b`: Player self-paced cả 4 mode và Host monitoring đã polish/commit; xem progress 5e. Single-choice chạm-là-gửi (Classic + self-paced), multi-select/text explicit submit; gửi không đồng nghĩa chuyển câu. Online review dùng answer card read-only, biết loại single-choice từ câu thật trong RAM thì bỏ nhãn thừa khi đủ feedback; unknown/multi-select giữ dấu lựa chọn. Không suy question type từ số key.
+
+### 3.26. Sau polish 4 mode — checkpoint `346230b`
+
+- Host Classic và self-paced là hai nhánh Content trong cùng Host route/VM, không tạo 4 màn mode độc lập. Chuyển khỏi countdown self-paced theo state tiến độ/phase thật, không đợi host question/deadline Classic.
+- Input text Compose dùng cấu hình singleLine/lineLimits nhất quán; đã gặp crash mismatching scroller orientation ở Solo. Không đổi singleLine động giữa các loại câu bằng cùng state nội bộ không phù hợp.
+- Review REST không trả question_type: `GameViewModel` ghi type thực từ QuestionStarted/snapshot → PlayerGameSessionUseCase → StoredGameResult.reviewQuestionTypes (RAM) → FinalResultUiState → card mapper. Không thêm field backend giả; thiếu type giữ caption.
+- AsyncImage có thể đặt trong Box Compose để overlay fallback trắng + logo app; không bắt buộc drawable error là toàn bộ layout. Logo gốc ở core:ui/quiz_brand_logo; app giữ alias app_logo. Avatar dùng person fallback, QuestionImage thiếu URL không render.
+- Khi đổi behavior phải rà cả test cũ. Hai assertion sai đã sửa trong `346230b`: dùng deferred ACK để tách Submitted trước ACK và Results sau ACK; kiểm tra single send, accepted evidence chỉ sau ACK, manual Next không tự gọi. Không nới production guard chỉ để test xanh.
+- Onboarding: đọc AGENTS → progress 5e → project_structure (còn sơ đồ minh họa/lịch sử) → source; `CODE_WALKTHROUGH_HANDOFF_PROMPT.md` là nhiệm vụ tạo file mới, chưa phải walkthrough đã audit.
+
+## 4. Quy tắc quy trình làm việc với user
+
+- **Checklist test phải dùng được bằng tay:** mỗi case ghi điều kiện/fixture, thao tác và dấu hiệu đạt nhìn được trên UI. Case event/ACK/process-death/fatal cần hỗ trợ kỹ thuật phải tách riêng; chưa trigger thì NOT RUN, không ép user săn race hoặc tick “có lẽ đúng”. Kết quả lượt mới để trống, không kế thừa tick N25; UI PASS không đóng backend/API/privacy gate. Bug report tối thiểu chỉ ID + thao tác + thực tế, agent xin thêm bằng chứng an toàn khi cần. Checklist N44: `N44_E2E_INTEGRATION_CHECKLIST.md`; giữ N25 cũ làm hồ sơ, không overwrite kết quả lịch sử.
+
+- **Audit trước, lập kế hoạch sau**: với feature/milestone cần đối chiếu source hoặc backend contract, thứ tự bắt buộc là (1) audit code/contract thật trên đúng nhánh, (2) báo cáo bằng chứng, khoảng trống và các quyết định cần chốt, rồi (3) mới đề xuất kế hoạch triển khai để user duyệt. Không vạch kế hoạch chi tiết chỉ từ design doc trước khi audit, vì kết quả audit có thể làm đổi phạm vi và khiến phải cập nhật kế hoạch lần hai. Trước khi audit xong, chỉ được nêu mục tiêu audit/phạm vi cần kiểm chứng, không coi đó là kế hoạch triển khai đã chốt.
+- User thường test trên **máy thật** sau khi agent báo "xong" — luồng có thể vẫn có bug trên máy thật dù build/compile sạch (ví dụ N15). Đừng coi "compile thành công" là bằng chứng đầy đủ feature hoạt động đúng — khi user gửi Logcat báo lỗi, đọc log thật (không suy đoán) để xác định đúng rõ lỗi backend hay client trước khi sửa.
+- Khi failure còn mơ hồ, **phân tích và thảo luận hướng fix với user trước**, không tự áp speculative fix. Thu thập timeline/event/log đủ để phân biệt Android, network và backend; chỉ triển khai sau khi giả thuyết được xác nhận hoặc user duyệt.
+- Với lỗi socket tổng quát như `CLIENT_CONNECT_FAILED`, log an toàn exception class/message và cause chain trước khi map sang mã generic. Không bao giờ log, paste hoặc giữ `socketToken`, cookie, Authorization header hay auth payload đầy đủ; nếu token vô tình xuất hiện thì không lặp lại trong docs/chat.
+- Khi sửa reconnect, unit test phải phủ ít nhất chuỗi terminal thực tế: `RECONNECTING → RECONNECT_FAILED → Retry → CONNECTED → lobby:join + player:sync`, đồng thời vẫn cần E2E trên máy thật vì DNS/network/presence không được unit test mô phỏng đầy đủ.
+- User ghi chép tiến độ chi tiết trong `myquizz-review-backend-ke-hoach-50-ngay.md` theo từng N (ngày/milestone) — sau mỗi N hoàn thành: (1) tích `[x]` checklist, (2) thêm block "📝 N.. Implementation Details" ngay sau block N đó, (3) cập nhật blockquote tóm tắt ở đầu file, (4) nếu N có nhiều để học/có bug thật, viết thêm file `knowledgement/nXX_knowledgement.md` chi tiết hơn (không phải N nào cũng cần file riêng — N12 không có file vì gọn gàng đủ trong plan).
+- User thích **khảo sát/hỏi ý kiến trước khi code** cho các quyết định có nhiều hướng hợp lý (ví dụ N15: hỏi trước về upload deferred/avatar/compression) — dùng survey nhiều lựa chọn thay vì tự quyết.
+- **Quy ước nhánh bắt buộc:** `main` chỉ source/config/tests; tài liệu dự án, kể cả AGENTS và implementation handoff, nằm ở `docs`. Khi làm code trên main, đọc quy ước bằng `git show docs:AGENTS.md` hoặc nguồn docs đã xác minh; không tạo bản AGENTS/roadmap/handoff trên main. Khi cập nhật docs, merge targeted vào canonical, không copy đè bằng snapshot cũ. Không cherry-pick/merge toàn bộ main vào docs chỉ để lấy tài liệu. Không tự commit/push hoặc đổi branch khi source dirty.
+- Giao tiếp với user bằng tiếng Việt (user viết tiếng Việt, các file `.md` của dự án cũng viết tiếng Việt).
+- Đây là **local filesystem qua MCP** (git repo trên đĩa, không phải Notion) — quy tắc `edit-diffs.md`/`editDescriptionVariableName` của Notion không áp dụng cho các thay đổi file `.kt`/`.md` này.
+
+---
+
+## 5. Tooling quirks trong môi trường MCP này (đã gặp thật, không phải lý thuyết)
+
+- **`search__find_path` hay trả false negative** ("nothing matched") cho tên file thật sự tồn tại trong repo — đừng tin ngay kết quả không tìm thấy, thử `filesystem__list_directory`/`directory_tree` theo đường dẫn cấp trên trước.
+- **`shell__run_cmd` chỉ cho phép một phần lệnh git**: hiện `git status`/`log`/`diff`/`show` chạy được, nhưng `git branch`, `git grep`, command chaining/redirection hoặc Gradle wrapper có thể bị allowlist chặn. Dùng lệnh được hỗ trợ trước; nếu cần build thì nhờ user chạy local và gửi log thật.
+- **`filesystem__*` tools có thể flaky tạm thời với đường dẫn sâu** (`core/*/src/main/java/...`, `feature/*/src/main/java/...`) — từng gặp lỗi "Parent directory does not exist" cho chính path đã đọc thành công ngay trước đó trong cùng turn, kể cả `list_directory` cấp `core/network` chỉ trả về `[DIR] build` (thiếu `src`). Path gần root (ví dụ file `.md` ở root) thì ổn định hơn. Nếu gặp lại: thử lại sau, hoặc dựa vào nội dung file đã xác nhận được từ trước đó trong phiên làm việc thay vì block cả task chờ tool phục hồi.
+- `filesystem__edit_file` dùng `{path, edits:[{oldText,newText}], dryRun?}` — `oldText` phải khớp chính xác từng byte (kể cả line ending) với nội dung file thật đã đọc, không phải bản "viết lại cho đẹp" của agent.
+
+---
+
+- `filesystem__create_directory` KHÔNG tạo thư mục lồng nhau dù tên gợi ý ngược lại: phải tạo từng cấp một, tuần tự, nếu không sẽ gặp `Parent directory does not exist`. `write_file` cũng fail cùng lý do khi thư mục cha chưa tồn tại.
+- `search__search_content` cho ÂM TÍNH GIẢ: trả "no lines matched" cho chuỗi chắc chắn có trong file vừa đọc. Không bao giờ kết luận "không tồn tại" từ kết quả rỗng của nó — xác minh lại bằng đọc file, `search__find_path` (tool này đáng tin), hoặc `findstr` qua shell.
+- Tool đọc/ghi file có thể bị khóa giữa phiên với lỗi "changed its operation type since the last admin approval" (gặp 30/8: `read_text_file`, `read_multiple_files`, `write_file`, `edit_file` và cả GitHub `get_file_contents`/`create_branch`, trong khi user không đổi quyền gì; reconnect server không xóa được, phải đợi phía Notion xử lý — hôm sau tự hết). Khi đó `shell__run_cmd` thường vẫn sống: dùng `findstr /n "^" <file>` để đọc file kèm số dòng và `findstr /n /c:"chuỗi" <file>` để định vị dòng cần sửa. Lưu ý findstr trong môi trường này không mở được wildcard kiểu `thư_mục\*.kt`. **Bài học: khi tool ghi chết giữa việc, trích nguyên văn các đoạn `oldText` cần sửa bằng findstr rồi giữ sẵn, để khi tool sống lại là ghi được ngay không phải đọc lại.**
+- Shell bị allowlist chặt: `git status --short` và `findstr` chạy được, nhưng `git rm`, `git ls-files`, `ls`, `del`, `more` thì không; không chain/redirect (`findstr ... | findstr ...` bị chặn) và không chạy được Gradle. **Xóa file và build/test phải nhờ user.**
+- **Không có cách đọc theo khoảng dòng**: `more +365 <file>` bị chặn, `read_text_file` chỉ có `head`. File `.md` lớn (~750 dòng) đọc bằng `head` sẽ bị truncate quanh 30k token. → Dùng `findstr /n /c:"chuỗi" <đường dẫn tuyệt đối>` để lấy **nguyên văn** đúng những dòng cần sửa (findstr phải dùng đường dẫn tuyệt đối, tham số `cwd` không đáng tin).
+- `filesystem__edit_file` là **atomic**: chỉ cần một `oldText` không khớp thì cả batch bị hủy, không edit nào được ghi. → Ưu tiên nhiều `oldText` ngắn, mỗi cái một dòng, copy nguyên văn từ lần đọc gần nhất; không tự "viết lại cho đẹp".
+- Khi hoàn nguyên instrumentation, giữ nguyên BOM/CRLF và EOF/no-newline; kiểm tra cả git status lẫn diff, không để formatting-only change lẫn vào commit tài liệu. `move_file` dùng rename nên có thể EXDEV khi chuyển E: sang C:; không coi move thất bại là đã backup/xóa. Tool không có delete và shell xóa bị chặn thì báo user, không lách bằng script.
+- **CI đã có sẵn**: `.github/workflows/android-ci.yml` (chỉ tồn tại trên nhánh `main`) chạy `./gradlew lint --continue` → `./gradlew testDebugUnitTest` → `./gradlew assembleDebug` cho mọi push/PR vào `main`, và upload `**/build/reports/` khi fail. → Unit test **tự chạy trên GitHub Actions** sau khi push lên `main`; nhánh `docs` KHÔNG kích hoạt workflow. Agent có thể xem kết quả run qua GitHub MCP thay vì nhờ user chạy Gradle local.
+- Nếu MCP filesystem "mù" toàn bộ source (`ENOENT` trên thư mục chắc chắn tồn tại, `list_directory` chỉ thấy `build/`), rất có thể user chưa checkout nhánh làm việc — hỏi trước khi kết luận cấu trúc dự án.
+
+## 6. Trạng thái hiện tại (N44 PARTIAL / N46 WIP theo từng mốc)
+
+- **N46 tới local main `346230b`**: đã polish/commit Classic, ba chung cuộc, Player/Host self-paced 4 mode, ảnh fallback/Discovery card và review online; progress mục 5e là checkpoint mới. Không mở lại như chưa triển khai. User xác nhận ổn rồi commit; chưa đối chiếu XML rerun xanh/CI đầy đủ, N44 PARTIAL/N46 WIP và các gate cũ giữ nguyên. Nhiệm vụ bàn giao tiếp theo là tạo `Code_Walkthrough.md` theo prompt riêng, không tự sửa source/backend.
+
+- **N44 đã có báo cáo manual E2E PARTIAL cho lượt user ghi 08/10/2026 22:00; xem `N44_E2E_REPORT.md`. Lỗi mới N44-OFFLINE-BOOT: cold-start offline làm Hoạt động/Hồ sơ treo loading; Practice pause/resume vẫn nhảy về câu đầu. Một số case PARTIAL/NOT RUN/BLOCKED hoặc dùng evidence lịch sử; APK SHA/backend deployment/full CI chưa xác nhận. Theo quyết định user, lưu backlog và chuyển sang nghiên cứu giao diện N46; đây là ngoại lệ thứ tự research, không chốt N45/M6, không miễn trừ release blockers. Google/cookie race vẫn DEFERRED, chưa fix; 16 regression N44 và 25 test N43 XML PASS là evidence trước đó.**
+- N43: Account Security đã triển khai `ab6621b`, user kiểm thử nhanh ổn và XML local xác nhận 25 test bổ sung PASS. N44 source `3ea792a` có 16 regression bổ sung PASS; full build/lint/CI và E2E theo matrix vẫn cần bằng chứng. Xem `N43_IMPLEMENTATION.md` và `N44_INTEGRATION.md` trên docs; không coi hai cookie-race diagnostic FAIL là regression PASS.
+
+- **N41 đã hoàn thành**, commit `648bf37` (UI/feedback được thay bằng N46.12 tại `2c1543c`: Chơi thử, Next thủ công, critical timer 30%, load qua Use case): nút “Tự chơi thử” từ Quiz Detail mở module `:feature:quiz-preview`, chỉ phụ thuộc `core:common` + `core:ui`. State machine local `COUNTDOWN → QUESTION → FEEDBACK → FINISHED`, hỗ trợ 4 loại câu hỏi, skip/late answer, feedback, tổng kết và chơi lại; nút sửa quiz cùng edit-navigation/ownership plumbing trong Chơi thử đã bỏ tại `8844666` theo user duyệt. Không tạo room/socket, không ghi history hay tăng play count. Điểm chỉ là ước tính theo Classic mặc định: đúng = 1000 + speed bonus; đúng muộn = 900, không bonus. User xác nhận kiểm thử nhanh pass; đã bổ sung unit test scoring và ViewModel, agent không tự chạy Gradle qua MCP.
+
+- **N40 đã hoàn thành 6/10**, commit `9b3cdf0`: backend/event/domain vốn đã bảo toàn `question_image`; Android thêm `QuestionImage` dùng chung và render tại Host Game, Player Game cùng card preview Quiz Detail. Mapper test phủ event realtime + snapshot; kiểm thử nhanh, unit test và `assembleDebug` đã pass. **N41 và N42 đã hoàn thành ở commit `648bf37` / `0da538f`; việc tiếp theo là N44 audit integration và backend-blocker gate.** N42 hồ sơ/avatar đã xong; polish chuyển sang N46 sau feature gate N45. N30, N29, N28.5, N25/M4 và N20.6 vẫn chờ backend.
+
+- Tuần 1–3 (N1–15), N16 + N16.5, **N17 và N18 đã hoàn thành**. Create Room gọi đủ modes → create game → host-token, config typed. Refactor kiến trúc UI trước N18 đã xong: 14 Screen được audit, toàn bộ màn tuân theo Stateful/Stateless baseline. N18 (xong 30/8, đã build và test trên máy thật): socket layer namespace `/game` — `GameEvent` + 3 interface socket tách theo vai trò ở `core:common`, `GameSocketClient` + `GameEventMapper` + 2 impl ở `core:network`, HostLobby thật ở `feature:lobby` thay `HostLobbyPlaceholder` (file placeholder đã xóa). **N19 đã hoàn thành** (xong 5/9, đã test trên máy thật, commit trên nhánh `main`): tra phòng `GET /v1/games/{code}` → nhập nickname (chỉ với guest) → `POST /v1/games/{code}/join` → `PlayerLobby` realtime qua socket; guest UUID sinh lần đầu khi cần join và lưu ở `GuestIdentityStore` (DataStore), user đã đăng nhập vào lobby luôn không qua màn nhập tên; cho guest vào hay không do server quyết định qua `config.lobby.allowGuests`. **N19.5 đã hoàn thành** (xong 6/9, commit trên nhánh `main`): Bottom Navigation thật 5 tab bọc ngoài `NavHost`, `ActivityScreen` placeholder, `CurrentUserViewModel` cấp avatar cho tab Hồ sơ, Profile rút về thông tin + cài đặt, nút "Vào phòng" tạm ở TopBar Home đã bỏ, tab Tham gia dùng logo app qua `TopLevelTab.iconRes`. **N19.6 đã hoàn thành** (xong 6/9, commit trên nhánh `main`): `SessionRepository` + `StateFlow<SessionState>` thành nguồn sự thật duy nhất (hết bug "đăng xuất vẫn thấy account cũ", hết cảnh gọi `GET /users/me` 2 lần một phiên), `AuthRequiredDialog` + 4 chốt gác đăng nhập chặn trước khi điều hướng, xóa `Route.JoinRoom` và tab Tham gia (bottom nav còn 4 tab) với ô nhập mã thành `JoinRoomCard` nhúng vào Home qua slot, Home dùng một `LazyColumn` với card nhập mã là item đầu + nút "Xem thêm" theo `section_type` + `Route.Discover(sectionKey)`, mã phòng chốt `SESSION_CODE_LENGTH = 6`. **N20 đã hoàn thành** (10/9, đã build và test trên máy thật): Host Lobby sửa cấu hình realtime bằng `lobby:config-update`, dùng ACK `{changed, config, ignored}` và dựng lại form từ config server đã normalize; editor cấu hình dùng chung đã chuyển lên `core:ui/gameconfig`; chia sẻ phòng bằng hai nút copy mã/link; `game:start` được xác nhận bằng broadcast `game:started` kèm timeout 5 giây vì server không có ACK. **N20.5 đã hoàn thành 13/9/2026** (màn Khám phá thật). **N21–N43 đã hoàn thành phần Android theo contract hiện có; N43 user kiểm thử nhanh ổn, XML local PASS đã đối chiếu; full build/lint/CI còn mở**: Host Console classic + self-paced, Gameplay Player đủ mode, Final Result/Review, REST recovery, thống kê từng câu, history list/detail/answer sheet và render ảnh câu hỏi xuyên suốt; N31–N34 đã absorbed, không triển khai lại. Việc tiếp theo theo quyết định user là **nghiên cứu UI N46 sau báo cáo `N44_E2E_REPORT.md`; N44 PARTIAL/backlog mở, chưa chốt N45/M6**; ngoại lệ thứ tự research không miễn trừ release blockers; N30 bị block bởi contract token/sync, N29 chờ backend sửa snapshot pause/resume theo từng Player, N28.5 chờ lives/streak + timeout/elimination + presence refresh, **N25/M4** chờ presence race, và **N20.6** vẫn chờ endpoint active game.
+- Re-baseline N38–N50: N38–N43 hoàn tất feature Android còn thiếu; N44–N45 integration + backend gate/feature freeze; N46 polish/dark mode/accessibility; N47–N50 test, release và ship. Backend không cần `role=all`: history dùng hai view `played|hosted`, guest chỉ `played`. Phase 2 giữ duplicate/move câu hỏi, autosave draft, default cover/crop ảnh, validation inline nâng cao (ngoài lỗi theo field/card + cuộn đã có ở N46.13), import xlsx, public creator profile và admin mobile.
+- Bài học N42: PATCH delta tránh gửi field không đổi (phone tự trùng trên backend); không coi workaround client là fix server. Mutation profile/avatar publish vào session SSOT với generation/revision guard, không để refresh cũ hồi sinh dữ liệu sau logout. Avatar PATCH không idempotent: lỗi không chắc chắn phải GET đối soát, không replay cùng URL; retry mạng mặc định phải tắt cho mutation. Preview ảnh không đồng nghĩa crop; adapter ảnh thuộc app, không kéo dependency feature → feature.
+- Bài học N41: Solo Preview local không phải mode `solo`/`practice` của phòng multiplayer; không tái dùng nguyên `GamePlayScreen` vốn gắn socket/session. Đối chiếu scoring với backend thật, không sao chép helper web đang lệch: câu đúng muộn chỉ nhận `base × latePenaltyRatio`, không cộng speed/streak bonus. Answer key thiếu phải cho trạng thái không thể chấm, không crash. Quyền đọc private quiz vẫn do backend enforce; từ `8844666` Chơi thử không còn edit action/navigation hoặc ownership check chỉ phục vụ action đó. Không xoá quyền/luồng chỉnh sửa quiz ở nơi khác.
+- Bài học đến N40: field đã đi đủ backend → DTO → domain chưa chứng minh feature hoàn chỉnh; audit presentation phải rà mọi bề mặt tiêu thụ liên quan và ưu tiên component UI dùng chung. Ngoài ra, config server sau normalize mới là nguồn sự thật; visibility phải enforce trước presentation; pause/resume phải giữ submitted state; snapshot realtime không được kéo phase lùi; self-paced Host phải bỏ `question/index/endsAt` cấp session và merge delta vào `leaderboard:host`; snapshot Player self-paced phải dùng progress + shuffled order riêng của Player; field server-authoritative bị thiếu không được suy đoán hay polling để che lỗi; review là REST document chứ không phải socket event; socket token chỉ giữ transient và endpoint token riêng phải tránh cookie authenticator; kết quả cuối dùng socket-first/REST recovery-only; aggregate `perQuestion` không phải answer sheet; history detail dùng identity bền vững chứ không dùng socket token cũ; `question_index` theo Player không phải thứ tự canonical của report; endpoint public vẫn phải được backend enforce policy; transport readiness khác socket state; finite retry cần terminal UI; log cause chain trước khi kết luận; snapshot đúng không chứng minh backend presence đúng; race socket cũ/mới phải sửa bằng identity/generation phía server; không áp client delay/double-join/index-remap workaround khi chưa được duyệt.
+- File kế hoạch chính: `myquizz-review-backend-ke-hoach-50-ngay.md` (root). Thư mục `knowledgement/` chứa bài học chi tiết từng giai đoạn — đọc file `nXX_knowledgement.md` tương ứng khi cần hiểu sâu lại quyết định của một giai đoạn cụ thể.
+
+---
+
+*Agent mới: hãy đọc file này + blockquote tóm tắt đầu `myquizz-review-backend-ke-hoach-50-ngay.md` trước khi hỏi user "ta đang ở đâu". Chúc may mắn!*
