@@ -13,13 +13,14 @@
 
 ### 1.2. Quy ước đặt tên thư mục (Directory Naming)
 * Tên thư mục con trong `docs/` sử dụng chữ thường, phân cách bằng dấu gạch ngang (`kebab-case`).
-* Danh mục 6 thư mục chức năng chuẩn hóa:
+* Danh mục 7 thư mục chức năng chuẩn hóa:
   1. `architecture/`: Tài liệu kiến trúc, thiết kế kỹ thuật, hợp đồng dữ liệu.
   2. `roadmap/`: Kế hoạch tổng thể, tiến độ các mốc phát triển, tiêu chí nghiệm thu.
   3. `backend-audit/`: Báo cáo audit backend, hiện trạng các bug và baseline hiệu năng.
   4. `walkthrough/`: Tài liệu hướng dẫn đọc hiểu mã nguồn và onboarding.
   5. `knowledge/`: Kho lưu trữ bài học kỹ thuật và tri thức tích lũy qua từng sprint.
   6. `archive/`: Lưu trữ hồ sơ, checklist kiểm thử lịch sử (bất biến).
+  7. `optimization-report/`: Kế hoạch tối ưu Android, phương pháp đo và phân tích trade-off.
 
 ### 1.3. Quy ước đặt tên file (File Naming)
 * **File tài liệu đọc theo trình tự logic:** Sử dụng tiền tố số thứ tự 2 chữ số: `01_...`, `02_...`.
@@ -37,7 +38,7 @@
 ### 2.1. Phân định rõ ràng: "Living Truth" vs "Archive"
 1. **Tài liệu trạng thái sống (Living Truth Docs):**
    * Bao gồm các file trong `architecture/`, `roadmap/`, `backend-audit/`.
-   * **Quy tắc:** Bắt buộc phải phản ánh **chính xác 100% hiện trạng mã nguồn thực tế**. Khi code có thay đổi (thêm màn hình, đổi DTO contract, fix bug), tài liệu này PHẢI được cập nhật đồng bộ ngay trong cùng PR.
+   * **Quy tắc:** Các khẳng định hiện trạng phải khớp mã nguồn đã đối chiếu, ghi rõ commit và phạm vi kiểm tra; đánh dấu nội dung chưa xác minh, thiết kế mục tiêu và ghi chép lịch sử. Không suy diễn kiểm thử đã đạt từ việc có mã. Khi code thay đổi, cập nhật tài liệu liên quan trong cùng PR.
 2. **Tài liệu lưu trữ lịch sử (Archive Docs):**
    * Bao gồm toàn bộ file trong `archive/`.
    * **Quy tắc:** Đây là **bằng chứng lịch sử bất biến (Immutable Evidence)**. Tuyệt đối KHÔNG sửa đổi nội dung, kết quả test hay số liệu ghi nhận trong quá khứ của các file này, ngay cả khi sau này tính năng đó đã được sửa hoặc thay đổi.
@@ -60,7 +61,7 @@
    * Sử dụng tiêu đề phân cấp hợp lý (`##`, `###`, `####`).
 2. **Đường dẫn liên kết (Relative Links):**
    * Mọi liên kết tham chiếu giữa các file tài liệu hoặc tới mã nguồn **bắt buộc phải dùng đường dẫn tương đối (Relative path)**.
-   * *Đúng:* `[Cấu trúc module](../architecture/02_project_structure.md)`
+   * *Đúng từ file này:* `[Cấu trúc module](architecture/02_project_structure.md)`
    * *Sai:* Không dùng đường dẫn tuyệt đối kiểu `E:/Adr_Projects/...` hay `C:\Users\...`.
 3. **Minh họa bằng Diagram & Bảng biểu:**
    * Khuyến khích sử dụng cú pháp Mermaid (`flowchart`, `sequenceDiagram`) để mô tả luồng logic hoặc kiến trúc.
@@ -74,4 +75,6 @@ Mỗi khi một Agent hoặc Developer hoàn thành một tính năng hoặc s�
 1. **Kiểm tra tác động:** Xem thay đổi của mình ảnh hưởng đến file Living Truth nào (Kiến trúc, DTO, Lộ trình hay Danh sách bug).
 2. **Cập nhật tài liệu Living Truth:** Chỉnh sửa file tương ứng trong `docs/architecture/` hoặc `docs/roadmap/`.
 3. **Ghi nhận bài học (nếu có):** Nếu gặp bẫy kỹ thuật mới hoặc kinh nghiệm quý, ghi chép vào `docs/knowledge/` theo đúng quy ước đặt tên.
-4. **Không tạo file nháp lung tung:** Xóa sạch các file nháp tạm (`temp_*`, `notes_*`) trước khi commit.
+4. **Không commit file nháp hoặc dữ liệu riêng:** Kiểm tra danh sách stage theo từng đường dẫn; không xóa, sửa hay commit các tệp cá nhân/untracked của người khác nếu chưa được yêu cầu. Đặc biệt không commit hoặc push `my_notes.md`.
+5. **Kiểm thử trung thực:** Checklist thủ công nêu fixture, thao tác, dấu hiệu đạt; ghi NOT RUN nếu chưa chạy. Compile hoặc UI PASS không thay thế E2E, backend hay privacy gate. Giữ kết quả cũ bất biến và không ghi log token, cookie hoặc Authorization.
+6. **Giữ ngữ cảnh lịch sử:** Các quy tắc và bẫy chi tiết của AGENTS trước khi rút gọn có thể xem qua `git show 9d5971e:docs/AGENTS.md`; bài học theo mốc nằm trong `knowledge/INDEX.md`. Không ghi đè tài liệu canonical bằng snapshot cũ.

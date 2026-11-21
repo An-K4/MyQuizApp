@@ -1,3 +1,13 @@
+> **Đối chiếu từng phần, 21/11/2026:** Android `main` `35d6bfd`; backend `main` `37038f6`. Tài liệu dài bên dưới còn các mô tả lịch sử và chưa được kiểm chứng toàn bộ. Code ở các commit này là nguồn đối chiếu; không coi mọi phần bên dưới là Living Truth đã xác nhận.
+>
+> **Chênh lệch guest history C04 đã xác minh ở code:** backend `game.controller.ts` đọc `x-guest-token`; `joinGame` trả `guestToken` cho guest. Android `JoinGameResponseDto` chưa có trường này; `GameApiService` vẫn gửi `x-guest-id` ở history, summary **và my-answers**. Cần đồng bộ Android và kiểm thử thực tế, không sửa backend trong phạm vi đợt này.
+>
+> **Tra phòng / BUG-05:** ở backend `37038f6`, `getLobby` trả `{ session, players, config }` và `getGameByCode` vẫn truyền `{ session }` vào `success`; Android `RoomLookupResponseDto` vẫn mô hình hóa lớp lồng này. Chưa có cơ sở từ code để khẳng định backend đã loại bỏ lớp lồng; cần kiểm thử payload thực tế trước khi đóng BUG-05.
+>
+> **Giới hạn privacy leaderboard:** `getResults` từ chối non-host khi `showLeaderboard=never`, nhưng `getHistorySummary` tại backend `37038f6` vẫn trả danh sách leaderboard cho người tham gia; Android `GameHistorySummaryDto.toDomain()` ẩn ở client. Không coi ẩn UI là kiểm soát truy cập; cần kiểm thử payload và chuyển backend xem xét.
+>
+> **Lưu trữ / release tại baseline Android:** `CookieEntity` có trường `value` dạng `String`; `GuestIdentityStore` lưu UUID bằng Preferences DataStore. Manifest khai báo `allowBackup="true"`; release bật minify và dùng `proguard-rules.pro`, hiện chỉ có comment. Cần đánh giá rủi ro và kiểm thử trước khi kết luận hiệu quả biện pháp bảo vệ.
+>
 > Đối chiếu với backend thực tế tại `github.com/Ntd1411/myquizz` (Express + TypeScript + [Socket.IO](http://Socket.IO) + PostgreSQL + Redis).
 > Đây là bản viết lại của design doc v1.0, sửa toàn bộ phần hợp đồng API/Socket cho khớp với code backend thật (không còn là template quiz-app chung chung).
 > Cập nhật 27/9/2026 sau N28.5: Player self-paced đã hỗ trợ Solo manual-next, Survival lives/elimination và Marathon timer tổng/timeout/finish; Host Console đã có dashboard riêng cho Classic lẫn self-paced. Phần Android N28.5 hoàn tất theo contract hiện có, nhưng lives/streak, timeout và presence của Host còn chờ backend bổ sung event/payload. M4 vẫn chưa chốt vì backend còn presence race và các lỗi snapshot/Marathon đã ghi trong kế hoạch.
@@ -633,7 +643,7 @@ Trạng thái đăng nhập được xác thực bằng cách gọi `GET /users/
 <tr>
 <td>GET</td>
 <td>`/games/:id/results`</td>
-<td>N35: recovery kết quả cuối sau process death; happy path dùng `game:ended` và không gọi REST. Response `data.results` gồm `session`, `leaderboard`, `perQuestion`. ⚠️ Endpoint hiện public và backend chưa enforce `showLeaderboard=never` — xem `BUG-16`</td>
+<td>N35: recovery kết quả cuối; happy path dùng `game:ended`. Tại backend `37038f6`, `getResults` từ chối non-host nếu `showLeaderboard=never`; không nhầm với `/summary`, nơi payload leaderboard cần kiểm tra riêng.</td>
 </tr>
 <tr>
 <td>PATCH</td>
@@ -1694,7 +1704,7 @@ Avatar và logo vẽ bằng `Image` chứ không `Icon`, vì `Icon` nhuộm nộ
 - State của Results (`isResultLoading`, `resultError`, `RetryResult`) độc lập với state Review. Chỉ cho một request results chạy; retry dùng lại `gameId`; REST không ghi đè transient socket result đang có.
 - `perQuestion` là aggregate của cả phòng, không phải answer sheet riêng: sort theo `questionIndex`, hiển thị correct/answer count và tỷ lệ; `answerCount=0` trả 0% để tránh chia cho 0; danh sách rỗng thì ẩn section.
 - Review N29 không đổi: socket token vẫn transient. Sau process death, tổng kết vẫn phục hồi được; nếu người dùng mở Review thì báo credential không còn, không tự logout và không dùng cookie authenticator.
-- **Visibility defense**: backend `/results` hiện public và luôn trả full leaderboard. Android đọc `session.config.flow.showLeaderboard`; nếu là `never` thì loại bảng trước khi state tới UI. Đây chỉ là defense-in-depth — API vẫn rò dữ liệu, đã ghi `BUG-16` để backend enforce policy trước serialization.
+- **Visibility defense (baseline `37038f6`):** backend `/results` từ chối non-host khi `showLeaderboard=never`; Android vẫn lọc trước UI như defense-in-depth. Không suy rộng sang `/summary`: hàm `getHistorySummary` hiện vẫn trả leaderboard cho participant, cần kiểm thử và chuyển backend xem xét.
 - Test thêm: `GameResultsDtoTest` cho mixed snake/camel envelope; `FinalResultViewModelTest` cho socket happy path không gọi REST, recovery success/error/retry, `showLeaderboard=never`, `perQuestion` và regression Review. Commit Android: `37bc61a`.
 - Ngoài phạm vi N35: Final Result riêng cho Host, share result, lịch sử/Hoạt động, resume active game và Player token renewal của N30.
 
@@ -1709,7 +1719,7 @@ Avatar và logo vẽ bằng `Image` chứ không `Icon`, vì `Icon` nhuộm nộ
 
 ### 11.13. Cập nhật 6/10 (N39) — Chi tiết lịch sử + answer sheet
 
-- Audit trước khi lập kế hoạch xác nhận `GET /games/:id/summary` và `GET /games/:id/my-answers` dùng optional auth: cookie thắng `x-guest-id`; summary chỉ cho host hoặc participant, answers chỉ cho participant; session `finished|cancelled` đều hợp lệ.
+- Tại backend `37038f6`, `GET /games/:id/summary` và `/my-answers` dùng cookie hoặc `x-guest-token` có chữ ký; cookie ưu tiên. Summary dành cho host hoặc participant, answers cho participant; session `finished|cancelled` được chấp nhận. Android `35d6bfd` còn gửi header `x-guest-id` cũ, xem cảnh báo C04 đầu tài liệu.
 - Domain/data bổ sung `GameHistorySummary`, snapshot quiz, viewer, API/repository và hai use case. User không gửi guest header; guest dùng `GuestIdentityStore.getGuestIdOrNull()` nên đọc lịch sử không tự sinh danh tính mới.
 - `Route.GameHistoryDetail(sessionId)` nằm trong main graph và được mở từ card Hoạt động. `GameHistoryDetailViewModel` tải summary trước, chỉ tải answers khi backend trả `playerId`; vì vậy host không gọi endpoint player-only.
 - Summary và answers có loading/error/retry độc lập. `GAME_REVIEW_DISABLED` được chuyển thành trạng thái bình thường “Phòng này không cho xem lại đáp án”, không hiển thị như lỗi request.

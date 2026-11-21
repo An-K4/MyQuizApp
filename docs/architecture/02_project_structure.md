@@ -2,7 +2,7 @@
 
 > **Tài liệu cấu trúc dự án chi tiết**  
 > Mô tả vai trò, trách nhiệm và mối quan hệ giữa các module trong kiến trúc Multi-module Gradle  
-> **Version:** 2.29 | **Last Updated:** checkpoint gameplay/review Android local main `346230b`; N24.5 IMPLEMENTED, N44 PARTIAL/N46 WIP
+> **Baseline kiểm tra một phần ngày 21/11/2026:** Android `main` `35d6bfd`; `settings.gradle.kts` khai báo 14 module (1 app, 5 core, 8 feature). Checkpoint gameplay/review `346230b`. N44 PARTIAL / N46 WIP theo hồ sơ nghiệm thu; chưa chạy lại build hay E2E. Các chi tiết còn lại của tài liệu cần tiếp tục đối chiếu source, không coi toàn bộ đã xác nhận.
 
 ---
 
@@ -84,7 +84,7 @@ app/
 │   │   ├── MainActivity.kt         # N46.0 - root MyQuizAppTheme bọc AppNavGraph
 │   │   ├── presentation/splash/
 │   │   │   ├── SplashScreen.kt     # N46.2 - giữ UI gốc, thêm tên app Inter Bold dưới logo
-│   │   │   └── SplashViewModel.kt  # Dùng CheckAuthStateUseCase từ core:datastore
+│   │   │   └── SplashViewModel.kt  # Dùng RefreshSessionUseCase từ feature:auth
 │   │   ├── domain/activity/
 │   │   │   └── LoadGameHistoryUseCase.kt # 🆕 N38 - orchestration mỏng cho lịch sử theo vai trò
 │   │   ├── domain/profile/         # N42 - orchestration cho Profile do app sở hữu
@@ -154,7 +154,7 @@ dependencies {
 - Test mới: app `ProfileUseCasesTest` (8), `ProfileViewModelTest` (6); core/network `UserProfileApiTest` (3), `SessionRepositoryTest` (6). User xác nhận kiểm thử nhanh pass; agent không tự chạy Gradle qua MCP.
 
 
-🔑 **`:app` không phụ thuộc domain của 1 feature cụ thể**: Trước đây `SplashViewModel` (trong `:app`) từng cần logic của `feature:auth` để kiểm tra trạng thái đăng nhập. Vì đây là logic cross-cutting (không chỉ Splash cần), `CheckAuthStateUseCase` được đưa xuống `core:datastore` thay vì đặt trong `:app` hay giữ phụ thuộc vào `feature:auth`. Xem mục 2.4 và mục 8.
+🔑 **Thực tế tại `35d6bfd`:** `SplashViewModel` và `CurrentUserViewModel` của `:app` import `RefreshSessionUseCase` từ `feature:auth`; `CheckAuthStateUseCase` là tên lịch sử, không phải use case đang sử dụng. Mục tiêu giảm phụ thuộc chéo là quy ước thiết kế, không phải mô tả tuyệt đối của source.
 
 ---
 
@@ -349,7 +349,7 @@ Lưu trữ preferences nhẹ (user settings, UI state) dùng DataStore Preferenc
 - ✅ Define `PreferenceKeys` object với typed keys
 - ✅ Provide `DataStore<Preferences>` instance qua Hilt
 - ✅ Wrapper class `UserPreferences`/`SettingsDataStore` với Flow-based API
-- ✅ Chứa use case cross-cutting dùng `AuthRepository` + `SettingsDataStore` (vd. `CheckAuthStateUseCase`)
+- ℹ️ Ví dụ `CheckAuthStateUseCase` bên dưới là lịch sử, không phải use case Splash hiện tại tại `35d6bfd`.
 - ❌ **KHÔNG** lưu sensitive data (tokens, passwords)
 
 #### Cấu trúc thư mục
@@ -359,8 +359,7 @@ core/datastore/
 │   ├── PreferenceKeys.kt                 # Centralized preference keys
 │   ├── UserPreferences.kt                # DataStore wrapper với helper methods
 │   ├── GuestIdentityStore.kt             # 🆕 N19: UUID của khách (player_guest_id), sinh lần đầu cần join rồi giữ mãi
-│   ├── usecase/
-│   │   └── CheckAuthStateUseCase.kt      # 🟩 Cross-cutting: trả về AuthState (FIRST_LAUNCH/GUEST_MODE/AUTHENTICATED)
+│   ├── usecase/                          # Ví dụ lịch sử; xác minh với source trước khi dùng
 │   └── di/
 │       └── DataStoreModule.kt            # Provide DataStore instance
 └── build.gradle.kts
@@ -389,7 +388,7 @@ dependencies {
 #### Lưu ý quan trọng
 ⚠️ **Auth state KHÔNG lưu ở đây**. Auth state được xác định bằng cách gọi `GET /users/me` lúc app start - nếu cookie valid → authenticated, nếu 401 → unauthenticated.
 
-🔑 **`CheckAuthStateUseCase` đặt ở đây, KHÔNG ở `:app` hay `:feature:auth`**: Đây là logic cross-cutting - không chỉ Splash cần biết trạng thái auth, mà bất kỳ feature nào cũng có thể cần (vd. hiện dialog yêu cầu đăng nhập khi guest bấm vào tính năng cần tài khoản). Nó chỉ phụ thuộc `AuthRepository` (từ `core:common`) và `SettingsDataStore` (module này) nên không cần đặt trong 1 feature cụ thể hay trong `:app`. Đây là ví dụ điển hình của quy tắc: *nếu ≥2 nơi cần dùng chung 1 logic → đưa xuống `core:*` tương ứng, tạo use case trung gian thay vì để `:app` phụ thuộc domain của 1 feature*.
+🔑 **Baseline `35d6bfd`:** phiên bản `CheckAuthStateUseCase` được mô tả trong lịch sử không phải luồng Splash hiện tại. `SplashViewModel` dùng `RefreshSessionUseCase` từ `feature:auth`; tra source để xác minh thiết kế session trước khi thay đổi.
 
 ---
 
@@ -1022,7 +1021,7 @@ Sở hữu màn kết quả cuối game và màn chi tiết lịch sử. Leaderb
 - ✅ N29: lazy-load `GET /games/{id}/review` sau khi kết thúc; loading/error/retry; ưu tiên câu bỏ qua/sai; render ảnh, đáp án Player/đúng, explanation, time và score
 - ✅ N35: nếu transient result còn thì không gọi REST; nếu mất sau process death thì `LoadGameResultsUseCase` gọi `GET /games/{id}/results` với loading/error/retry riêng
 - ✅ N35: render `perQuestion` đã sort, số lượt đúng/tổng và tỷ lệ đúng an toàn khi mẫu số bằng 0
-- ✅ N35: enforce `showLeaderboard=never` trước presentation state; endpoint backend public vẫn trả full table đã ghi `BUG-16`
+- ✅ Android N35 ẩn leaderboard trước presentation state. Tại backend `37038f6`, `/results` từ chối non-host khi `showLeaderboard=never`; riêng `/summary` vẫn cần kiểm tra privacy payload (xem báo cáo backend).
 - ✅ Fallback an toàn khi leaderboard rỗng, Review lỗi hoặc process recreation làm mất transient result/token
 - ✅ N39: `GameHistoryDetailScreen/ViewModel/Contract` mở từ card Hoạt động qua `Route.GameHistoryDetail(sessionId)`
 - ✅ N39: `LoadGameHistorySummaryUseCase` và `LoadGameHistoryAnswersUseCase`; user dùng cookie, guest dùng UUID đã tồn tại; host không gọi answers
@@ -1194,7 +1193,7 @@ dependencies {
 | Module Source | CÓ THỂ phụ thuộc | KHÔNG ĐƯỢC phụ thuộc |
 |---|---|---|
 | `:app` | Tất cả modules khác | — |
-| `:feature:*` | `:core:network`, `:core:database`, `:core:datastore`, `:core:ui`, `:core:common` | Các `:feature:*` khác |
+| `:feature:*` | Các core phù hợp từng module; hiện `:feature:home` còn khai báo `:feature:auth` | Mục tiêu thiết kế: tránh mở rộng phụ thuộc feature → feature |
 | `:core:network` | `:core:common` | `:core:database`, `:core:ui`, bất kỳ `:feature:*` |
 | `:core:database` | `:core:common` | `:core:network`, `:core:ui`, bất kỳ `:feature:*` |
 | `:core:datastore` | `:core:common` | Mọi `:core:*` khác, bất kỳ `:feature:*` |
@@ -1204,18 +1203,18 @@ dependencies {
 ### Nguyên tắc quan trọng
 
 ✅ **DOs:**
-- Feature modules chỉ phụ thuộc core modules
+- Mục tiêu: feature modules ưu tiên phụ thuộc core; ngoại lệ thực tế là `feature:home` phụ thuộc `feature:auth`.
 - Core modules chỉ phụ thuộc `:core:common` (ngoại trừ `:core:common` không phụ thuộc gì)
 - Nếu 2 features cần chia sẻ logic → đưa xuống `:core:*`
 - Dùng interfaces (abstraction) thay vì concrete classes khi cross-module
-- Nếu `:app` cần logic mà nhiều feature/module có thể cần lại → tạo use case trung gian ở `:core:*` phù hợp thay vì để `:app` phụ thuộc domain của 1 feature cụ thể
+- Khi thiết kế logic cross-cutting mới, cân nhắc đặt abstraction phù hợp ở core; hiện `:app` vẫn dùng `RefreshSessionUseCase` từ `feature:auth`.
 
 ❌ **DON'Ts:**
-- Feature KHÔNG ĐƯỢC phụ thuộc feature khác
+- Mục tiêu: tránh tạo thêm phụ thuộc feature → feature. Ngoại lệ hiện hữu: `feature/home/build.gradle.kts` khai báo `:feature:auth`; không mô tả đồ thị hiện tại như thể ngoại lệ không tồn tại.
 - Core module KHÔNG ĐƯỢC phụ thuộc feature module
 - `:core:network` và `:core:database` KHÔNG ĐƯỢC phụ thuộc lẫn nhau
 - `:core:common` KHÔNG ĐƯỢC phụ thuộc bất kỳ module nào
-- `:app` KHÔNG ĐƯỢC phụ thuộc trực tiếp vào `domain/` của 1 feature cụ thể cho logic cross-cutting
+- Mục tiêu: tránh thêm phụ thuộc trực tiếp vào domain feature cho logic cross-cutting; hiện `:app` vẫn dùng `feature:auth` cho refresh session.
 
 ### Dependency Inversion Example
 
@@ -1269,7 +1268,7 @@ abstract class DatabaseBindingModule {
 | Repository | Interface Location | Implementation Location | Used By |
 |---|---|---|---|
 | `CookieStore` | `core:common/cookie` | `core:database` (RoomCookieStore) | `core:network` only |
-| `AuthRepository` | `core:common/repository` | `core:network` (AuthRepositoryImpl) | `feature:auth`, `core:datastore` (CheckAuthStateUseCase) |
+| `AuthRepository` | `core:common/repository` | `core:network` (AuthRepositoryImpl) | `feature:auth` và các consumer thực tế; ví dụ `CheckAuthStateUseCase` là lịch sử |
 | `QuizRepository` | `core:common/repository` | `core:network` (QuizRepositoryImpl) | `feature:home`, `feature:quiz-manage` |
 | `ProfileStatsRepository` | `core:common/repository` | `core:network` (ProfileStatsRepositoryImpl) | `app/domain/profile/LoadProfileStatsUseCase` — 2 total server |
 | `GameSessionRepository` | `core:common/repository` | `core:network` (GameSessionRepositoryImpl) | `feature:lobby`, `feature:quiz-manage`, `feature:leaderboard` (N29 review, N35 results recovery, N39 history detail/answers), `app` (N38 history list) |
@@ -1552,7 +1551,7 @@ class LoginUseCase @Inject constructor(
 // app/.../usecase/CheckAuthStateUseCase.kt - chỉ Splash gọi được vì nằm trong :app
 class CheckAuthStateUseCase @Inject constructor(...)
 ```
-✅ **Fix**: Nếu logic cross-cutting (vd. kiểm tra trạng thái đăng nhập) có thể cần dùng lại ở nhiều feature trong tương lai (không chỉ 1 nơi gọi ban đầu như Splash) → đưa xuống `core:*` module sở hữu dependency cần thiết (ở đây là `core:datastore` vì cần `SettingsDataStore`) và tạo use case trung gian ở đó, thay vì để `:app` phụ thuộc domain của 1 feature cụ thể hoặc tự giữ logic riêng trong `:app`. Đây chính là refactor đã áp dụng cho `CheckAuthStateUseCase` (xem mục 2.4, 2.1).
+✅ **Nguyên tắc thiết kế:** Với logic thực sự dùng chung, cân nhắc abstraction/use case tại module phù hợp. Ví dụ `CheckAuthStateUseCase` là lịch sử; luồng Splash tại `35d6bfd` dùng `RefreshSessionUseCase` từ `feature:auth`, không phải refactor đã xác nhận như ví dụ cũ.
 
 ### ❌ Wrong: Package Kotlin không khớp namespace Gradle của feature
 ```kotlin
@@ -1600,7 +1599,7 @@ core:common → (nothing)
 | Final result hand-off | `GameResultRepository` | `core:common` | `core:network` (in-memory) |
 | Persist cookies | `CookieStore` | `core:common` | `core:database` |
 
-> ℹ️ **UseCase cross-cutting**: `CheckAuthStateUseCase` (kiểm tra AuthState app-wide: FIRST_LAUNCH/GUEST_MODE/AUTHENTICATED) sống ở `core:datastore/usecase`. Không phải Repository nhưng theo cùng nguyên tắc: dùng bởi ≥2 nơi (Splash + tiềm năng các feature khác) → đưa xuống `core:*` thay vì đặt trong `:app` hoặc 1 feature cụ thể.
+> ℹ️ **UseCase cross-cutting:** Mô tả `CheckAuthStateUseCase` ở `core:datastore` là lịch sử. Baseline hiện tại dùng session repository và `RefreshSessionUseCase` từ `feature:auth`; xem mục 2.1.
 
 ### 9.3. When to Create New Module?
 
@@ -1673,7 +1672,7 @@ MyQuizApp được xây dựng với **14 modules** theo **Clean Architecture + 
 3. **Dependency Inversion**: `CookieStore` interface ở `core:common`, impl ở `core:database`
 4. **Role-aware Design**: Host và Player có repositories riêng vì payload Socket.IO khác nhau
 5. **Server-authoritative**: Multiplayer chỉ render + send intent; N41 Preview là luồng local độc lập với điểm ước tính, không tạo/lưu trận server
-6. **Cross-cutting use case ở core, không ở app**: `CheckAuthStateUseCase` sống ở `core:datastore` để mọi feature (không chỉ Splash) đều có thể dùng, tránh `:app` phụ thuộc domain của 1 feature
+6. **Cross-cutting use case**: Ưu tiên ranh giới dùng chung phù hợp; `CheckAuthStateUseCase` là ví dụ lịch sử và `:app` hiện dùng `RefreshSessionUseCase` từ `feature:auth`.
 7. **Compose Stateful/Stateless baseline**: `XxxScreen` là integration boundary; `XxxScreenContent` là UI thuần; reusable component stateless mặc định
 
 ### Files to Read Next

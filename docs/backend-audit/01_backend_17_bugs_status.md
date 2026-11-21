@@ -8,6 +8,36 @@
 
 ---
 
+## 📌 BẢNG TỔNG HỢP HIỆN TRẠNG 17 BUGS SAU 5 ĐỢT AUDIT BACKEND (CẬP NHẬT THÁNG 11/2026)
+
+> **Đối chiếu từng phần 21/11/2026:** backend `37038f6`, Android `35d6bfd`. Bảng dưới giữ các đánh giá bàn giao; nhãn không đồng nghĩa đã nghiệm thu E2E. Các mô tả chi tiết bên dưới là ghi nhận lịch sử, không tự động phản ánh baseline này. Không tổng hợp số bug đã đóng khi chưa đối chiếu/test đủ mọi nhánh.
+> - **BUG-05 và BUG-08:** ghi chú ban đầu kết luận đã fix hoàn toàn là không phù hợp với mã ở baseline; xem các dòng tương ứng.
+> - **BUG-13:** có mã phục hồi nhưng còn chờ E2E.
+> - **C04:** backend cấp `guestToken` có chữ ký và đọc `x-guest-token`; Android chưa lưu token và vẫn gửi `x-guest-id` ở history, summary và my-answers.
+> - **Rủi ro privacy cần xác minh:** `getResults` chặn `showLeaderboard=never` với non-host, nhưng `getHistorySummary` vẫn trả `leaderboard` cho người tham gia; Android chỉ ẩn khi dựng model. Không coi đây là bảo vệ phía server cho summary. Cần test payload và chuyển backend xem xét, không sửa backend trong đợt này.
+
+| Bug ID | Mức độ | Tiêu đề tóm tắt | Trạng thái Backend hiện tại | Ghi chú kỹ thuật đối chiếu mã nguồn |
+| :--- | :--- | :--- | :---: | :--- |
+| **BUG-01** | `BLOCKER` | Practice: Host Pause/Resume làm Player nhảy về câu 1 | ❌ **CHƯA FIX** | `game.socket.ts#resumeGame` vẫn broadcast `snapshot` dùng `current_question_index` cấp phòng cho player self-paced. |
+| **BUG-02** | `HIGH` | Host không thấy Player bị timeout ở self-paced | ❌ **CHƯA FIX** | `armSelfTimeout` chỉ emit cho socket Player, không gọi `emitHostState` báo cho Host. |
+| **BUG-03** | `HIGH` | Survival: Player mất mạng vì timeout nhưng Host không đổi | ❌ **CHƯA FIX** | Cùng nguyên nhân BUG-02: trừ mạng trong DB nhưng không broadcast cho Host. |
+| **BUG-04** | `BLOCKER` | Reconnect presence race làm chuyển câu sớm | ⚠️ **CÓ PHÒNG THỦ CỤC BỘ** | `onLeave` kiểm tra socket trong room của adapter; có Redis adapter nhưng chưa chứng minh kiểm tra presence liên instance. Cần kiểm thử multi-instance. |
+| **BUG-05** | `MEDIUM` | Tra phòng `GET /games/:code` trả payload lồng sai | ⚠️ **LỚP LỒNG VẪN CÒN** | `getLobby` trả `{session, players, config}`, controller bọc tiếp `{session}`; Android có DTO cho lớp lồng. Chưa đóng lỗi contract; cần test payload. |
+| **BUG-06** | `LOW` | Lựa chọn đáp án trong socket không khớp payload | ✅ **ĐÃ FIX / ĐỒNG BỘ** | `SnapshotQuestion` chuẩn hóa `answer_options` mảng object có `id`. Client đã map khớp. |
+| **BUG-07** | `BLOCKER` | `player:sync`/Reconnect trả sai câu khi có shuffle | ❌ **CHƯA FIX** | Backend có hàm `orderedQuestionsFor` nhưng trong `snapshot(...)` lại đọc mảng gốc chưa shuffle. |
+| **BUG-08** | `BLOCKER` | Marathon kết thúc sau 1 vòng câu hỏi dù còn giờ | ⚠️ **CHỈ CÓ SỬA MỘT PHẦN** | `sendSelfQuestion`/`acceptAnswer` dùng modulo; nhánh timeout vẫn xét `current_question_index >= questions.length` để kết thúc. Cần E2E cả trả lời và timeout trước khi đóng. |
+| **BUG-09** | `HIGH` | Reconnect ở màn kết quả manual-next mất nút Next | 🟡 **CÓ MÃ / CHỜ E2E** | Backend bổ sung sự kiện `question:awaiting_next` phục hồi kết quả câu trước và điểm số; cần kiểm thử lại. |
+| **BUG-10** | `HIGH` | Survival: timeout hết mạng nhưng Host không biết bị loại | ❌ **CHƯA FIX** | Cùng nguyên nhân BUG-02: gán `eliminated` nhưng không thông báo cho Host room. |
+| **BUG-11** | `HIGH` | Player vào muộn không xuất hiện trên Host dashboard | ❌ **CHƯA FIX** | `onLobbyJoin` khi active chỉ gửi câu cho player đó, không emit danh sách cho Host. |
+| **BUG-12** | `HIGH` | Host reconnect giữa câu không xem được đáp án đúng | ❌ **CHƯA FIX** | `snapshot(...)` dùng chung `publicQuestion(...)` che mất `correct_answer` của Host. |
+| **BUG-13** | `HIGH` | Player reconnect màn kết quả không phục hồi kết quả | 🟡 **ĐÃ SỬA MÃ (CHỜ E2E)** | Backend commit `0c5908f` đã thêm `personal_result` vào snapshot; Android `14fb62f` đã map. |
+| **BUG-14** | `MEDIUM` | Tạo và bắt đầu được phòng từ Quiz 0 câu hỏi | ❌ **CHƯA FIX** | `createQuizSnapshot` trả `total_questions = 0`; `startGame` không kiểm tra chặn. |
+| **BUG-15** | `HIGH` | Player mất mạng lúc game kết thúc không xem được kết quả | 🟡 **CÓ API / CHỜ E2E** | Có REST API `GET /games/:id/results`; fallback phụ thuộc quyền xem, non-host nhận 403 khi `showLeaderboard=never`. |
+| **BUG-16** | `HIGH` | API public `/games/:id/results` làm lộ leaderboard khi ẩn | ⚠️ **ĐÃ CHẶN RESULTS; SUMMARY CẦN XỬ LÝ** | `getResults` chặn 403 khi `showLeaderboard=never` với non-host; `getHistorySummary` vẫn trả leaderboard cho participant. Cần kiểm thử và báo backend. |
+| **BUG-17** | `MEDIUM` | Thống kê từng câu ở self-paced shuffle trùng nhãn | ❌ **CHƯA FIX** | `getQuestionStats` dùng `min(question_index) GROUP BY question_id`, gây trùng nhãn hiển thị. |
+
+---
+
 # I. Lỗi đã tái hiện trên thiết bị thật
 
 ## BUG-01 — Practice: Host Pause/Resume làm Player quay về câu đầu nhưng câu trả lời lại được chấm cho câu đang chơi dở

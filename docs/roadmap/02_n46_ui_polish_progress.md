@@ -1,5 +1,7 @@
 # N46 — UI polish theo từng mốc nhỏ (WIP)
 
+> **Baseline đối chiếu Git ngày 21/11/2026:** nhánh Android `main` trỏ `35d6bfd`; `346230b` là checkpoint gameplay được hồ sơ dưới đây nhắc đến. Chưa chạy lại build, regression hay E2E trong lần đối chiếu này; không dùng commit để đóng gate.
+>
 > **Checkpoint hiện tại — local main `346230b`:** đã commit Player self-paced 4 mode `97d3da1`, Host monitoring 4 mode `79cca21`, fallback ảnh có logo app + Discovery card `1e89275`, review cá nhân online dùng answer card mới `76b8585`, và single-choice chạm-là-gửi + bỏ nhãn thừa trong review `346230b`. Classic/chung cuộc Host–Player/Chơi thử local trước đó vẫn giữ. User báo ổn sau sửa 2 test rồi commit/checkout docs; agent đã xác minh local main ref, không tự chạy Gradle/render hoặc xác nhận full CI/E2E. N44 PARTIAL, N46 WIP; backend/privacy/session/deployment, BUG-13, max streak và release gates vẫn mở. Không audit lại 4 mode như chưa polish; bước bàn giao mới là tài liệu onboarding/code walkthrough, xem mục 5e và CODE_WALKTHROUGH_HANDOFF_PROMPT.md.
 > N46 được triển khai từng phần theo user duyệt, không làm một mạch toàn app. N44 vẫn PARTIAL, N45/M6 và release gates chưa đóng; xem `N44_E2E_REPORT.md`.
 
