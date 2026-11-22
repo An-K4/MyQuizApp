@@ -91,7 +91,7 @@ class GameSocketClient @Inject constructor(
 
         socket.on(Socket.EVENT_DISCONNECT) { args ->
             val raw = args.firstOrNull() as? String
-            Timber.w("Socket /game disconnected: %s", raw)
+            Timber.w("Socket /game disconnected")
             trySend(GameEvent.Disconnected(raw.toDisconnectReason()))
         }
 
@@ -99,28 +99,8 @@ class GameSocketClient @Inject constructor(
             val raw = args.firstOrNull()
             val code = raw.toHandshakeErrorCode()
             val attempt = connectErrorCount.incrementAndGet()
-            val throwable = raw as? Throwable
-            // Chỉ log kiểu lỗi/message/cause để chẩn đoán transport hoặc handshake.
-            // Không log options.auth, socket token, cookie hay toàn bộ payload.
-            if (throwable != null) {
-                Timber.e(
-                    throwable,
-                    "Socket /game connect_error #%d: mapped=%s type=%s message=%s cause=%s",
-                    attempt,
-                    code,
-                    throwable.javaClass.name,
-                    throwable.message,
-                    throwable.cause.describeForLog()
-                )
-            } else {
-                Timber.e(
-                    "Socket /game connect_error #%d: mapped=%s type=%s message=%s",
-                    attempt,
-                    code,
-                    raw?.javaClass?.name,
-                    (raw as? String)
-                )
-            }
+            // Handshake errors may contain credentials or server payloads; never log them.
+            Timber.e("Socket /game connect_error #%d", attempt)
             val emittedCode = if (
                 code == GameEventMapper.CODE_CONNECT_FAILED &&
                 attempt >= RECONNECT_ATTEMPTS
@@ -166,7 +146,7 @@ class GameSocketClient @Inject constructor(
         val callbackRegistered = runCatching {
             connectivityManager.registerDefaultNetworkCallback(networkCallback)
         }.onFailure {
-            Timber.w(it, "Không thể theo dõi trạng thái mạng; dùng retry của Socket.IO")
+            Timber.w("Không thể theo dõi trạng thái mạng; dùng retry của Socket.IO")
         }.isSuccess
 
         if (networkValidated.get() || !callbackRegistered) {
@@ -274,13 +254,6 @@ class GameSocketClient @Inject constructor(
      * exception của tầng transport (mất mạng, DNS...) — khi đó chuỗi không phải
      * code, ta trả code riêng của client để không giả mạo vocabulary backend.
      */
-    private fun Throwable?.describeForLog(): String = generateSequence(this) { it.cause }
-        .take(MAX_LOGGED_CAUSES)
-        .joinToString(" <- ") { cause ->
-            "${cause.javaClass.name}: ${cause.message}"
-        }
-        .ifBlank { "none" }
-
     private fun Any?.toHandshakeErrorCode(): String {
         val text = when (this) {
             null -> null
@@ -299,7 +272,6 @@ class GameSocketClient @Inject constructor(
         const val AUTH_TOKEN_KEY = "token"
         const val RECONNECT_ATTEMPTS = 5
         const val RECONNECT_DELAY_MS = 1_000L
-        const val MAX_LOGGED_CAUSES = 4
         const val CODE_RECONNECT_EXHAUSTED = "CLIENT_RECONNECT_EXHAUSTED"
 
         /**

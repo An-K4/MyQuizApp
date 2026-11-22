@@ -76,8 +76,7 @@ class ForgotPasswordViewModel @Inject constructor(
                 }
 
                 is Result.Error -> {
-                    Timber.e("Forgot Pass: API call FAILED - error: ${result.error}")
-                    Timber.e("Forgot Pass: Error message: ${result.error.toUserMessage()}")
+                    Timber.e("Forgot Pass: API call failed")
                     _effect.send(ForgotPasswordEffect.ShowMessage(result.error.toUserMessage()))
                 }
             }

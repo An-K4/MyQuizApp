@@ -2,7 +2,6 @@ package android.kma.myquizzapp.feature.auth.domain.usecase
 
 import android.kma.myquizzapp.core.common.repository.AuthRepository
 import android.kma.myquizzapp.core.common.result.Result
-import timber.log.Timber
 import javax.inject.Inject
 
 /**
@@ -16,12 +15,6 @@ class ForgotPasswordUseCase @Inject constructor(
     private val authRepository: AuthRepository
 ) {
     suspend operator fun invoke(email: String): Result<Unit> {
-        Timber.d("Forgot Pass: UseCase invoke() called with email: $email")
-        val result = authRepository.forgotPassword(email)
-        when (result) {
-            is Result.Success -> Timber.d("Forgot Pass: UseCase - Repository returned SUCCESS")
-            is Result.Error -> Timber.e("Forgot Pass: UseCase - Repository returned ERROR: ${result.error}")
-        }
-        return result
+        return authRepository.forgotPassword(email)
     }
 }

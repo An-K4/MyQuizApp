@@ -54,7 +54,7 @@ class SocketAckMapper @Inject constructor(
         if (errorCode != null) return Result.Error(AppError.Api(errorCode))
         val dto = runCatching {
             json.decodeFromString(AnswerAckDto.serializer(), raw)
-        }.onFailure { Timber.e(it, "Parse ack question:answer thất bại: %s", raw) }
+        }.onFailure { Timber.e("Parse ack question:answer thất bại") }
             .getOrNull()
             ?: return Result.Error(AppError.Api(GameEventMapper.CODE_CLIENT_PARSE_ERROR))
         if (!dto.accepted) return Result.Error(AppError.Api(GameEventMapper.CODE_CLIENT_PARSE_ERROR))
@@ -77,13 +77,13 @@ class SocketAckMapper @Inject constructor(
         val dto = runCatching {
             json.decodeFromString(ConfigUpdateAckDto.serializer(), raw)
         }.onFailure {
-            Timber.e(it, "Parse ack lobby:config-update thất bại: %s", raw)
+            Timber.e("Parse ack lobby:config-update thất bại")
         }.getOrNull() ?: return parseError()
 
         // `ok` luôn true khi handler backend không throw. ok=false mà không có `error`
         // là shape ngoài contract — không đoán ý server, báo lỗi chung.
         if (!dto.ok) {
-            Timber.e("Ack lobby:config-update trả ok=false mà không có error: %s", raw)
+            Timber.e("Ack lobby:config-update trả ok=false mà không có error")
             return parseError()
         }
 
