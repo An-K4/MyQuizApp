@@ -1,5 +1,7 @@
 # N47–N50 — Kế hoạch kiểm thử và release gates
 
+> **LỊCH SỬ — môn Lập trình Android nâng cao đã báo cáo:** Các task và gate dưới đây là hồ sơ cũ kể cả khi chưa thực hiện; không suy đã PASS. Theo dõi công việc hai môn mới tại [roadmap bảo mật và tối ưu](04_security_performance_plan.md).
+
 > Kế hoạch, chưa phải kết quả kiểm thử. Baseline Android `35d6bfd`, backend `37038f6`; N44 PARTIAL và N46 WIP theo hồ sơ. Bằng chứng cần gắn commit, thiết bị, ngày chạy và kết quả; không suy PASS từ việc code đã được commit.
 
 ## N47 — Regression và test tự động

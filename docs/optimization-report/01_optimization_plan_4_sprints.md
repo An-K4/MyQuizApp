@@ -1,5 +1,7 @@
 # Kế hoạch 4 Sprint — Tối ưu phần mềm ứng dụng MyQuizApp
 
+> **Tham khảo lịch sử:** Kế hoạch 4 sprint cũ được thay thế cho mục đích theo dõi tiến độ bởi [roadmap chung hai môn](../roadmap/04_security_performance_plan.md). Pinning là nội dung đã đăng ký và được lập kế hoạch trong roadmap mới; không suy trạng thái task cũ đã hoàn tất.
+
 > Kế hoạch đề xuất cho môn học, không phải tính năng đã triển khai. Baseline Android `main` `35d6bfd`, backend `main` `37038f6`; mọi thay đổi code thực hiện trên Android. Không sửa backend; các vấn đề backend là hạn chế hoặc yêu cầu chuyển team backend.
 
 ## Nguyên tắc

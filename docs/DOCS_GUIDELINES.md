@@ -37,7 +37,7 @@
 
 ### 2.1. Phân định rõ ràng: "Living Truth" vs "Archive"
 1. **Tài liệu trạng thái sống (Living Truth Docs):**
-   * Bao gồm các file trong `architecture/`, `roadmap/`, `backend-audit/`.
+   * Bao gồm các file hiện hành trong `architecture/`, `roadmap/`, `backend-audit/`. Riêng ba roadmap N1–N50 là hồ sơ lịch sử của môn Lập trình Android nâng cao, kể cả task chưa xong; tiến độ hai môn mới chỉ theo dõi trong [roadmap chung](roadmap/04_security_performance_plan.md).
    * **Quy tắc:** Các khẳng định hiện trạng phải khớp mã nguồn đã đối chiếu, ghi rõ commit và phạm vi kiểm tra; đánh dấu nội dung chưa xác minh, thiết kế mục tiêu và ghi chép lịch sử. Không suy diễn kiểm thử đã đạt từ việc có mã. Khi code thay đổi, cập nhật tài liệu liên quan trong cùng PR.
 2. **Tài liệu lưu trữ lịch sử (Archive Docs):**
    * Bao gồm toàn bộ file trong `archive/`.
@@ -74,7 +74,7 @@
 Mỗi khi một Agent hoặc Developer hoàn thành một tính năng hoặc sửa lỗi:
 1. **Kiểm tra tác động:** Xem thay đổi của mình ảnh hưởng đến file Living Truth nào (Kiến trúc, DTO, Lộ trình hay Danh sách bug).
 2. **Cập nhật tài liệu Living Truth:** Chỉnh sửa file tương ứng trong `docs/architecture/` hoặc `docs/roadmap/`.
-3. **Ghi nhận bài học (nếu có):** Nếu gặp bẫy kỹ thuật mới hoặc kinh nghiệm quý, ghi chép vào `docs/knowledge/` theo đúng quy ước đặt tên.
+3. **Ghi nhận bài học (nếu có):** Nếu gặp bẫy kỹ thuật mới hoặc kinh nghiệm quý, ghi chép vào `docs/knowledge/` theo đúng quy ước đặt tên. Hai môn mới có file knowledge theo lô, liên kết tại [mục lục](knowledge/INDEX.md); tiến độ task chỉ theo dõi tại roadmap chung, cập nhật tuần tự để giảm xung đột.
 4. **Không commit file nháp hoặc dữ liệu riêng:** Kiểm tra danh sách stage theo từng đường dẫn; không xóa, sửa hay commit các tệp cá nhân/untracked của người khác nếu chưa được yêu cầu. Đặc biệt không commit hoặc push `my_notes.md`.
 5. **Kiểm thử trung thực:** Checklist thủ công nêu fixture, thao tác, dấu hiệu đạt; ghi NOT RUN nếu chưa chạy. Compile hoặc UI PASS không thay thế E2E, backend hay privacy gate. Giữ kết quả cũ bất biến và không ghi log token, cookie hoặc Authorization.
 6. **Giữ ngữ cảnh lịch sử:** Bản [AGENTS trước khi rút gọn](archive/agents_pre_restructure.md) được bảo tồn nguyên văn; quy tắc và checkpoint trong đó là lịch sử, cần đối chiếu tài liệu hiện hành và source. Bài học theo mốc nằm trong [mục lục tri thức](knowledge/INDEX.md). Không ghi đè tài liệu canonical bằng snapshot cũ.
