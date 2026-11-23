@@ -4,6 +4,7 @@ import android.kma.myquizzapp.core.common.error.isMissingResource
 import android.kma.myquizzapp.core.common.error.toUserMessage
 import android.kma.myquizzapp.core.common.model.MyQuizzesParams
 import android.kma.myquizzapp.core.common.model.QuizSummary
+import android.kma.myquizzapp.core.common.network.NetworkMonitor
 import android.kma.myquizzapp.core.common.result.Result
 import android.kma.myquizzapp.feature.quiz_manage.domain.usecase.DeleteQuizUseCase
 import android.kma.myquizzapp.feature.quiz_manage.domain.usecase.GetMyQuizzesUseCase
@@ -32,6 +33,7 @@ import javax.inject.Inject
 class QuizManageListViewModel @Inject constructor(
     private val getMyQuizzesUseCase: GetMyQuizzesUseCase,
     private val deleteQuizUseCase: DeleteQuizUseCase,
+    networkMonitor: NetworkMonitor,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(QuizManageListUiState())
@@ -66,6 +68,20 @@ class QuizManageListViewModel @Inject constructor(
         .distinctUntilChanged()
         .flatMapLatest { (params, _) -> getMyQuizzesUseCase(params) }
         .cachedIn(viewModelScope)
+
+    init {
+        var wasOffline = !networkMonitor.isOnline.value
+        viewModelScope.launch {
+            networkMonitor.isOnline.collect { online ->
+                if (!online) wasOffline = true
+                else if (wasOffline) {
+                    wasOffline = false
+                    // Only reload the read-only list; never repeat a mutation.
+                    refresh()
+                }
+            }
+        }
+    }
 
     fun onIntent(intent: QuizManageListIntent) {
         when (intent) {

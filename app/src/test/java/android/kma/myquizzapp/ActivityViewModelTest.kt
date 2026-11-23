@@ -11,6 +11,7 @@ import android.kma.myquizzapp.core.common.model.GameResults
 import android.kma.myquizzapp.core.common.model.GameReview
 import android.kma.myquizzapp.core.common.model.JoinRoomResult
 import android.kma.myquizzapp.core.common.model.RoomLookup
+import android.kma.myquizzapp.core.common.network.NetworkMonitor
 import android.kma.myquizzapp.core.common.model.SessionState
 import android.kma.myquizzapp.core.common.model.SessionStatus
 import android.kma.myquizzapp.core.common.model.User
@@ -25,6 +26,7 @@ import android.kma.myquizzapp.presentation.activity.ActivityIntent
 import android.kma.myquizzapp.presentation.activity.ActivityViewModel
 import io.mockk.coEvery
 import io.mockk.mockk
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -44,6 +46,8 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class ActivityViewModelTest {
     private val dispatcher = StandardTestDispatcher()
+    private val online = MutableStateFlow(true)
+    private val networkMonitor = object : NetworkMonitor { override val isOnline = online }
 
     @Before
     fun setUp() = Dispatchers.setMain(dispatcher)
@@ -52,13 +56,45 @@ class ActivityViewModelTest {
     fun tearDown() = Dispatchers.resetMain()
 
     @Test
+    fun `reconnect waits for in flight history then reloads`() = runTest(dispatcher) {
+        online.value = false
+        val pending = CompletableDeferred<Result<List<GameHistoryItem>>>()
+        val repository = FakeGameSessionRepository()
+        repository.historyHandler = { _, _, _ ->
+            if (repository.calls.size == 1) pending.await() else Result.Success(listOf(historyItem(99)))
+        }
+        val session = FakeSessionRepository(SessionState.LoggedIn(user()))
+        val vm = ActivityViewModel(LoadGameHistoryUseCase(repository, mockk()), ObserveActivitySessionUseCase(session), networkMonitor)
+        runCurrent()
+        online.value = true; runCurrent()
+        assertEquals(1, repository.calls.size)
+        pending.complete(Result.Error(android.kma.myquizzapp.core.common.error.AppError.Network))
+        runCurrent()
+        assertEquals(2, repository.calls.size)
+        assertEquals(listOf(99L), vm.uiState.value.played.items.map { it.sessionId })
+    }
+
+    @Test
+    fun `reconnect reloads history once`() = runTest(dispatcher) {
+        val repository = FakeGameSessionRepository()
+        val session = FakeSessionRepository(SessionState.LoggedIn(user()))
+        val vm = ActivityViewModel(LoadGameHistoryUseCase(repository, mockk()), ObserveActivitySessionUseCase(session), networkMonitor)
+        runCurrent()
+        assertEquals(1, repository.calls.size)
+        online.value = false; runCurrent()
+        online.value = true; runCurrent()
+        assertEquals(2, repository.calls.size)
+        assertEquals(GameHistoryRole.PLAYED, repository.calls.last().role)
+    }
+
+    @Test
     fun `user keeps independent played and hosted cursors`() = runTest(dispatcher) {
         val repository = FakeGameSessionRepository()
         val session = FakeSessionRepository(SessionState.LoggedIn(user()))
         val guestStore = mockk<GuestIdentityStore>()
         val viewModel = ActivityViewModel(
             LoadGameHistoryUseCase(repository, guestStore),
-            ObserveActivitySessionUseCase(session)
+            ObserveActivitySessionUseCase(session), networkMonitor
         )
 
         runCurrent()
@@ -93,7 +129,7 @@ class ActivityViewModelTest {
         val session = FakeSessionRepository(SessionState.LoggedIn(user()))
         val viewModel = ActivityViewModel(
             LoadGameHistoryUseCase(repository, mockk()),
-            ObserveActivitySessionUseCase(session)
+            ObserveActivitySessionUseCase(session), networkMonitor
         )
         runCurrent()
         assertEquals(1, repository.calls.size)
@@ -115,7 +151,7 @@ class ActivityViewModelTest {
             coEvery { guestStore.getGuestIdOrNull() } returns null
             val viewModel = ActivityViewModel(
                 LoadGameHistoryUseCase(repository, guestStore),
-                ObserveActivitySessionUseCase(session)
+                ObserveActivitySessionUseCase(session), networkMonitor
             )
 
             runCurrent()
@@ -138,7 +174,7 @@ class ActivityViewModelTest {
         }
         val vm = ActivityViewModel(
             LoadGameHistoryUseCase(repository, mockk()),
-            ObserveActivitySessionUseCase(session)
+            ObserveActivitySessionUseCase(session), networkMonitor
         )
         runCurrent()
         session.onAuthenticated(user().copy(id = 9))
@@ -165,7 +201,7 @@ class ActivityViewModelTest {
         }
         val vm = ActivityViewModel(
             LoadGameHistoryUseCase(repository, guestStore),
-            ObserveActivitySessionUseCase(session)
+            ObserveActivitySessionUseCase(session), networkMonitor
         )
         runCurrent()
         vm.onIntent(ActivityIntent.SelectRole(GameHistoryRole.HOSTED)); runCurrent()
@@ -192,7 +228,7 @@ class ActivityViewModelTest {
             }
             val vm = ActivityViewModel(
                 LoadGameHistoryUseCase(repository, mockk()),
-                ObserveActivitySessionUseCase(session)
+                ObserveActivitySessionUseCase(session), networkMonitor
             )
             runCurrent()
             session.onAuthenticated(user()) // identical User: StateFlow conflates, generation still changes
@@ -234,7 +270,7 @@ class ActivityViewModelTest {
         }
         val vm = ActivityViewModel(
             LoadGameHistoryUseCase(repository, mockk()),
-            ObserveActivitySessionUseCase(session)
+            ObserveActivitySessionUseCase(session), networkMonitor
         )
         runCurrent(); vm.onIntent(ActivityIntent.LoadMore); runCurrent()
         vm.onIntent(ActivityIntent.Refresh); runCurrent()
@@ -273,7 +309,7 @@ class ActivityViewModelTest {
             }
             val vm = ActivityViewModel(
                 LoadGameHistoryUseCase(repository, mockk()),
-                ObserveActivitySessionUseCase(session)
+                ObserveActivitySessionUseCase(session), networkMonitor
             )
             runCurrent(); vm.onIntent(ActivityIntent.LoadMore); runCurrent()
             vm.onIntent(ActivityIntent.Refresh); runCurrent()

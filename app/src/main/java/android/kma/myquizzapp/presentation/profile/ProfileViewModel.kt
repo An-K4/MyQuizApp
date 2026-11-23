@@ -5,6 +5,7 @@ import android.kma.myquizzapp.core.common.error.toUserMessage
 import android.kma.myquizzapp.core.common.model.SessionUserToken
 import android.kma.myquizzapp.core.common.model.User
 import android.kma.myquizzapp.core.common.model.userOrNull
+import android.kma.myquizzapp.core.common.network.NetworkMonitor
 import android.kma.myquizzapp.core.common.result.Result
 import android.kma.myquizzapp.domain.profile.AvatarUpdateResult
 import android.kma.myquizzapp.domain.profile.LoadProfileStatsUseCase
@@ -35,7 +36,8 @@ class ProfileViewModel @Inject constructor(
     private val saveProfile: SaveProfileUseCase,
     private val updateAvatar: UpdateAvatarUseCase,
     private val imagePreparer: AvatarImagePreparer,
-    private val savedState: SavedStateHandle
+    private val savedState: SavedStateHandle,
+    private val networkMonitor: NetworkMonitor
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(ProfileUiState())
     val uiState: StateFlow<ProfileUiState> = _uiState.asStateFlow()
@@ -45,10 +47,27 @@ class ProfileViewModel @Inject constructor(
     private var statsJob: Job? = null
     private var ownerToken: SessionUserToken? = null
     private var restored = false
+    private var statsReconnectPending = false
 
     init {
         viewModelScope.launch {
             observeSession().collect { reconcileSession() }
+        }
+        var wasOffline = !networkMonitor.isOnline.value
+        viewModelScope.launch {
+            networkMonitor.isOnline.collect { online ->
+                if (!online) {
+                    wasOffline = true
+                    statsReconnectPending = false
+                } else if (wasOffline) {
+                    wasOffline = false
+                    reconcileSession()
+                    ownerToken?.let { token ->
+                        if (_uiState.value.isLoadingStats) statsReconnectPending = true
+                        else loadStats(token)
+                    }
+                }
+            }
         }
     }
 
@@ -56,6 +75,7 @@ class ProfileViewModel @Inject constructor(
         val current = observeSession.current()
         val token = observeSession.captureToken()
         if (token != ownerToken) {
+            statsReconnectPending = false
             actionJob?.cancel()
             statsJob?.cancel()
             val draft = if (!restored && token != null) restoreDraft(current.userOrNull) else null
@@ -106,7 +126,7 @@ class ProfileViewModel @Inject constructor(
     }
 
     private fun loadStats(token: SessionUserToken) {
-        if (statsJob?.isActive == true) return
+        if (_uiState.value.isLoadingStats) return
         _uiState.update { it.copy(isLoadingStats = true, profileStatsError = null) }
         statsJob = viewModelScope.launch {
             when (val result = loadProfileStats()) {
@@ -129,6 +149,10 @@ class ProfileViewModel @Inject constructor(
                         )
                     }
                 }
+            }
+            if (statsReconnectPending && networkMonitor.isOnline.value && observeSession.captureToken() == token) {
+                statsReconnectPending = false
+                loadStats(token)
             }
         }
     }

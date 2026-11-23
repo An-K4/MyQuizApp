@@ -24,11 +24,16 @@ fun SessionResolutionContent(state: SessionRecoveryState, onRetry: () -> Unit) {
     ) {
         when (state) {
             SessionRecoveryState.Checking, SessionRecoveryState.Resolved -> CircularProgressIndicator()
-            SessionRecoveryState.Offline -> Text(
-                "Không có kết nối. Phiên sẽ được kiểm tra lại khi mạng trở về.",
-                textAlign = TextAlign.Center,
-                style = MaterialTheme.typography.bodyLarge
-            )
+            SessionRecoveryState.Offline -> {
+                Text(
+                    "Không có kết nối. Phiên sẽ được kiểm tra lại khi mạng trở về.",
+                    textAlign = TextAlign.Center,
+                    style = MaterialTheme.typography.bodyLarge
+                )
+                Button(onClick = onRetry, modifier = Modifier.padding(top = 16.dp)) {
+                    Text("Thử lại")
+                }
+            }
             SessionRecoveryState.Unavailable -> {
                 Text(
                     "Chưa thể kiểm tra phiên. Hãy thử lại khi kết nối ổn định.",

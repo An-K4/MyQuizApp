@@ -5,6 +5,7 @@ import android.kma.myquizzapp.core.common.model.GameHistoryRole
 import android.kma.myquizzapp.core.common.model.SessionIdentity
 import android.kma.myquizzapp.core.common.model.SessionSnapshot
 import android.kma.myquizzapp.core.common.model.SessionState
+import android.kma.myquizzapp.core.common.network.NetworkMonitor
 import android.kma.myquizzapp.core.common.result.Result
 import android.kma.myquizzapp.domain.activity.LoadGameHistoryUseCase
 import android.kma.myquizzapp.domain.activity.ObserveActivitySessionUseCase
@@ -23,7 +24,8 @@ import javax.inject.Inject
 @HiltViewModel
 class ActivityViewModel @Inject constructor(
     private val loadGameHistory: LoadGameHistoryUseCase,
-    private val observeSession: ObserveActivitySessionUseCase
+    private val observeSession: ObserveActivitySessionUseCase,
+    private val networkMonitor: NetworkMonitor
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(ActivityUiState())
     val uiState: StateFlow<ActivityUiState> = _uiState.asStateFlow()
@@ -32,9 +34,29 @@ class ActivityViewModel @Inject constructor(
     private val requestIds = mutableMapOf<GameHistoryRole, Long>()
     private var identity: SessionIdentity? = null
     private var epoch = 0L
+    private val reconnectPending = mutableSetOf<GameHistoryRole>()
 
     init {
         viewModelScope.launch { observeSession().collect { reconcileSession(it) } }
+        var wasOffline = !networkMonitor.isOnline.value
+        viewModelScope.launch {
+            networkMonitor.isOnline.collect { online ->
+                if (!online) {
+                    wasOffline = true
+                    reconnectPending.clear()
+                } else if (wasOffline) {
+                    wasOffline = false
+                    reconcileSession(observeSession.current())
+                    if (_uiState.value.session !is SessionState.Unknown) {
+                        for (role in GameHistoryRole.entries) {
+                            val page = listState(role)
+                            if (page.isInitialLoading || page.isLoadingMore) reconnectPending.add(role)
+                            else if (page.hasLoaded) load(role, reset = true)
+                        }
+                    }
+                }
+            }
+        }
     }
 
     fun onIntent(intent: ActivityIntent) {
@@ -52,6 +74,7 @@ class ActivityViewModel @Inject constructor(
             _uiState.update { it.copy(session = snapshot.state) }
             return
         }
+        reconnectPending.clear()
         epoch++ // Retire requests even when a repository ignores cancellation.
         identity = snapshot.identity
         jobs.values.forEach { it.cancel() }
@@ -155,6 +178,9 @@ class ActivityViewModel @Inject constructor(
                         it.copy(isLoadingMore = false, appendErrorMessage = message)
                     }
                 }
+            }
+            if (reconnectPending.remove(role) && networkMonitor.isOnline.value) {
+                load(role, reset = true)
             }
         }
     }
