@@ -9,6 +9,8 @@ import android.kma.myquizzapp.core.ui.components.QuizPrimaryButton
 import android.kma.myquizzapp.core.ui.theme.MyQuizAppTheme
 import android.kma.myquizzapp.domain.profile.ProfileDraft
 import android.kma.myquizzapp.domain.profile.ProfileStats
+import android.kma.myquizzapp.navigation.SessionRecoveryState
+import android.kma.myquizzapp.navigation.SessionResolutionContent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -84,6 +86,8 @@ fun ProfileScreen(
     onLoggedOut: () -> Unit,
     onOpenSecurity: () -> Unit = {},
     modifier: Modifier = Modifier,
+    recoveryState: SessionRecoveryState = SessionRecoveryState.Checking,
+    onRetrySession: () -> Unit = {},
     viewModel: ProfileViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -121,7 +125,9 @@ fun ProfileScreen(
         },
         snackbarHostState = snackbar,
         modifier = modifier,
-        onOpenSecurity = onOpenSecurity
+        onOpenSecurity = onOpenSecurity,
+        recoveryState = recoveryState,
+        onRetrySession = onRetrySession
     )
 }
 
@@ -134,7 +140,9 @@ fun ProfileScreenContent(
     onPickAvatar: () -> Unit,
     snackbarHostState: SnackbarHostState,
     modifier: Modifier = Modifier,
-    onOpenSecurity: () -> Unit = {}
+    onOpenSecurity: () -> Unit = {},
+    recoveryState: SessionRecoveryState = SessionRecoveryState.Checking,
+    onRetrySession: () -> Unit = {}
 ) {
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -152,12 +160,7 @@ fun ProfileScreenContent(
     ) { innerPadding ->
         Box(Modifier.fillMaxSize().padding(innerPadding)) {
             when {
-                uiState.isLoading -> Box(
-                    Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator()
-                }
+                uiState.isLoading -> SessionResolutionContent(recoveryState, onRetrySession)
 
                 uiState.isConfirmedGuest -> GuestProfileContent(onSignIn)
                 else -> SignedInProfileContent(uiState, onIntent, onOpenSecurity)

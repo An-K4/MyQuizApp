@@ -152,6 +152,8 @@ Effect → Screen wrapper → callback → app navigation (không gọi feature 
 ### 4. Logic chính
 Gate đọc `session.value` **ngay lúc click**, không dùng Compose snapshot đã capture: logout và click có thể trước recomposition. `Unknown` được qua auth gate nhưng join phải resolve xong (chương join). Refresh chỉ chuyển Guest khi error terminal; network/timeout/5xx không phải logout. `revision` retire publication sau update/logout, `generation` phân biệt cả hai lần login cùng account. Gộp in-flight theo revision để request cũ không được coi là refresh hiện tại.
 
+**T04 — phục hồi phiên chưa xác định:** `CurrentUserViewModel` dùng `SessionRecoveryController` theo dõi session và mạng; Activity/Profile hiển thị trạng thái offline hoặc nút thử lại khi chưa thể xác định phiên, thay vì quay mãi. Khi mạng được xác nhận trở lại, controller gọi refresh tối đa hai lần trong cửa sổ 10 giây; không tự biến Unknown thành Guest hoặc xóa cookie. Repository vẫn là nguồn quyết định session; request cũ có thể tiếp tục ở scope repository sau timeout UI. Unit test controller dùng state giả, không chứng minh race cookie transport đã được xử lý (thuộc T05–T06). Kiểm thử offline→online trên thiết bị và nghiệm thu T04 vẫn cần thực hiện.
+
 **Source nguyên văn — Android `346230b`, [core/network/src/main/java/android/kma/myquizzapp/core/network/repository/SessionRepositoryImpl.kt](../../core/network/src/main/java/android/kma/myquizzapp/core/network/repository/SessionRepositoryImpl.kt), `private suspend fun fetchAndApply` (trích block):**
 
 ```kotlin

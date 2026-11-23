@@ -1,6 +1,7 @@
 package android.kma.myquizzapp.navigation
 
 import android.kma.myquizzapp.core.common.model.SessionState
+import android.kma.myquizzapp.core.common.network.NetworkMonitor
 import android.kma.myquizzapp.core.common.model.userOrNull
 import android.kma.myquizzapp.feature.auth.domain.usecase.ObserveSessionUseCase
 import android.kma.myquizzapp.feature.auth.domain.usecase.RefreshSessionUseCase
@@ -36,6 +37,7 @@ import javax.inject.Inject
 class CurrentUserViewModel @Inject constructor(
     observeSession: ObserveSessionUseCase,
     private val refreshSession: RefreshSessionUseCase,
+    networkMonitor: NetworkMonitor,
 ) : ViewModel() {
 
     /**
@@ -46,6 +48,15 @@ class CurrentUserViewModel @Inject constructor(
      * collect nữa mà không thêm thông tin gì.
      */
     val session: StateFlow<SessionState> = observeSession()
+
+    private val recovery = SessionRecoveryController(
+        session = session,
+        online = networkMonitor.isOnline,
+        refresh = { refreshSession() },
+        scope = viewModelScope
+    )
+    val sessionRecovery: StateFlow<SessionRecoveryState> = recovery.state
+    fun retrySession() = recovery.retry()
 
     /** null = chưa đăng nhập, chưa xác định, hoặc user không có avatar. */
     val avatarUrl: StateFlow<String?> = session
