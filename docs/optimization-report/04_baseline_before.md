@@ -43,8 +43,8 @@
 ## Cold start offline — tái hiện trước T04
 
 - Kịch bản yêu cầu tắt Wi-Fi và dữ liệu di động; người dùng chạy `am force-stop` rồi `am start -W` bản baseline và báo giao diện mất kết nối. Android báo `Status: ok`, `LaunchState: COLD`, `TotalTime: 7600 ms`, `WaitTime: 7604 ms`; đây là một mẫu offline, không dùng so sánh hiệu năng với loạt startup online.
-- Người dùng quan sát cả Hoạt động và Hồ sơ quay loading liên tục; Home và Thư viện hiển thị badge mất kết nối. Mới ghi nhận hiện tượng; chưa xác nhận kết quả sau bật lại Wi-Fi hay tình trạng phiên.
-- Đối chiếu tĩnh với mã: `SessionRepositoryImpl` giữ nguyên trạng thái khi `getCurrentUser` trả lỗi không thuộc nhóm kết thúc phiên; Activity hiển thị loading khi `Unknown` và Profile xác định `isLoading` theo `Unknown`. Điều này phù hợp hiện tượng, nhưng chưa xác minh riêng loại lỗi thực tế tại thiết bị.
+- Người dùng quan sát cả Hoạt động và Hồ sơ quay loading liên tục; Home và Thư viện hiển thị badge mất kết nối. Sau bật lại Wi-Fi, người dùng xác nhận hai màn hình không tự phục hồi. Chưa xác nhận tình trạng phiên hay kết quả sau khởi động lại app.
+- Đối chiếu tĩnh với mã: `SessionRepositoryImpl` giữ nguyên trạng thái khi `getCurrentUser` trả lỗi không thuộc nhóm kết thúc phiên; Activity hiển thị loading khi `Unknown` và Profile xác định `isLoading` theo `Unknown`. `AppNavGraph` làm mới phiên khi vào graph hoặc app trở lại foreground; `NetworkStatusViewModel` chỉ phơi bày trạng thái mạng, không gọi refresh khi mạng phục hồi. Điều này phù hợp hiện tượng, nhưng chưa xác minh riêng loại lỗi thực tế tại thiết bị.
 
 ## Các số liệu còn thiếu
 
