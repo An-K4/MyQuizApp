@@ -29,7 +29,8 @@ docs/
 ├── roadmap/                                 # Lộ trình & Quản lý phát triển (Living Truth)
 │   ├── 01_50_day_roadmap.md                 # Kế hoạch tổng thể 50 ngày (N1–N50)
 │   ├── 02_n46_ui_polish_progress.md         # Tiến độ chi tiết mốc N46 UI Polish
-│   └── 03_n47_n50_release_gates.md          # Cổng nghiệm thu N47–N50
+│   ├── 03_n47_n50_release_gates.md          # Cổng nghiệm thu N47–N50 (lịch sử)
+│   └── 04_security_performance_plan.md      # Tiến độ hai môn hiện tại
 │
 ├── backend-audit/                           # Báo cáo Audit & Khảo sát Backend (Living Truth)
 │   └── 01_backend_17_bugs_status.md         # Báo cáo đối chiếu 17 bugs và hiện trạng sửa lỗi
@@ -37,7 +38,8 @@ docs/
 ├── optimization-report/                     # Đề án tối ưu Android và phương pháp đánh giá
 │   ├── 01_optimization_plan_4_sprints.md
 │   ├── 02_performance_security_tradeoffs.md
-│   └── 03_benchmark_metrics_scenarios.md
+│   ├── 03_benchmark_metrics_scenarios.md
+│   └── 04_baseline_before.md                # Baseline pilot (chưa hoàn chỉnh)
 │
 ├── walkthrough/                             # Onboarding & Đọc hiểu Codebase
 │   ├── code_walkthrough_12_entrypoints.md   # Hướng dẫn chi tiết 12 điểm vào của Android app

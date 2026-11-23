@@ -1,6 +1,6 @@
 # Kế hoạch triển khai — Bảo mật và Tối ưu MyQuizApp
 
-> Kế hoạch đã được người dùng duyệt; các task vẫn chưa bắt đầu, không phải kết quả thực hiện. Đây là nơi duy nhất theo dõi trạng thái task cho hai môn; các kế hoạch N1–N50 cũ là lịch sử, không tự động xem các gate cũ là đã PASS. Tri thức theo lô nằm trong `docs/knowledge/`.
+> Kế hoạch đã được người dùng duyệt; trạng thái thực hiện được theo dõi ở bảng dưới, không mặc định coi các task là đã nghiệm thu. Đây là nơi duy nhất theo dõi trạng thái task cho hai môn; các kế hoạch N1–N50 cũ là lịch sử, không tự động xem các gate cũ là đã PASS. Tri thức theo lô nằm trong `docs/knowledge/`.
 
 ## Bảng tổng quan checklist
 
@@ -8,9 +8,9 @@ Trạng thái ban đầu: **Chưa bắt đầu**. Dấu `[x]` chỉ dùng khi đ
 
 | Done | Mã | Lô | Task / kết quả ngắn | Phụ thuộc | Trạng thái |
 |---|---|---:|---|---|---|
-| [ ] | T01 | 1 | Khóa baseline và phương pháp đo before | — | Chưa bắt đầu |
-| [ ] | T02 | 1 | Loại log PII/secret, kiểm thử redaction | — | Chưa bắt đầu |
-| [ ] | T03 | 1 | Chuẩn hóa và xác thực input theo hợp đồng | — | Chưa bắt đầu |
+| [ ] | T01 | 1 | Khóa baseline và phương pháp đo before | — | PARTIAL: đã đo pilot startup; còn số liệu before |
+| [ ] | T02 | 1 | Loại log PII/secret, kiểm thử redaction | — | Đã push nhánh; chờ nghiệm thu và merge |
+| [ ] | T03 | 1 | Chuẩn hóa và xác thực input theo hợp đồng | — | Đã push nhánh; chờ nghiệm thu và merge |
 | [ ] | T04 | 1 | Sửa cold-start offline/session Unknown | T01 | Chưa bắt đầu |
 | [ ] | T05 | 2 | Khôi phục ngữ nghĩa chọn/lưu cookie | — | Chưa bắt đầu |
 | [ ] | T06 | 2 | Chặn race refresh/logout/session | T05 | Chưa bắt đầu |
@@ -86,6 +86,8 @@ Knowledge: [kn_24](../knowledge/kn_24_lot_1_baseline_client.md). Gate: baseline 
 
 ### T01 — Baseline trước thay đổi
 **Phạm vi:** [kịch bản đo](../optimization-report/03_benchmark_metrics_scenarios.md); không thay code sản phẩm. **Phụ thuộc:** thiết bị, môi trường thử và user hỗ trợ profiler.
+
+**Pilot:** [số liệu startup before](../optimization-report/04_baseline_before.md); T01 chưa hoàn tất, chưa đạt gate cho T04.
 - [ ] Ghi commit/APK, thiết bị/OS, màn hình, nhiệt độ, pin, mạng, backend, dataset và trạng thái cache; pilot Classic hoặc Solo không shuffle, chỉ chọn kịch bản thực sự chạy được.
 - [ ] Thống nhất cold/warm startup, cuộn Home/Discover, upload/API và phiên socket; lấy mẫu CPU, RAM/PSS, frame time/jank/FPS, pin, traffic/request và latency REST/socket. Tối thiểu 5 lần cho startup/latency, báo N/p50/p95 khi đủ mẫu; pin chạy phiên cố định và nêu độ phân giải. Nếu công cụ/thiết bị không đủ, ghi NOT RUN và xin hỗ trợ, không bịa.
 - [ ] Lưu dữ liệu thô đã che vào nơi được duyệt, phương pháp/công cụ và baseline trước code. **Đạt:** chạy lại được, từng chỉ số có đơn vị hoặc NOT RUN kèm lý do; không dùng debug so với release.
