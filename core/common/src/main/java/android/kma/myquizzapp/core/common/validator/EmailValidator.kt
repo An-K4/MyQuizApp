@@ -1,31 +1,15 @@
 package android.kma.myquizzapp.core.common.validator
 
-import android.util.Patterns
-
-/**
- * Validator cho email address.
- * Kiểm tra blank và format hợp lệ.
+/** Lightweight UX check, not a replacement for the backend's z.email validation.
+ * Callers trim the address before both validation and submission. Keep this check
+ * permissive so an address accepted by the server is not blocked on the client.
  */
 object EmailValidator {
-    /**
-     * Validate email address.
-     * 
-     * Rules:
-     * - Không được để trống
-     * - Phải match Android email pattern
-     * 
-     * @param email Email cần validate
-     * @return ValidationResult.Success nếu hợp lệ, ValidationResult.Error nếu không
-     */
-    fun validate(email: String): ValidationResult {
-        if (email.isBlank()) {
-            return ValidationResult.Error("Email không được để trống")
-        }
+    private val basicFormat = Regex("^[^@\\s]+@[^@\\s]+$")
 
-        if (!Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
-            return ValidationResult.Error("Email không hợp lệ")
-        }
-
-        return ValidationResult.Success
+    fun validate(email: String): ValidationResult = when {
+        email.isBlank() -> ValidationResult.Error("Email không được để trống")
+        !basicFormat.matches(email) -> ValidationResult.Error("Email không hợp lệ")
+        else -> ValidationResult.Success
     }
 }
