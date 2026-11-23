@@ -40,6 +40,12 @@
 - `gfxinfo` sau reset: **1334 frames**, **167 janky frames (12,52%)**; frame duration p50 **10 ms**, p90 **19 ms**, p95 **38 ms**, p99 **113 ms**; missed vsync 23, frame deadline missed 57. GPU p50/p90/p95/p99 lần lượt **13/19/20/22 ms**. Số liệu là histogram tổng hợp của một lần chạy, không phải FPS hay mẫu thống kê giữa các lần chạy.
 - Output của lệnh `gfxinfo ... reset` còn hiển thị thống kê cũ (464 frames, 92 janky); không dùng nó làm kết quả sau reset hoặc so sánh với lần sau. Các giá trị chi tiết/histogram đầy đủ hiện nằm trong output người dùng gửi trong chat; bản ghi trên chỉ trích xuất các số chính, không phải bản lưu toàn bộ raw dump.
 
+## Cold start offline — tái hiện trước T04
+
+- Kịch bản yêu cầu tắt Wi-Fi và dữ liệu di động; người dùng chạy `am force-stop` rồi `am start -W` bản baseline và báo giao diện mất kết nối. Android báo `Status: ok`, `LaunchState: COLD`, `TotalTime: 7600 ms`, `WaitTime: 7604 ms`; đây là một mẫu offline, không dùng so sánh hiệu năng với loạt startup online.
+- Người dùng quan sát cả Hoạt động và Hồ sơ quay loading liên tục; Home và Thư viện hiển thị badge mất kết nối. Mới ghi nhận hiện tượng; chưa xác nhận kết quả sau bật lại Wi-Fi hay tình trạng phiên.
+- Đối chiếu tĩnh với mã: `SessionRepositoryImpl` giữ nguyên trạng thái khi `getCurrentUser` trả lỗi không thuộc nhóm kết thúc phiên; Activity hiển thị loading khi `Unknown` và Profile xác định `isLoading` theo `Unknown`. Điều này phù hợp hiện tượng, nhưng chưa xác minh riêng loại lỗi thực tế tại thiết bị.
+
 ## Các số liệu còn thiếu
 
 | Nội dung | Trạng thái | Lý do / bước tiếp |
