@@ -19,8 +19,8 @@
 
 ## RAM và đồ họa — phép đo pilot
 
-- Phép đo theo phiên thiết bị/app baseline trước đó; model và build cài đặt chưa được xác nhận lại ở lần này. Kết quả do người dùng chạy ADB trong VS Code. Trước phép đo `dumpsys battery`: mức pin 3%, USB powered, status 2, nhiệt độ pin 31,2°C. Mức pin rất thấp và trạng thái sạc là yếu tố gây nhiễu; không suy ra mức tiêu hao pin từ số này. Người dùng xác nhận dùng Wi-Fi; tần số màn hình, dataset và chi tiết thao tác chưa được xác nhận.
-- Trình tự yêu cầu: Home đã tải xong, `dumpsys meminfo`, `dumpsys gfxinfo ... reset`, thao tác cuộn khoảng 30 giây rồi `dumpsys gfxinfo`. Người dùng chưa xác nhận riêng màn hình và thao tác. Khoảng uptime giữa output reset và output sau là khoảng 33,6 giây, không đồng nghĩa thời gian cuộn chính xác.
+- Người dùng xác nhận phép đo dùng máy Live 4 và app baseline như phiên trước. Kết quả do người dùng chạy ADB trong VS Code. Trước phép đo `dumpsys battery`: mức pin 3%, USB powered, status 2, nhiệt độ pin 31,2°C. Mức pin rất thấp và trạng thái sạc là yếu tố gây nhiễu; không suy ra mức tiêu hao pin từ số này. Người dùng xác nhận dùng Wi-Fi; tần số màn hình và dataset chưa được xác nhận.
+- Trình tự yêu cầu: Home đã tải xong, `dumpsys meminfo`, `dumpsys gfxinfo ... reset`, thao tác cuộn khoảng 30 giây rồi `dumpsys gfxinfo`. Người dùng xác nhận đã cuộn Home khoảng 30 giây. Khoảng uptime giữa output reset và output sau là khoảng 33,6 giây, không đồng nghĩa thời gian cuộn chính xác.
 - `meminfo` là một mẫu tức thời trước thao tác, không phải peak hoặc trung bình: TOTAL PSS **196504 KB**, TOTAL RSS trong App Summary **270408 KB**, TOTAL SWAP PSS **149 KB**. Các giá trị là số Android báo; không suy ra mức tiêu thụ riêng của thao tác cuộn.
 - `gfxinfo` sau reset: **1334 frames**, **167 janky frames (12,52%)**; frame duration p50 **10 ms**, p90 **19 ms**, p95 **38 ms**, p99 **113 ms**; missed vsync 23, frame deadline missed 57. GPU p50/p90/p95/p99 lần lượt **13/19/20/22 ms**. Số liệu là histogram tổng hợp của một lần chạy, không phải FPS hay mẫu thống kê giữa các lần chạy.
 - Output của lệnh `gfxinfo ... reset` còn hiển thị thống kê cũ (464 frames, 92 janky); không dùng nó làm kết quả sau reset hoặc so sánh với lần sau. Các giá trị chi tiết/histogram đầy đủ hiện nằm trong output người dùng gửi trong chat; bản ghi trên chỉ trích xuất các số chính, không phải bản lưu toàn bộ raw dump.
@@ -31,7 +31,7 @@
 |---|---|---|
 | Startup warm, thời gian Home tương tác | NOT RUN | Cần định nghĩa và đo trên thiết bị. |
 | RAM/PSS và CPU | PARTIAL | Có một mẫu PSS/RSS tức thời; CPU và peak theo kịch bản chưa đo. |
-| FPS, frame time/jank Home/Discover | PARTIAL | Có một mẫu gfxinfo sau reset; chưa xác nhận thao tác, refresh rate và chưa đo FPS. |
+| FPS, frame time/jank Home/Discover | PARTIAL | Có một mẫu gfxinfo Home sau reset; chưa xác nhận refresh rate và chưa đo FPS. |
 | REST/socket latency và lưu lượng | NOT RUN | Cần kịch bản test, cấu hình backend/mạng và công cụ đo đã che dữ liệu. |
 | Pin theo phiên cố định | NOT RUN | Chưa có phép đo; thiết bị đang sạc ở mức pin thấp. |
 | After | NOT RUN | Chưa thử bản cải tiến và chưa đủ điều kiện so sánh. |
