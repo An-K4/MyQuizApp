@@ -594,6 +594,15 @@ Chuẩn hóa một shape duy nhất cho lựa chọn và cập nhật đồng th
 
 ---
 
+## BUG-ANDROID-01 — Không mở được cấu hình phòng do lệch DTO tra phòng
+
+- **Trạng thái:** OPEN, chưa sửa; theo dõi xử lý ở T17, lô 4 của [roadmap](../roadmap/04_security_performance_plan.md). Đây là bug tương thích Android–Backend bổ sung, không thay đổi số lượng hay trạng thái 17 bug Backend ở trên; liên quan BUG-05 nhưng không đồng nhất với vấn đề lớp lồng.
+- **Tái hiện:** tạo phòng với vai trò Host, vào phòng chờ và chọn Sửa cấu hình phòng. Giao diện báo chưa tải được thiết lập và chỉ cho thử lại.
+- **Bằng chứng 24/11/2026:** trên Live 4 / Android 11, bản debug gắn `SocketDiag`, tạo phòng và host-token thành công, Socket kết nối và nhận `lobby:updated`, `game:state`, `leaderboard:host`. Khi tra phòng, log lặp lại `MissingFieldException`, `fields=quiz_snapshot_id`, `path=$.data.session.session`. Log không ghi payload hay token; phiên bản Backend đang triển khai chưa xác minh. Không suy mã HTTP của lookup từ callback lỗi parse.
+- **Đối chiếu:** Android `GameSessionDto` bắt buộc `quiz_snapshot_id`; Backend local `37038f6` trả `publicSession` không có trường đó. Hình dạng lồng hiện tại vẫn được Android xử lý; không kết luận cần thay cấu trúc lồng hay thay Backend chỉ từ lỗi này.
+- **Hướng xử lý/kiểm thử:** đối chiếu contract, tách DTO tra phòng public khỏi DTO yêu cầu snapshot khi thích hợp; test deserialize fixture không có trường, giữ test cho các response khác, rồi E2E tạo phòng → mở/sửa/lưu cấu hình và kiểm tra không regression. Đánh giá thêm lỗi phát sinh sau khi sửa. Đo ACK T01 sau khi luồng hợp lệ, không suy ACK từ REST hay kết nối Socket.
+- **Ảnh hưởng T01:** Socket ACK NOT RUN do không có thao tác lưu hợp lệ; hoãn đo đến khi sửa và test xong. Không coi bug đã sửa hay số đo là PASS.
+
 # III. Thiếu tính năng/contract — không gọi là bug
 
 ## FEATURE-01 — Host chưa xem được thời gian còn lại riêng của từng Player Marathon

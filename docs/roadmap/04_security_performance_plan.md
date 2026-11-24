@@ -1,6 +1,6 @@
 # Kế hoạch triển khai — Bảo mật và Tối ưu MyQuizApp
 
-> Kế hoạch đã được người dùng duyệt; các task vẫn chưa bắt đầu, không phải kết quả thực hiện. Đây là nơi duy nhất theo dõi trạng thái task cho hai môn; các kế hoạch N1–N50 cũ là lịch sử, không tự động xem các gate cũ là đã PASS. Tri thức theo lô nằm trong `docs/knowledge/`.
+> Kế hoạch đã được người dùng duyệt; trạng thái thực hiện được theo dõi ở bảng dưới, không mặc định coi các task là đã nghiệm thu. Đây là nơi duy nhất theo dõi trạng thái task cho hai môn; các kế hoạch N1–N50 cũ là lịch sử, không tự động xem các gate cũ là đã PASS. Tri thức theo lô nằm trong `docs/knowledge/`.
 
 ## Bảng tổng quan checklist
 
@@ -8,10 +8,10 @@ Trạng thái ban đầu: **Chưa bắt đầu**. Dấu `[x]` chỉ dùng khi đ
 
 | Done | Mã | Lô | Task / kết quả ngắn | Phụ thuộc | Trạng thái |
 |---|---|---:|---|---|---|
-| [ ] | T01 | 1 | Khóa baseline và phương pháp đo before | — | Chưa bắt đầu |
-| [ ] | T02 | 1 | Loại log PII/secret, kiểm thử redaction | — | Chưa bắt đầu |
-| [ ] | T03 | 1 | Chuẩn hóa và xác thực input theo hợp đồng | — | Chưa bắt đầu |
-| [ ] | T04 | 1 | Sửa cold-start offline/session Unknown | T01 | Chưa bắt đầu |
+| [ ] | T01 | 1 | Khóa baseline và phương pháp đo before | — | PARTIAL: đã ghi baseline pilot; ACK NOT RUN do BUG-ANDROID-01, hoãn đo đến khi sửa |
+| [ ] | T02 | 1 | Loại log PII/secret, kiểm thử redaction | — | Đã push nhánh; chờ nghiệm thu và merge |
+| [ ] | T03 | 1 | Chuẩn hóa và xác thực input theo hợp đồng | — | Đã push nhánh; chờ nghiệm thu và merge |
+| [ ] | T04 | 1 | Sửa cold-start offline/session Unknown | T01 | Đã push, user test luồng reconnect chính; chờ nghiệm thu, CI và merge |
 | [ ] | T05 | 2 | Khôi phục ngữ nghĩa chọn/lưu cookie | — | Chưa bắt đầu |
 | [ ] | T06 | 2 | Chặn race refresh/logout/session | T05 | Chưa bắt đầu |
 | [ ] | T07 | 2 | Mã hóa cookie bằng Keystore và migration | T05, T06 | Chưa bắt đầu |
@@ -24,7 +24,7 @@ Trạng thái ban đầu: **Chưa bắt đầu**. Dấu `[x]` chỉ dùng khi đ
 | [ ] | T14 | 4 | Kiểm tra ảnh quiz trước upload | T03, T10 | Chưa bắt đầu |
 | [ ] | T15 | 4 | Kiểm tra ảnh avatar trước upload | T03, T10 | Chưa bắt đầu |
 | [ ] | T16 | 4 | Hợp đồng chống gian lận và xác thực môi trường | Backend | Chưa bắt đầu |
-| [ ] | T17 | 4 | Tối ưu lifecycle socket có kiểm chứng | T01, T10, T16 | Chưa bắt đầu |
+| [ ] | T17 | 4 | Tương thích tra phòng và lifecycle socket có kiểm chứng | T01, T10, T16 | Chưa bắt đầu; BUG-ANDROID-01 cần sửa trước phép đo ACK |
 | [ ] | T18 | 5 | Đo và tối ưu Coil/cache ảnh | T01 | Chưa bắt đầu |
 | [ ] | T19 | 5 | Startup và Baseline Profile có benchmark | T01, T04 | Chưa bắt đầu |
 | [ ] | T20 | 5 | Đo/sửa điểm nghẽn Compose và frame | T01 | Chưa bắt đầu |
@@ -86,6 +86,8 @@ Knowledge: [kn_24](../knowledge/kn_24_lot_1_baseline_client.md). Gate: baseline 
 
 ### T01 — Baseline trước thay đổi
 **Phạm vi:** [kịch bản đo](../optimization-report/03_benchmark_metrics_scenarios.md); không thay code sản phẩm. **Phụ thuộc:** thiết bị, môi trường thử và user hỗ trợ profiler.
+
+**Pilot:** [báo cáo baseline before](../optimization-report/04_baseline_before.md); T01 còn PARTIAL. Socket ACK NOT RUN do [BUG-ANDROID-01](../backend-audit/01_backend_17_bugs_status.md); người dùng chọn hoãn sửa và đo lại sau, đã xếp vào T17. Việc chốt lô với phần hoãn cần ghi rõ ngoại lệ và quyết định nghiệm thu, không gọi số đo thiếu là PASS hay tự gán gate đã đạt.
 - [ ] Ghi commit/APK, thiết bị/OS, màn hình, nhiệt độ, pin, mạng, backend, dataset và trạng thái cache; pilot Classic hoặc Solo không shuffle, chỉ chọn kịch bản thực sự chạy được.
 - [ ] Thống nhất cold/warm startup, cuộn Home/Discover, upload/API và phiên socket; lấy mẫu CPU, RAM/PSS, frame time/jank/FPS, pin, traffic/request và latency REST/socket. Tối thiểu 5 lần cho startup/latency, báo N/p50/p95 khi đủ mẫu; pin chạy phiên cố định và nêu độ phân giải. Nếu công cụ/thiết bị không đủ, ghi NOT RUN và xin hỗ trợ, không bịa.
 - [ ] Lưu dữ liệu thô đã che vào nơi được duyệt, phương pháp/công cụ và baseline trước code. **Đạt:** chạy lại được, từng chỉ số có đơn vị hoặc NOT RUN kèm lý do; không dùng debug so với release.
@@ -178,7 +180,8 @@ Knowledge: [kn_27](../knowledge/kn_27_lot_4_upload_socket.md). Gate: file sai b�
 - [ ] Sửa riêng cách Android xử lý phản hồi sai/timeout nếu cần, không tự chấm điểm thay server. Xác nhận cơ chế xác thực môi trường và mức yêu cầu giảng viên; nếu cần server attestation chưa có, báo user/Backend và đánh dấu BLOCKED. **Đạt:** bằng chứng server + client rõ ràng, không tuyên bố ngăn mọi gian lận.
 
 ### T17 — Lifecycle Socket.IO
-**Vị trí:** `core/network/.../socket/GameSocketClient.kt`, repository socket và lifecycle tiêu thụ; **phụ thuộc:** T01, T10, T16.
+**Vị trí:** `core/network/.../socket/GameSocketClient.kt`, DTO/API tra phòng, repository socket và lifecycle tiêu thụ; **phụ thuộc:** T01, T10, T16. BUG-ANDROID-01 là phần xử lý contract ưu tiên trước kịch bản ACK; các phụ thuộc lifecycle vẫn giữ nguyên.
+- [ ] Sửa [BUG-ANDROID-01](../backend-audit/01_backend_17_bugs_status.md): DTO lookup tương thích public session không có `quiz_snapshot_id`, regression DTO và E2E mở/sửa/lưu cấu hình; sau đó đo lại ACK T01, lưu điều kiện và đánh dấu trước/sau theo đúng phiên bản.
 - [ ] Đo trước socket trong/ngoài trận ở foreground/background, request/ping, pin và reconnect; viết test listener cleanup, mất mạng, ACK timeout không tự double-submit và resync.
 - [ ] Chỉ điều chỉnh vòng đời nếu phép đo cho thấy lợi ích và contract presence cho phép; nếu không an toàn, ghi quyết định không đổi cùng số liệu. **Đạt:** reconnect/đồng bộ/đáp án không regression, so sánh pin/network cùng kịch bản.
 

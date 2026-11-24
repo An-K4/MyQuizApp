@@ -1,6 +1,6 @@
 # Kịch bản đo lường Before / After
 
-> Template thực nghiệm; hiện chưa có số liệu mới. Không chạy thử tấn công, tải hay thu thập dữ liệu thật ngoài môi trường được phép.
+> Template thực nghiệm; xem [pilot baseline chưa hoàn chỉnh](04_baseline_before.md). Không chạy thử tấn công, tải hay thu thập dữ liệu thật ngoài môi trường được phép.
 
 ## Thiết lập chung
 
