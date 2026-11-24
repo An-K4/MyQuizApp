@@ -88,7 +88,15 @@
 | 4 | 161 | 397 |
 | 5 | 187 | 396 |
 
-- Trung vị thời gian 167 ms, khoảng 126–265 ms; N=5 quá nhỏ để suy p95 ổn định. Các dòng bộ lọc khác không gộp vào loạt `all`. Kích thước response không phải tổng byte truyền trên mạng. Chưa xác nhận cấu hình cache, dataset hay phiên bản backend triển khai. Ảnh gốc nằm trong chat; không đưa URL đầy đủ hoặc payload vào repo. REST tiếp tục PARTIAL; socket latency và tổng lưu lượng chưa đo.
+- Trung vị thời gian 167 ms, khoảng 126–265 ms; N=5 quá nhỏ để suy p95 ổn định. Các dòng bộ lọc khác không gộp vào loạt `all`. Kích thước response không phải tổng byte truyền trên mạng. Chưa xác nhận cấu hình cache, dataset hay phiên bản backend triển khai. Ảnh gốc nằm trong chat; không đưa URL đầy đủ hoặc payload vào repo. REST tiếp tục PARTIAL; xem lượt instrumented bên dưới để biết kết quả traffic và trạng thái Socket.
+
+## Đồ họa và traffic — lượt instrumented 24/11/2026
+
+- Bản debug nhánh T01 tại HEAD `46ec14c` có gắn probe tạm; Live 4 / Android 11, ADB Wi-Fi. Script bật log trước khi mở app; người dùng xác nhận Home sẵn sàng qua bước Enter. Kịch bản tự gửi 22 swipe, nhưng chưa xác nhận độc lập danh sách Home thực sự cuộn. Dataset, cache và hash APK chưa xác minh; backend triển khai chưa xác minh. Probe có thể ảnh hưởng kết quả.
+- `gfxinfo` sau reset: 1328 frames trong khoảng script đo 31,246 giây, tương đương khoảng 42,5 frame app render/giây, **không phải FPS hiển thị thực tế**. Janky 137 frames (10,32%); histogram frame duration p50 10 ms, p90 16 ms, p95 20 ms, p99 61 ms. Một lượt pilot, không phải phân vị giữa nhiều lượt; số frame và thời gian không hoàn toàn đồng bộ tuyệt đối.
+- `TrafficStats` theo UID app: giữa mẫu log đầu và cuối cách nhau 91,397 giây, RX tăng 55.609 byte, TX tăng 9.579 byte, tổng 65.188 byte. Gồm khởi chạy, Home và giai đoạn thử phòng cùng mọi traffic của UID trong khoảng đó; không phải tổng riêng 30 giây Home hay riêng Socket, cũng không nhất thiết bao gồm mọi loại traffic. Các bộ đếm tăng liên tục trong 92 mẫu. Không dùng netstats bucket để suy lưu lượng chính xác trong khoảng đo.
+- Socket ACK **NOT RUN / chưa có mẫu**: không có dòng ACK được probe ghi lại trong log. Probe chỉ ghi ACK nhận về hoặc timeout của các event đã chọn; không có dòng không chứng minh được nguyên nhân. Người dùng nghi giao tiếp với backend đã thay đổi; cần xác minh backend đang triển khai và luồng tạo/vào phòng trước khi đo lại, không ghi 0 ms hay coi là pass.
+- Raw log và mốc script ngoài Git: `C:\Users\admin\.aki\handoffs\myquiz-baseline\instrumented-20261124-175453`; gfxinfo/summary: `C:\Users\admin\.aki\handoffs\myquiz-baseline\frame-network-20261124-175504`. Không ghi token hay payload vào báo cáo. Đo lại sau khi nối đúng giao tiếp và giữ điều kiện so sánh.
 
 ## Cold start offline — tái hiện trước T04
 
@@ -102,8 +110,8 @@
 |---|---|---|
 | Startup warm, thời gian Home tương tác | PARTIAL | Có 5 mẫu warm Activity; thời gian Home tương tác chưa đo. |
 | RAM/PSS và CPU | PARTIAL | Có 5 mẫu PSS/RSS và 5 mẫu CPU sau khởi tạo khi cuộn Home; chưa đo peak liên tục hay kịch bản trận. |
-| FPS, frame time/jank Home/Discover | PARTIAL | Có một mẫu gfxinfo Home và mode 60 Hz ở lần đọc sau; chưa đo FPS. |
-| REST/socket latency và lưu lượng | PARTIAL | Có 5 request REST Thư viện `all` qua Network Inspector; socket latency và tổng lưu lượng chưa đo. |
+| FPS, frame time/jank Home/Discover | PARTIAL | Có các lượt gfxinfo Home và tốc độ frame render tham khảo; chưa đo FPS hiển thị thực tế hoặc Discover. |
+| REST/socket latency và lưu lượng | PARTIAL | Có 5 request REST Thư viện `all` và chênh lệch traffic UID cho cả lượt instrumented; chưa tách traffic 30 giây Home. Socket ACK NOT RUN, đo lại sau khi xác minh và khôi phục giao tiếp. |
 | Pin theo phiên cố định | PARTIAL | Một phiên 15 phút không cắm sạc cho số đo toàn máy; đã xác nhận Home và tự cuộn, nhưng chưa ghi dataset/độ sáng, chưa đủ đại diện hay quy riêng cho app. |
 | After | NOT RUN | Chưa thử bản cải tiến và chưa đủ điều kiện so sánh. |
 
