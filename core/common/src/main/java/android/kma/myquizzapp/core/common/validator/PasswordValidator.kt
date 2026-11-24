@@ -2,7 +2,7 @@ package android.kma.myquizzapp.core.common.validator
 
 /**
  * Validator cho password.
- * Kiểm tra blank và minimum length (configurable).
+ * Kiểm tra rỗng và độ dài tối thiểu; không chuẩn hóa mật khẩu.
  */
 object PasswordValidator {
     /**
@@ -17,7 +17,7 @@ object PasswordValidator {
      * @return ValidationResult.Success nếu hợp lệ, ValidationResult.Error nếu không
      */
     fun validate(password: String, minLength: Int = 1): ValidationResult {
-        if (password.isBlank()) {
+        if (password.isEmpty()) {
             return ValidationResult.Error("Mật khẩu không được để trống")
         }
 
@@ -46,7 +46,7 @@ object PasswordValidator {
      * @return ValidationResult.Success nếu khớp, ValidationResult.Error nếu không
      */
     fun validateConfirm(password: String, confirmPassword: String): ValidationResult {
-        if (confirmPassword.isBlank()) {
+        if (confirmPassword.isEmpty()) {
             return ValidationResult.Error("Xác nhận mật khẩu không được để trống")
         }
 
