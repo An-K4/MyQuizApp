@@ -71,7 +71,7 @@
 
 ## Pin toàn thiết bị — script không dây
 
-- Ngày 24/11/2026, chế độ `-BatteryOnly` của `measure-t01.ps1`, Live 4 / Android 11, ADB qua Wi-Fi; repo HEAD `2f1d949`, không xác minh hash APK. Script yêu cầu Home và vuốt xen kẽ khoảng mỗi 20 giây trong 900,4 giây; chưa có xác nhận người dùng về màn hình và nội dung trong suốt lượt chạy. Không reset batterystats. Độ sáng, dataset và các hoạt động nền chưa được ghi nhận.
+- Ngày 24/11/2026, chế độ `-BatteryOnly` của `measure-t01.ps1`, Live 4 / Android 11, ADB qua Wi-Fi; repo HEAD `2f1d949`, không xác minh hash APK. Script vuốt xen kẽ khoảng mỗi 20 giây trong 900,4 giây; người dùng xác nhận Home vẫn mở và tự cuộn trong suốt lượt chạy. Không reset batterystats. Độ sáng, dataset và các hoạt động nền chưa được ghi nhận.
 - Trước: 96%, `Charge counter` 3851300 µAh, 31,6°C; sau: 94%, 3770220 µAh, 30,0°C. Cả hai thời điểm AC/USB/wireless powered false, status 3 (đang xả). Chênh lệch bộ đếm báo 81080 µAh (81,08 mAh), pin hiển thị giảm 2 điểm phần trăm. Đây là một mẫu toàn thiết bị, độ phân giải và sai số tùy bộ đo; không quy phần chênh lệch riêng cho app, không suy kết quả pin dài hạn. Không xác minh trạng thái sạc liên tục giữa hai đầu đo.
 - Raw được lưu ngoài Git tại `C:\Users\admin\.aki\handoffs\myquiz-baseline\t01-20261124-165034`; muốn so after phải lặp cùng máy, kịch bản, độ sáng, kết nối, dữ liệu và điều kiện pin/nhiệt, và ghi nhận các thay đổi không kiểm soát được.
 
@@ -104,7 +104,7 @@
 | RAM/PSS và CPU | PARTIAL | Có 5 mẫu PSS/RSS và 5 mẫu CPU sau khởi tạo khi cuộn Home; chưa đo peak liên tục hay kịch bản trận. |
 | FPS, frame time/jank Home/Discover | PARTIAL | Có một mẫu gfxinfo Home và mode 60 Hz ở lần đọc sau; chưa đo FPS. |
 | REST/socket latency và lưu lượng | PARTIAL | Có 5 request REST Thư viện `all` qua Network Inspector; socket latency và tổng lưu lượng chưa đo. |
-| Pin theo phiên cố định | PARTIAL | Một phiên 15 phút không cắm sạc cho số đo toàn máy; chưa xác nhận màn hình/dataset/độ sáng, chưa đủ đại diện hay quy riêng cho app. |
+| Pin theo phiên cố định | PARTIAL | Một phiên 15 phút không cắm sạc cho số đo toàn máy; đã xác nhận Home và tự cuộn, nhưng chưa ghi dataset/độ sáng, chưa đủ đại diện hay quy riêng cho app. |
 | After | NOT RUN | Chưa thử bản cải tiến và chưa đủ điều kiện so sánh. |
 
 Không coi T01 là PASS hoặc cho T04 vượt gate chỉ từ các mẫu pilot này. Phương pháp chung và kịch bản xem [03](03_benchmark_metrics_scenarios.md); chỉ cập nhật tiến độ trong [roadmap](../roadmap/04_security_performance_plan.md).
