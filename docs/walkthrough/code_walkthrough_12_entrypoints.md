@@ -1373,7 +1373,7 @@ Sửa mutation rule ở domain use cases/validation, transport ở data. Rà sec
 
 **Dữ liệu không log/copy vào docs/evidence:** password, OTP, reset ticket/email-link token, Google ID token, cookie/refresh token, socket token/handshake auth, presigned signed URL/query, dữ liệu người chơi thật. Ví dụ phải dùng placeholder như `<SOCKET_TOKEN>` / `<TEST_PLAYER>`; không đọc `.env`, keystore hoặc local credential files để điền ví dụ.
 
-SafeHttpLogger chỉ log method/path/status, không body/header/query/exception. Điều đó **không chứng minh mọi Timber call trong app an toàn**: AuthRepositoryImpl.forgotPassword hiện có log email; GameSocketClient còn diagnostic throwable/message/cause. Đây là debt cần audit riêng, không âm thầm sửa trong documentation. Rule AGENTS “xem BODY log để debug” là lời khuyên lịch sử **không nên áp dụng bằng cách bật BODY trên credential traffic hiện tại**; ưu tiên fixture/test hoặc trace đã redact.
+SafeHttpLogger chỉ log method/status ở debug, không URL/path, body, header, query hoặc exception. Các log email forgot-password, payload ACK và diagnostic throwable/message/cause của Socket đã được loại bỏ. Điều đó **không chứng minh mọi log trong app hoặc thư viện an toàn**; vẫn cần kiểm thử log trên thiết bị debug/release. Rule AGENTS “xem BODY log để debug” là lời khuyên lịch sử **không nên áp dụng bằng cách bật BODY trên credential traffic hiện tại**; ưu tiên fixture/test hoặc trace đã redact.
 
 **File persistence / transport để lần theo:**
 
@@ -1506,7 +1506,7 @@ Backend REST/engine đã đọc thêm [game.service.ts](https://github.com/Ntd14
 | Aggregate privacy / summary | Player final không render room aggregate nhưng state/payload vẫn có perQuestion; history server summary còn full board, mapper/UI có phòng thủ | Không claim server đã bỏ mọi dữ liệu room khỏi Player wire/state |
 | Token/terminal recovery | Review socket-token RAM có TTL; socket handshake finished/cancelled còn gate cần kiểm; REST final recovery không sửa mọi bỏ-lỡ-game-ended | Không hứa process-death/reconnect mọi thời điểm có final/review đầy đủ |
 | Session state guard khác cookie transport isolation | N44 diagnostic hai race: stale terminal refresh clear cookie mới; Set-Cookie muộn resurrect sau logout | Không N44 PASS hoặc “generation đã fix cookie race”; user đã hoãn điều tra/fix |
-| Logging safety chưa đồng đều | SafeHttpLogger không body/query; legacy forgotPassword log email, socket diagnostics log messages/cause | Không khuyên bật BODY credential traffic theo note cũ; không tuyên bố full PII audit |
+| Logging safety cần kiểm chứng tiếp | SafeHttpLogger chỉ log method/status; đã loại log email forgot-password, payload ACK và socket diagnostic nhạy cảm | Không bật BODY cho credential traffic; chưa khẳng định mọi log và thư viện đều an toàn, cần kiểm thử trên thiết bị |
 | Preview local từng thay behavior | N41/note cũ auto-next/dependency đã khác: use case load, feedback manual Next, ≤30% critical timer | Không dùng local Preview để chứng minh Practice online PASS |
 | UI selection khác correctness | AnswerOptionItem selected/readOnly không phải graded; online review không có type field | Không suy single/multi từ key count, không local text regrade review |
 | Tests / XML / Preview evidence | Test tồn tại chỉ là coverage source; XML có thể cũ hơn source/không SHA; user duyệt UI khác CI | Không báo test/build/render PASS ở lượt documentation này |

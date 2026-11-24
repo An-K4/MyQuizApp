@@ -121,7 +121,7 @@ class ResetPasswordViewModel @Inject constructor(
                 }
 
                 is Result.Error -> {
-                    Timber.e("Reset: verify token FAILED - ${result.error}")
+                    Timber.e("Reset: verify token failed")
                     _uiState.update { it.copy(ticketError = result.error.toUserMessage()) }
                 }
             }

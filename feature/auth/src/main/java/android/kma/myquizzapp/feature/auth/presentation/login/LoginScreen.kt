@@ -123,13 +123,13 @@ fun LoginScreen(
             } catch (e: GetCredentialCancellationException) {
                 // User cancelled - silent fail
             } catch (e: NoCredentialException) {
-                Timber.e("NoCredentialException: ${e.message}")
+                Timber.e("NoCredentialException")
                 snackbarHostState.showSnackbar("Không tìm thấy tài khoản Google")
             } catch (e: GetCredentialException) {
-                Timber.e("GetCredentialException: ${e.message}")
+                Timber.e("GetCredentialException")
                 snackbarHostState.showSnackbar("Lỗi đăng nhập Google: ${e.message}")
             } catch (e: Exception) {
-                Timber.e("Unexpected exception in Google One Tap: ${e.message}")
+                Timber.e("Unexpected exception in Google One Tap")
                 snackbarHostState.showSnackbar("Lỗi không xác định: ${e.message}")
             }
         }

@@ -98,7 +98,7 @@ class OtpVerificationViewModel @Inject constructor(
                 is Result.Error -> {
                     // RESET_OTP_INVALID / RESET_OTP_EXPIRED / RESET_OTP_ATTEMPTS —
                     // toUserMessage đã map sẵn tiếng Việt (AppErrorExt).
-                    Timber.e("OTP Verify: FAILED - ${result.error}")
+                    Timber.e("OTP Verify: failed")
                     _effect.send(OtpVerificationEffect.ShowMessage(result.error.toUserMessage()))
                 }
             }
@@ -123,7 +123,7 @@ class OtpVerificationViewModel @Inject constructor(
                 }
 
                 is Result.Error -> {
-                    Timber.e("OTP Verify: Resend FAILED - ${result.error}")
+                    Timber.e("OTP Verify: resend failed")
                     _effect.send(OtpVerificationEffect.ShowMessage(result.error.toUserMessage()))
                 }
             }

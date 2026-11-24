@@ -687,7 +687,7 @@ class HostGameViewModel @Inject constructor(
             _effects.emit(HostGameEffect.ExitGame(messageForCode(event.code)))
             return
         }
-        Timber.w("HostGame lệnh %s bị từ chối: %s", event.event, event.code)
+        Timber.w("HostGame lệnh bị từ chối")
         _uiState.update {
             it.copy(isSendingCommand = false, errorMessage = messageForCode(event.code))
         }
@@ -737,7 +737,7 @@ class HostGameViewModel @Inject constructor(
         commandGuardJob?.cancel()
         commandGuardJob = viewModelScope.launch {
             runCatching { block() }
-                .onFailure { Timber.e(it, "Gửi lệnh host thất bại") }
+                .onFailure { Timber.e("Gửi lệnh host thất bại") }
             delay(COMMAND_GUARD_MS)
             _uiState.update { it.copy(isSendingCommand = false) }
         }
@@ -766,7 +766,7 @@ class HostGameViewModel @Inject constructor(
 
     private fun epochMillisOrNull(iso: String): Long? =
         runCatching { Instant.parse(iso).toEpochMilli() }
-            .onFailure { Timber.w(it, "Mốc thời gian không đọc được: %s", iso) }
+            .onFailure { Timber.w("Mốc thời gian không đọc được") }
             .getOrNull()
 
     override fun onCleared() {

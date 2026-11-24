@@ -62,7 +62,7 @@ class SessionRepositoryImpl internal constructor(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            Timber.e(e, "Session refresh failed")
+            Timber.e("Session refresh failed")
         }
     }
 

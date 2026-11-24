@@ -17,7 +17,6 @@ import android.kma.myquizzapp.core.network.dto.LoginRequest
 import android.kma.myquizzapp.core.network.dto.RegisterRequest
 import android.kma.myquizzapp.core.network.dto.VerifyResetOtpRequest
 import android.kma.myquizzapp.core.network.dto.VerifyResetTokenRequest
-import timber.log.Timber
 import javax.inject.Inject
 
 class AuthRepositoryImpl @Inject constructor(
@@ -73,18 +72,9 @@ class AuthRepositoryImpl @Inject constructor(
     }
 
     override suspend fun forgotPassword(email: String): Result<Unit> {
-        Timber.d("Forgot Pass: Repository - Calling API forgotPassword with email: $email")
         // N16.5: response giờ có data { resetTime, expiresAt } — app không dùng tới
         // (đếm ngược 60s cố định ở màn OTP) nên map về Unit.
-        val result = passwordResetApi.forgotPassword(ForgotPasswordRequest(email)).map { }
-        when (result) {
-            is Result.Success -> Timber.d("Forgot Pass: Repository - API returned SUCCESS")
-            is Result.Error -> {
-                Timber.e("Forgot Pass: Repository - API returned ERROR")
-                Timber.e("Forgot Pass: Error details: ${result.error}")
-            }
-        }
-        return result
+        return passwordResetApi.forgotPassword(ForgotPasswordRequest(email)).map { }
     }
 
     override suspend fun verifyResetWithOtp(email: String, otp: String): Result<ResetTicket> =

@@ -9,9 +9,31 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import timber.log.Timber
 
 class SocketAckMapperTest {
     private val mapper = SocketAckMapper(NetworkModule.providePreserveCaseJson())
+
+    @Test
+    fun `malformed ack and parse exception never reach logs`() {
+        val messages = mutableListOf<String>()
+        val tree = object : Timber.Tree() {
+            override fun log(priority: Int, tag: String?, message: String, t: Throwable?) {
+                messages += message
+                if (t != null) messages += t.toString()
+            }
+        }
+        Timber.plant(tree)
+        try {
+            mapper.toAnswerAck(SocketAckResult.Payload("malformed-answer-secret"))
+            mapper.toConfigUpdateAck(SocketAckResult.Payload("malformed-config-secret"))
+            mapper.toConfigUpdateAck(SocketAckResult.Payload("""{"ok":false,"token":"payload-secret"}"""))
+            assertTrue(messages.isNotEmpty())
+            assertFalse(messages.joinToString().contains("secret"))
+        } finally {
+            Timber.uproot(tree)
+        }
+    }
 
     @Test
     fun `ack thanh cong tra ve full config da normalize`() {
