@@ -1,6 +1,7 @@
 package android.kma.myquizzapp.feature.home.presentation
 
 import android.kma.myquizzapp.core.common.error.toUserMessage
+import android.kma.myquizzapp.core.common.network.NetworkMonitor
 import android.kma.myquizzapp.core.common.result.Result
 import android.kma.myquizzapp.feature.auth.domain.usecase.ObserveSessionUseCase
 import android.kma.myquizzapp.feature.home.domain.usecase.GetHomeContentUseCase
@@ -37,6 +38,7 @@ import javax.inject.Inject
 class HomeViewModel @Inject constructor(
     private val getHomeContentUseCase: GetHomeContentUseCase,
     observeSession: ObserveSessionUseCase,
+    private val networkMonitor: NetworkMonitor,
 ) : ViewModel() {
 
     /** Phần state do chính Home sở hữu (nội dung + loading + lỗi). */
@@ -61,8 +63,24 @@ class HomeViewModel @Inject constructor(
     private val _effect = Channel<HomeEffect>()
     val effect = _effect.receiveAsFlow()
 
+    private var reconnectPending = false
+
     init {
+        // Capture before launching: the network may change before the collector runs.
+        var wasOffline = !networkMonitor.isOnline.value
         loadHomeContent()
+        viewModelScope.launch {
+            networkMonitor.isOnline.collect { online ->
+                if (!online) {
+                    wasOffline = true
+                    reconnectPending = false
+                } else if (wasOffline) {
+                    wasOffline = false
+                    if (_contentState.value.isLoadingHome) reconnectPending = true
+                    else loadHomeContent()
+                }
+            }
+        }
     }
 
     /**
@@ -87,9 +105,10 @@ class HomeViewModel @Inject constructor(
      * Load home sections from backend.
      */
     private fun loadHomeContent() {
+        // Claim before launch so rapid retry taps cannot overlap requests.
+        if (_contentState.value.isLoadingHome) return
+        _contentState.update { it.copy(isLoadingHome = true, homeError = null) }
         viewModelScope.launch {
-            _contentState.update { it.copy(isLoadingHome = true, homeError = null) }
-
             when (val result = getHomeContentUseCase()) {
                 is Result.Success -> {
                     _contentState.update {
@@ -109,6 +128,12 @@ class HomeViewModel @Inject constructor(
                         )
                     }
                 }
+            }
+            // A request begun offline may finish after reconnect. Run one fresh
+            // read after it completes; never spin without a new network transition.
+            if (reconnectPending && networkMonitor.isOnline.value) {
+                reconnectPending = false
+                loadHomeContent()
             }
         }
     }

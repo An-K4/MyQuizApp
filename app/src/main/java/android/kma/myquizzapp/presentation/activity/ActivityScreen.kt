@@ -8,6 +8,8 @@ import android.kma.myquizzapp.core.common.model.SessionState
 import android.kma.myquizzapp.core.common.model.SessionStatus
 import android.kma.myquizzapp.core.common.model.User
 import android.kma.myquizzapp.core.ui.theme.MyQuizAppTheme
+import android.kma.myquizzapp.navigation.SessionRecoveryState
+import android.kma.myquizzapp.navigation.SessionResolutionContent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -51,6 +53,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 fun ActivityScreen(
     onOpenHistory: (Long) -> Unit,
     modifier: Modifier = Modifier,
+    recoveryState: SessionRecoveryState = SessionRecoveryState.Checking,
+    onRetrySession: () -> Unit = {},
     viewModel: ActivityViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -66,6 +70,8 @@ fun ActivityScreen(
         uiState = uiState,
         onIntent = viewModel::onIntent,
         onOpenHistory = onOpenHistory,
+        recoveryState = recoveryState,
+        onRetrySession = onRetrySession,
         modifier = modifier
     )
 }
@@ -76,7 +82,9 @@ fun ActivityScreenContent(
     uiState: ActivityUiState,
     onIntent: (ActivityIntent) -> Unit,
     onOpenHistory: (Long) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    recoveryState: SessionRecoveryState = SessionRecoveryState.Checking,
+    onRetrySession: () -> Unit = {}
 ) {
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -117,7 +125,7 @@ fun ActivityScreenContent(
             }
 
             if (uiState.session is SessionState.Unknown) {
-                LoadingState()
+                SessionResolutionContent(recoveryState, onRetrySession)
             } else {
                 HistoryList(
                     page = uiState.currentList,

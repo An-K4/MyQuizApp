@@ -2,6 +2,7 @@ package android.kma.myquizzapp.feature.quiz_manage.presentation.quizmanagelist
 
 import android.kma.myquizzapp.core.common.error.AppError
 import android.kma.myquizzapp.core.common.error.toUserMessage
+import android.kma.myquizzapp.core.common.network.NetworkMonitor
 import android.kma.myquizzapp.core.common.model.MyQuizzesSort
 import android.kma.myquizzapp.core.common.model.MyQuizzesVisibility
 import android.kma.myquizzapp.core.common.repository.QuizRepository
@@ -19,6 +20,7 @@ import io.mockk.unmockkStatic
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -40,6 +42,8 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class QuizManageListViewModelTest {
     private val dispatcher = StandardTestDispatcher()
+    private val online = MutableStateFlow(true)
+    private val networkMonitor = object : NetworkMonitor { override val isOnline = online }
     private lateinit var repository: QuizRepository
     private lateinit var viewModel: QuizManageListViewModel
     private lateinit var store: ViewModelStore
@@ -53,7 +57,7 @@ class QuizManageListViewModelTest {
         every { Log.isLoggable(any(), any()) } returns false
         repository = mockk()
         viewModel =
-            QuizManageListViewModel(GetMyQuizzesUseCase(repository), DeleteQuizUseCase(repository))
+            QuizManageListViewModel(GetMyQuizzesUseCase(repository), DeleteQuizUseCase(repository), networkMonitor)
         store = ViewModelStore().also { it.put("library", viewModel) }
     }
 
@@ -62,6 +66,27 @@ class QuizManageListViewModelTest {
         store.clear()
         Dispatchers.resetMain()
         unmockkStatic(Log::class)
+    }
+
+    @Test
+    fun `reconnect refreshes paging once without retrying delete or changing filters`() = runTest(dispatcher) {
+        viewModel.onIntent(QuizManageListIntent.KeywordChanged("Sinh học"))
+        viewModel.onIntent(QuizManageListIntent.VisibilityChanged(MyQuizzesVisibility.PUBLIC))
+        var generations = 0
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            viewModel.quizzes.collect { generations++ }
+        }
+        runCurrent()
+        val before = generations
+        online.value = false
+        runCurrent()
+        assertEquals(before, generations)
+        online.value = true
+        runCurrent()
+        assertEquals(before + 1, generations)
+        assertEquals("Sinh học", viewModel.uiState.value.keyword)
+        assertEquals(MyQuizzesVisibility.PUBLIC, viewModel.uiState.value.visibility)
+        coVerify(exactly = 0) { repository.deleteQuiz(any()) }
     }
 
     @Test

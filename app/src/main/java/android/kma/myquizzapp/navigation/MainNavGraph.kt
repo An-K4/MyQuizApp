@@ -10,6 +10,8 @@ import android.kma.myquizzapp.presentation.profile.AccountSecurityScreen
 import android.kma.myquizzapp.presentation.profile.ProfileScreen
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.flow.StateFlow
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.composable
@@ -25,7 +27,9 @@ import androidx.navigation.toRoute
  */
 fun NavGraphBuilder.mainGraph(
     navController: NavHostController,
-    onCurrentUserChanged: () -> Unit
+    onCurrentUserChanged: () -> Unit,
+    sessionRecovery: StateFlow<SessionRecoveryState>,
+    onRetrySession: () -> Unit
 ) {
     // ----- PUBLIC ROUTES (accessible to everyone) -----
     composable<Route.Home> { entry ->
@@ -102,8 +106,11 @@ fun NavGraphBuilder.mainGraph(
 
     // ----- TOP-LEVEL ACCOUNT/GUEST ROUTES -----
     composable<Route.Activity> {
+        val recovery by sessionRecovery.collectAsStateWithLifecycle()
         // N38: user có Đã chơi/Đã tổ chức; guest xem Đã chơi bằng UUID thiết bị.
         ActivityScreen(
+            recoveryState = recovery,
+            onRetrySession = onRetrySession,
             onOpenHistory = { sessionId ->
                 navController.navigate(Route.GameHistoryDetail(sessionId))
             }
@@ -124,10 +131,13 @@ fun NavGraphBuilder.mainGraph(
     }
 
     composable<Route.Profile> {
+        val recovery by sessionRecovery.collectAsStateWithLifecycle()
         // Tab Hồ sơ — từ N19.5 chỉ còn thông tin người dùng + Đăng xuất; lối vào
         // "Quiz của tôi" đã thành tab Thư viện. Là tab nên không có nút back.
         // Đăng xuất xong quay về tab Trang chủ (trước đây popBackStack sẽ thoát app).
         ProfileScreen(
+            recoveryState = recovery,
+            onRetrySession = onRetrySession,
             onOpenSecurity = { navController.navigate(Route.AccountSecurity) },
             // Khách vẫn vào được tab này — không gác bằng hộp thoại, vì một tab của
             // bottom nav bị chặn ngay khi bấm thì không còn là tab nữa. Màn tự hiện

@@ -1,6 +1,7 @@
 package android.kma.myquizzapp
 
 import android.kma.myquizzapp.core.common.error.AppError
+import android.kma.myquizzapp.core.common.network.NetworkMonitor
 import android.kma.myquizzapp.core.common.model.SessionState
 import android.kma.myquizzapp.core.common.result.Result
 import android.kma.myquizzapp.domain.profile.LoadProfileStatsUseCase
@@ -19,6 +20,7 @@ import io.mockk.mockk
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runCurrent
@@ -36,10 +38,43 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class ProfileViewModelTest {
     private val dispatcher = StandardTestDispatcher()
+    private val online = MutableStateFlow(true)
+    private val networkMonitor = object : NetworkMonitor { override val isOnline = online }
     @Before
     fun setUp() = Dispatchers.setMain(dispatcher)
     @After
     fun tearDown() = Dispatchers.resetMain()
+
+    @Test
+    fun `reconnect waits for in flight stats then reloads`() = runTest(dispatcher) {
+        online.value = false
+        val fixture = fixture()
+        val pending = CompletableDeferred<Result<ProfileStats>>()
+        var calls = 0
+        coEvery { fixture.loadStats.invoke() } coAnswers {
+            calls++
+            if (calls == 1) pending.await() else Result.Success(ProfileStats(7, 3))
+        }
+        runCurrent()
+        online.value = true; runCurrent()
+        assertEquals(1, calls)
+        pending.complete(Result.Error(AppError.Network))
+        runCurrent()
+        assertEquals(2, calls)
+        assertEquals(ProfileStats(7, 3), fixture.vm.uiState.value.profileStats)
+    }
+
+    @Test
+    fun `reconnect reloads stats and keeps draft`() = runTest(dispatcher) {
+        val fixture = fixture()
+        runCurrent()
+        fixture.vm.onIntent(ProfileIntent.EditProfile)
+        fixture.vm.onIntent(ProfileIntent.ChangeDescription("Unsaved bio"))
+        online.value = false; runCurrent()
+        online.value = true; runCurrent()
+        io.mockk.coVerify(exactly = 2) { fixture.loadStats.invoke() }
+        assertEquals("Unsaved bio", fixture.vm.uiState.value.draft?.description)
+    }
 
     @Test
     fun `session refresh changes displayed user but does not overwrite editing draft`() =
@@ -184,7 +219,7 @@ class ProfileViewModelTest {
                 SaveProfileUseCase(users, session),
                 UpdateAvatarUseCase(storage, users, session),
                 preparer,
-                handle
+                handle, networkMonitor
             ), session, users, storage, loadStats
         )
     }

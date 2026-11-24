@@ -167,7 +167,12 @@ fun AppNavGraph(
 
             // ===== MAIN GRAPH (Unified - Guest + Authenticated) =====
             navigation<Route.MainGraph>(startDestination = Route.Home) {
-                mainGraph(navController, onCurrentUserChanged = currentUserViewModel::refresh)
+                mainGraph(
+                    navController,
+                    onCurrentUserChanged = currentUserViewModel::refresh,
+                    sessionRecovery = currentUserViewModel.sessionRecovery,
+                    onRetrySession = currentUserViewModel::retrySession
+                )
                 quizManageGraph(navController, requireAuth = requireAuth)
                 quizPreviewGraph(navController)
                 gameGraph(navController)
