@@ -49,3 +49,4 @@ Toàn bộ tài liệu kỹ thuật đã được quy hoạch gọn gàng trong 
 1. Đối chiếu trạng thái roadmap và các điểm phụ thuộc Backend trước khi triển khai lô tiếp theo; không suy merge là đã vượt mọi gate.
 2. Kiểm tra ruleset và `build` CI thực tế trước PR; không suy cấu hình đã lưu chỉ từ ảnh giao diện.
 3. Triển khai theo task/nhánh và nghiệm thu như roadmap; cập nhật tiến độ chỉ ở roadmap mới, ghi bài học vào knowledge của từng lô.
+4. Khi hoàn tất và bàn giao mỗi nhánh để người dùng tạo PR, luôn đề xuất **title và description bằng tiếng Anh**, với description ngắn gọn dạng gạch đầu dòng. Nêu thay đổi chính, kết quả kiểm thử và phần chưa chạy hoặc blocker nếu có; không khẳng định đã nghiệm thu khi chưa có bằng chứng. Người dùng quyết định tạo, review và merge PR.
