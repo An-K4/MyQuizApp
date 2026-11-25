@@ -43,9 +43,9 @@ Toàn bộ tài liệu kỹ thuật đã được quy hoạch gọn gàng trong 
 ### 3.1. Trạng thái tại thời điểm lập kế hoạch
 - **Android `main`:** `31f8fbf` sau merge PR tài liệu #5; kiểm tra HEAD khi bắt đầu. Các kết quả test lịch sử không tự chứng minh test mới PASS.
 - **Backend local `main`:** `37038f6` khi audit; deployment và các kết quả runtime phải xác minh riêng. Không tự sửa Backend; thông báo người dùng để phối hợp nhóm Backend khi cần.
-- **Roadmap mới:** [Kế hoạch chung bảo mật và tối ưu](roadmap/04_security_performance_plan.md) đã được người dùng duyệt; các task chưa bắt đầu. Không track hoặc push `my_notes.md`.
+- **Roadmap mới:** [Kế hoạch chung bảo mật và tối ưu](roadmap/04_security_performance_plan.md) đã được người dùng duyệt. T01–T04 đã merge vào `main` qua PR #7–#10; các kết quả còn thiếu và nghiệm thu xem roadmap. Không track hoặc push `my_notes.md`.
 
 ### 3.2. Công việc tiếp theo
-1. Người dùng tạo và duyệt PR tài liệu; đối chiếu các điểm phụ thuộc Backend và bắt đầu triển khai theo roadmap đã duyệt.
+1. Đối chiếu trạng thái roadmap và các điểm phụ thuộc Backend trước khi triển khai lô tiếp theo; không suy merge là đã vượt mọi gate.
 2. Kiểm tra ruleset và `build` CI thực tế trước PR; không suy cấu hình đã lưu chỉ từ ảnh giao diện.
 3. Triển khai theo task/nhánh và nghiệm thu như roadmap; cập nhật tiến độ chỉ ở roadmap mới, ghi bài học vào knowledge của từng lô.
