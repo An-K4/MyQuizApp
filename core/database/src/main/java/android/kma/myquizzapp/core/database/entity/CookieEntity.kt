@@ -1,15 +1,16 @@
-﻿package android.kma.myquizzapp.core.database.entity
+package android.kma.myquizzapp.core.database.entity
 
 import androidx.room.Entity
-import androidx.room.PrimaryKey
 
-@Entity(tableName = "cookie_store")
+@Entity(tableName = "cookie_store", primaryKeys = ["name", "domain", "path"])
 data class CookieEntity(
-    @PrimaryKey val key: String,   // "host|name"
-    val value: String,
+    val name: String,
     val domain: String,
     val path: String,
+    val value: String,
     val expiresAt: Long,
     val secure: Boolean,
-    val httpOnly: Boolean
+    val httpOnly: Boolean,
+    val hostOnly: Boolean,
+    val legacy: Boolean
 )
