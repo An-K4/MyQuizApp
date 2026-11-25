@@ -12,7 +12,7 @@ Trạng thái ban đầu: **Chưa bắt đầu**. Dấu `[x]` chỉ dùng khi đ
 | [ ] | T02 | 1 | Loại log PII/secret, kiểm thử redaction | — | Đã merge PR #8 (`5ea7fad`); còn xác minh release/log thiết bị |
 | [ ] | T03 | 1 | Chuẩn hóa và xác thực input theo hợp đồng | — | Đã merge PR #9 (`df1ba63`); còn kiểm tra lỗi hiển thị trên thiết bị |
 | [ ] | T04 | 1 | Sửa cold-start offline/session Unknown | T01 | Đã merge PR #10 (`a2d5cb8`); user đã test nhánh, smoke test main chưa xác nhận |
-| [ ] | T05 | 2 | Khôi phục ngữ nghĩa chọn/lưu cookie | — | Đang làm trên `task/t05-cookie-scope`; migration và kiểm thử thiết bị chưa xác nhận |
+| [ ] | T05 | 2 | Khôi phục ngữ nghĩa chọn/lưu cookie | — | Đã push `task/t05-cookie-scope`; test Room và smoke upgrade phiên PASS, chờ review/merge |
 | [ ] | T06 | 2 | Chặn race refresh/logout/session | T05 | Chưa bắt đầu |
 | [ ] | T07 | 2 | Mã hóa cookie bằng Keystore và migration | T05, T06 | Chưa bắt đầu |
 | [ ] | T08 | 2 | Chính sách backup/restore dữ liệu bảo mật | T07 | Chưa bắt đầu |
@@ -120,7 +120,7 @@ Knowledge: [kn_24](../knowledge/kn_24_lot_1_baseline_client.md). Gate: baseline 
 Knowledge: [kn_25](../knowledge/kn_25_lot_2_session_keystore.md). Merge T05→T06→T07, sau đó T08/T09; tránh cùng sửa migration/schema song song. Gate: migration và phiên không mất/khôi phục sai; test thiết bị/Backend B1 được xác nhận.
 
 ### T05 — Cookie scope
-**Đang làm:** Trước sửa, `testDebugUnitTest` job `0bdff051` tái hiện 3 test lỗi về host-only, domain và path/Secure. `:core:database:connectedDebugAndroidTest` job `60b92150`: 2 test dữ liệu giả PASS trên Android 11, gồm migration Room v1→v2 và phạm vi lưu/xóa. `testDebugUnitTest` job `9b8b1c66` thành công (các tác vụ up-to-date; chẩn đoán N44 opt-in vẫn skipped). Chưa xác nhận upgrade ứng dụng với phiên thật, chưa nghiệm thu.
+**Đang làm:** Trước sửa, `testDebugUnitTest` job `0bdff051` tái hiện 3 test lỗi về host-only, domain và path/Secure. `:core:database:connectedDebugAndroidTest` job `60b92150`: 2 test dữ liệu giả PASS trên Android 11, gồm migration Room v1→v2 và phạm vi lưu/xóa. `testDebugUnitTest` job `9b8b1c66` thành công (các tác vụ up-to-date; chẩn đoán N44 opt-in vẫn skipped). Cài đè debug job `73c0a30e` trên Live 4 Android 11: user xác nhận vẫn đăng nhập sau nâng cấp. Chưa merge/kiểm thử đầy đủ các vòng đời khác.
 
 **Vị trí:** `core/common/.../cookie/CookieStore.kt`, `core/database/.../cookie/RoomCookieStore.kt`, `core/database/.../entity/CookieEntity.kt`, `core/network/.../cookie/PersistentCookieJar.kt`. **Phụ thuộc:** không.
 - [x] Viết test cookie host-only/domain, path khác nhau cùng tên, Secure/HTTP, expires và xóa; xác định migration schema từ bản cũ.
