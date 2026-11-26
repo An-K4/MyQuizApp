@@ -2,6 +2,7 @@ package android.kma.myquizzapp.core.database.cookie
 
 import android.kma.myquizzapp.core.common.cookie.CookieStore
 import android.kma.myquizzapp.core.common.cookie.StoredCookie
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -36,8 +37,22 @@ internal class JournaledCookieStore(
     }
 
     override suspend fun clear() = lock.withLock {
-        // Persist before touching Room. If this fails, do not claim deletion succeeded.
-        journal.setPending(true)
+        // Normally persist intent first. If the journal fails, still try deleting
+        // the cookies, but surface the error because durable state is uncertain.
+        try {
+            journal.setPending(true)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            try {
+                delegate.clear()
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (clearFailure: Exception) {
+                e.addSuppressed(clearFailure)
+            }
+            throw e
+        }
         delegate.clear()
         journal.setPending(false)
     }

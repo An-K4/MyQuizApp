@@ -37,11 +37,25 @@ class JournaledCookieStoreTest {
         assertFalse(journal.pendingFlag)
     }
 
-    @Test fun failedJournalWriteDoesNotClaimClearSucceeded() = runBlocking {
+    @Test fun failedJournalWriteStillAttemptsDeletionAndReportsFailure() = runBlocking {
         val journal = FakeJournal().apply { failWrite = true }
         val underlying = FakeStore(mutableListOf(cookie))
         try { JournaledCookieStore(underlying, journal).clear(); fail("must fail") } catch (_: IOException) { }
-        assertEquals(0, underlying.clears)
+        assertEquals(1, underlying.clears)
+        assertTrue(JournaledCookieStore(underlying, FakeJournal()).loadForHost(host).isEmpty())
+    }
+
+    @Test fun failedJournalAndDeletionReportsBothFailures() = runBlocking {
+        val journal = FakeJournal().apply { failWrite = true }
+        val underlying = FakeStore(mutableListOf(cookie)).apply { failClear = true }
+        try {
+            JournaledCookieStore(underlying, journal).clear()
+            fail("must fail")
+        } catch (e: IOException) {
+            assertEquals(1, e.suppressed.size)
+        }
+        assertEquals(1, underlying.clears)
+        // No durable marker or deletion: recovery after restart is not guaranteed.
         assertEquals("fixture", underlying.cookies.single().value)
     }
 
