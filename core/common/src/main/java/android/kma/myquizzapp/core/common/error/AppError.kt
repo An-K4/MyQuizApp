@@ -1,6 +1,7 @@
 ﻿package android.kma.myquizzapp.core.common.error
 
 sealed interface AppError {
+    data object LocalStorage : AppError  // Credential cleanup could not be confirmed
     data object Network : AppError       // IOException / mất mạng
     data object Unauthorized : AppError  // 401 — cookie chết cả sau refresh, bắt login lại
     data object Forbidden : AppError     // 403 không có envelope hợp lệ

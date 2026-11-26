@@ -1,6 +1,7 @@
 package android.kma.myquizzapp.domain.profile
 
 import android.kma.myquizzapp.core.common.error.AppError
+import android.kma.myquizzapp.core.common.cookie.CredentialStorageException
 import android.kma.myquizzapp.core.common.error.isSessionTerminal
 import android.kma.myquizzapp.core.common.model.SessionUserToken
 import android.kma.myquizzapp.core.common.repository.SessionRepository
@@ -86,8 +87,12 @@ class UpdateAvatarUseCase @Inject constructor(
 
     private suspend fun failed(error: AppError, token: SessionUserToken): AvatarUpdateResult {
         if (!isCurrent(token)) return AvatarUpdateResult.SessionChanged
-        if (error.isSessionTerminal) session.invalidateSession(token)
-        return AvatarUpdateResult.Failed(error)
+        return try {
+            if (error.isSessionTerminal) session.invalidateSession(token)
+            AvatarUpdateResult.Failed(error)
+        } catch (_: CredentialStorageException) {
+            AvatarUpdateResult.Failed(AppError.LocalStorage)
+        }
     }
 
     companion object {

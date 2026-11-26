@@ -1,8 +1,10 @@
 package android.kma.myquizzapp.core.network.cookie
 
 import android.kma.myquizzapp.core.common.cookie.CookieStore
+import android.kma.myquizzapp.core.common.cookie.CredentialStorageException
 import android.kma.myquizzapp.core.common.cookie.StoredCookie
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.CancellationException
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -83,14 +85,14 @@ class CredentialLifecycle @Inject constructor(private val store: CookieStore) {
 
     fun load(expected: CredentialEpoch, host: String, allowPending: Boolean = true): List<StoredCookie>? = synchronized(lock) {
         if (storageBlocked || expected.value != epoch || (authenticationPending && !allowPending)) return@synchronized null
-        runBlocking { store.loadForHost(host) }
+        storageAccess { store.loadForHost(host) }
     }
 
     fun save(expected: CredentialEpoch, host: String, cookies: List<StoredCookie>): Boolean =
         synchronized(lock) {
             if (storageBlocked || expected.value != epoch) return@synchronized false
             if (cookies.isNotEmpty()) {
-                runBlocking { store.saveAll(host, cookies) }
+                storageAccess { store.saveAll(host, cookies) }
                 revision++
             }
             true
@@ -108,8 +110,16 @@ class CredentialLifecycle @Inject constructor(private val store: CookieStore) {
 
     private fun clearStorage() {
         storageBlocked = true
-        runBlocking { store.clear() }
+        storageAccess { store.clear() }
         storageBlocked = false
+    }
+
+    private fun <T> storageAccess(action: suspend () -> T): T = try {
+        runBlocking { action() }
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        throw CredentialStorageException(e)
     }
 
     fun <T> ifCurrent(expected: CredentialEpoch, action: () -> T): T? = synchronized(lock) {

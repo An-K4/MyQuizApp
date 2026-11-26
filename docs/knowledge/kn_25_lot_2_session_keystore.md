@@ -20,8 +20,8 @@
 
 - CookieJar mặc định không biết request thuộc phiên nào: chỉ guard `SessionState` không ngăn `Set-Cookie` cũ ghi trở lại hoặc terminal refresh cũ xóa cookie mới. Trên nhánh T06 dựa vào `c8d9463`, request mang epoch; network interceptor kiểm tra epoch khi đọc/ghi cookie, coordinator đồng bộ thao tác lưu/xóa cục bộ và không giữ lock khi chờ network.
 - Login mới bắt đầu epoch và dọn cookie cũ; khi còn pending, request không thuộc auth không được lấy cookie hay tự refresh. Logout và kết quả terminal chỉ retire epoch đã bắt. Refresh đồng thời dùng version để tái sử dụng kết quả refresh thay vì liên tiếp refresh token đã xoay.
-- Nếu xóa kho thất bại, tiến trình hiện tại chặn đọc/ghi cookie đến khi xóa thành công. Cờ chặn chỉ nằm trong RAM: **không chứng minh an toàn qua process restart nếu storage lỗi**; không được gọi đây là bảo đảm fail-closed bền vững. Logout offline không chứng minh backend đã revoke.
-- `testDebugUnitTest` PASS trên bản nhánh chưa commit (job `2698e259-2720-4930-a7a7-f9f2d6336edb`), gồm race giả lập, refresh đồng thời và lỗi storage. Không thay thế login/logout, upgrade và network E2E trên thiết bị thật.
+- Trước khi xóa cookie, RoomCookieStore cố ghi đồng bộ dấu dọn dẹp đang chờ; nếu dấu này đã lưu thành công, lần đọc/ghi sau khi tạo lại store phải thử xóa lại trước. Lỗi lưu trữ được báo cho luồng auth thay vì báo xóa thành công. Nếu không ghi được dấu, dấu bị mất/hỏng hoặc dữ liệu backup/restore không nhất quán, chưa có bảo đảm cookie cũ không trở lại sau restart; việc tiến trình chết trước khi ghi dấu cũng chưa được chứng minh an toàn. Không coi đây là bảo đảm fail-closed tuyệt đối. Logout offline không chứng minh backend đã revoke.
+- `testDebugUnitTest` PASS trên bản sửa chưa commit (job `b6d846b6-6094-4b44-9f6f-f1f1ce0a4116`), gồm race giả lập, refresh đồng thời, lỗi storage và tạo lại store với journal giả. Không thay thế login/logout, upgrade và network E2E trên thiết bị thật.
 
 ## Khi thực hiện
 

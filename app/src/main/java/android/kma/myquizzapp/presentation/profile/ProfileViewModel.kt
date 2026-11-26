@@ -294,8 +294,13 @@ class ProfileViewModel @Inject constructor(
         statsJob?.cancel()
         _uiState.update { it.copy(isLoggingOut = true) }
         viewModelScope.launch {
-            logoutUseCase()
-            _effect.send(ProfileEffect.NavigateBack)
+            val result = logoutUseCase()
+            _uiState.update { it.copy(isLoggingOut = false) }
+            if (result is Result.Error && result.error == android.kma.myquizzapp.core.common.error.AppError.LocalStorage) {
+                _effect.send(ProfileEffect.ShowError(result.error.toUserMessage()))
+            } else {
+                _effect.send(ProfileEffect.NavigateBack)
+            }
         }
     }
 }

@@ -1,11 +1,13 @@
 package android.kma.myquizzapp.feature.auth.domain.usecase
 
 import android.kma.myquizzapp.core.common.error.AppError
+import android.kma.myquizzapp.core.common.cookie.CredentialStorageException
 import android.kma.myquizzapp.core.common.model.User
 import android.kma.myquizzapp.core.common.model.SessionState
 import android.kma.myquizzapp.core.common.repository.AuthRepository
 import android.kma.myquizzapp.core.common.repository.SessionRepository
 import android.kma.myquizzapp.core.common.result.Result
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.StateFlow
@@ -27,8 +29,7 @@ class LoginUseCase @Inject constructor(
     private val session: SessionRepository,
 ) {
     suspend operator fun invoke(email: String, password: String): Result<User> {
-        val epoch = session.beginAuthentication() ?: return Result.Error(AppError.Network)
-        return authenticate(session, epoch) { repo.loginAtEpoch(email, password, epoch) }
+        return authenticate(session) { epoch -> repo.loginAtEpoch(email, password, epoch) }
     }
 }
 
@@ -37,8 +38,7 @@ class RegisterUseCase @Inject constructor(
     private val session: SessionRepository,
 ) {
     suspend operator fun invoke(email: String, password: String, fullname: String, phone: String?): Result<User> {
-        val epoch = session.beginAuthentication() ?: return Result.Error(AppError.Network)
-        return authenticate(session, epoch) { repo.registerAtEpoch(email, password, fullname, phone, epoch) }
+        return authenticate(session) { epoch -> repo.registerAtEpoch(email, password, fullname, phone, epoch) }
     }
 }
 
@@ -47,8 +47,7 @@ class LoginWithGoogleUseCase @Inject constructor(
     private val session: SessionRepository,
 ) {
     suspend operator fun invoke(idToken: String): Result<User> {
-        val epoch = session.beginAuthentication() ?: return Result.Error(AppError.Network)
-        return authenticate(session, epoch) { repo.loginWithGoogleAtEpoch(idToken, epoch) }
+        return authenticate(session) { epoch -> repo.loginWithGoogleAtEpoch(idToken, epoch) }
     }
 }
 
@@ -58,23 +57,48 @@ class LogoutUseCase @Inject constructor(
 ) {
     suspend operator fun invoke(): Result<Unit> {
         val epoch = session.currentCredentialEpoch() ?: return Result.Error(AppError.Network)
-        try {
-            return repo.logoutAtEpoch(epoch)
-        } finally {
-            withContext(NonCancellable) { session.signOutIfCurrent(epoch) }
+        return try {
+            withCredentialCleanup(
+                work = { repo.logoutAtEpoch(epoch) },
+                cleanup = { session.signOutIfCurrent(epoch); Unit }
+            )
+        } catch (_: CredentialStorageException) {
+            Result.Error(AppError.LocalStorage)
         }
     }
 }
 
-private suspend fun authenticate(session: SessionRepository, epoch: Long, call: suspend () -> Result<User>): Result<User> {
+private suspend fun authenticate(session: SessionRepository, call: suspend (Long) -> Result<User>): Result<User> {
+    return try {
+        val epoch = session.beginAuthentication() ?: return Result.Error(AppError.LocalStorage)
+        withCredentialCleanup(
+            work = {
+                when (val result = call(epoch)) {
+                    is Result.Error -> result
+                    is Result.Success -> if (session.completeAuthentication(epoch, result.data)) result
+                        else Result.Error(AppError.Network)
+                }
+            },
+            cleanup = { session.abortAuthentication(epoch); Unit }
+        )
+    } catch (_: CredentialStorageException) {
+        Result.Error(AppError.LocalStorage)
+    }
+}
+
+private suspend fun <T> withCredentialCleanup(work: suspend () -> T, cleanup: suspend () -> Unit): T {
+    var cancellation: CancellationException? = null
     try {
-        return when (val result = call()) {
-            is Result.Error -> result
-            is Result.Success -> if (session.completeAuthentication(epoch, result.data)) result
-                else Result.Error(AppError.Network)
-        }
+        return work()
+    } catch (e: CancellationException) {
+        cancellation = e
+        throw e
     } finally {
-        withContext(NonCancellable) { session.abortAuthentication(epoch) }
+        try {
+            withContext(NonCancellable) { cleanup() }
+        } catch (e: CredentialStorageException) {
+            if (cancellation == null) throw e
+        }
     }
 }
 

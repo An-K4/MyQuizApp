@@ -5,6 +5,7 @@ package android.kma.myquizzapp.core.common.error
 // (response.ts fail(), danh sách đầy đủ ở shared/errors/codes.ts). Backend cố ý
 // không trả message để client tự sở hữu wording (đa ngôn ngữ, tránh leak nội bộ).
 fun AppError.toUserMessage(): String = when (this) {
+    AppError.LocalStorage -> "Chưa xóa được dữ liệu phiên trên thiết bị. Không nên dùng máy chung; vui lòng thử đăng nhập lại."
     AppError.Network -> "Không có kết nối mạng"
     AppError.Unauthorized -> "Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại"
     AppError.Forbidden -> "Bạn không có quyền thực hiện thao tác này"

@@ -57,7 +57,7 @@ class CredentialLifecycleTest {
         try {
             guarded.retireAndClear(old)
             throw AssertionError("Expected failed clear")
-        } catch (_: IllegalStateException) { }
+        } catch (_: android.kma.myquizzapp.core.common.cookie.CredentialStorageException) { }
         val current = guarded.current()
         assertNull(guarded.load(current, host))
         assertFalse(guarded.save(current, host, listOf(cookie("late-fixture"))))

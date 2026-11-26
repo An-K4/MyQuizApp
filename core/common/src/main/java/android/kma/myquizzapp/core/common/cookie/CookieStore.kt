@@ -7,6 +7,9 @@ interface CookieStore {
     suspend fun clear()   // logout + refresh-thất-bại cần xóa sạch
 }
 
+/** Local credential cleanup failed; callers must not report successful logout. */
+class CredentialStorageException(cause: Throwable) : java.io.IOException("Credential storage unavailable", cause)
+
 // StoredCookie.kt
 data class StoredCookie(
     val name: String, val value: String, val domain: String,
