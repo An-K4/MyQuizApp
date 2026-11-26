@@ -2,6 +2,7 @@
 
 import android.content.Context
 import android.kma.myquizzapp.core.database.MyQuizzDatabase
+import android.kma.myquizzapp.core.database.MIGRATION_1_2
 import android.kma.myquizzapp.core.database.dao.CookieDao
 import android.kma.myquizzapp.core.database.dao.GameHistoryDao
 import android.kma.myquizzapp.core.database.dao.QuizCacheDao
@@ -20,7 +21,9 @@ object DatabaseModule {
     @Provides
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): MyQuizzDatabase =
-        Room.databaseBuilder(context, MyQuizzDatabase::class.java, "myquizz.db").build()
+        Room.databaseBuilder(context, MyQuizzDatabase::class.java, "myquizz.db")
+            .addMigrations(MIGRATION_1_2)
+            .build()
 
     @Provides
     fun provideCookieDao(db: MyQuizzDatabase): CookieDao = db.cookieDao()

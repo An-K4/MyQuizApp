@@ -8,11 +8,11 @@ Trạng thái ban đầu: **Chưa bắt đầu**. Dấu `[x]` chỉ dùng khi đ
 
 | Done | Mã | Lô | Task / kết quả ngắn | Phụ thuộc | Trạng thái |
 |---|---|---:|---|---|---|
-| [ ] | T01 | 1 | Khóa baseline và phương pháp đo before | — | PARTIAL: đã ghi baseline pilot; ACK NOT RUN do BUG-ANDROID-01, hoãn đo đến khi sửa |
-| [ ] | T02 | 1 | Loại log PII/secret, kiểm thử redaction | — | Đã push nhánh; chờ nghiệm thu và merge |
-| [ ] | T03 | 1 | Chuẩn hóa và xác thực input theo hợp đồng | — | Đã push nhánh; chờ nghiệm thu và merge |
-| [ ] | T04 | 1 | Sửa cold-start offline/session Unknown | T01 | Đã push, user test luồng reconnect chính; chờ nghiệm thu, CI và merge |
-| [ ] | T05 | 2 | Khôi phục ngữ nghĩa chọn/lưu cookie | — | Chưa bắt đầu |
+| [ ] | T01 | 1 | Khóa baseline và phương pháp đo before | — | Đã merge PR #7 (`dacf3bf`); PARTIAL: baseline pilot, ACK NOT RUN do BUG-ANDROID-01, hoãn đo đến khi sửa |
+| [ ] | T02 | 1 | Loại log PII/secret, kiểm thử redaction | — | Đã merge PR #8 (`5ea7fad`); còn xác minh release/log thiết bị |
+| [ ] | T03 | 1 | Chuẩn hóa và xác thực input theo hợp đồng | — | Đã merge PR #9 (`df1ba63`); còn kiểm tra lỗi hiển thị trên thiết bị |
+| [ ] | T04 | 1 | Sửa cold-start offline/session Unknown | T01 | Đã merge PR #10 (`a2d5cb8`); user đã test nhánh, smoke test main chưa xác nhận |
+| [ ] | T05 | 2 | Khôi phục ngữ nghĩa chọn/lưu cookie | — | Đã push `task/t05-cookie-scope`; test Room và smoke upgrade phiên PASS, chờ review/merge |
 | [ ] | T06 | 2 | Chặn race refresh/logout/session | T05 | Chưa bắt đầu |
 | [ ] | T07 | 2 | Mã hóa cookie bằng Keystore và migration | T05, T06 | Chưa bắt đầu |
 | [ ] | T08 | 2 | Chính sách backup/restore dữ liệu bảo mật | T07 | Chưa bắt đầu |
@@ -88,32 +88,42 @@ Knowledge: [kn_24](../knowledge/kn_24_lot_1_baseline_client.md). Gate: baseline 
 **Phạm vi:** [kịch bản đo](../optimization-report/03_benchmark_metrics_scenarios.md); không thay code sản phẩm. **Phụ thuộc:** thiết bị, môi trường thử và user hỗ trợ profiler.
 
 **Pilot:** [báo cáo baseline before](../optimization-report/04_baseline_before.md); T01 còn PARTIAL. Socket ACK NOT RUN do [BUG-ANDROID-01](../backend-audit/01_backend_17_bugs_status.md); người dùng chọn hoãn sửa và đo lại sau, đã xếp vào T17. Việc chốt lô với phần hoãn cần ghi rõ ngoại lệ và quyết định nghiệm thu, không gọi số đo thiếu là PASS hay tự gán gate đã đạt.
+- [x] Ghi nhận các phép đo pilot startup, RAM/CPU, frame, REST, traffic và pin cùng điều kiện, giới hạn và nơi lưu bằng chứng trong báo cáo baseline.
 - [ ] Ghi commit/APK, thiết bị/OS, màn hình, nhiệt độ, pin, mạng, backend, dataset và trạng thái cache; pilot Classic hoặc Solo không shuffle, chỉ chọn kịch bản thực sự chạy được.
 - [ ] Thống nhất cold/warm startup, cuộn Home/Discover, upload/API và phiên socket; lấy mẫu CPU, RAM/PSS, frame time/jank/FPS, pin, traffic/request và latency REST/socket. Tối thiểu 5 lần cho startup/latency, báo N/p50/p95 khi đủ mẫu; pin chạy phiên cố định và nêu độ phân giải. Nếu công cụ/thiết bị không đủ, ghi NOT RUN và xin hỗ trợ, không bịa.
 - [ ] Lưu dữ liệu thô đã che vào nơi được duyệt, phương pháp/công cụ và baseline trước code. **Đạt:** chạy lại được, từng chỉ số có đơn vị hoặc NOT RUN kèm lý do; không dùng debug so với release.
 
 ### T02 — Log an toàn
+**Kiểm thử sau merge:** `testDebugUnitTest` trên `a2d5cb8` thành công (lệnh tổng, job `26df39b8`); không thay thế build release, log thiết bị hay xác nhận CI.
+
 **Vị trí:** `core/network/.../di/SafeHttpLogger.kt`, `feature/auth/.../domain/usecase/ForgotPasswordUseCase.kt`, `AuthRepositoryImpl` và các log exception/ACK tìm được. **Phụ thuộc:** không.
-- [ ] Tạo test với token/email giả ở path, header, query, body và lỗi; kỳ vọng logger không xuất bí mật/PII. Rà log email, exception, Socket ACK trong debug/release.
-- [ ] Xóa/redact tối thiểu, giữ mã lỗi hữu ích; chạy unit test hiện có và test mới. **Đạt:** kiểm thử log giả không lộ, build release/debug tương ứng; log thiết bị chưa chạy ghi NOT RUN.
+- [x] Bổ sung test logger với chuỗi giả ở path, header, query, body, response và exception; rà và giảm log nhạy cảm tại các điểm auth/session/socket trong code T02 `8133c7d`.
+- [ ] Xác minh build debug/release và log trên thiết bị theo phạm vi yêu cầu; chưa có bằng chứng release và log thiết bị trong lần rà sau merge. **Đạt:** kiểm thử log giả không lộ, build release/debug tương ứng; phần chưa chạy ghi NOT RUN.
 
 ### T03 — Chuẩn hóa input
+**Kiểm thử sau merge:** `testDebugUnitTest` trên `a2d5cb8` thành công (job `26df39b8`); không thay thế kiểm tra UI/endpoint thật.
+
 **Vị trí:** `feature/auth/.../presentation/validation/AuthValidator.kt`, `app/.../domain/security/SecurityValidation.kt`, `core/common/.../validator/`. **Phụ thuộc:** không.
-- [ ] Lập bảng trường, giới hạn và quy tắc Backend; test email khoảng trắng, chuỗi rỗng/quá dài, Unicode và mật khẩu giữ nguyên byte/khoảng trắng.
-- [ ] Áp dụng hợp đồng nhất quán cho luồng auth/profile/quiz có liên quan, không tự thay đổi mật khẩu; unit test pass và xác nhận lỗi hiển thị. **Đạt:** input hợp lệ không bị hỏng, server vẫn xác thực cuối.
+- [x] Lập bảng trường, giới hạn và quy tắc Backend trong [kn_24](../knowledge/kn_24_lot_1_baseline_client.md); bổ sung validation và test input trong T03 `fb39375`, giữ nguyên nội dung mật khẩu.
+- [ ] Xác minh lỗi hiển thị trên thiết bị, đối chiếu endpoint thật. **Đạt:** input hợp lệ không bị hỏng, server vẫn xác thực cuối.
 
 ### T04 — Offline boot
+**Kiểm thử sau merge:** `testDebugUnitTest` trên `a2d5cb8` thành công (job `26df39b8`); các test chẩn đoán opt-in không tự chạy, smoke test thiết bị trên main chưa xác nhận.
+
 **Vị trí:** `app/.../presentation/splash/SplashViewModel.kt`, `app/.../domain/activity/ObserveActivitySessionUseCase.kt`, `app/.../domain/profile/ObserveProfileSessionUseCase.kt`, `core/network/.../repository/SessionRepositoryImpl.kt`. **Phụ thuộc:** T01.
-- [ ] Tái hiện cold start offline/mạng chậm với phiên cũ/guest; viết regression `Unknown không loading vô hạn`, `lỗi mạng không logout`, `phục hồi khi mạng trở lại`.
-- [ ] Sửa đúng nguyên nhân, retry có giới hạn, không thay lỗi mạng bằng Guest. **Đạt:** unit test và user test Activity/Profile offline→online, không logout nhầm.
+- [x] Tái hiện cold start offline với phiên cũ; bổ sung regression và sửa retry có giới hạn, không thay lỗi mạng bằng Guest (T04 `5bc51d9`).
+- [x] User test trên nhánh T04: Activity/Profile offline→online không logout nhầm; xác nhận retry và reconnect trên bốn màn hình.
+- [ ] Smoke test tích hợp trên main sau merge; chưa có bằng chứng kịch bản guest/mạng chậm.
 
 ## Lô 2 — Cookie, phiên và lưu trữ
 
 Knowledge: [kn_25](../knowledge/kn_25_lot_2_session_keystore.md). Merge T05→T06→T07, sau đó T08/T09; tránh cùng sửa migration/schema song song. Gate: migration và phiên không mất/khôi phục sai; test thiết bị/Backend B1 được xác nhận.
 
 ### T05 — Cookie scope
+**Đang làm:** Trước sửa, `testDebugUnitTest` job `0bdff051` tái hiện 3 test lỗi về host-only, domain và path/Secure. `:core:database:connectedDebugAndroidTest` job `60b92150`: 2 test dữ liệu giả PASS trên Android 11, gồm migration Room v1→v2 và phạm vi lưu/xóa. `testDebugUnitTest` job `9b8b1c66` thành công (các tác vụ up-to-date; chẩn đoán N44 opt-in vẫn skipped). Cài đè debug job `73c0a30e` trên Live 4 Android 11: user xác nhận vẫn đăng nhập sau nâng cấp. Chưa merge/kiểm thử đầy đủ các vòng đời khác.
+
 **Vị trí:** `core/common/.../cookie/CookieStore.kt`, `core/database/.../cookie/RoomCookieStore.kt`, `core/database/.../entity/CookieEntity.kt`, `core/network/.../cookie/PersistentCookieJar.kt`. **Phụ thuộc:** không.
-- [ ] Viết test cookie host-only/domain, path khác nhau cùng tên, Secure/HTTP, expires và xóa; xác định migration schema từ bản cũ.
+- [x] Viết test cookie host-only/domain, path khác nhau cùng tên, Secure/HTTP, expires và xóa; xác định migration schema từ bản cũ.
 - [ ] Bảo toàn thuộc tính và chọn bằng quy tắc tương đương `Cookie.matches(url)`; test migration + vòng đời, không làm rơi phiên đang hợp lệ. **Đạt:** từng test scope và upgrade pass, không gửi cookie sai scope.
 
 ### T06 — Chống race phiên
