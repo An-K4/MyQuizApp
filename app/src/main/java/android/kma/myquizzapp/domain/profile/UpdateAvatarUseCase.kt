@@ -84,7 +84,7 @@ class UpdateAvatarUseCase @Inject constructor(
         else -> false
     }
 
-    private fun failed(error: AppError, token: SessionUserToken): AvatarUpdateResult {
+    private suspend fun failed(error: AppError, token: SessionUserToken): AvatarUpdateResult {
         if (!isCurrent(token)) return AvatarUpdateResult.SessionChanged
         if (error.isSessionTerminal) session.invalidateSession(token)
         return AvatarUpdateResult.Failed(error)

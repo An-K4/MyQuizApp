@@ -16,7 +16,18 @@ interface AuthRepository {
 
     suspend fun loginWithGoogle(idToken: String): Result<User>
     suspend fun getCurrentUser(): Result<User>
+    suspend fun getCurrentUserAtEpoch(epoch: Long): Result<User> = getCurrentUser()
     suspend fun logout(): Result<Unit>
+
+    /** Explicit lifetime propagation for concurrent auth operations. */
+    suspend fun loginAtEpoch(email: String, password: String, epoch: Long): Result<User> =
+        Result.Error(android.kma.myquizzapp.core.common.error.AppError.Network)
+    suspend fun registerAtEpoch(email: String, password: String, fullname: String, phone: String?, epoch: Long): Result<User> =
+        Result.Error(android.kma.myquizzapp.core.common.error.AppError.Network)
+    suspend fun loginWithGoogleAtEpoch(idToken: String, epoch: Long): Result<User> =
+        Result.Error(android.kma.myquizzapp.core.common.error.AppError.Network)
+    suspend fun logoutAtEpoch(epoch: Long): Result<Unit> =
+        Result.Error(android.kma.myquizzapp.core.common.error.AppError.Network)
 
     /**
      * Checks if user is authenticated by verifying cookies with backend.

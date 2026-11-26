@@ -1,7 +1,8 @@
 # MyQuizApp - Project Structure Documentation
 
 > **Tài liệu cấu trúc dự án chi tiết**  
-> Mô tả vai trò, trách nhiệm và mối quan hệ giữa các module trong kiến trúc Multi-module Gradle  
+> Mô tả vai trò, trách nhiệm và mối quan hệ giữa các module trong kiến trúc Multi-module Gradle
+> **Cập nhật T06:** authenticated client trên nhánh dựa vào `c8d9463` dùng `CredentialStampInterceptor`, `CredentialCookieInterceptor` và `CredentialLifecycle`, không wire `PersistentCookieJar` như các ví dụ cũ bên dưới. Xem [tri thức lô 2](../knowledge/kn_25_lot_2_session_keystore.md).
 > **Baseline kiểm tra một phần ngày 21/11/2026:** Android `main` `35d6bfd`; `settings.gradle.kts` khai báo 14 module (1 app, 5 core, 8 feature). Checkpoint gameplay/review `346230b`. N44 PARTIAL / N46 WIP theo hồ sơ nghiệm thu; chưa chạy lại build hay E2E. Các chi tiết còn lại của tài liệu cần tiếp tục đối chiếu source, không coi toàn bộ đã xác nhận.
 
 ---

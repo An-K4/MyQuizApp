@@ -7,22 +7,24 @@ import android.kma.myquizzapp.core.network.dto.LoginRequest
 import android.kma.myquizzapp.core.network.dto.RegisterRequest
 import retrofit2.http.Body
 import retrofit2.http.POST
+import retrofit2.http.Tag
+import android.kma.myquizzapp.core.network.cookie.CredentialEpoch
 
 interface AuthApiService {
     @POST("auth/login") // path tương đối, không dấu / đầu — BASE_URL đã là .../v1/
-    suspend fun login(@Body body: LoginRequest): Result<AuthDataDto>
+    suspend fun login(@Body body: LoginRequest, @Tag epoch: CredentialEpoch? = null): Result<AuthDataDto>
 
     @POST("auth/register")
-    suspend fun register(@Body body: RegisterRequest): Result<AuthDataDto>
+    suspend fun register(@Body body: RegisterRequest, @Tag epoch: CredentialEpoch? = null): Result<AuthDataDto>
 
     @POST("auth/google/one-tap")
-    suspend fun loginWithGoogle(@Body body: GoogleOneTapRequest): Result<AuthDataDto>
+    suspend fun loginWithGoogle(@Body body: GoogleOneTapRequest, @Tag epoch: CredentialEpoch? = null): Result<AuthDataDto>
 
     @POST("auth/logout")
-    suspend fun logout(): Result<Unit>
+    suspend fun logout(@Tag epoch: CredentialEpoch? = null): Result<Unit>
 
     @POST("auth/refresh")
-    suspend fun refresh(): Result<Unit>
+    suspend fun refresh(@Tag epoch: CredentialEpoch? = null): Result<Unit>
     // N16.5: 4 endpoint reset password chuyển sang PasswordResetApiService (Json riêng,
     // module user dùng camelCase thật). 2 endpoint users/reset-password-token và
     // users/reset-password từng khai báo ở đây KHÔNG tồn tại trên backend (user.route.ts).

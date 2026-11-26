@@ -32,14 +32,16 @@ class TokenAuthenticatorTest {
     fun setUp() {
         server.start()
         cookieStore = FakeCookieStore()
-        val cookieJar = PersistentCookieJar(cookieStore)
+        val lifecycle = CredentialLifecycle(cookieStore)
 
         // Lazy phá vòng lặp: Retrofit cần client → client cần authenticator → authenticator cần AuthApiService
         lateinit var authApi: AuthApiService
-        val authenticator = TokenAuthenticator(Lazy { authApi }, cookieStore)
+        val authenticator = TokenAuthenticator(Lazy { authApi }, lifecycle)
 
         client = OkHttpClient.Builder()
-            .cookieJar(cookieJar)
+            .cookieJar(okhttp3.CookieJar.NO_COOKIES)
+            .addInterceptor(CredentialStampInterceptor(lifecycle))
+            .addNetworkInterceptor(CredentialCookieInterceptor(lifecycle))
             .authenticator(authenticator)
             .build()
 

@@ -203,7 +203,7 @@ Sửa tab/gate ở app graph + MainScaffold, không nhét navigation vào featur
 Browse-first cho phép guest xem Home. AuthRequiredDialog hoặc Profile guest mở AuthGraph. Login/Register thành công callback về MainGraph; forgot đi qua OTP rồi ResetPassword; email deep link có thể vào ResetPassword bằng token. Logout khởi phát từ Profile và reset main/tab stacks.
 
 ### 2. Chuỗi thực thi
-`AuthNavGraph` **nav callback** → từng `*Screen` lấy VM/collect effects → Content dispatch Intent. `LoginViewModel.submit/loginWithGoogle` → AuthUseCases → AuthRepositoryImpl → AuthApiService; cookie do jar xử lý. Register thực tế là register **rồi login** trong AuthRepositoryImpl vì register không set cookie; login thất bại sau register là partial success, không phải transaction. Google Credential Manager chạy tại LoginScreen wrapper, chỉ ID token đưa vào use case. Reset: ForgotPasswordUseCase → OTP verify → ticket; ResetPasswordViewModel nhận ticket hoặc token, peek/verify rồi CompleteResetUseCase. Không biến OTP thành password reset trực tiếp.
+`AuthNavGraph` **nav callback** → từng `*Screen` lấy VM/collect effects → Content dispatch Intent. `LoginViewModel.submit/loginWithGoogle` → AuthUseCases → AuthRepositoryImpl → AuthApiService; cookie được xử lý bởi interceptor có guard epoch. Register thực tế là register **rồi login** trong AuthRepositoryImpl vì register không set cookie; login thất bại sau register là partial success, không phải transaction. Google Credential Manager chạy tại LoginScreen wrapper, chỉ ID token đưa vào use case. Reset: ForgotPasswordUseCase → OTP verify → ticket; ResetPasswordViewModel nhận ticket hoặc token, peek/verify rồi CompleteResetUseCase. Không biến OTP thành password reset trực tiếp.
 
 ### 3. File và symbol cần đọc
 | File | Symbol / block | Trách nhiệm | Nhận từ → gọi / cấp cho |
@@ -217,7 +217,7 @@ Browse-first cho phép guest xem Home. AuthRequiredDialog hoặc Profile guest m
 | [core/network/src/main/java/android/kma/myquizzapp/core/network/repository/AuthRepositoryImpl.kt](../../core/network/src/main/java/android/kma/myquizzapp/core/network/repository/AuthRepositoryImpl.kt) | `login / register / logout / completeReset` | Data boundary của auth | API → domain Result |
 
 ### 4. Logic chính
-Password không trim như email. OTP chỉ ASCII digits, room code lại ASCII alphanumeric uppercase. Forgot/OTP claim loading trước coroutine; không suy mọi legacy login handler đã có guard double-submit tương đương editor. OTP verify thành công trả ticket, bước complete chỉ dùng ticket + newPassword; resend cooldown local là UX, server rate-limit vẫn authoritative. Reset dùng PreserveCaseRetrofit để `newPassword`/expiresAt không bị snake-case biến đổi. `LogoutUseCase` publish SignedOut ngay cả khi REST logout lỗi; AuthRepository cleanup cookie ở data.
+Password không trim như email. OTP chỉ ASCII digits, room code lại ASCII alphanumeric uppercase. Forgot/OTP claim loading trước coroutine; không suy mọi legacy login handler đã có guard double-submit tương đương editor. OTP verify thành công trả ticket, bước complete chỉ dùng ticket + newPassword; resend cooldown local là UX, server rate-limit vẫn authoritative. Reset dùng PreserveCaseRetrofit để `newPassword`/expiresAt không bị snake-case biến đổi. `LogoutUseCase` yêu cầu SessionRepository retire epoch và dọn local kể cả khi REST logout lỗi; không xác nhận server revoke khi offline.
 
 **Source nguyên văn — Android `346230b`, [feature/auth/src/main/java/android/kma/myquizzapp/feature/auth/presentation/otp/OtpVerificationViewModel.kt](../../feature/auth/src/main/java/android/kma/myquizzapp/feature/auth/presentation/otp/OtpVerificationViewModel.kt), `private fun verify()` (trích block):**
 
@@ -1364,8 +1364,8 @@ Sửa mutation rule ở domain use cases/validation, transport ở data. Rà sec
 
 | Loại | Sinh / nhận ở đâu | Lưu / đọc | Xóa / giới hạn |
 |---|---|---|---|
-| Cookie session account | Server login/Google; Register client còn gọi login tiếp | PersistentCookieJar → CookieStore → RoomCookieStore/CookieDao; mọi authenticated REST tự đọc | Logout clear local dù server fail; terminal refresh clear; generation state guard chưa chặn transport race |
-| SessionState + token generation | SessionRepositoryImpl.onAuthenticated/onSignedOut/refresh | Singleton StateFlow trong RAM; snapshot nhất quán state+generation | New login cùng account vẫn generation mới; process death phải refresh cookie, không persist StateFlow |
+| Cookie session account | Server login/Google; Register client còn gọi login tiếp | Authenticated client dùng CredentialCookieInterceptor → CredentialLifecycle → CookieStore → RoomCookieStore/CookieDao | Epoch chặn response cũ ghi/xóa phiên mới; logout offline không chứng minh server revoke; cờ chặn khi xóa lỗi chỉ tồn tại trong tiến trình |
+| SessionState + token generation | Auth use case + SessionRepositoryImpl/refresh | Singleton StateFlow trong RAM; snapshot nhất quán state+generation | New login cùng account vẫn generation mới; process death phải refresh cookie, không persist StateFlow |
 | Guest UUID | GuestIdentityStore.getOrCreateGuestId, lazy khi guest join | DataStore `guest_identity`; history chỉ getGuestIdOrNull | Sống qua restart nếu app data còn; không reset theo theme/logout tùy ý; mất app data không hứa lấy lại guest history |
 | Guest-mode/settings flag | EnableGuestModeUseCase / SettingsDataStore | DataStore `settings` | Không thay SSOT account, không phải bằng chứng cookie auth hoặc có đầy đủ settings UI |
 | Host/Player socket token | REST host-token / join result | Typed route/SavedStateHandle và runtime VM; Socket.IO auth.token handshake | TTL/role/room riêng; Host lobby có refresh guard; không hứa toàn bộ active-game process-death recovery |
@@ -1381,7 +1381,7 @@ SafeHttpLogger chỉ log method/status ở debug, không URL/path, body, header,
 
 **File persistence / transport để lần theo:**
 
-- [core/network/src/main/java/android/kma/myquizzapp/core/network/cookie/PersistentCookieJar.kt](../../core/network/src/main/java/android/kma/myquizzapp/core/network/cookie/PersistentCookieJar.kt) — saveFromResponse/loadForRequest: adapter OkHttp ↔ domain CookieStore.
+- [CredentialCookieInterceptors.kt](../../core/network/src/main/java/android/kma/myquizzapp/core/network/cookie/CredentialCookieInterceptors.kt) và [CredentialLifecycle.kt](../../core/network/src/main/java/android/kma/myquizzapp/core/network/cookie/CredentialLifecycle.kt) — gắn epoch, chọn/lưu cookie và retire phiên; `PersistentCookieJar` không còn được wire vào authenticated client T06.
 - [core/database/src/main/java/android/kma/myquizzapp/core/database/cookie/RoomCookieStore.kt](../../core/database/src/main/java/android/kma/myquizzapp/core/database/cookie/RoomCookieStore.kt) — loadForHost/saveAll/clear: Room adapter, expiry cookie từ server xóa key.
 - [core/database/src/main/java/android/kma/myquizzapp/core/database/dao/CookieDao.kt](../../core/database/src/main/java/android/kma/myquizzapp/core/database/dao/CookieDao.kt) — Queries/expiry persistence; không UI consumer.
 - [core/database/src/main/java/android/kma/myquizzapp/core/database/cache/RoomQuizCacheStore.kt](../../core/database/src/main/java/android/kma/myquizzapp/core/database/cache/RoomQuizCacheStore.kt) — Domain QuizCacheStore ↔ serialized Room quiz cache.

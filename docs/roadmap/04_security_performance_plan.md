@@ -12,8 +12,8 @@ Trạng thái ban đầu: **Chưa bắt đầu**. Dấu `[x]` chỉ dùng khi đ
 | [ ] | T02 | 1 | Loại log PII/secret, kiểm thử redaction | — | Đã merge PR #8 (`5ea7fad`); còn xác minh release/log thiết bị |
 | [ ] | T03 | 1 | Chuẩn hóa và xác thực input theo hợp đồng | — | Đã merge PR #9 (`df1ba63`); còn kiểm tra lỗi hiển thị trên thiết bị |
 | [ ] | T04 | 1 | Sửa cold-start offline/session Unknown | T01 | Đã merge PR #10 (`a2d5cb8`); user đã test nhánh, smoke test main chưa xác nhận |
-| [ ] | T05 | 2 | Khôi phục ngữ nghĩa chọn/lưu cookie | — | Đã push `task/t05-cookie-scope`; test Room và smoke upgrade phiên PASS, chờ review/merge |
-| [ ] | T06 | 2 | Chặn race refresh/logout/session | T05 | Chưa bắt đầu |
+| [ ] | T05 | 2 | Khôi phục ngữ nghĩa chọn/lưu cookie | — | Đã merge PR #11 (`c8d9463`); test Room và smoke upgrade phiên PASS, chưa xác nhận toàn bộ nghiệm thu |
+| [ ] | T06 | 2 | Chặn race refresh/logout/session | T05 | Đang triển khai `work/t06-session-race`; unit test PASS, chưa xác nhận thiết bị/backend và chưa merge |
 | [ ] | T07 | 2 | Mã hóa cookie bằng Keystore và migration | T05, T06 | Chưa bắt đầu |
 | [ ] | T08 | 2 | Chính sách backup/restore dữ liệu bảo mật | T07 | Chưa bắt đầu |
 | [ ] | T09 | 2 | Tích hợp C04 guestToken có bảo vệ | T07 | Chưa bắt đầu |
@@ -127,7 +127,9 @@ Knowledge: [kn_25](../knowledge/kn_25_lot_2_session_keystore.md). Merge T05→T0
 - [ ] Bảo toàn thuộc tính và chọn bằng quy tắc tương đương `Cookie.matches(url)`; test migration + vòng đời, không làm rơi phiên đang hợp lệ. **Đạt:** từng test scope và upgrade pass, không gửi cookie sai scope.
 
 ### T06 — Chống race phiên
-**Vị trí:** `core/network/.../cookie/TokenAuthenticator.kt`, `PersistentCookieJar.kt`, `core/network/.../repository/SessionRepositoryImpl.kt`, `core/network/src/test/.../N44CookieRaceReproductionTest.kt`. **Phụ thuộc:** T05.
+**Vị trí:** `core/network/.../cookie/TokenAuthenticator.kt`, `CredentialLifecycle.kt`, `CredentialCookieInterceptors.kt`, `core/network/.../repository/SessionRepositoryImpl.kt`, `core/network/src/test/.../N44CookieRaceReproductionTest.kt`. **Phụ thuộc:** T05.
+
+Nhánh triển khai dựa trên `c8d9463`: hai ca N44 tái hiện lỗi trước thay đổi và được đưa vào regression; `testDebugUnitTest` PASS (job `2698e259-2720-4930-a7a7-f9f2d6336edb`), `:app:assembleDebug` PASS (job `4f049d68-62f1-4893-a8bf-f31912e282cd`), `:app:lintDebug` PASS (job `fa847cad-5849-454d-9323-c41040e3d115`). Test mock không xác nhận server deployment, thiết bị thật hay server revoke. Chưa nghiệm thu/merge; kiểm thử thực tế cần tài khoản test có thể đăng xuất và đăng nhập lại.
 - [ ] Chạy/tái hiện hai test chẩn đoán opt-in: refresh cũ không xóa login mới; Set-Cookie đến sau logout không hồi sinh phiên; thêm refresh đồng thời và offline.
 - [ ] Thiết kế generation/session guard ở ranh giới ghi cookie và logout, bảo đảm refresh đúng phiên; regression pass. **Đạt:** thứ tự phản hồi đối kháng không xóa hoặc khôi phục sai phiên; không log token.
 

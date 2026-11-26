@@ -136,6 +136,76 @@ class SessionRepositoryTest {
     }
 
     @Test
+    fun `late logout and older login cannot replace a newer login`() = runTest {
+        val cookies = RetirementCookies()
+        val session = SessionRepositoryImpl(RefreshAuth { Result.Success(user()) }, backgroundScope, cookies)
+        val first = checkNotNull(session.beginAuthentication())
+        assertTrue(session.completeAuthentication(first, user()))
+        val oldLogout = checkNotNull(session.currentCredentialEpoch())
+        val second = checkNotNull(session.beginAuthentication())
+        assertTrue(session.completeAuthentication(second, user().copy(id = 9)))
+        val clearCount = cookies.clears
+        assertFalse(session.signOutIfCurrent(oldLogout))
+        assertFalse(session.completeAuthentication(first, user()))
+        assertFalse(session.abortAuthentication(first))
+        assertEquals(clearCount, cookies.clears)
+        assertEquals(9L, session.state.value.userOrNull?.id)
+    }
+
+    @Test
+    fun `aborted login retires its epoch and cannot publish later`() = runTest {
+        val cookies = RetirementCookies()
+        val session = SessionRepositoryImpl(RefreshAuth { Result.Success(user()) }, backgroundScope, cookies)
+        val epoch = checkNotNull(session.beginAuthentication())
+        assertTrue(session.abortAuthentication(epoch))
+        assertFalse(session.completeAuthentication(epoch, user()))
+        assertEquals(SessionState.Guest, session.state.value)
+        assertEquals(2, cookies.clears)
+    }
+
+    @Test
+    fun `terminal me response clears credentials and publishes guest`() = runTest {
+        val cookies = RetirementCookies()
+        val session = SessionRepositoryImpl(
+            RefreshAuth { Result.Error(AppError.Api("USER_DEACTIVATED")) }, backgroundScope, cookies
+        )
+        session.onAuthenticated(user())
+        session.refresh()
+        assertEquals(1, cookies.clears)
+        assertEquals(SessionState.Guest, session.state.value)
+    }
+
+    @Test
+    fun `late terminal me response does not clear a new authenticated lifetime`() = runTest {
+        val answer = CompletableDeferred<Result<User>>()
+        val cookies = RetirementCookies()
+        val session = SessionRepositoryImpl(RefreshAuth { answer.await() }, backgroundScope, cookies)
+        session.onAuthenticated(user())
+        val refresh = launch { session.refresh() }; runCurrent()
+        val epoch = checkNotNull(session.beginAuthentication())
+        assertTrue(session.completeAuthentication(epoch, user().copy(id = 9)))
+        val clearCount = cookies.clears
+        answer.complete(Result.Error(AppError.Api("USER_DEACTIVATED"))); refresh.join()
+        assertEquals(clearCount, cookies.clears)
+        assertEquals(9L, session.state.value.userOrNull?.id)
+    }
+
+    @Test
+    fun `terminal response publishes guest even if clearing storage fails`() = runTest {
+        val cookies = object : android.kma.myquizzapp.core.common.cookie.CookieStore {
+            override suspend fun loadForHost(host: String) = emptyList<android.kma.myquizzapp.core.common.cookie.StoredCookie>()
+            override suspend fun saveAll(host: String, cookies: List<android.kma.myquizzapp.core.common.cookie.StoredCookie>) = Unit
+            override suspend fun clear() { throw IllegalStateException("storage unavailable") }
+        }
+        val session = SessionRepositoryImpl(
+            RefreshAuth { Result.Error(AppError.Api("USER_DEACTIVATED")) }, backgroundScope, cookies
+        )
+        session.onAuthenticated(user())
+        session.refresh()
+        assertEquals(SessionState.Guest, session.state.value)
+    }
+
+    @Test
     fun `snapshot changes lifetime for guest and repeated same account login`() = runTest {
         val session = SessionRepositoryImpl(RefreshAuth { Result.Success(user()) }, backgroundScope)
         val unknown = session.snapshot()
