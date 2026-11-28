@@ -1,10 +1,10 @@
 # Kế hoạch triển khai — Bảo mật và Tối ưu MyQuizApp
 
-> Kế hoạch hai môn đã được người dùng duyệt; phương án phân lô cân bằng mới và T26–T27 bên dưới là đề xuất chờ người dùng duyệt. Trạng thái thực hiện được theo dõi ở bảng dưới, không mặc định coi các task là đã nghiệm thu. Đây là nơi duy nhất theo dõi trạng thái task cho hai môn; các kế hoạch N1–N50 cũ là lịch sử, không tự động xem các gate cũ là đã PASS. Tri thức theo lô nằm trong `docs/knowledge/`.
+> Người dùng đã duyệt phương án phân lô cân bằng L0–L4 và bổ sung T26–T27. Trạng thái thực hiện được theo dõi ở bảng dưới, không mặc định coi các task là đã nghiệm thu. Đây là nơi duy nhất theo dõi trạng thái task cho hai môn; các kế hoạch N1–N50 cũ là lịch sử, không tự động xem các gate cũ là đã PASS. Tri thức theo lô nằm trong `docs/knowledge/`.
 
 ## Bảng tổng quan checklist
 
-Bảng thể hiện phân lô cân bằng L0–L4 đề xuất thay cho số lô theo chuyên môn cũ; ID và tiêu chí các task hiện có không đổi. Dấu `[x]` chỉ dùng khi đã merge và hoàn tất nghiệm thu; BLOCKED/PARTIAL không đánh dấu x. Thứ tự thực tế tuân theo phụ thuộc, không suy các task cùng lô đều độc lập.
+Bảng thể hiện phân lô cân bằng L0–L4 thay cho số lô theo chuyên môn cũ; ID và tiêu chí các task hiện có không đổi. Dấu `[x]` chỉ dùng khi đã merge và hoàn tất nghiệm thu; BLOCKED/PARTIAL không đánh dấu x. Thứ tự thực tế tuân theo phụ thuộc, không suy các task cùng lô đều độc lập.
 
 | Done | Mã | Lô | Task / kết quả ngắn | Phụ thuộc | Trạng thái |
 |---|---|---:|---|---|---|
@@ -27,18 +27,18 @@ Bảng thể hiện phân lô cân bằng L0–L4 đề xuất thay cho số lô
 | [ ] | T17 | 3 | Tương thích tra phòng và lifecycle socket có kiểm chứng | T01, T10, T16 | Chưa bắt đầu; BUG-ANDROID-01 cần sửa trước phép đo ACK |
 | [ ] | T18 | 1 | Đo và tối ưu Coil/cache ảnh | T01 | Chưa bắt đầu |
 | [ ] | T19 | 1 | Startup và Baseline Profile có benchmark | T01, T04 | Chưa bắt đầu |
-| [ ] | T20 | 1 | Đo/sửa điểm nghẽn Compose và frame | T01 | Chưa bắt đầu |
+| [ ] | T20 | 1 | Đo/sửa điểm nghẽn Compose và frame | T01 | Đang khảo sát; chờ baseline trước/sau trên thiết bị |
 | [ ] | T21 | 2 | Rà rò bộ nhớ theo lifecycle | T01 | Chưa bắt đầu |
 | [ ] | T22 | 4 | R8, signing và smoke test release | T07–T15 | Chưa bắt đầu |
-| [ ] | T23 | 4 | Đo after và so sánh hiệu năng | T01, T04, T17–T21; T26–T27 nếu được duyệt | Chưa bắt đầu |
+| [ ] | T23 | 4 | Đo after và so sánh hiệu năng | T01, T04, T17–T21, T26–T27 | Chưa bắt đầu |
 | [ ] | T24 | 4 | Regression bảo mật và UAT | T02–T17, T22 | Chưa bắt đầu |
 | [ ] | T25 | 4 | Báo cáo hai môn, bằng chứng và giới hạn | T23, T24 | Chưa bắt đầu |
-| [ ] | T26 | 3 | Đo và tối ưu request REST có bằng chứng | T01 | Đề xuất, chưa bắt đầu |
-| [ ] | T27 | 3 | Đo và tối ưu tiêu hao năng lượng | T01, T17 | Đề xuất, chưa bắt đầu |
+| [ ] | T26 | 3 | Đo và tối ưu request REST có bằng chứng | T01 | Chưa bắt đầu |
+| [ ] | T27 | 3 | Đo và tối ưu tiêu hao năng lượng | T01, T17 | Chưa bắt đầu |
 
 ## Phân lô cân bằng và mốc báo cáo gần
 
-Phân lô này là **đề xuất chờ duyệt**, ngày báo cáo cụ thể chưa được xác nhận. Dùng thứ tự ưu tiên thay vì hứa ngày hoàn thành hoặc thay đổi tiêu chí nghiệm thu. Các nhánh vẫn theo từng task; các mục dưới đây là kế hoạch, không phải kết quả đã đạt. Kịch bản trình diễn và bằng chứng: [demo bằng công cụ và log](../optimization-report/03_benchmark_metrics_scenarios.md#kịch-bản-demo-báo-cáo-gần).
+Người dùng đã duyệt phân lô này và T26–T27. Theo người dùng, lịch báo cáo môn tối ưu gần nhất là **thứ Sáu tuần sau**; ngày cụ thể chưa được xác nhận. Dùng thứ tự ưu tiên thay vì hứa ngày hoàn thành hoặc thay đổi tiêu chí nghiệm thu. Các nhánh vẫn theo từng task; các mục dưới đây là kế hoạch, không phải kết quả đã đạt. Kịch bản trình diễn và bằng chứng: [demo bằng công cụ và log](../optimization-report/03_benchmark_metrics_scenarios.md#kịch-bản-demo-báo-cáo-gần).
 
 | Lô mới | Task | Phạm vi và thứ tự |
 |---|---|---|
@@ -46,7 +46,7 @@ Phân lô này là **đề xuất chờ duyệt**, ngày báo cáo cụ thể ch
 | **L1 — bằng chứng sớm cả hai môn** | T20, T18, T19; T12, T13 | Ưu tiên T20: đo lại baseline cuộn Home trên main hiện tại → tìm hotspot → sửa nếu có căn cứ → đo lại. T12/T13 audit và fix an toàn theo phạm vi đã xác minh; T18 và T19 là mở rộng nếu còn thời gian/hạ tầng. Bản báo cáo gần trình bày kết quả đã đo và các mục NOT RUN, không chờ toàn lô. |
 | **L2 — bảo mật dữ liệu và bộ nhớ** | T07 → T08/T09; T21 | Sau T06: mã hóa/migration, backup và guest token; T09 còn phụ thuộc B1. Đo/rà rò nhớ T21 có thể làm riêng sau khi có baseline phù hợp. Không song song các nhánh chồng lấn migration. |
 | **L3 — kết nối, game và đầu vào** | T10 → T11/T14/T15; T16 → T17 → T27; T26 | T10 trước pinning và upload; T17 còn phụ thuộc T01, T10, T16. Ưu tiên sửa DTO BUG-ANDROID-01 trước đo ACK; lifecycle chỉ thay khi contract và đo đạc cho phép. T26 đo/sửa REST, T27 đo năng lượng sau T17 nếu điều kiện cho phép. |
-| **L4 — release và tổng hợp** | T22–T25 | T22 sau T07–T15; T23 sau T01, T04, T17–T21, T26–T27 nếu các task đề xuất được duyệt; T24 sau T02–T17 và T22; T25 sau T23/T24. Báo cáo gần là bản tạm, không thay gate cuối. |
+| **L4 — release và tổng hợp** | T22–T25 | T22 sau T07–T15; T23 sau T01, T04, T17–T21 và T26–T27; T24 sau T02–T17 và T22; T25 sau T23/T24. Báo cáo gần là bản tạm, không thay gate cuối. |
 
 **Đường găng đến báo cáo:** T01 là PARTIAL; chỉ dùng từng lát cắt T01 đã thu thập lại đủ điều kiện để làm before cho lát cắt tương ứng (ví dụ T20), không đánh dấu cả T01 hoàn tất hay bỏ gate các task khác. Trước deadline: (1) khóa kịch bản/dataset và đo before; (2) một cải tiến hiệu năng có chứng cứ hoặc ghi không tìm thấy; (3) một minh chứng bảo mật có bằng chứng từ T02/T06 hoặc T12/T13 nếu hoàn thành; (4) soạn demo + ghi rõ các tiêu chí còn NOT RUN/BLOCKED. T18/T19 và phần audit bổ sung là stretch, không cam kết hoàn thành cả L1. Không dùng T23/T25 đầy đủ để mô tả báo cáo tạm.
 
@@ -56,8 +56,8 @@ Phân lô này là **đề xuất chờ duyệt**, ngày báo cáo cụ thể ch
 - **Kiến trúc:** giữ Clean Architecture và hệ thống module hiện có; phân quyền, chấm điểm và xác thực phía server vẫn do Backend quyết định. Công nghệ hiện tại: Kotlin, Compose, Hilt, Room, DataStore, Retrofit/OkHttp, Socket.IO và Coil. API/chi tiết thiết kế chưa được quyết định phải đối chiếu source và chốt trong task, không mặc định thư viện mới.
 - **Nguồn yêu cầu:** mô tả hai môn trong yêu cầu người dùng ngày 21/11/2026; tham khảo [kế hoạch tối ưu trước đó](../optimization-report/01_optimization_plan_4_sprints.md), [kịch bản đo](../optimization-report/03_benchmark_metrics_scenarios.md) và [17 bug Backend](../backend-audit/01_backend_17_bugs_status.md). File cá nhân `my_notes.md` không phải tài liệu repo và tuyệt đối không commit/push.
 - **Mốc tham chiếu đã đọc:** Android `main` `31f8fbf`, Backend local `main` `37038f6`. Trước mỗi lô kiểm tra HEAD, contract, quyền và deployment; các mốc này không chứng minh production hoặc test runtime. Không sửa Backend; nếu thiếu khả năng để đáp ứng đề tài, báo người dùng nhờ bạn phụ trách, ghi blocker và giới hạn.
-- **Thời gian:** ước lượng lịch sử khoảng 2 tuần nếu gấp, 25 ngày lý tưởng và mốc giữa kỳ khoảng 05–15/12/2026; không dùng thay ngày báo cáo gần chưa xác nhận. 25 nhánh là phạm vi lịch sử; T26–T27 được đề xuất bổ sung, **không phải cam kết chắc chắn hoàn tất trong 2 tuần**. Sau baseline và khảo sát Backend, người dùng duyệt phạm vi/công sức; nếu thiếu thời gian phải nêu rõ task chưa đạt, không tự xóa tiêu chí đã đăng ký.
-- **Thiết kế đề xuất:** một roadmap chung theo L0–L4 cân bằng hai môn, mỗi task một nhánh/review độc lập. Trong cùng lô, chỉ tách nhánh song song nếu không có phụ thuộc hoặc chồng lấn đáng kể; các tiêu đề nhóm chuyên môn phía dưới chỉ để tra cứu task, không chỉ thứ tự lô mới.
+- **Thời gian:** ước lượng lịch sử khoảng 2 tuần nếu gấp, 25 ngày lý tưởng và mốc giữa kỳ khoảng 05–15/12/2026; không dùng thay ngày báo cáo gần chưa xác nhận. 25 nhánh là phạm vi lịch sử; người dùng đã duyệt bổ sung T26–T27, **không phải cam kết chắc chắn hoàn tất trong 2 tuần**. Sau baseline và khảo sát Backend, người dùng duyệt phạm vi/công sức; nếu thiếu thời gian phải nêu rõ task chưa đạt, không tự xóa tiêu chí đã đăng ký.
+- **Thiết kế:** một roadmap chung theo L0–L4 cân bằng hai môn, mỗi task một nhánh/review độc lập. Trong cùng lô, chỉ tách nhánh song song nếu không có phụ thuộc hoặc chồng lấn đáng kể; các tiêu đề nhóm chuyên môn phía dưới chỉ để tra cứu task, không chỉ thứ tự lô mới.
 
 ## Quy tắc thực thi, trạng thái và nghiệm thu
 
@@ -243,7 +243,7 @@ Knowledge: [kn_28](../knowledge/kn_28_lot_5_performance_release.md). Gate: từn
 - [ ] Xác định quy trình ký, bảo vệ/back up/rotation key ngoài repo; `release.yml` hiện phát APK debug, không gọi là signed production. **Đạt:** APK release ký đúng được user test, xác minh log/rules/backup; nếu thiếu ký hoặc quyền build ghi BLOCKED, không yêu cầu gửi secret.
 
 ### T23 — Đo after và so sánh hiệu năng
-**Vị trí:** theo [kịch bản đo](../optimization-report/03_benchmark_metrics_scenarios.md). **Phụ thuộc:** T01, T04, T17–T21 và user hỗ trợ thiết bị; thêm T26–T27 nếu được duyệt.
+**Vị trí:** theo [kịch bản đo](../optimization-report/03_benchmark_metrics_scenarios.md). **Phụ thuộc:** T01, T04, T17–T21, T26–T27 và user hỗ trợ thiết bị.
 - [ ] Đo lại từng chỉ số và kịch bản T01 trên cùng điều kiện, lưu raw N/đơn vị/p50/p95 nếu phù hợp; so CPU, RAM, FPS, pin, traffic và latency, ghi cả trường hợp xấu hơn.
 - [ ] Kiểm tra tính tương đương điều kiện và ghi kết quả/thiếu dữ liệu. **Đạt:** mọi chỉ số có số liệu kèm evidence hoặc NOT RUN/BLOCKED và lý do.
 
@@ -257,10 +257,10 @@ Knowledge: [kn_28](../knowledge/kn_28_lot_5_performance_release.md). Gate: từn
 - [ ] Lập bảng truy vết yêu cầu → task/commit/test/kết quả/Backend/giới hạn, phân biệt việc nhóm Backend đã làm và Android đã bổ sung. Trình bày chuẩn bị sinh trắc/MFA và phần xác thực môi trường theo trạng thái thực tế.
 - [ ] Phân tích trade-off bảo mật/hiệu năng, so raw before/after và mô tả hạn chế, lỗ hổng chưa xử lý, BUG Backend; chuẩn bị demo và video không chứa PII. **Đạt:** hai báo cáo bao phủ tiêu chí đã đăng ký; không có số liệu hoặc PASS chưa kiểm chứng.
 
-### T26 — Phản hồi và lưu lượng REST (đề xuất)
+### T26 — Phản hồi và lưu lượng REST
 **Phụ thuộc:** T01, với baseline theo từng kịch bản phù hợp. Chọn một thao tác API có tần suất cao, đo request count, độ trễ và traffic trước/sau trên cùng mạng, backend, dataset và build; tìm call trùng/chờ thừa trước khi sửa. Chỉ cache/gộp request khi contract, quyền và thời hạn dữ liệu cho phép; không chia sẻ dữ liệu riêng giữa tài khoản. Unit/regression và smoke xác nhận chức năng; không sửa backend. Nếu không có cơ hội, ghi số đo và quyết định không đổi.
 
-### T27 — Năng lượng phiên sử dụng (đề xuất)
+### T27 — Năng lượng phiên sử dụng
 **Phụ thuộc:** T01, T17 cho kịch bản socket. Đo phiên có thời lượng, thao tác, độ sáng, mạng, pin và nhiệt kiểm soát trước/sau; phân biệt power trace/ước lượng với mức tiêu thụ toàn máy. Xác định nguyên nhân có bằng chứng trước khi giảm tải CPU/network/wakeups; không tự tắt socket hoặc đổi presence gây lỗi. Regression trò chơi và reconnect; thiếu công cụ hoặc kết quả nhiễu thì ghi BLOCKED/PARTIAL, không tự kết luận tiết kiệm pin.
 
 ## Ma trận bao phủ tiêu chí
@@ -273,7 +273,7 @@ Knowledge: [kn_28](../knowledge/kn_28_lot_5_performance_release.md). Gate: từn
 | Input, ownership, kích thước, MIME, chữ ký ảnh trước upload | T03, T14–T15, B4, T24; quyền sở hữu tin cậy cần server |
 | Anti-cheat, thời gian/quyền/đáp án, xác thực môi trường | T16–T17, B5, T24; thiếu backend phải báo |
 | R8, ký, log, backup | T02, T08, T22, T24 |
-| Startup, UI, latency, RAM, pin, traffic/API/Socket | T01, T04, T17–T21, T23, đề xuất T26–T27 |
+| Startup, UI, latency, RAM, pin, traffic/API/Socket | T01, T04, T17–T21, T23, T26–T27 |
 | CPU, RAM, FPS, pin, traffic, latency và security before/after | T01, T23–T25 |
 | Cân bằng bảo mật/hiệu năng, hạn chế và báo cáo | T07, T11, T17–T19, T23–T25 |
 
