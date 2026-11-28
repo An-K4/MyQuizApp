@@ -1364,7 +1364,7 @@ Sửa mutation rule ở domain use cases/validation, transport ở data. Rà sec
 
 | Loại | Sinh / nhận ở đâu | Lưu / đọc | Xóa / giới hạn |
 |---|---|---|---|
-| Cookie session account | Server login/Google; Register client còn gọi login tiếp | Authenticated client dùng CredentialCookieInterceptor → CredentialLifecycle → CookieStore → RoomCookieStore/CookieDao | Epoch chặn response cũ ghi/xóa phiên mới; logout offline không chứng minh server revoke. Nếu đã ghi được dấu xóa đang chờ, lần đọc/ghi sau tạo lại store thử dọn trước; không bảo đảm an toàn qua restart nếu không ghi được dấu hoặc dấu bị mất |
+| Cookie session account | Server login/Google; Register client còn gọi login tiếp | Authenticated client dùng CredentialCookieInterceptor → CredentialLifecycle → CookieStore → RoomCookieStore/CookieDao | Epoch chặn response cũ ghi/xóa phiên mới; xóa trực tiếp, không có dấu xóa bền vững. Logout offline không chứng minh server revoke; nếu local clear thất bại và server chưa thu hồi, cookie có thể còn hợp lệ sau restart |
 | SessionState + token generation | Auth use case + SessionRepositoryImpl/refresh | Singleton StateFlow trong RAM; snapshot nhất quán state+generation | New login cùng account vẫn generation mới; process death phải refresh cookie, không persist StateFlow |
 | Guest UUID | GuestIdentityStore.getOrCreateGuestId, lazy khi guest join | DataStore `guest_identity`; history chỉ getGuestIdOrNull | Sống qua restart nếu app data còn; không reset theo theme/logout tùy ý; mất app data không hứa lấy lại guest history |
 | Guest-mode/settings flag | EnableGuestModeUseCase / SettingsDataStore | DataStore `settings` | Không thay SSOT account, không phải bằng chứng cookie auth hoặc có đầy đủ settings UI |

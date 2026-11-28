@@ -13,7 +13,7 @@ Trạng thái ban đầu: **Chưa bắt đầu**. Dấu `[x]` chỉ dùng khi đ
 | [ ] | T03 | 1 | Chuẩn hóa và xác thực input theo hợp đồng | — | Đã merge PR #9 (`df1ba63`); còn kiểm tra lỗi hiển thị trên thiết bị |
 | [ ] | T04 | 1 | Sửa cold-start offline/session Unknown | T01 | Đã merge PR #10 (`a2d5cb8`); user đã test nhánh, smoke test main chưa xác nhận |
 | [ ] | T05 | 2 | Khôi phục ngữ nghĩa chọn/lưu cookie | — | Đã merge PR #11 (`c8d9463`); test Room và smoke upgrade phiên PASS, chưa xác nhận toàn bộ nghiệm thu |
-| [ ] | T06 | 2 | Chặn race refresh/logout/session | T05 | Đang triển khai `work/t06-session-race`; unit test PASS, chưa xác nhận thiết bị/backend và chưa merge |
+| [ ] | T06 | 2 | Chặn race refresh/logout/session | T05 | Nhánh `work/t06-session-race`: unit test, build, lint PASS trên code `9430056`; đã cài đè, chờ smoke test thiết bị/backend; chưa merge |
 | [ ] | T07 | 2 | Mã hóa cookie bằng Keystore và migration | T05, T06 | Chưa bắt đầu |
 | [ ] | T08 | 2 | Chính sách backup/restore dữ liệu bảo mật | T07 | Chưa bắt đầu |
 | [ ] | T09 | 2 | Tích hợp C04 guestToken có bảo vệ | T07 | Chưa bắt đầu |
@@ -129,7 +129,7 @@ Knowledge: [kn_25](../knowledge/kn_25_lot_2_session_keystore.md). Merge T05→T0
 ### T06 — Chống race phiên
 **Vị trí:** `core/network/.../cookie/TokenAuthenticator.kt`, `CredentialLifecycle.kt`, `CredentialCookieInterceptors.kt`, `core/network/.../repository/SessionRepositoryImpl.kt`, `core/network/src/test/.../N44CookieRaceReproductionTest.kt`. **Phụ thuộc:** T05.
 
-Nhánh triển khai dựa trên `c8d9463`: hai ca N44 tái hiện lỗi trước thay đổi và đưa vào regression. Theo lựa chọn của người dùng, bỏ journal, xóa cookie Room trực tiếp, giữ guard chống race và báo lỗi storage. Phiên được xác nhận với backend; lỗi terminal kích hoạt xóa lại, còn lỗi mạng không xác nhận hết phiên. Nếu logout không tới backend và local clear thất bại, sau process restart cookie có thể còn hợp lệ; không tuyên bố fail-closed. Chưa xác minh backend deployment/revoke. Người dùng xác nhận smoke test bình thường trên Live 4 với code `9a034d5` (job cài `6e866502-be30-4f06-94a1-3ed7694dc0b2`), nhưng đó là bản cũ có journal; cần kiểm tra bản hiện tại. Chưa nghiệm thu/merge.
+Nhánh triển khai dựa trên `c8d9463`: hai ca N44 tái hiện lỗi trước thay đổi và đưa vào regression. Theo lựa chọn của người dùng, bỏ journal, xóa cookie Room trực tiếp, giữ guard chống race và báo lỗi storage. Phiên được xác nhận với backend; lỗi terminal kích hoạt xóa lại, còn lỗi mạng không xác nhận hết phiên. Nếu logout không tới backend và local clear thất bại, sau process restart cookie có thể còn hợp lệ; không tuyên bố fail-closed. Chưa xác minh backend deployment/revoke. Người dùng xác nhận smoke test bình thường trên Live 4 với code `9a034d5` (job cài `6e866502-be30-4f06-94a1-3ed7694dc0b2`), nhưng đó là bản cũ có journal. Bản `9430056` đã cài đè (job `c6cb275b-d36f-4537-9df6-de15ce7552b2`), chờ smoke test; unit test, build và lint PASS. Chưa nghiệm thu/merge.
 - [ ] Chạy/tái hiện hai test chẩn đoán opt-in: refresh cũ không xóa login mới; Set-Cookie đến sau logout không hồi sinh phiên; thêm refresh đồng thời và offline.
 - [ ] Thiết kế generation/session guard ở ranh giới ghi cookie và logout, bảo đảm refresh đúng phiên; regression pass. **Đạt:** thứ tự phản hồi đối kháng không xóa hoặc khôi phục sai phiên; không log token.
 
