@@ -6,6 +6,13 @@ import android.kma.myquizzapp.core.common.model.User
 import android.kma.myquizzapp.core.common.repository.AuthRepository
 import android.kma.myquizzapp.core.common.result.Result
 import android.kma.myquizzapp.core.common.result.map
+import android.kma.myquizzapp.core.network.BuildConfig
+import android.kma.myquizzapp.core.network.cookie.BackgroundLogoutDispatcher
+import android.kma.myquizzapp.core.network.di.PublicApiOkHttpClient
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import okhttp3.HttpUrl.Companion.toHttpUrl
+import okhttp3.OkHttpClient
 import android.kma.myquizzapp.core.network.cookie.CredentialEpoch
 import android.kma.myquizzapp.core.network.cookie.CredentialLifecycle
 import android.kma.myquizzapp.core.network.api.AuthApiService
@@ -25,7 +32,11 @@ class AuthRepositoryImpl @Inject constructor(
     private val userApi: UserApiService,
     private val passwordResetApi: PasswordResetApiService, // N16.5: PreserveCaseJson (module user dùng camelCase thật)
     private val lifecycle: CredentialLifecycle,
+    @PublicApiOkHttpClient publicClient: OkHttpClient,
 ) : AuthRepository {
+    private val backgroundLogout = BackgroundLogoutDispatcher(
+        lifecycle, publicClient, requireNotNull(BuildConfig.BASE_URL.toHttpUrl().resolve("auth/logout"))
+    )
 
     override suspend fun login(email: String, password: String): Result<User> =
         // The guarded network interceptor persists cookies before returning the response.
@@ -80,6 +91,10 @@ class AuthRepositoryImpl @Inject constructor(
         authApi.loginWithGoogle(GoogleOneTapRequest(idToken), CredentialEpoch(epoch)).map { it.user.toDomain() }
 
     override suspend fun logoutAtEpoch(epoch: Long): Result<Unit> = authApi.logout(CredentialEpoch(epoch))
+
+    override suspend fun dispatchLogoutAtEpoch(epoch: Long) = withContext(Dispatchers.IO) {
+        backgroundLogout.dispatch(CredentialEpoch(epoch))
+    }
 
     override suspend fun isAuthenticated(): Boolean {
         // Verify with backend - if getCurrentUser succeeds, session is valid

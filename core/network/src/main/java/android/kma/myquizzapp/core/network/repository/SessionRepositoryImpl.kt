@@ -20,6 +20,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -55,6 +56,24 @@ class SessionRepositoryImpl internal constructor(
     private data class RefreshJob(val revision: Long, val job: Deferred<Unit>)
 
     private var inFlight: RefreshJob? = null
+
+    init {
+        lifecycle?.let { coordinator ->
+            scope.launch {
+                coordinator.terminalRetirement.collect { retired ->
+                    if (retired != null) coordinator.ifCurrent(retired) {
+                        synchronized(stateLock) {
+                            if (_state.value != SessionState.Guest) {
+                                generation++
+                                revision++
+                                _state.value = SessionState.Guest
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 
     override suspend fun refresh() {
         val job = inFlightLock.withLock {

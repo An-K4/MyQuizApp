@@ -5,6 +5,8 @@ import android.kma.myquizzapp.core.common.cookie.CredentialStorageException
 import android.kma.myquizzapp.core.common.cookie.StoredCookie
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -25,6 +27,8 @@ class CredentialLifecycle @Inject constructor(private val store: CookieStore) {
     // If persistent deletion fails, never reuse possibly stale cookies in this process.
     private var storageBlocked = false
     private var refreshVersion = 0L
+    private val _terminalRetirement = MutableStateFlow<CredentialEpoch?>(null)
+    internal val terminalRetirement = _terminalRetirement.asStateFlow()
 
     fun current(): CredentialEpoch = synchronized(lock) { CredentialEpoch(epoch) }
 
@@ -98,12 +102,18 @@ class CredentialLifecycle @Inject constructor(private val store: CookieStore) {
             true
         }
 
-    fun retireAndClear(expected: CredentialEpoch): Boolean = synchronized(lock) {
+    fun retireAndClear(expected: CredentialEpoch): Boolean = retireAndClear(expected, terminal = false)
+
+    /** A backend-confirmed terminal refresh must reach the session even if clearing fails. */
+    internal fun retireAfterTerminal(expected: CredentialEpoch): Boolean = retireAndClear(expected, terminal = true)
+
+    private fun retireAndClear(expected: CredentialEpoch, terminal: Boolean): Boolean = synchronized(lock) {
         if (expected.value != epoch) return@synchronized false
         // Retire even if the storage operation fails; stale responses must stay retired.
         authenticationPending = false
         epoch++
         revision++
+        if (terminal) _terminalRetirement.value = CredentialEpoch(epoch)
         clearStorage()
         true
     }

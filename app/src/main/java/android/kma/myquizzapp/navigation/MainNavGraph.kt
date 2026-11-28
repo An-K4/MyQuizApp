@@ -148,10 +148,9 @@ fun NavGraphBuilder.mainGraph(
                 }
             },
             onLoggedOut = {
-                // Xoá avatar khỏi bottom nav: LogoutUseCase đã clear cookie nên
-                // /users/me sẽ trả 401 → tab Hồ sơ về lại icon mặc định.
+                // Local credentials were cleared; server revocation is best-effort.
                 onCurrentUserChanged()
-                navController.resetMainGraphAfterSessionEnd("Đã đăng xuất")
+                navController.resetMainGraphAfterSessionEnd("Đã đăng xuất trên thiết bị")
             }
         )
     }

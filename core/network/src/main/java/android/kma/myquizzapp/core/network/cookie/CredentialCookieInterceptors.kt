@@ -57,7 +57,7 @@ class CredentialCookieInterceptor @Inject constructor(
 private fun Cookie.toStoredCookie() =
     StoredCookie(name, value, domain, path, expiresAt, secure, httpOnly, hostOnly)
 
-private fun StoredCookie.toCookie(): Cookie = Cookie.Builder()
+internal fun StoredCookie.toCookie(): Cookie = Cookie.Builder()
     .name(name).value(value).path(path).expiresAt(expiresAt)
     .apply {
         if (hostOnly) hostOnlyDomain(domain) else domain(domain)

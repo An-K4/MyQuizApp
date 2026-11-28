@@ -34,11 +34,24 @@ class AuthStorageFailureTest {
         assertEquals(1, session.signouts)
     }
 
-    @Test fun networkLogoutFailureIsReportedEvenWhenLocalCleanupSucceeds() = runBlocking {
+    @Test fun logoutDoesNotWaitForBackendAndCleansAfterDispatch() = runBlocking {
+        val events = mutableListOf<String>()
+        val session = FakeSession().apply { logoutEvents = events }
+        val auth = FakeAuth().apply { logoutEvents = events }
+        assertEquals(Result.Success(Unit), LogoutUseCase(auth, session)())
+        assertEquals(listOf("dispatch", "clear"), events)
+    }
+
+    @Test fun dispatchFailureStillClearsLocalCredentials() = runBlocking {
         val session = FakeSession()
-        val auth = FakeAuth().apply { logoutResult = Result.Error(AppError.Network) }
-        assertEquals(Result.Error(AppError.Network), LogoutUseCase(auth, session)())
+        val auth = FakeAuth().apply { failDispatch = true }
+        assertEquals(Result.Success(Unit), LogoutUseCase(auth, session)())
         assertEquals(1, session.signouts)
+    }
+
+    @Test fun supersededLogoutCannotReportSuccess() = runBlocking {
+        val session = FakeSession().apply { staleLogout = true }
+        assertEquals(Result.Error(AppError.Network), LogoutUseCase(FakeAuth(), session)())
     }
 
     @Test fun cancellationStillPropagatesWhenCleanupFails() = runBlocking {
@@ -60,18 +73,23 @@ private class FakeSession : SessionRepository {
     var failLogout = false
     var aborts = 0
     var signouts = 0
+    var staleLogout = false
+    var logoutEvents: MutableList<String>? = null
     override suspend fun refresh() = Unit
     override fun onAuthenticated(user: User) = Unit
     override fun onSignedOut() = Unit
     override suspend fun beginAuthentication(): Long { if (failBegin) throw storageFailure(); return 1 }
     override suspend fun abortAuthentication(epoch: Long): Boolean { aborts++; if (failAbort) throw storageFailure(); return true }
     override fun currentCredentialEpoch() = 1L
-    override suspend fun signOutIfCurrent(epoch: Long): Boolean { signouts++; if (failLogout) throw storageFailure(); return true }
+    override suspend fun signOutIfCurrent(epoch: Long): Boolean { signouts++; logoutEvents?.add("clear"); if (failLogout) throw storageFailure(); return !staleLogout }
 }
 private class FakeAuth : AuthRepository {
     var calls = 0
     var cancelLogin = false
     var logoutResult: Result<Unit> = Result.Success(Unit)
+    var logoutEvents: MutableList<String>? = null
+    var failDispatch = false
+    override suspend fun dispatchLogoutAtEpoch(epoch: Long) { logoutEvents?.add("dispatch"); if (failDispatch) throw IOException("fixture") }
     override suspend fun loginAtEpoch(email: String, password: String, epoch: Long): Result<User> {
         calls++
         if (cancelLogin) throw CancellationException("fixture")

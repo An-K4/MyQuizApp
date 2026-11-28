@@ -44,7 +44,7 @@ class TokenAuthenticator @Inject constructor(
                 }
                 is Result.Error -> {
                     if (refreshResult.error.isSessionTerminal || refreshResult.error.hasApiCode("USER_NOT_FOUND")) {
-                        lifecycle.retireAndClear(epoch)
+                        lifecycle.retireAfterTerminal(epoch)
                         null
                     } else if (refreshResult.error == AppError.LocalStorage) {
                         throw CredentialStorageException(IOException("Credential storage unavailable during refresh"))

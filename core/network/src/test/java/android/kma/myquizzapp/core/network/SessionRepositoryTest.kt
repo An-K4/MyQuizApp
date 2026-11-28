@@ -293,6 +293,38 @@ class SessionRepositoryTest {
     }
 
     @Test
+    fun `external terminal refresh publishes guest even when credential deletion fails`() = runTest {
+        val cookies = RetirementCookies()
+        val lifecycle = android.kma.myquizzapp.core.network.cookie.CredentialLifecycle(cookies)
+        val auth = RefreshAuth {
+            if (lifecycle.load(lifecycle.current(), "example.test") == null) Result.Error(AppError.Network)
+            else Result.Success(user())
+        }
+        val session = SessionRepositoryImpl(auth, backgroundScope, cookies, lifecycle)
+        session.onAuthenticated(user())
+        cookies.failClear = true
+        try { lifecycle.retireAfterTerminal(lifecycle.current()) }
+        catch (_: android.kma.myquizzapp.core.common.cookie.CredentialStorageException) { }
+        runCurrent()
+        assertEquals(SessionState.Guest, session.state.value)
+        session.refresh()
+        assertEquals(SessionState.Guest, session.state.value)
+    }
+
+    @Test
+    fun `delayed terminal notification cannot sign out a newer lifetime`() = runTest {
+        val cookies = RetirementCookies()
+        val lifecycle = android.kma.myquizzapp.core.network.cookie.CredentialLifecycle(cookies)
+        val session = SessionRepositoryImpl(RefreshAuth { Result.Success(user()) }, backgroundScope, cookies, lifecycle)
+        session.onAuthenticated(user())
+        lifecycle.retireAfterTerminal(lifecycle.current())
+        lifecycle.beginNewLifetime()
+        session.onAuthenticated(user())
+        runCurrent()
+        assertEquals(user(), session.state.value.userOrNull)
+    }
+
+    @Test
     fun `snapshot changes lifetime for guest and repeated same account login`() = runTest {
         val session = SessionRepositoryImpl(RefreshAuth { Result.Success(user()) }, backgroundScope)
         val unknown = session.snapshot()

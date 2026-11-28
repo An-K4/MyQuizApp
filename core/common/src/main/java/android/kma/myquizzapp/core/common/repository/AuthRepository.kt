@@ -29,6 +29,9 @@ interface AuthRepository {
     suspend fun logoutAtEpoch(epoch: Long): Result<Unit> =
         Result.Error(android.kma.myquizzapp.core.common.error.AppError.Network)
 
+    /** Start a one-shot logout for this lifetime without waiting for the server. */
+    suspend fun dispatchLogoutAtEpoch(epoch: Long) = Unit
+
     /**
      * Checks if user is authenticated by verifying cookies with backend.
      * Returns true if cookies exist AND backend confirms valid session.

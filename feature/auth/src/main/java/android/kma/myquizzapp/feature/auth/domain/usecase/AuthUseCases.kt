@@ -58,10 +58,12 @@ class LogoutUseCase @Inject constructor(
     suspend operator fun invoke(): Result<Unit> {
         val epoch = session.currentCredentialEpoch() ?: return Result.Error(AppError.Network)
         return try {
-            withCredentialCleanup(
-                work = { repo.logoutAtEpoch(epoch) },
-                cleanup = { session.signOutIfCurrent(epoch); Unit }
-            )
+            withContext(NonCancellable) {
+                // Dispatch is best-effort; never wait for the server response.
+                try { repo.dispatchLogoutAtEpoch(epoch) } catch (_: Exception) { }
+                if (session.signOutIfCurrent(epoch)) Result.Success(Unit)
+                else Result.Error(AppError.Network)
+            }
         } catch (_: CredentialStorageException) {
             Result.Error(AppError.LocalStorage)
         }
