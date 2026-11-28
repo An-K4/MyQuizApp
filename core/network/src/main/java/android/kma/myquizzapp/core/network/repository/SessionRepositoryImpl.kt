@@ -1,6 +1,8 @@
 package android.kma.myquizzapp.core.network.repository
 
 import android.kma.myquizzapp.core.common.cookie.CookieStore
+import android.kma.myquizzapp.core.common.cookie.CredentialStorageException
+import android.kma.myquizzapp.core.common.error.AppError
 import android.kma.myquizzapp.core.common.error.isSessionTerminal
 import android.kma.myquizzapp.core.common.model.SessionState
 import android.kma.myquizzapp.core.common.model.SessionUserToken
@@ -45,6 +47,9 @@ class SessionRepositoryImpl internal constructor(
     private val stateLock = Any()
     private var generation = 0L
     private var revision = 0L
+    // Only for the existing in-process retry button; not persisted or used after restart.
+    private data class CleanupRetry(val token: SessionUserToken, val epoch: Long, val revision: Long)
+    private var cleanupRetry: CleanupRetry? = null
     private val inFlightLock = Mutex()
 
     private data class RefreshJob(val revision: Long, val job: Deferred<Unit>)
@@ -74,7 +79,10 @@ class SessionRepositoryImpl internal constructor(
     private suspend fun fetchAndApply(expectedRevision: Long, epoch: Long?) {
         val result = if (epoch == null) authRepository.getCurrentUser()
             else authRepository.getCurrentUserAtEpoch(epoch)
-        if (result is Result.Error && result.error.isSessionTerminal && lifecycle != null && epoch != null) {
+        if (result is Result.Error && lifecycle != null && epoch != null &&
+            (result.error.isSessionTerminal ||
+                (result.error == AppError.LocalStorage && !lifecycle.isCurrent(CredentialEpoch(epoch))))
+        ) {
             lifecycle.snapshot { current ->
                 synchronized(stateLock) {
                     if (revision == expectedRevision) {
@@ -213,17 +221,26 @@ class SessionRepositoryImpl internal constructor(
     override suspend fun clearSession(token: SessionUserToken): Boolean =
         withContext(Dispatchers.IO + NonCancellable) {
             val coordinator = lifecycle ?: return@withContext false
-            val epoch = coordinator.current()
-            coordinator.ifCurrent(epoch) {
+            coordinator.snapshot { epoch ->
                 synchronized(stateLock) {
-                    if (!matches(token)) return@synchronized false
-                    generation++
-                    revision++
-                    _state.value = SessionState.Guest
-                    coordinator.retireAndClear(epoch)
-                    true
+                    val retry = cleanupRetry == CleanupRetry(token, epoch.value, revision) &&
+                        _state.value == SessionState.Guest
+                    if (!matches(token) && !retry) return@synchronized false
+                    if (!retry) {
+                        generation++
+                        revision++
+                        _state.value = SessionState.Guest
+                    }
+                    try {
+                        coordinator.retireAndClear(epoch)
+                        cleanupRetry = null
+                        true
+                    } catch (e: CredentialStorageException) {
+                        cleanupRetry = CleanupRetry(token, coordinator.current().value, revision)
+                        throw e
+                    }
                 }
-            } ?: false
+            }
         }
 
     override suspend fun invalidateSession(token: SessionUserToken): Boolean {

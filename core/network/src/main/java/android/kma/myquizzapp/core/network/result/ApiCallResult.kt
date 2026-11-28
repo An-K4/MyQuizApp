@@ -1,5 +1,6 @@
 ﻿package android.kma.myquizzapp.core.network.result
 
+import android.kma.myquizzapp.core.common.cookie.CredentialStorageException
 import android.kma.myquizzapp.core.common.error.AppError
 import android.kma.myquizzapp.core.common.result.PageInfo
 import android.kma.myquizzapp.core.common.result.Result
@@ -114,6 +115,7 @@ private class ResultCall<T>(
     }
 
     private fun Throwable.toAppError(): AppError = when (this) {
+        is CredentialStorageException -> AppError.LocalStorage
         is IOException -> AppError.Network         // mất mạng, DNS, timeout
         else -> AppError.Unknown(this)
     }

@@ -1,5 +1,6 @@
 package android.kma.myquizzapp.core.network.result
 
+import android.kma.myquizzapp.core.common.cookie.CredentialStorageException
 import android.kma.myquizzapp.core.common.error.AppError
 import android.kma.myquizzapp.core.common.result.Result
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
@@ -58,6 +59,21 @@ class ResultCallAdapterTest {
         server.enqueue(MockResponse().setResponseCode(410).setBody("not-json"))
         val result = api.get().execute().body()
         assertTrue((result as Result.Error).error is AppError.Gone)
+    }
+
+    @Test
+    fun `credential storage exception is not classified as network error`() {
+        val json = Json { ignoreUnknownKeys = true }
+        val client = okhttp3.OkHttpClient.Builder().addInterceptor { _ ->
+            throw CredentialStorageException(java.io.IOException("fixture"))
+        }.build()
+        val failingApi = Retrofit.Builder().baseUrl(server.url("/"))
+            .client(client)
+            .addCallAdapterFactory(ResultCallAdapterFactory(json))
+            .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
+            .build().create(TestApi::class.java)
+        val result = failingApi.get().execute().body()
+        assertEquals(AppError.LocalStorage, (result as Result.Error).error)
     }
 
     private fun errorResponse(status: Int, code: String) = MockResponse()

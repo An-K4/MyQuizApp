@@ -2,8 +2,6 @@ package android.kma.myquizzapp.core.database
 
 import android.content.Context
 import android.kma.myquizzapp.core.database.cookie.RoomCookieStore
-import android.kma.myquizzapp.core.database.cookie.ClearJournal
-import android.kma.myquizzapp.core.database.cookie.PreferenceClearJournal
 import android.kma.myquizzapp.core.common.cookie.StoredCookie
 import androidx.room.Room
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -22,18 +20,12 @@ class CookieMigrationTest {
     private val name = "cookie-migration-test.db"
     private var db: MyQuizzDatabase? = null
 
-    private class TestClearJournal : ClearJournal {
-        private var pendingFlag = false
-        override fun isPending() = pendingFlag
-        override fun setPending(value: Boolean) { pendingFlag = value }
-    }
-
     @After fun cleanup() { db?.close(); context.deleteDatabase(name) }
 
     @Test fun storePreservesPathsAndDeletesOnlyMatchingScope() = runBlocking {
         val database = Room.inMemoryDatabaseBuilder(context, MyQuizzDatabase::class.java).build()
         db = database
-        val store = RoomCookieStore(database.cookieDao(), TestClearJournal())
+        val store = RoomCookieStore(database.cookieDao())
         val expiry = 4102444800000L
         store.saveAll("api.example.test", listOf(
             StoredCookie("sid", "root", "example.test", "/", expiry, false, true, false),
@@ -47,24 +39,6 @@ class CookieMigrationTest {
         assertEquals(listOf("/"), store.loadForHost("api.example.test").map { it.path })
         store.clear()
         assertTrue(store.loadForHost("api.example.test").isEmpty())
-    }
-
-    @Test fun persistedPendingClearIsRecoveredBeforeReadingCookies() = runBlocking {
-        // This test uses a dedicated synthetic preferences file, not the app's journal.
-        val prefs = context.getSharedPreferences("cookie-journal-instrumented-test", Context.MODE_PRIVATE)
-        prefs.edit().clear().commit()
-        try {
-            val database = Room.inMemoryDatabaseBuilder(context, MyQuizzDatabase::class.java).build()
-            db = database
-            val store = RoomCookieStore(database.cookieDao(), PreferenceClearJournal(prefs))
-            store.saveAll("api.example.test", listOf(StoredCookie("sid", "fixture", "api.example.test", "/", 4102444800000, false, true)))
-            assertTrue(prefs.edit().putBoolean("pending", true).commit())
-            val recreated = RoomCookieStore(database.cookieDao(), PreferenceClearJournal(prefs))
-            assertTrue(recreated.loadForHost("api.example.test").isEmpty())
-            assertTrue(!prefs.getBoolean("pending", true))
-        } finally {
-            prefs.edit().clear().commit()
-        }
     }
 
     @Test fun upgradePreservesLegacyCookieAndAllowsCorrectDeletion() = runBlocking {
@@ -81,7 +55,7 @@ class CookieMigrationTest {
         val migrated = Room.databaseBuilder(context, MyQuizzDatabase::class.java, name)
             .addMigrations(MIGRATION_1_2).build()
         db = migrated
-        val store = RoomCookieStore(migrated.cookieDao(), TestClearJournal())
+        val store = RoomCookieStore(migrated.cookieDao())
         val legacy = store.loadForHost("api.example.test").single()
         assertEquals("synthetic", legacy.value)
         assertEquals("api.example.test", legacy.domain)

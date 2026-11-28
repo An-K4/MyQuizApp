@@ -1,6 +1,7 @@
 ﻿package android.kma.myquizzapp.core.network.cookie
 
 import android.kma.myquizzapp.core.common.cookie.CookieStore
+import android.kma.myquizzapp.core.common.cookie.CredentialStorageException
 import android.kma.myquizzapp.core.common.cookie.StoredCookie
 import android.kma.myquizzapp.core.network.api.AuthApiService
 import android.kma.myquizzapp.core.network.result.ResultCallAdapterFactory
@@ -15,6 +16,8 @@ import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Assert.fail
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -26,13 +29,18 @@ class TokenAuthenticatorTest {
     private val server = MockWebServer()
     private lateinit var cookieStore: FakeCookieStore
     private lateinit var client: OkHttpClient
+    private lateinit var lifecycle: CredentialLifecycle
     private val host: String get() = server.hostName
 
     @Before
     fun setUp() {
         server.start()
         cookieStore = FakeCookieStore()
-        val lifecycle = CredentialLifecycle(cookieStore)
+        createClient()
+    }
+
+    private fun createClient() {
+        lifecycle = CredentialLifecycle(cookieStore)
 
         // Lazy phá vòng lặp: Retrofit cần client → client cần authenticator → authenticator cần AuthApiService
         lateinit var authApi: AuthApiService
@@ -104,6 +112,32 @@ class TokenAuthenticatorTest {
         )                     // cookie đã bị clear → UI về Login
     }
 
+    @Test
+    fun `terminal refresh retries failed deletion after lifecycle recreation`() = runBlocking {
+        seedOldSession()
+        cookieStore.failClear = true
+        server.enqueue(MockResponse().setResponseCode(401))
+        server.enqueue(MockResponse().setResponseCode(401))
+
+        try {
+            client.newCall(Request.Builder().url(server.url("/games")).build()).execute()
+            fail("Expected a storage failure")
+        } catch (_: CredentialStorageException) {
+            // The failed deletion leaves persisted cookies, but blocks their use in this process.
+        }
+        assertEquals(2, cookieStore.loadForHost(host).size)
+        assertNull(lifecycle.load(lifecycle.current(), host))
+
+        cookieStore.failClear = false
+        createClient() // Model a new process with the same persisted store.
+        server.enqueue(MockResponse().setResponseCode(401))
+        server.enqueue(MockResponse().setResponseCode(401))
+        val response = client.newCall(Request.Builder().url(server.url("/games")).build()).execute()
+        response.use { assertEquals(401, it.code) }
+        assertTrue(cookieStore.loadForHost(host).isEmpty())
+        assertEquals(4, server.requestCount)
+    }
+
     /** Giả lập đã login từ trước: cặp cookie cũ còn hạn */
     private suspend fun seedOldSession() {
         val expires = System.currentTimeMillis() + 3_600_000
@@ -136,6 +170,7 @@ class TokenAuthenticatorTest {
 /** CookieStore in-memory — nhờ DIP mà test không cần đụng Room */
 private class FakeCookieStore : CookieStore {
     private val map = ConcurrentHashMap<String, StoredCookie>()
+    var failClear = false
 
     override suspend fun loadForHost(host: String): List<StoredCookie> =
         map.values.filter { it.domain == host && it.expiresAt > System.currentTimeMillis() }
@@ -144,5 +179,8 @@ private class FakeCookieStore : CookieStore {
         cookies.forEach { map["$host|${it.name}"] = it }
     }
 
-    override suspend fun clear() = map.clear()
+    override suspend fun clear() {
+        if (failClear) throw IllegalStateException("Simulated storage failure")
+        map.clear()
+    }
 }

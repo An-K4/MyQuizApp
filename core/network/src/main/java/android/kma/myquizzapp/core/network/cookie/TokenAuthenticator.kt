@@ -1,5 +1,7 @@
 ﻿package android.kma.myquizzapp.core.network.cookie
 
+import android.kma.myquizzapp.core.common.cookie.CredentialStorageException
+import android.kma.myquizzapp.core.common.error.AppError
 import android.kma.myquizzapp.core.common.error.hasApiCode
 import android.kma.myquizzapp.core.common.error.isSessionTerminal
 import android.kma.myquizzapp.core.common.result.Result
@@ -44,6 +46,8 @@ class TokenAuthenticator @Inject constructor(
                     if (refreshResult.error.isSessionTerminal || refreshResult.error.hasApiCode("USER_NOT_FOUND")) {
                         lifecycle.retireAndClear(epoch)
                         null
+                    } else if (refreshResult.error == AppError.LocalStorage) {
+                        throw CredentialStorageException(IOException("Credential storage unavailable during refresh"))
                     } else {
                         // Propagate a transport failure, not the original 401; keep cookies/session.
                         throw IOException("Session refresh temporarily unavailable")

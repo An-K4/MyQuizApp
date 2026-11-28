@@ -296,10 +296,16 @@ class ProfileViewModel @Inject constructor(
         viewModelScope.launch {
             val result = logoutUseCase()
             _uiState.update { it.copy(isLoggingOut = false) }
-            if (result is Result.Error && result.error == android.kma.myquizzapp.core.common.error.AppError.LocalStorage) {
-                _effect.send(ProfileEffect.ShowError(result.error.toUserMessage()))
-            } else {
-                _effect.send(ProfileEffect.NavigateBack)
+            when (result) {
+                is Result.Success -> _effect.send(ProfileEffect.NavigateBack)
+                is Result.Error -> {
+                    val message = if (result.error == android.kma.myquizzapp.core.common.error.AppError.LocalStorage) {
+                        "Chưa xác nhận được đăng xuất: không xóa được dữ liệu phiên trên thiết bị. Không nên dùng máy chung."
+                    } else {
+                        "Chưa xác nhận được đăng xuất trên máy chủ. " + result.error.toUserMessage()
+                    }
+                    _effect.send(ProfileEffect.ShowError(message))
+                }
             }
         }
     }

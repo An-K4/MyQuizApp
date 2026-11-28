@@ -36,7 +36,9 @@ class AccountSecurityViewModel @Inject constructor(
         viewModelScope.launch {
             observeAccount().collect { account ->
                 val before = state.value
-                if (before.account.token != account.token) {
+                if (before.cleanupPending && !account.loading && account.token == null) {
+                    state.update { it.copy(account = account) }
+                } else if (before.account.token != account.token) {
                     // Erase secrets immediately; let the guarded use case classify an in-flight result.
                     state.value = AccountSecurityUiState(account = account, busy = before.busy)
                     if (before.busy == null && !account.loading && account.token == null)
@@ -220,9 +222,16 @@ class AccountSecurityViewModel @Inject constructor(
 
             SecurityMutationResult.CleanupPending -> {
                 eraseSecrets()
+                if (observeAccount.current().token != null) {
+                    cleanupToken = null
+                    state.value = AccountSecurityUiState(account = observeAccount.current())
+                    effects.send(AccountSecurityEffect.Message("Phiên đăng nhập đã thay đổi. Kết quả cũ không được áp dụng."))
+                    return
+                }
                 cleanupToken = token
                 state.update {
                     it.copy(
+                        account = observeAccount.current(),
                         cleanupPending = true,
                         message = "Cần dọn phiên trên thiết bị. Nút bên dưới chỉ dọn phiên, không gửi lại yêu cầu vô hiệu hóa."
                     )

@@ -34,6 +34,13 @@ class AuthStorageFailureTest {
         assertEquals(1, session.signouts)
     }
 
+    @Test fun networkLogoutFailureIsReportedEvenWhenLocalCleanupSucceeds() = runBlocking {
+        val session = FakeSession()
+        val auth = FakeAuth().apply { logoutResult = Result.Error(AppError.Network) }
+        assertEquals(Result.Error(AppError.Network), LogoutUseCase(auth, session)())
+        assertEquals(1, session.signouts)
+    }
+
     @Test fun cancellationStillPropagatesWhenCleanupFails() = runBlocking {
         val session = FakeSession().apply { failAbort = true }
         val auth = FakeAuth().apply { cancelLogin = true }
@@ -64,12 +71,13 @@ private class FakeSession : SessionRepository {
 private class FakeAuth : AuthRepository {
     var calls = 0
     var cancelLogin = false
+    var logoutResult: Result<Unit> = Result.Success(Unit)
     override suspend fun loginAtEpoch(email: String, password: String, epoch: Long): Result<User> {
         calls++
         if (cancelLogin) throw CancellationException("fixture")
         return Result.Error(AppError.Network)
     }
-    override suspend fun logoutAtEpoch(epoch: Long): Result<Unit> = Result.Success(Unit)
+    override suspend fun logoutAtEpoch(epoch: Long): Result<Unit> = logoutResult
     override suspend fun login(email: String, password: String): Result<User> = error("unused")
     override suspend fun register(email: String, password: String, fullname: String, phone: String?): Result<User> = error("unused")
     override suspend fun loginWithGoogle(idToken: String): Result<User> = error("unused")
