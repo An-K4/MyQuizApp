@@ -1,38 +1,54 @@
 # Kế hoạch triển khai — Bảo mật và Tối ưu MyQuizApp
 
-> Kế hoạch đã được người dùng duyệt; trạng thái thực hiện được theo dõi ở bảng dưới, không mặc định coi các task là đã nghiệm thu. Đây là nơi duy nhất theo dõi trạng thái task cho hai môn; các kế hoạch N1–N50 cũ là lịch sử, không tự động xem các gate cũ là đã PASS. Tri thức theo lô nằm trong `docs/knowledge/`.
+> Kế hoạch hai môn đã được người dùng duyệt; phương án phân lô cân bằng mới và T26–T27 bên dưới là đề xuất chờ người dùng duyệt. Trạng thái thực hiện được theo dõi ở bảng dưới, không mặc định coi các task là đã nghiệm thu. Đây là nơi duy nhất theo dõi trạng thái task cho hai môn; các kế hoạch N1–N50 cũ là lịch sử, không tự động xem các gate cũ là đã PASS. Tri thức theo lô nằm trong `docs/knowledge/`.
 
 ## Bảng tổng quan checklist
 
-Trạng thái ban đầu: **Chưa bắt đầu**. Dấu `[x]` chỉ dùng khi đã merge và hoàn tất nghiệm thu; BLOCKED/PARTIAL không đánh dấu x. Thứ tự thực tế tuân theo phụ thuộc, không suy các task cùng lô đều độc lập.
+Bảng thể hiện phân lô cân bằng L0–L4 đề xuất thay cho số lô theo chuyên môn cũ; ID và tiêu chí các task hiện có không đổi. Dấu `[x]` chỉ dùng khi đã merge và hoàn tất nghiệm thu; BLOCKED/PARTIAL không đánh dấu x. Thứ tự thực tế tuân theo phụ thuộc, không suy các task cùng lô đều độc lập.
 
 | Done | Mã | Lô | Task / kết quả ngắn | Phụ thuộc | Trạng thái |
 |---|---|---:|---|---|---|
-| [ ] | T01 | 1 | Khóa baseline và phương pháp đo before | — | Đã merge PR #7 (`dacf3bf`); PARTIAL: baseline pilot, ACK NOT RUN do BUG-ANDROID-01, hoãn đo đến khi sửa |
-| [ ] | T02 | 1 | Loại log PII/secret, kiểm thử redaction | — | Đã merge PR #8 (`5ea7fad`); còn xác minh release/log thiết bị |
-| [ ] | T03 | 1 | Chuẩn hóa và xác thực input theo hợp đồng | — | Đã merge PR #9 (`df1ba63`); còn kiểm tra lỗi hiển thị trên thiết bị |
-| [ ] | T04 | 1 | Sửa cold-start offline/session Unknown | T01 | Đã merge PR #10 (`a2d5cb8`); user đã test nhánh, smoke test main chưa xác nhận |
-| [ ] | T05 | 2 | Khôi phục ngữ nghĩa chọn/lưu cookie | — | Đã merge PR #11 (`c8d9463`); test Room và smoke upgrade phiên PASS, chưa xác nhận toàn bộ nghiệm thu |
-| [ ] | T06 | 2 | Chặn race refresh/logout/session | T05 | Nhánh `work/t06-session-race`: unit test, build, lint PASS trên code `9430056`; đã cài đè, chờ smoke test thiết bị/backend; chưa merge |
+| [ ] | T01 | 0 | Khóa baseline và phương pháp đo before | — | Đã merge PR #7 (`dacf3bf`); PARTIAL: baseline pilot, ACK NOT RUN do BUG-ANDROID-01, hoãn đo đến khi sửa |
+| [ ] | T02 | 0 | Loại log PII/secret, kiểm thử redaction | — | Đã merge PR #8 (`5ea7fad`); còn xác minh release/log thiết bị |
+| [ ] | T03 | 0 | Chuẩn hóa và xác thực input theo hợp đồng | — | Đã merge PR #9 (`df1ba63`); còn kiểm tra lỗi hiển thị trên thiết bị |
+| [ ] | T04 | 0 | Sửa cold-start offline/session Unknown | T01 | Đã merge PR #10 (`a2d5cb8`); user đã test nhánh, smoke test main chưa xác nhận |
+| [ ] | T05 | 0 | Khôi phục ngữ nghĩa chọn/lưu cookie | — | Đã merge PR #11 (`c8d9463`); test Room và smoke upgrade phiên PASS, chưa xác nhận toàn bộ nghiệm thu |
+| [ ] | T06 | 0 | Chặn race refresh/logout/session | T05 | Đã merge PR #12 (`0938638`); unit test, build, lint PASS trên code `9430056`; đã cài đè, chờ smoke test thiết bị/backend |
 | [ ] | T07 | 2 | Mã hóa cookie bằng Keystore và migration | T05, T06 | Chưa bắt đầu |
 | [ ] | T08 | 2 | Chính sách backup/restore dữ liệu bảo mật | T07 | Chưa bắt đầu |
-| [ ] | T09 | 2 | Tích hợp C04 guestToken có bảo vệ | T07 | Chưa bắt đầu |
+| [ ] | T09 | 2 | Tích hợp C04 guestToken có bảo vệ | T07, B1 | Chưa bắt đầu |
 | [ ] | T10 | 3 | Tách Dev/Production và kiểm soát HTTPS/WSS | — | Chưa bắt đầu |
 | [ ] | T11 | 3 | Pinning API và socket, chính sách host upload | T10, Backend | Chưa bắt đầu |
-| [ ] | T12 | 3 | Bảo vệ deep link/reset Intent | —, xác nhận domain | Chưa bắt đầu |
-| [ ] | T13 | 3 | Audit permission/component/URI | — | Chưa bắt đầu |
-| [ ] | T14 | 4 | Kiểm tra ảnh quiz trước upload | T03, T10 | Chưa bắt đầu |
-| [ ] | T15 | 4 | Kiểm tra ảnh avatar trước upload | T03, T10 | Chưa bắt đầu |
-| [ ] | T16 | 4 | Hợp đồng chống gian lận và xác thực môi trường | Backend | Chưa bắt đầu |
-| [ ] | T17 | 4 | Tương thích tra phòng và lifecycle socket có kiểm chứng | T01, T10, T16 | Chưa bắt đầu; BUG-ANDROID-01 cần sửa trước phép đo ACK |
-| [ ] | T18 | 5 | Đo và tối ưu Coil/cache ảnh | T01 | Chưa bắt đầu |
-| [ ] | T19 | 5 | Startup và Baseline Profile có benchmark | T01, T04 | Chưa bắt đầu |
-| [ ] | T20 | 5 | Đo/sửa điểm nghẽn Compose và frame | T01 | Chưa bắt đầu |
-| [ ] | T21 | 5 | Rà rò bộ nhớ theo lifecycle | T01 | Chưa bắt đầu |
-| [ ] | T22 | 5 | R8, signing và smoke test release | T07–T15 | Chưa bắt đầu |
-| [ ] | T23 | 5 | Đo after và so sánh hiệu năng | T01, T04, T17–T21 | Chưa bắt đầu |
-| [ ] | T24 | 5 | Regression bảo mật và UAT | T02–T17, T22 | Chưa bắt đầu |
-| [ ] | T25 | 5 | Báo cáo hai môn, bằng chứng và giới hạn | T23, T24 | Chưa bắt đầu |
+| [ ] | T12 | 1 | Bảo vệ deep link/reset Intent | —, xác nhận domain | Chưa bắt đầu |
+| [ ] | T13 | 1 | Audit permission/component/URI | — | Chưa bắt đầu |
+| [ ] | T14 | 3 | Kiểm tra ảnh quiz trước upload | T03, T10 | Chưa bắt đầu |
+| [ ] | T15 | 3 | Kiểm tra ảnh avatar trước upload | T03, T10 | Chưa bắt đầu |
+| [ ] | T16 | 3 | Hợp đồng chống gian lận và xác thực môi trường | Backend | Chưa bắt đầu |
+| [ ] | T17 | 3 | Tương thích tra phòng và lifecycle socket có kiểm chứng | T01, T10, T16 | Chưa bắt đầu; BUG-ANDROID-01 cần sửa trước phép đo ACK |
+| [ ] | T18 | 1 | Đo và tối ưu Coil/cache ảnh | T01 | Chưa bắt đầu |
+| [ ] | T19 | 1 | Startup và Baseline Profile có benchmark | T01, T04 | Chưa bắt đầu |
+| [ ] | T20 | 1 | Đo/sửa điểm nghẽn Compose và frame | T01 | Chưa bắt đầu |
+| [ ] | T21 | 2 | Rà rò bộ nhớ theo lifecycle | T01 | Chưa bắt đầu |
+| [ ] | T22 | 4 | R8, signing và smoke test release | T07–T15 | Chưa bắt đầu |
+| [ ] | T23 | 4 | Đo after và so sánh hiệu năng | T01, T04, T17–T21; T26–T27 nếu được duyệt | Chưa bắt đầu |
+| [ ] | T24 | 4 | Regression bảo mật và UAT | T02–T17, T22 | Chưa bắt đầu |
+| [ ] | T25 | 4 | Báo cáo hai môn, bằng chứng và giới hạn | T23, T24 | Chưa bắt đầu |
+| [ ] | T26 | 3 | Đo và tối ưu request REST có bằng chứng | T01 | Đề xuất, chưa bắt đầu |
+| [ ] | T27 | 3 | Đo và tối ưu tiêu hao năng lượng | T01, T17 | Đề xuất, chưa bắt đầu |
+
+## Phân lô cân bằng và mốc báo cáo gần
+
+Phân lô này là **đề xuất chờ duyệt**, ngày báo cáo cụ thể chưa được xác nhận. Dùng thứ tự ưu tiên thay vì hứa ngày hoàn thành hoặc thay đổi tiêu chí nghiệm thu. Các nhánh vẫn theo từng task; các mục dưới đây là kế hoạch, không phải kết quả đã đạt. Kịch bản trình diễn và bằng chứng: [demo bằng công cụ và log](../optimization-report/03_benchmark_metrics_scenarios.md#kịch-bản-demo-báo-cáo-gần).
+
+| Lô mới | Task | Phạm vi và thứ tự |
+|---|---|---|
+| **L0 — nền đã triển khai** | T01–T06 | Đã merge; T01 và một số nghiệm thu còn PARTIAL. Xác nhận smoke T06 trên bản mới, không coi merge là hoàn tất. |
+| **L1 — bằng chứng sớm cả hai môn** | T20, T18, T19; T12, T13 | Ưu tiên T20: đo lại baseline cuộn Home trên main hiện tại → tìm hotspot → sửa nếu có căn cứ → đo lại. T12/T13 audit và fix an toàn theo phạm vi đã xác minh; T18 và T19 là mở rộng nếu còn thời gian/hạ tầng. Bản báo cáo gần trình bày kết quả đã đo và các mục NOT RUN, không chờ toàn lô. |
+| **L2 — bảo mật dữ liệu và bộ nhớ** | T07 → T08/T09; T21 | Sau T06: mã hóa/migration, backup và guest token; T09 còn phụ thuộc B1. Đo/rà rò nhớ T21 có thể làm riêng sau khi có baseline phù hợp. Không song song các nhánh chồng lấn migration. |
+| **L3 — kết nối, game và đầu vào** | T10 → T11/T14/T15; T16 → T17 → T27; T26 | T10 trước pinning và upload; T17 còn phụ thuộc T01, T10, T16. Ưu tiên sửa DTO BUG-ANDROID-01 trước đo ACK; lifecycle chỉ thay khi contract và đo đạc cho phép. T26 đo/sửa REST, T27 đo năng lượng sau T17 nếu điều kiện cho phép. |
+| **L4 — release và tổng hợp** | T22–T25 | T22 sau T07–T15; T23 sau T01, T04, T17–T21, T26–T27 nếu các task đề xuất được duyệt; T24 sau T02–T17 và T22; T25 sau T23/T24. Báo cáo gần là bản tạm, không thay gate cuối. |
+
+**Đường găng đến báo cáo:** T01 là PARTIAL; chỉ dùng từng lát cắt T01 đã thu thập lại đủ điều kiện để làm before cho lát cắt tương ứng (ví dụ T20), không đánh dấu cả T01 hoàn tất hay bỏ gate các task khác. Trước deadline: (1) khóa kịch bản/dataset và đo before; (2) một cải tiến hiệu năng có chứng cứ hoặc ghi không tìm thấy; (3) một minh chứng bảo mật có bằng chứng từ T02/T06 hoặc T12/T13 nếu hoàn thành; (4) soạn demo + ghi rõ các tiêu chí còn NOT RUN/BLOCKED. T18/T19 và phần audit bổ sung là stretch, không cam kết hoàn thành cả L1. Không dùng T23/T25 đầy đủ để mô tả báo cáo tạm.
 
 ## Mục tiêu, baseline và nguyên tắc
 
@@ -40,8 +56,8 @@ Trạng thái ban đầu: **Chưa bắt đầu**. Dấu `[x]` chỉ dùng khi đ
 - **Kiến trúc:** giữ Clean Architecture và hệ thống module hiện có; phân quyền, chấm điểm và xác thực phía server vẫn do Backend quyết định. Công nghệ hiện tại: Kotlin, Compose, Hilt, Room, DataStore, Retrofit/OkHttp, Socket.IO và Coil. API/chi tiết thiết kế chưa được quyết định phải đối chiếu source và chốt trong task, không mặc định thư viện mới.
 - **Nguồn yêu cầu:** mô tả hai môn trong yêu cầu người dùng ngày 21/11/2026; tham khảo [kế hoạch tối ưu trước đó](../optimization-report/01_optimization_plan_4_sprints.md), [kịch bản đo](../optimization-report/03_benchmark_metrics_scenarios.md) và [17 bug Backend](../backend-audit/01_backend_17_bugs_status.md). File cá nhân `my_notes.md` không phải tài liệu repo và tuyệt đối không commit/push.
 - **Mốc tham chiếu đã đọc:** Android `main` `31f8fbf`, Backend local `main` `37038f6`. Trước mỗi lô kiểm tra HEAD, contract, quyền và deployment; các mốc này không chứng minh production hoặc test runtime. Không sửa Backend; nếu thiếu khả năng để đáp ứng đề tài, báo người dùng nhờ bạn phụ trách, ghi blocker và giới hạn.
-- **Thời gian:** khoảng 2 tuần nếu gấp, 25 ngày lý tưởng; mốc giữa kỳ khoảng 05–15/12/2026 cho hai môn. 25 nhánh là phạm vi đề xuất, **không phải cam kết chắc chắn hoàn tất trong 2 tuần**. Sau baseline và khảo sát Backend, người dùng duyệt phạm vi/công sức; nếu thiếu thời gian phải nêu rõ task chưa đạt, không tự xóa tiêu chí đã đăng ký.
-- **Thiết kế được đề xuất:** một roadmap chung theo 5 lô, mỗi task một nhánh/review độc lập; so với tách hai roadmap sẽ tránh làm hai lần cùng hạng mục. Trong cùng lô, chỉ tách nhánh song song nếu không có phụ thuộc hoặc chồng lấn đáng kể.
+- **Thời gian:** ước lượng lịch sử khoảng 2 tuần nếu gấp, 25 ngày lý tưởng và mốc giữa kỳ khoảng 05–15/12/2026; không dùng thay ngày báo cáo gần chưa xác nhận. 25 nhánh là phạm vi lịch sử; T26–T27 được đề xuất bổ sung, **không phải cam kết chắc chắn hoàn tất trong 2 tuần**. Sau baseline và khảo sát Backend, người dùng duyệt phạm vi/công sức; nếu thiếu thời gian phải nêu rõ task chưa đạt, không tự xóa tiêu chí đã đăng ký.
+- **Thiết kế đề xuất:** một roadmap chung theo L0–L4 cân bằng hai môn, mỗi task một nhánh/review độc lập. Trong cùng lô, chỉ tách nhánh song song nếu không có phụ thuộc hoặc chồng lấn đáng kể; các tiêu đề nhóm chuyên môn phía dưới chỉ để tra cứu task, không chỉ thứ tự lô mới.
 
 ## Quy tắc thực thi, trạng thái và nghiệm thu
 
@@ -80,7 +96,7 @@ Trạng thái ban đầu: **Chưa bắt đầu**. Dấu `[x]` chỉ dùng khi đ
 - **B4 — upload:** không cần hỏi lại presign/ACL/MIME đã đọc từ code. Đề nghị Backend quyết định private quarantine trước công khai và/hoặc dọn object lỗi/mồ côi; xóa sau fail không xóa khoảng public trước đó. T14–T15 vẫn làm được kiểm tra client, nhưng không thể một mình bảo đảm server chặn client độc hại; ghi rõ giới hạn nếu chưa sửa Backend.
 - **B5 — game/môi trường:** không cần hỏi lại contract cơ bản trong code. Nhờ Backend xem lỗ hổng tiềm năng leaderboard `/summary` khi `never` và test response thật; chọn mức xác thực môi trường phù hợp tiêu chí báo cáo, nếu cần verdict đáng tin cậy phải có xác minh Backend. Cần môi trường và dữ liệu test được phép; không tự kết luận triển khai live giống local.
 
-## Lô 1 — Baseline và vệ sinh client
+## Nhóm tra cứu — Baseline và vệ sinh client
 
 Knowledge: [kn_24](../knowledge/kn_24_lot_1_baseline_client.md). Gate: baseline có thể tái hiện, redaction/input/offline có regression; chưa có thiết bị thì giữ T01 PARTIAL và cố định commit để đo về sau.
 
@@ -115,7 +131,7 @@ Knowledge: [kn_24](../knowledge/kn_24_lot_1_baseline_client.md). Gate: baseline 
 - [x] User test trên nhánh T04: Activity/Profile offline→online không logout nhầm; xác nhận retry và reconnect trên bốn màn hình.
 - [ ] Smoke test tích hợp trên main sau merge; chưa có bằng chứng kịch bản guest/mạng chậm.
 
-## Lô 2 — Cookie, phiên và lưu trữ
+## Nhóm tra cứu — Cookie, phiên và lưu trữ
 
 Knowledge: [kn_25](../knowledge/kn_25_lot_2_session_keystore.md). Merge T05→T06→T07, sau đó T08/T09; tránh cùng sửa migration/schema song song. Gate: migration và phiên không mất/khôi phục sai; test thiết bị/Backend B1 được xác nhận.
 
@@ -129,7 +145,7 @@ Knowledge: [kn_25](../knowledge/kn_25_lot_2_session_keystore.md). Merge T05→T0
 ### T06 — Chống race phiên
 **Vị trí:** `core/network/.../cookie/TokenAuthenticator.kt`, `CredentialLifecycle.kt`, `CredentialCookieInterceptors.kt`, `core/network/.../repository/SessionRepositoryImpl.kt`, `core/network/src/test/.../N44CookieRaceReproductionTest.kt`. **Phụ thuộc:** T05.
 
-Nhánh triển khai dựa trên `c8d9463`: hai ca N44 tái hiện lỗi trước thay đổi và đưa vào regression. Theo lựa chọn của người dùng, bỏ journal, xóa cookie Room trực tiếp, giữ guard chống race và báo lỗi storage. Phiên được xác nhận với backend; lỗi terminal kích hoạt xóa lại, còn lỗi mạng không xác nhận hết phiên. Nếu logout không tới backend và local clear thất bại, sau process restart cookie có thể còn hợp lệ; không tuyên bố fail-closed. Chưa xác minh backend deployment/revoke. Người dùng xác nhận smoke test bình thường trên Live 4 với code `9a034d5` (job cài `6e866502-be30-4f06-94a1-3ed7694dc0b2`), nhưng đó là bản cũ có journal. Bản `9430056` đã cài đè (job `c6cb275b-d36f-4537-9df6-de15ce7552b2`), chờ smoke test; unit test, build và lint PASS. Chưa nghiệm thu/merge.
+Nhánh triển khai dựa trên `c8d9463`: hai ca N44 tái hiện lỗi trước thay đổi và đưa vào regression. Theo lựa chọn của người dùng, bỏ journal, xóa cookie Room trực tiếp, giữ guard chống race và báo lỗi storage. Phiên được xác nhận với backend; lỗi terminal kích hoạt xóa lại, còn lỗi mạng không xác nhận hết phiên. Nếu logout không tới backend và local clear thất bại, sau process restart cookie có thể còn hợp lệ; không tuyên bố fail-closed. Chưa xác minh backend deployment/revoke. Người dùng xác nhận smoke test bình thường trên Live 4 với code `9a034d5` (job cài `6e866502-be30-4f06-94a1-3ed7694dc0b2`), nhưng đó là bản cũ có journal. Bản `9430056` đã cài đè (job `c6cb275b-d36f-4537-9df6-de15ce7552b2`), chờ smoke test; unit test, build và lint PASS. Đã merge PR #12 (`0938638`), chưa nghiệm thu đầy đủ.
 - [ ] Chạy/tái hiện hai test chẩn đoán opt-in: refresh cũ không xóa login mới; Set-Cookie đến sau logout không hồi sinh phiên; thêm refresh đồng thời và offline.
 - [ ] Thiết kế generation/session guard ở ranh giới ghi cookie và logout, bảo đảm refresh đúng phiên; regression pass. **Đạt:** thứ tự phản hồi đối kháng không xóa hoặc khôi phục sai phiên; không log token.
 
@@ -148,7 +164,7 @@ Nhánh triển khai dựa trên `c8d9463`: hai ca N44 tái hiện lỗi trước
 - [ ] Test join nhận guestToken, user-cookie ưu tiên; history/summary/my-answers gửi `x-guest-token`, không dùng UUID làm bearer; test thiếu/sai/hết hạn, đổi tài khoản và cài đặt cũ.
 - [ ] Áp contract đã xác nhận, bảo vệ token và vòng đời, không log. **Đạt:** unit/integration và người dùng test đủ 3 API; nếu Backend không sẵn ghi BLOCKED, không mô phỏng PASS.
 
-## Lô 3 — Transport và bề mặt Android
+## Nhóm tra cứu — Transport và bề mặt Android
 
 Knowledge: [kn_26](../knowledge/kn_26_lot_3_transport_components.md). Gate: Dev/release tách biệt, TLS/Socket/Intent test đúng môi trường; T11 phụ thuộc B2.
 
@@ -172,7 +188,7 @@ Knowledge: [kn_26](../knowledge/kn_26_lot_3_transport_components.md). Gate: Dev/
 - [ ] Liệt kê permission và exported component ở debug/release merged manifest, xác minh tính cần thiết; kiểm thử explicit Intent và URI grant/truy cập chéo app với fixture an toàn.
 - [ ] Thu hẹp quyền và grant không cần thiết, bảo vệ component có thể nhận input; không thêm quyền lưu trữ tổng quát. **Đạt:** danh mục và test thiết bị có bằng chứng, không khẳng định khai thác khi chưa tái hiện.
 
-## Lô 4 — Input ảnh, game và socket
+## Nhóm tra cứu — Input ảnh, game và socket
 
 Knowledge: [kn_27](../knowledge/kn_27_lot_4_upload_socket.md). Gate: file sai bị client từ chối trước presign/PUT, anti-cheat được đối chiếu Backend; socket không phá trận.
 
@@ -197,7 +213,7 @@ Knowledge: [kn_27](../knowledge/kn_27_lot_4_upload_socket.md). Gate: file sai b�
 - [ ] Đo trước socket trong/ngoài trận ở foreground/background, request/ping, pin và reconnect; viết test listener cleanup, mất mạng, ACK timeout không tự double-submit và resync.
 - [ ] Chỉ điều chỉnh vòng đời nếu phép đo cho thấy lợi ích và contract presence cho phép; nếu không an toàn, ghi quyết định không đổi cùng số liệu. **Đạt:** reconnect/đồng bộ/đáp án không regression, so sánh pin/network cùng kịch bản.
 
-## Lô 5 — Hiệu năng, release và tổng hợp
+## Nhóm tra cứu — Hiệu năng, release và tổng hợp
 
 Knowledge: [kn_28](../knowledge/kn_28_lot_5_performance_release.md). Gate: từng tối ưu chứng minh bằng đo hoặc kết luận không tối ưu; release/security/UAT và hai báo cáo có evidence và giới hạn.
 
@@ -227,7 +243,7 @@ Knowledge: [kn_28](../knowledge/kn_28_lot_5_performance_release.md). Gate: từn
 - [ ] Xác định quy trình ký, bảo vệ/back up/rotation key ngoài repo; `release.yml` hiện phát APK debug, không gọi là signed production. **Đạt:** APK release ký đúng được user test, xác minh log/rules/backup; nếu thiếu ký hoặc quyền build ghi BLOCKED, không yêu cầu gửi secret.
 
 ### T23 — Đo after và so sánh hiệu năng
-**Vị trí:** theo [kịch bản đo](../optimization-report/03_benchmark_metrics_scenarios.md). **Phụ thuộc:** T01, T04, T17–T21 và user hỗ trợ thiết bị.
+**Vị trí:** theo [kịch bản đo](../optimization-report/03_benchmark_metrics_scenarios.md). **Phụ thuộc:** T01, T04, T17–T21 và user hỗ trợ thiết bị; thêm T26–T27 nếu được duyệt.
 - [ ] Đo lại từng chỉ số và kịch bản T01 trên cùng điều kiện, lưu raw N/đơn vị/p50/p95 nếu phù hợp; so CPU, RAM, FPS, pin, traffic và latency, ghi cả trường hợp xấu hơn.
 - [ ] Kiểm tra tính tương đương điều kiện và ghi kết quả/thiếu dữ liệu. **Đạt:** mọi chỉ số có số liệu kèm evidence hoặc NOT RUN/BLOCKED và lý do.
 
@@ -241,6 +257,12 @@ Knowledge: [kn_28](../knowledge/kn_28_lot_5_performance_release.md). Gate: từn
 - [ ] Lập bảng truy vết yêu cầu → task/commit/test/kết quả/Backend/giới hạn, phân biệt việc nhóm Backend đã làm và Android đã bổ sung. Trình bày chuẩn bị sinh trắc/MFA và phần xác thực môi trường theo trạng thái thực tế.
 - [ ] Phân tích trade-off bảo mật/hiệu năng, so raw before/after và mô tả hạn chế, lỗ hổng chưa xử lý, BUG Backend; chuẩn bị demo và video không chứa PII. **Đạt:** hai báo cáo bao phủ tiêu chí đã đăng ký; không có số liệu hoặc PASS chưa kiểm chứng.
 
+### T26 — Phản hồi và lưu lượng REST (đề xuất)
+**Phụ thuộc:** T01, với baseline theo từng kịch bản phù hợp. Chọn một thao tác API có tần suất cao, đo request count, độ trễ và traffic trước/sau trên cùng mạng, backend, dataset và build; tìm call trùng/chờ thừa trước khi sửa. Chỉ cache/gộp request khi contract, quyền và thời hạn dữ liệu cho phép; không chia sẻ dữ liệu riêng giữa tài khoản. Unit/regression và smoke xác nhận chức năng; không sửa backend. Nếu không có cơ hội, ghi số đo và quyết định không đổi.
+
+### T27 — Năng lượng phiên sử dụng (đề xuất)
+**Phụ thuộc:** T01, T17 cho kịch bản socket. Đo phiên có thời lượng, thao tác, độ sáng, mạng, pin và nhiệt kiểm soát trước/sau; phân biệt power trace/ước lượng với mức tiêu thụ toàn máy. Xác định nguyên nhân có bằng chứng trước khi giảm tải CPU/network/wakeups; không tự tắt socket hoặc đổi presence gây lỗi. Regression trò chơi và reconnect; thiếu công cụ hoặc kết quả nhiễu thì ghi BLOCKED/PARTIAL, không tự kết luận tiết kiệm pin.
+
 ## Ma trận bao phủ tiêu chí
 
 | Tiêu chí đã đăng ký | Task / phụ thuộc |
@@ -251,7 +273,7 @@ Knowledge: [kn_28](../knowledge/kn_28_lot_5_performance_release.md). Gate: từn
 | Input, ownership, kích thước, MIME, chữ ký ảnh trước upload | T03, T14–T15, B4, T24; quyền sở hữu tin cậy cần server |
 | Anti-cheat, thời gian/quyền/đáp án, xác thực môi trường | T16–T17, B5, T24; thiếu backend phải báo |
 | R8, ký, log, backup | T02, T08, T22, T24 |
-| Startup, UI, latency, RAM, pin, traffic/API/Socket | T01, T04, T17–T21, T23 |
+| Startup, UI, latency, RAM, pin, traffic/API/Socket | T01, T04, T17–T21, T23, đề xuất T26–T27 |
 | CPU, RAM, FPS, pin, traffic, latency và security before/after | T01, T23–T25 |
 | Cân bằng bảo mật/hiệu năng, hạn chế và báo cáo | T07, T11, T17–T19, T23–T25 |
 
@@ -263,4 +285,4 @@ Knowledge: [kn_28](../knowledge/kn_28_lot_5_performance_release.md). Gate: từn
 - Intent explicit/path giả, URI grant quá rộng và ảnh giả bytes/vượt giới hạn → test T12–T15.
 - ACK không chắc chắn, deadline/role/privacy và so sánh sai điều kiện → test T16–T17, T01/T23.
 
-**Kết quả thực hiện:** chưa có; mọi task đều NOT RUN. Bổ sung evidence và trạng thái bên dưới task tương ứng khi thực sự triển khai; không ghi bí mật.
+**Kết quả thực hiện:** xem bảng trạng thái và evidence từng task; T01–T06 đã merge nhưng một số gate còn PARTIAL hoặc chờ test. Các task còn lại không tự coi là PASS. Không ghi bí mật.
