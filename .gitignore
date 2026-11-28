@@ -40,3 +40,6 @@ google-services.json
 
 # Figma design
 /design/
+
+# Local measurement tools and raw outputs (never committed)
+/tools/

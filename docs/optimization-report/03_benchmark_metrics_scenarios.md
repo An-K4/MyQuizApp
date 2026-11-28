@@ -70,6 +70,7 @@ adb shell dumpsys gfxinfo android.kma.myquizzapp
 adb shell dumpsys meminfo android.kma.myquizzapp
 ```
 
+- T20 có thể dùng công cụ cuộn tự động cục bộ trên Windows PowerShell khi Home đã tải và màn hình để dọc. Theo yêu cầu người dùng, `tools/` và kết quả thô trong `tools/output/` được Git bỏ qua, không phải tài nguyên có sẵn khi clone repo. Người dùng phải quan sát xác nhận Home thực sự cuộn và quay về đầu; lệnh vuốt thành công không chứng minh chuyển động. Giữ nguyên kịch bản/điều kiện before–after, ghi số swipe và khoảng đo thực tế; không gộp kết quả tự động với cuộn thủ công.
 - Trên Android Studio, chọn thiết bị và tiến trình app trong Profiler; ghi CPU/Memory hoặc system trace nếu máy hỗ trợ. Mở App Inspection → Network Inspector và thực hiện cùng một thao tác test; nếu không có dữ liệu hoặc không hỗ trợ, ghi NOT RUN. Chuẩn bị ảnh/trace đã che trước khi chiếu: không chiếu live các tab có thể lộ URL nhạy cảm, token, cookie, headers hoặc body.
 - Trước buổi báo cáo, thu đủ lượt và tính trung vị/phạm vi; phần trình diễn 5–8 phút dùng bảng và ảnh/trace đã chuẩn bị, có thể chạy lại một lượt cuộn 30 giây để minh họa. Một lượt live không thay thế bộ mẫu before/after.
 
