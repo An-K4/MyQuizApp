@@ -5,7 +5,13 @@ import android.kma.myquizzapp.core.common.cookie.StoredCookie
 import android.kma.myquizzapp.core.common.error.AppError
 import android.kma.myquizzapp.core.common.result.Result
 import android.kma.myquizzapp.core.network.api.AuthApiService
-import android.kma.myquizzapp.core.network.cookie.PersistentCookieJar
+import android.kma.myquizzapp.core.network.cookie.CredentialEpoch
+import android.kma.myquizzapp.core.network.cookie.CredentialLifecycle
+import android.kma.myquizzapp.core.network.cookie.RefreshVersion
+import android.kma.myquizzapp.core.network.cookie.CredentialStampInterceptor
+import android.kma.myquizzapp.core.network.cookie.CredentialCookieInterceptor
+import okhttp3.CookieJar
+import java.io.IOException
 import android.kma.myquizzapp.core.network.cookie.TokenAuthenticator
 import android.kma.myquizzapp.core.network.dto.AuthDataDto
 import android.kma.myquizzapp.core.network.dto.GoogleOneTapRequest
@@ -23,8 +29,6 @@ import okhttp3.mockwebserver.MockWebServer
 import okhttp3.mockwebserver.RecordedRequest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
-import org.junit.Assume.assumeTrue
-import org.junit.Before
 import org.junit.Test
 import java.util.concurrent.Callable
 import java.util.concurrent.CountDownLatch
@@ -32,21 +36,10 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
 /**
- * Opt-in RED diagnostics, not passing regression tests or an E2E backend check.
- * Current transport is expected to violate these desired safety invariants.
- * Run with N44_COOKIE_RACE_DIAGNOSTICS=1, capture the failure, then design the fix.
- * Once fixed, remove opt-in and keep these as ordinary regression tests.
+ * Regression tests for cookie/session races, not an E2E backend check.
  * All cookie values below are synthetic fixtures, never user credentials.
  */
 class N44CookieRaceReproductionTest {
-    @Before
-    fun optIn() {
-        assumeTrue(
-            "N44 cookie race diagnostics are explicitly opt-in",
-            System.getenv("N44_COOKIE_RACE_DIAGNOSTICS") == "1"
-        )
-    }
-
     @Test
     fun `stale terminal refresh must not clear credentials published by newer login`() {
         val started = CountDownLatch(1)
@@ -58,20 +51,20 @@ class N44CookieRaceReproductionTest {
             check(release.await(5, TimeUnit.SECONDS)) { "Diagnostic latch timed out" }
             Result.Error(AppError.Api("AUTH_REFRESH_INVALID"))
         }
-        val authenticator = TokenAuthenticator(Lazy { auth }, store)
+        val lifecycle = CredentialLifecycle(store)
+        val oldEpoch = lifecycle.current()
+        val authenticator = TokenAuthenticator(Lazy { auth }, lifecycle)
         val response =
-            Response.Builder().request(Request.Builder().url("https://$host/v1/users/me").build())
+            Response.Builder().request(Request.Builder().url("https://$host/v1/users/me").tag(CredentialEpoch::class.java, oldEpoch).build())
                 .protocol(Protocol.HTTP_1_1).code(401).message("Unauthorized").build()
         val worker = Executors.newSingleThreadExecutor()
         try {
-            val result = worker.submit(Callable { authenticator.authenticate(null, response) })
+            val result = worker.submit(Callable {
+                try { authenticator.authenticate(null, response) } catch (_: IOException) { null }
+            })
             assertTrue(started.await(5, TimeUnit.SECONDS))
-            runBlocking {
-                store.clear(); store.saveAll(
-                host,
-                listOf(fixtureCookie(host, "new-login-fixture"))
-            )
-            }
+            val fresh = lifecycle.beginFreshAuthentication { }
+            lifecycle.save(fresh, host, listOf(fixtureCookie(host, "new-login-fixture")))
             release.countDown()
             result.get(10, TimeUnit.SECONDS)
             assertEquals(
@@ -80,6 +73,43 @@ class N44CookieRaceReproductionTest {
         } finally {
             release.countDown()
             worker.shutdownNow()
+        }
+    }
+
+    @Test
+    fun `concurrent 401 responses share one successful refresh`() {
+        val started = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        val secondStarted = CountDownLatch(1)
+        val lifecycle = CredentialLifecycle(RaceCookieStore())
+        val epoch = lifecycle.current()
+        val version = checkNotNull(lifecycle.refreshVersion(epoch))
+        val auth = RaceAuth {
+            started.countDown()
+            check(release.await(5, TimeUnit.SECONDS))
+            Result.Success(Unit)
+        }
+        val authenticator = TokenAuthenticator(Lazy { auth }, lifecycle)
+        val request = Request.Builder().url("https://api.example.test/v1/users/me")
+            .tag(CredentialEpoch::class.java, epoch).tag(RefreshVersion::class.java, version).build()
+        val response = Response.Builder().request(request).protocol(Protocol.HTTP_1_1)
+            .code(401).message("Unauthorized").build()
+        val workers = Executors.newFixedThreadPool(2)
+        try {
+            val first = workers.submit(Callable { authenticator.authenticate(null, response) })
+            assertTrue(started.await(5, TimeUnit.SECONDS))
+            val second = workers.submit(Callable {
+                secondStarted.countDown()
+                authenticator.authenticate(null, response)
+            })
+            assertTrue(secondStarted.await(5, TimeUnit.SECONDS))
+            release.countDown()
+            assertEquals(request, first.get(10, TimeUnit.SECONDS))
+            assertEquals(request, second.get(10, TimeUnit.SECONDS))
+            assertEquals(1, auth.calls.get())
+        } finally {
+            release.countDown()
+            workers.shutdownNow()
         }
     }
 
@@ -101,16 +131,22 @@ class N44CookieRaceReproductionTest {
             }
         }
         server.start()
-        val client = OkHttpClient.Builder().cookieJar(PersistentCookieJar(store))
+        val lifecycle = CredentialLifecycle(store)
+        val oldEpoch = lifecycle.current()
+        val client = OkHttpClient.Builder().cookieJar(CookieJar.NO_COOKIES)
+            .addInterceptor(CredentialStampInterceptor(lifecycle))
+            .addNetworkInterceptor(CredentialCookieInterceptor(lifecycle))
             .callTimeout(10, TimeUnit.SECONDS).build()
         val worker = Executors.newSingleThreadExecutor()
         try {
             val result = worker.submit(Callable {
-                client.newCall(Request.Builder().url(server.url("/v1/auth/refresh")).build())
-                    .execute().use { it.body?.string() }
+                try {
+                    client.newCall(Request.Builder().url(server.url("/v1/auth/refresh")).build())
+                        .execute().use { it.body?.string() }
+                } catch (_: IOException) { null }
             })
             assertTrue(started.await(5, TimeUnit.SECONDS))
-            runBlocking { store.clear() } // current logout/deactivation cleanup boundary
+            assertTrue(lifecycle.retireAndClear(oldEpoch)) // logout/deactivation cleanup boundary
             release.countDown()
             result.get(10, TimeUnit.SECONDS)
             assertTrue(
@@ -147,11 +183,15 @@ private fun fixtureCookie(host: String, value: String) =
     StoredCookie("session", value, host, "/", Long.MAX_VALUE, false, true)
 
 private class RaceAuth(private val action: suspend () -> Result<Unit>) : AuthApiService {
-    override suspend fun refresh(): Result<Unit> = action()
-    override suspend fun login(body: LoginRequest): Result<AuthDataDto> = error("unused")
-    override suspend fun register(body: RegisterRequest): Result<AuthDataDto> = error("unused")
-    override suspend fun loginWithGoogle(body: GoogleOneTapRequest): Result<AuthDataDto> =
+    val calls = java.util.concurrent.atomic.AtomicInteger()
+    override suspend fun refresh(epoch: CredentialEpoch?): Result<Unit> {
+        calls.incrementAndGet()
+        return action()
+    }
+    override suspend fun login(body: LoginRequest, epoch: CredentialEpoch?): Result<AuthDataDto> = error("unused")
+    override suspend fun register(body: RegisterRequest, epoch: CredentialEpoch?): Result<AuthDataDto> = error("unused")
+    override suspend fun loginWithGoogle(body: GoogleOneTapRequest, epoch: CredentialEpoch?): Result<AuthDataDto> =
         error("unused")
 
-    override suspend fun logout(): Result<Unit> = error("unused")
+    override suspend fun logout(epoch: CredentialEpoch?): Result<Unit> = error("unused")
 }

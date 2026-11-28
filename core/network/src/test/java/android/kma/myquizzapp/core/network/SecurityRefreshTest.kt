@@ -5,6 +5,8 @@ import android.kma.myquizzapp.core.common.cookie.StoredCookie
 import android.kma.myquizzapp.core.common.error.AppError
 import android.kma.myquizzapp.core.common.result.Result
 import android.kma.myquizzapp.core.network.api.AuthApiService
+import android.kma.myquizzapp.core.network.cookie.CredentialEpoch
+import android.kma.myquizzapp.core.network.cookie.CredentialLifecycle
 import android.kma.myquizzapp.core.network.cookie.TokenAuthenticator
 import android.kma.myquizzapp.core.network.dto.AuthDataDto
 import android.kma.myquizzapp.core.network.dto.GoogleOneTapRequest
@@ -22,7 +24,7 @@ import java.io.IOException
 
 class SecurityRefreshTest {
     private fun rejected(path: String = "users/me") = Response.Builder()
-        .request(Request.Builder().url("https://api.example.test/v1/$path").build())
+        .request(Request.Builder().url("https://api.example.test/v1/$path").tag(CredentialEpoch::class.java, CredentialEpoch(0)).build())
         .protocol(Protocol.HTTP_1_1).code(401).message("Unauthorized").build()
 
     @Test
@@ -35,7 +37,7 @@ class SecurityRefreshTest {
             val cookies = RefreshTestCookies()
             val auth = RefreshTestApi(Result.Error(error))
             try {
-                TokenAuthenticator(Lazy { auth }, cookies).authenticate(null, rejected())
+                TokenAuthenticator(Lazy { auth }, CredentialLifecycle(cookies)).authenticate(null, rejected())
                 fail("Transient refresh must become a transport failure")
             } catch (_: IOException) {
             }
@@ -47,7 +49,7 @@ class SecurityRefreshTest {
     fun `terminal refresh failure clears local credentials`() {
         val cookies = RefreshTestCookies()
         val auth = RefreshTestApi(Result.Error(AppError.Api("AUTH_REFRESH_INVALID")))
-        assertNull(TokenAuthenticator(Lazy { auth }, cookies).authenticate(null, rejected()))
+        assertNull(TokenAuthenticator(Lazy { auth }, CredentialLifecycle(cookies)).authenticate(null, rejected()))
         assertEquals(1, cookies.clears)
     }
 
@@ -56,7 +58,7 @@ class SecurityRefreshTest {
         val cookies = RefreshTestCookies();
         val auth = RefreshTestApi(Result.Success(Unit))
         assertNull(
-            TokenAuthenticator(Lazy { auth }, cookies).authenticate(
+            TokenAuthenticator(Lazy { auth }, CredentialLifecycle(cookies)).authenticate(
                 null,
                 rejected("auth/login")
             )
@@ -76,14 +78,14 @@ private class RefreshTestCookies : CookieStore {
 
 private class RefreshTestApi(private val result: Result<Unit>) : AuthApiService {
     var calls = 0
-    override suspend fun refresh(): Result<Unit> {
+    override suspend fun refresh(epoch: CredentialEpoch?): Result<Unit> {
         calls++; return result
     }
 
-    override suspend fun login(body: LoginRequest): Result<AuthDataDto> = error("unused")
-    override suspend fun register(body: RegisterRequest): Result<AuthDataDto> = error("unused")
-    override suspend fun loginWithGoogle(body: GoogleOneTapRequest): Result<AuthDataDto> =
+    override suspend fun login(body: LoginRequest, epoch: CredentialEpoch?): Result<AuthDataDto> = error("unused")
+    override suspend fun register(body: RegisterRequest, epoch: CredentialEpoch?): Result<AuthDataDto> = error("unused")
+    override suspend fun loginWithGoogle(body: GoogleOneTapRequest, epoch: CredentialEpoch?): Result<AuthDataDto> =
         error("unused")
 
-    override suspend fun logout(): Result<Unit> = error("unused")
+    override suspend fun logout(epoch: CredentialEpoch?): Result<Unit> = error("unused")
 }

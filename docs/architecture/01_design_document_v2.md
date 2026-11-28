@@ -1,3 +1,5 @@
+> **Cập nhật T06:** Trên nhánh dựa vào `c8d9463`, authenticated OkHttp dùng `CredentialStampInterceptor` và `CredentialCookieInterceptor` với `CredentialLifecycle` thay cho `PersistentCookieJar` được mô tả trong các ví dụ lịch sử bên dưới. Xem [tri thức lô 2](../knowledge/kn_25_lot_2_session_keystore.md) về phạm vi và giới hạn kiểm thử.
+>
 > **Đối chiếu từng phần, 21/11/2026:** Android `main` `35d6bfd`; backend `main` `37038f6`. Tài liệu dài bên dưới còn các mô tả lịch sử và chưa được kiểm chứng toàn bộ. Code ở các commit này là nguồn đối chiếu; không coi mọi phần bên dưới là Living Truth đã xác nhận.
 >
 > **Chênh lệch guest history C04 đã xác minh ở code:** backend `game.controller.ts` đọc `x-guest-token`; `joinGame` trả `guestToken` cho guest. Android `JoinGameResponseDto` chưa có trường này; `GameApiService` vẫn gửi `x-guest-id` ở history, summary **và my-answers**. Cần đồng bộ Android và kiểm thử thực tế, không sửa backend trong phạm vi đợt này.

@@ -1,6 +1,7 @@
 package android.kma.myquizzapp.domain.profile
 
 import android.kma.myquizzapp.core.common.error.AppError
+import android.kma.myquizzapp.core.common.cookie.CredentialStorageException
 import android.kma.myquizzapp.core.common.error.isSessionTerminal
 import android.kma.myquizzapp.core.common.model.SessionUserToken
 import android.kma.myquizzapp.core.common.repository.SessionRepository
@@ -24,8 +25,12 @@ class SaveProfileUseCase @Inject constructor(
             else Result.Error(AppError.Unauthorized)
 
             is Result.Error -> {
-                if (result.error.isSessionTerminal) session.invalidateSession(token)
-                result
+                try {
+                    if (result.error.isSessionTerminal) session.invalidateSession(token)
+                    result
+                } catch (_: CredentialStorageException) {
+                    Result.Error(AppError.LocalStorage)
+                }
             }
         }
     }

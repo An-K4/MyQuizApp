@@ -1,10 +1,15 @@
 package android.kma.myquizzapp.feature.auth.domain.usecase
 
+import android.kma.myquizzapp.core.common.error.AppError
+import android.kma.myquizzapp.core.common.cookie.CredentialStorageException
+import android.kma.myquizzapp.core.common.model.User
 import android.kma.myquizzapp.core.common.model.SessionState
 import android.kma.myquizzapp.core.common.repository.AuthRepository
 import android.kma.myquizzapp.core.common.repository.SessionRepository
 import android.kma.myquizzapp.core.common.result.Result
-import android.kma.myquizzapp.core.common.result.onSuccess
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.StateFlow
 import javax.inject.Inject
 
@@ -23,26 +28,27 @@ class LoginUseCase @Inject constructor(
     private val repo: AuthRepository,
     private val session: SessionRepository,
 ) {
-    suspend operator fun invoke(email: String, password: String) =
-        repo.login(email, password).onSuccess(session::onAuthenticated)
+    suspend operator fun invoke(email: String, password: String): Result<User> {
+        return authenticate(session) { epoch -> repo.loginAtEpoch(email, password, epoch) }
+    }
 }
 
 class RegisterUseCase @Inject constructor(
     private val repo: AuthRepository,
     private val session: SessionRepository,
 ) {
-    // auto-login đã nằm TRONG AuthRepositoryImpl.register — UseCase không cần biết,
-    // chỉ cần biết User trả về ở đây đã là user đã có cookie hợp lệ.
-    suspend operator fun invoke(email: String, password: String, fullname: String, phone: String?) =
-        repo.register(email, password, fullname, phone).onSuccess(session::onAuthenticated)
+    suspend operator fun invoke(email: String, password: String, fullname: String, phone: String?): Result<User> {
+        return authenticate(session) { epoch -> repo.registerAtEpoch(email, password, fullname, phone, epoch) }
+    }
 }
 
 class LoginWithGoogleUseCase @Inject constructor(
     private val repo: AuthRepository,
     private val session: SessionRepository,
 ) {
-    suspend operator fun invoke(idToken: String) =
-        repo.loginWithGoogle(idToken).onSuccess(session::onAuthenticated)
+    suspend operator fun invoke(idToken: String): Result<User> {
+        return authenticate(session) { epoch -> repo.loginWithGoogleAtEpoch(idToken, epoch) }
+    }
 }
 
 class LogoutUseCase @Inject constructor(
@@ -50,12 +56,51 @@ class LogoutUseCase @Inject constructor(
     private val session: SessionRepository,
 ) {
     suspend operator fun invoke(): Result<Unit> {
-        val result = repo.logout()
-        // Gọi KỂ CẢ khi API lỗi, và đặt NGOÀI nhánh thành công cho rõ ý:
-        // AuthRepositoryImpl.logout() đã xóa cookie cục bộ bất kể kết quả mạng, nên
-        // cookie đã mất mà state vẫn LoggedIn thì UI đang nói dối người dùng.
-        session.onSignedOut()
-        return result
+        val epoch = session.currentCredentialEpoch() ?: return Result.Error(AppError.Network)
+        return try {
+            withContext(NonCancellable) {
+                // Dispatch is best-effort; never wait for the server response.
+                try { repo.dispatchLogoutAtEpoch(epoch) } catch (_: Exception) { }
+                if (session.signOutIfCurrent(epoch)) Result.Success(Unit)
+                else Result.Error(AppError.Network)
+            }
+        } catch (_: CredentialStorageException) {
+            Result.Error(AppError.LocalStorage)
+        }
+    }
+}
+
+private suspend fun authenticate(session: SessionRepository, call: suspend (Long) -> Result<User>): Result<User> {
+    return try {
+        val epoch = session.beginAuthentication() ?: return Result.Error(AppError.LocalStorage)
+        withCredentialCleanup(
+            work = {
+                when (val result = call(epoch)) {
+                    is Result.Error -> result
+                    is Result.Success -> if (session.completeAuthentication(epoch, result.data)) result
+                        else Result.Error(AppError.Network)
+                }
+            },
+            cleanup = { session.abortAuthentication(epoch); Unit }
+        )
+    } catch (_: CredentialStorageException) {
+        Result.Error(AppError.LocalStorage)
+    }
+}
+
+private suspend fun <T> withCredentialCleanup(work: suspend () -> T, cleanup: suspend () -> Unit): T {
+    var cancellation: CancellationException? = null
+    try {
+        return work()
+    } catch (e: CancellationException) {
+        cancellation = e
+        throw e
+    } finally {
+        try {
+            withContext(NonCancellable) { cleanup() }
+        } catch (e: CredentialStorageException) {
+            if (cancellation == null) throw e
+        }
     }
 }
 

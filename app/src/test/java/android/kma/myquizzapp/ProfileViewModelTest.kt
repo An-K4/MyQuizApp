@@ -11,6 +11,7 @@ import android.kma.myquizzapp.domain.profile.SaveProfileUseCase
 import android.kma.myquizzapp.domain.profile.UpdateAvatarUseCase
 import android.kma.myquizzapp.feature.auth.domain.usecase.LogoutUseCase
 import android.kma.myquizzapp.presentation.profile.AvatarImagePreparer
+import android.kma.myquizzapp.presentation.profile.ProfileEffect
 import android.kma.myquizzapp.presentation.profile.ProfileIntent
 import android.kma.myquizzapp.presentation.profile.ProfileViewModel
 import androidx.lifecycle.SavedStateHandle
@@ -21,6 +22,7 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runCurrent
@@ -176,6 +178,20 @@ class ProfileViewModelTest {
         }
 
     @Test
+    fun `logout network and storage failures show warning instead of success navigation`() = runTest(dispatcher) {
+        for (error in listOf(AppError.Network, AppError.LocalStorage)) {
+            val fixture = fixture()
+            coEvery { fixture.logout.invoke() } coAnswers { fixture.session.onSignedOut(); Result.Error(error) }
+            runCurrent()
+            fixture.vm.onIntent(ProfileIntent.Logout)
+            runCurrent()
+            val effect = fixture.vm.effect.first()
+            assertTrue(effect is ProfileEffect.ShowError)
+            assertTrue((effect as ProfileEffect.ShowError).message.contains("Chưa xác nhận"))
+        }
+    }
+
+    @Test
     fun `draft is restored for the same user after recreation`() = runTest(dispatcher) {
         val handle = SavedStateHandle()
         val first = fixture(handle)
@@ -220,7 +236,7 @@ class ProfileViewModelTest {
                 UpdateAvatarUseCase(storage, users, session),
                 preparer,
                 handle, networkMonitor
-            ), session, users, storage, loadStats
+            ), session, users, storage, loadStats, logout
         )
     }
 
@@ -229,6 +245,7 @@ class ProfileViewModelTest {
         val session: ProfileTestSession,
         val users: ProfileTestUsers,
         val storage: ProfileTestStorage,
-        val loadStats: LoadProfileStatsUseCase
+        val loadStats: LoadProfileStatsUseCase,
+        val logout: LogoutUseCase
     )
 }

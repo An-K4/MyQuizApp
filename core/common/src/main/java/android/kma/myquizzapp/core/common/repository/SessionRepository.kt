@@ -52,6 +52,21 @@ interface SessionRepository {
      */
     fun onSignedOut()
 
+    /** Start an identity-changing operation and capture its credential lifetime. */
+    suspend fun beginAuthentication(): Long? = null
+
+    /** Publish only if the operation still owns the active credential lifetime. */
+    fun completeAuthentication(epoch: Long, user: User): Boolean = false
+
+    /** Retire an unfinished login, including on cancellation. */
+    suspend fun abortAuthentication(epoch: Long): Boolean = false
+
+    /** Capture the lifetime to be retired by logout. */
+    fun currentCredentialEpoch(): Long? = null
+
+    /** Clear and publish Guest only if logout still owns the captured lifetime. */
+    suspend fun signOutIfCurrent(epoch: Long): Boolean = false
+
     /** Fail-closed defaults keep read-only implementations from publishing account changes. */
     fun captureUserSession(): SessionUserToken? = null
 
@@ -70,7 +85,7 @@ interface SessionRepository {
     fun applyAvatarUpdate(token: SessionUserToken, avatarUrl: String): Boolean = false
 
     /** A terminal mutation response must not sign out a different/newer session. */
-    fun invalidateSession(token: SessionUserToken): Boolean = false
+    suspend fun invalidateSession(token: SessionUserToken): Boolean = false
 
     /** N43: clear local credentials and retire only the captured authenticated lifetime. */
     suspend fun clearSession(token: SessionUserToken): Boolean = false

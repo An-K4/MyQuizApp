@@ -199,7 +199,7 @@ internal class ProfileTestSession : SessionRepository {
     }
 
     override suspend fun clearSession(token: SessionUserToken): Boolean = invalidateSession(token)
-    override fun invalidateSession(token: SessionUserToken): Boolean {
+    override suspend fun invalidateSession(token: SessionUserToken): Boolean {
         if (captureUserSession() != token) return false
         onSignedOut(); return true
     }

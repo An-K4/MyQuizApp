@@ -1,6 +1,5 @@
 ﻿package android.kma.myquizzapp.core.network.di
 
-import android.kma.myquizzapp.core.common.cookie.CookieStore
 import android.kma.myquizzapp.core.network.BuildConfig
 import android.kma.myquizzapp.core.network.api.AuthApiService
 import android.kma.myquizzapp.core.network.api.GameApiService
@@ -9,7 +8,8 @@ import android.kma.myquizzapp.core.network.api.QuizApiService
 import android.kma.myquizzapp.core.network.api.StorageApiService
 import android.kma.myquizzapp.core.network.api.UserApiService
 import android.kma.myquizzapp.core.network.api.UserMutationApiService
-import android.kma.myquizzapp.core.network.cookie.PersistentCookieJar
+import android.kma.myquizzapp.core.network.cookie.CredentialStampInterceptor
+import android.kma.myquizzapp.core.network.cookie.CredentialCookieInterceptor
 import android.kma.myquizzapp.core.network.cookie.TokenAuthenticator
 import android.kma.myquizzapp.core.network.result.ResultCallAdapterFactory
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
@@ -48,12 +48,15 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideOkHttpClient(
-        cookieJar: CookieJar,
+        stampInterceptor: CredentialStampInterceptor,
+        cookieInterceptor: CredentialCookieInterceptor,
         tokenAuthenticator: TokenAuthenticator
     ): OkHttpClient =
         OkHttpClient.Builder()
-            .cookieJar(cookieJar)                    // ← thêm
-            .authenticator(tokenAuthenticator)       // ← thêm
+            .cookieJar(CookieJar.NO_COOKIES)
+            .authenticator(tokenAuthenticator)
+            .addInterceptor(stampInterceptor)
+            .addNetworkInterceptor(cookieInterceptor)
             .addInterceptor(SafeHttpLogger())
             .connectTimeout(15, TimeUnit.SECONDS)
             .readTimeout(15, TimeUnit.SECONDS)
@@ -68,10 +71,6 @@ object NetworkModule {
             .addCallAdapterFactory(ResultCallAdapterFactory(json))   // unwrap → Result
             .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
             .build()
-
-    @Provides
-    @Singleton
-    fun provideCookieJar(store: CookieStore): CookieJar = PersistentCookieJar(store)
 
     @Provides
     @Singleton
@@ -104,10 +103,12 @@ object NetworkModule {
     @Provides
     @Singleton
     fun providePublicApiOkHttpClient(okHttpClient: OkHttpClient): OkHttpClient =
-        okHttpClient.newBuilder()
-            .cookieJar(CookieJar.NO_COOKIES)
-            .authenticator(Authenticator.NONE)
-            .build()
+        okHttpClient.newBuilder().apply {
+            cookieJar(CookieJar.NO_COOKIES)
+            authenticator(Authenticator.NONE)
+            interceptors().removeAll { it is CredentialStampInterceptor }
+            networkInterceptors().removeAll { it is CredentialCookieInterceptor }
+        }.build()
 
     @PublicApiRetrofit
     @Provides

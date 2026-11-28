@@ -2,6 +2,8 @@ package android.kma.myquizzapp
 
 import android.kma.myquizzapp.core.common.error.AppError
 import android.kma.myquizzapp.core.common.model.AuthProvider
+import android.kma.myquizzapp.core.common.model.SessionUserToken
+import android.kma.myquizzapp.core.common.repository.SessionRepository
 import android.kma.myquizzapp.core.common.result.Result
 import android.kma.myquizzapp.domain.security.ChangePasswordUseCase
 import android.kma.myquizzapp.domain.security.DeactivateAccountUseCase
@@ -34,7 +36,7 @@ class AccountSecurityViewModelTest {
     fun setup() = Dispatchers.setMain(dispatcher)
     @After
     fun teardown() = Dispatchers.resetMain()
-    private fun vm(users: SecurityTestUsers, session: ProfileTestSession) =
+    private fun vm(users: SecurityTestUsers, session: SessionRepository) =
         AccountSecurityViewModel(
             ObserveSecurityAccountUseCase(session),
             ChangePasswordUseCase(users, session),
@@ -141,6 +143,35 @@ class AccountSecurityViewModelTest {
         assertFalse(vm.uiState.value.canEdit)
         vm.onIntent(AccountSecurityIntent.ChangePassword); runCurrent()
         assertEquals(0, users.changeCalls)
+    }
+
+    @Test
+    fun `cleanup failure remains visible after guest and retry does not resubmit deactivation`() = runTest(dispatcher) {
+        val users = SecurityTestUsers()
+        val base = ProfileTestSession()
+        var attempts = 0
+        val session = object : SessionRepository by base {
+            override suspend fun clearSession(token: SessionUserToken): Boolean {
+                attempts++
+                if (attempts == 1) {
+                    base.onSignedOut()
+                    throw IllegalStateException("storage unavailable")
+                }
+                return true
+            }
+        }
+        val vm = vm(users, session)
+        runCurrent()
+        vm.onIntent(AccountSecurityIntent.RequestDeactivation)
+        vm.onIntent(AccountSecurityIntent.DeactivationPassword("oldpass1"))
+        vm.onIntent(AccountSecurityIntent.ConfirmDeactivation)
+        runCurrent()
+        assertTrue(vm.uiState.value.cleanupPending)
+        assertNull(vm.uiState.value.account.token)
+        vm.onIntent(AccountSecurityIntent.RetryLocalCleanup)
+        runCurrent()
+        assertEquals(2, attempts)
+        assertEquals(1, users.deactivateCalls)
     }
 
     @Test

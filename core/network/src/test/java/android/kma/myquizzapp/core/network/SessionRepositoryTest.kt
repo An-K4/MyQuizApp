@@ -136,6 +136,195 @@ class SessionRepositoryTest {
     }
 
     @Test
+    fun `failed session cleanup can retry without clearing a newer login`() = runTest {
+        val cookies = RetirementCookies()
+        val session = SessionRepositoryImpl(RefreshAuth { Result.Success(user()) }, backgroundScope, cookies)
+        session.onAuthenticated(user())
+        val token = checkNotNull(session.captureUserSession())
+        cookies.failClear = true
+        try {
+            session.clearSession(token)
+            error("Expected storage failure")
+        } catch (_: android.kma.myquizzapp.core.common.cookie.CredentialStorageException) { }
+        assertEquals(SessionState.Guest, session.state.value)
+        cookies.failClear = false
+        assertTrue(session.clearSession(token))
+        assertEquals(2, cookies.clears)
+        assertFalse(session.clearSession(token))
+
+        session.onAuthenticated(user())
+        val old = checkNotNull(session.captureUserSession())
+        cookies.failClear = true
+        try { session.clearSession(old); error("Expected storage failure") }
+        catch (_: android.kma.myquizzapp.core.common.cookie.CredentialStorageException) { }
+        cookies.failClear = false
+        val newEpoch = checkNotNull(session.beginAuthentication())
+        assertTrue(session.completeAuthentication(newEpoch, user().copy(id = 9)))
+        val attempts = cookies.clears
+        assertFalse(session.clearSession(old))
+        assertEquals(attempts, cookies.clears)
+        assertEquals(9L, session.state.value.userOrNull?.id)
+    }
+
+    @Test
+    fun `late logout and older login cannot replace a newer login`() = runTest {
+        val cookies = RetirementCookies()
+        val session = SessionRepositoryImpl(RefreshAuth { Result.Success(user()) }, backgroundScope, cookies)
+        val first = checkNotNull(session.beginAuthentication())
+        assertTrue(session.completeAuthentication(first, user()))
+        val oldLogout = checkNotNull(session.currentCredentialEpoch())
+        val second = checkNotNull(session.beginAuthentication())
+        assertTrue(session.completeAuthentication(second, user().copy(id = 9)))
+        val clearCount = cookies.clears
+        assertFalse(session.signOutIfCurrent(oldLogout))
+        assertFalse(session.completeAuthentication(first, user()))
+        assertFalse(session.abortAuthentication(first))
+        assertEquals(clearCount, cookies.clears)
+        assertEquals(9L, session.state.value.userOrNull?.id)
+    }
+
+    @Test
+    fun `aborted login retires its epoch and cannot publish later`() = runTest {
+        val cookies = RetirementCookies()
+        val session = SessionRepositoryImpl(RefreshAuth { Result.Success(user()) }, backgroundScope, cookies)
+        val epoch = checkNotNull(session.beginAuthentication())
+        assertTrue(session.abortAuthentication(epoch))
+        assertFalse(session.completeAuthentication(epoch, user()))
+        assertEquals(SessionState.Guest, session.state.value)
+        assertEquals(2, cookies.clears)
+    }
+
+    @Test
+    fun `terminal me response clears credentials and publishes guest`() = runTest {
+        val cookies = RetirementCookies()
+        val session = SessionRepositoryImpl(
+            RefreshAuth { Result.Error(AppError.Api("USER_DEACTIVATED")) }, backgroundScope, cookies
+        )
+        session.onAuthenticated(user())
+        session.refresh()
+        assertEquals(1, cookies.clears)
+        assertEquals(SessionState.Guest, session.state.value)
+    }
+
+    @Test
+    fun `late terminal me response does not clear a new authenticated lifetime`() = runTest {
+        val answer = CompletableDeferred<Result<User>>()
+        val cookies = RetirementCookies()
+        val session = SessionRepositoryImpl(RefreshAuth { answer.await() }, backgroundScope, cookies)
+        session.onAuthenticated(user())
+        val refresh = launch { session.refresh() }; runCurrent()
+        val epoch = checkNotNull(session.beginAuthentication())
+        assertTrue(session.completeAuthentication(epoch, user().copy(id = 9)))
+        val clearCount = cookies.clears
+        answer.complete(Result.Error(AppError.Api("USER_DEACTIVATED"))); refresh.join()
+        assertEquals(clearCount, cookies.clears)
+        assertEquals(9L, session.state.value.userOrNull?.id)
+    }
+
+    @Test
+    fun `terminal response publishes guest even if clearing storage fails`() = runTest {
+        val cookies = object : android.kma.myquizzapp.core.common.cookie.CookieStore {
+            override suspend fun loadForHost(host: String) = emptyList<android.kma.myquizzapp.core.common.cookie.StoredCookie>()
+            override suspend fun saveAll(host: String, cookies: List<android.kma.myquizzapp.core.common.cookie.StoredCookie>) = Unit
+            override suspend fun clear() { throw IllegalStateException("storage unavailable") }
+        }
+        val session = SessionRepositoryImpl(
+            RefreshAuth { Result.Error(AppError.Api("USER_DEACTIVATED")) }, backgroundScope, cookies
+        )
+        session.onAuthenticated(user())
+        session.refresh()
+        assertEquals(SessionState.Guest, session.state.value)
+    }
+
+    @Test
+    fun `invalid backend session retries failed deletion after repository recreation`() = runTest {
+        val cookies = object : android.kma.myquizzapp.core.common.cookie.CookieStore {
+            var present = true
+            var failClear = true
+            var attempts = 0
+            override suspend fun loadForHost(host: String) = emptyList<android.kma.myquizzapp.core.common.cookie.StoredCookie>()
+            override suspend fun saveAll(host: String, cookies: List<android.kma.myquizzapp.core.common.cookie.StoredCookie>) = Unit
+            override suspend fun clear() {
+                attempts++
+                if (failClear) throw IllegalStateException("fixture")
+                present = false
+            }
+        }
+        val auth = RefreshAuth { Result.Error(AppError.Unauthorized) }
+        val first = SessionRepositoryImpl(auth, backgroundScope, cookies)
+        first.refresh()
+        assertEquals(SessionState.Guest, first.state.value)
+        assertTrue(cookies.present)
+        assertEquals(1, cookies.attempts)
+
+        cookies.failClear = false
+        val recreated = SessionRepositoryImpl(auth, backgroundScope, cookies)
+        recreated.refresh()
+        assertEquals(SessionState.Guest, recreated.state.value)
+        assertFalse(cookies.present)
+        assertEquals(2, cookies.attempts)
+        assertEquals(2, auth.calls)
+    }
+
+    @Test
+    fun `offline startup leaves session unresolved and does not delete credentials`() = runTest {
+        val cookies = RetirementCookies()
+        val session = SessionRepositoryImpl(RefreshAuth { Result.Error(AppError.Network) }, backgroundScope, cookies)
+        session.refresh()
+        assertEquals(SessionState.Unknown, session.state.value)
+        assertEquals(0, cookies.clears)
+    }
+
+    @Test
+    fun `storage failure after terminal refresh still publishes guest`() = runTest {
+        val cookies = object : android.kma.myquizzapp.core.common.cookie.CookieStore {
+            override suspend fun loadForHost(host: String) = emptyList<android.kma.myquizzapp.core.common.cookie.StoredCookie>()
+            override suspend fun saveAll(host: String, cookies: List<android.kma.myquizzapp.core.common.cookie.StoredCookie>) = Unit
+            override suspend fun clear() { throw IllegalStateException("fixture") }
+        }
+        val lifecycle = android.kma.myquizzapp.core.network.cookie.CredentialLifecycle(cookies)
+        val auth = RefreshAuth {
+            try { lifecycle.retireAndClear(lifecycle.current()) } catch (_: java.io.IOException) { }
+            Result.Error(AppError.LocalStorage)
+        }
+        val session = SessionRepositoryImpl(auth, backgroundScope, cookies, lifecycle)
+        session.refresh()
+        assertEquals(SessionState.Guest, session.state.value)
+    }
+
+    @Test
+    fun `external terminal refresh publishes guest even when credential deletion fails`() = runTest {
+        val cookies = RetirementCookies()
+        val lifecycle = android.kma.myquizzapp.core.network.cookie.CredentialLifecycle(cookies)
+        val auth = RefreshAuth {
+            if (lifecycle.load(lifecycle.current(), "example.test") == null) Result.Error(AppError.Network)
+            else Result.Success(user())
+        }
+        val session = SessionRepositoryImpl(auth, backgroundScope, cookies, lifecycle)
+        session.onAuthenticated(user())
+        cookies.failClear = true
+        try { lifecycle.retireAfterTerminal(lifecycle.current()) }
+        catch (_: android.kma.myquizzapp.core.common.cookie.CredentialStorageException) { }
+        runCurrent()
+        assertEquals(SessionState.Guest, session.state.value)
+        session.refresh()
+        assertEquals(SessionState.Guest, session.state.value)
+    }
+
+    @Test
+    fun `delayed terminal notification cannot sign out a newer lifetime`() = runTest {
+        val cookies = RetirementCookies()
+        val lifecycle = android.kma.myquizzapp.core.network.cookie.CredentialLifecycle(cookies)
+        val session = SessionRepositoryImpl(RefreshAuth { Result.Success(user()) }, backgroundScope, cookies, lifecycle)
+        session.onAuthenticated(user())
+        lifecycle.retireAfterTerminal(lifecycle.current())
+        lifecycle.beginNewLifetime()
+        session.onAuthenticated(user())
+        runCurrent()
+        assertEquals(user(), session.state.value.userOrNull)
+    }
+
+    @Test
     fun `snapshot changes lifetime for guest and repeated same account login`() = runTest {
         val session = SessionRepositoryImpl(RefreshAuth { Result.Success(user()) }, backgroundScope)
         val unknown = session.snapshot()
@@ -203,6 +392,7 @@ private class RefreshAuth(private val fetch: suspend () -> Result<User>) : AuthR
 private class RetirementCookies : android.kma.myquizzapp.core.common.cookie.CookieStore {
     @Volatile
     var clears = 0
+    @Volatile var failClear = false
     override suspend fun loadForHost(host: String) =
         emptyList<android.kma.myquizzapp.core.common.cookie.StoredCookie>()
 
@@ -213,6 +403,7 @@ private class RetirementCookies : android.kma.myquizzapp.core.common.cookie.Cook
 
     override suspend fun clear() {
         clears++
+        if (failClear) throw IllegalStateException("Simulated storage failure")
     }
 }
 
